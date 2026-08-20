@@ -28,6 +28,14 @@ packaging/live/binary.hybrid.iso
 packaging/live/binary.iso.hash
 packaging/live/.stage/
 packaging/live/tmp/
+packaging/live/auto/
+packaging/live/local/
+packaging/live/config/binary
+packaging/live/config/bootstrap
+packaging/live/config/chroot
+packaging/live/config/common
+packaging/live/config/source
+packaging/live/config/package-lists/live.list.chroot
 packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/
 packaging/live/config/includes.chroot/usr/share/beamo-wipe/
 packaging/live/config/includes.binary/START-HERE.html
