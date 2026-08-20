@@ -6,19 +6,19 @@
   <title>Beamo Wipe — this does not erase disks</title>
   <style>
     :root {
-      --bg: #EEF1F4;
+      --bg: #EDF0F4;
       --surface: #FFFFFF;
-      --surface-alt: #F5F8FB;
-      --ink: #14202E;
-      --muted: #5B6672;
-      --border: #D6DCE3;
+      --surface-alt: #F4F7FB;
+      --ink: #122033;
+      --muted: #49566A;
+      --border: #D8DEE6;
       --navy: #0B1F3A;
-      --navy-muted: #B9C6D8;
+      --navy-muted: #C3CFDF;
       --primary: #1F4B99;
       --danger: #B42318;
-      --danger-tint: #FCEBE8;
-      --danger-border: #E5B0A8;
-      --focus: #E8A317;
+      --danger-tint: #FCEDEA;
+      --danger-border: #EBB4AB;
+      --focus: #173A79;
     }
     * { box-sizing: border-box; }
     body {
@@ -32,10 +32,10 @@
     header {
       background: var(--navy);
       color: #fff;
-      padding: 26px 32px;
+      padding: 28px 32px;
     }
     header .inner { max-width: 920px; margin: 0 auto; }
-    header h1 { margin: 0; font-size: 32px; }
+    header h1 { margin: 0; font-size: 32px; letter-spacing: -.01em; }
     header p { margin: 6px 0 0; font-size: 18px; color: var(--navy-muted); }
     main { max-width: 920px; margin: 0 auto; padding: 28px 24px 72px; }
     .banner {
@@ -43,8 +43,8 @@
       gap: 14px;
       align-items: flex-start;
       background: var(--danger-tint);
-      border: 2px solid var(--danger-border);
-      border-radius: 6px;
+      border: 1px solid var(--danger-border);
+      border-radius: 12px;
       color: var(--ink);
       padding: 16px 18px;
       font-weight: 700;
@@ -54,12 +54,12 @@
     .banner svg { flex: none; margin-top: 3px; }
     .card {
       background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: 6px;
-      padding: 20px 22px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px;
       margin: 0 0 22px;
     }
-    h2 { font-size: 24px; margin: 0 0 12px; }
+    h2 { font-size: 24px; margin: 0 0 12px; letter-spacing: -.01em; }
     p { margin: 0 0 12px; }
     p:last-child { margin-bottom: 0; }
     table {
@@ -73,6 +73,8 @@
       border-bottom: 1px solid var(--border);
     }
     th { background: var(--navy); color: #fff; font-size: 16px; }
+    th:first-child { border-radius: 10px 0 0 0; }
+    th:last-child { border-radius: 0 10px 0 0; }
     tbody tr:nth-child(even) { background: var(--surface-alt); }
     tbody tr:last-child td { border-bottom: 0; }
     td.key { font-weight: 700; white-space: nowrap; }
@@ -80,7 +82,7 @@
     li { margin: 10px 0; }
     .small { color: var(--muted); font-size: 16px; }
     a { color: var(--primary); }
-    a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
   </style>
 </head>
 <body>

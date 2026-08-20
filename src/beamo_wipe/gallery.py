@@ -126,103 +126,112 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <title>Beamo Wipe — screen preview</title>
 <style>
   :root {
-    --bg: #EEF1F4; --surface: #FFFFFF; --surface-alt: #F5F8FB;
-    --ink: #14202E; --muted: #5B6672; --faint: #7E8894;
-    --border: #D6DCE3; --border-strong: #B7C0CA;
-    --navy: #0B1F3A; --navy-muted: #B9C6D8;
-    --primary: #1F4B99; --primary-dark: #173A79; --primary-tint: #E9F0FA;
-    --danger: #B42318; --danger-dark: #8F1B12; --danger-tint: #FCEBE8; --danger-border: #E5B0A8;
-    --ok: #177245; --ok-tint: #E8F4EC; --ok-border: #B7DBC5;
+    --bg: #EDF0F4; --surface: #FFFFFF; --surface-alt: #F4F7FB;
+    --ink: #122033; --muted: #49566A; --faint: #66707D;
+    --border: #D8DEE6; --border-strong: #A9B4C2;
+    --navy: #0B1F3A; --navy-soft: #16305A; --navy-muted: #C3CFDF;
+    --primary: #1F4B99; --primary-dark: #173A79; --primary-press: #122E5E; --primary-tint: #E8F0FB;
+    --danger: #B42318; --danger-dark: #8F1B12; --danger-press: #6F140D; --danger-tint: #FCEDEA; --danger-border: #EBB4AB;
+    --ok: #177245; --ok-tint: #E9F4ED;
     --warn: #8A5A00; --warn-bg: #FDF3D7; --warn-border: #E7D59B;
-    --usb-bg: #F0ECE2; --usb-border: #D9D0BC;
-    --focus: #E8A317; --disabled-bg: #E2E6EA; --disabled-fg: #7E8894; --track: #E2E6EA;
+    --usb-bg: #F4F0E6; --usb-border: #DCD3BE;
+    --focus: #173A79; --accent: #E8A317;
+    --disabled-bg: #E3E7EC; --disabled-fg: #7A8492; --track: #DDE3EA;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: #D8DDE3; color: var(--ink); }
+  body { margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: #DDE2E9; color: var(--ink); }
   .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-  .note { background: var(--focus); color: var(--navy); font-weight: 700; padding: 14px 18px; margin-bottom: 16px; font-size: 17px; border-radius: 6px; }
-  .note code { background: #fff7d6; padding: 2px 6px; border-radius: 4px; }
+  .note { background: var(--accent); color: var(--navy); font-weight: 700; padding: 14px 18px; margin-bottom: 16px; font-size: 17px; border-radius: 12px; }
+  .note code { background: #fff7d6; padding: 2px 6px; border-radius: 6px; }
   .note a { color: var(--navy); }
   .scenarios { margin: 0 0 20px; }
-  .scenarios button { font-size: 15px; font-weight: 600; margin: 0 8px 8px 0; padding: 9px 16px; background: var(--navy); color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
-  .scenarios button:hover { background: #16305a; }
-  .shell { background: var(--bg); min-height: 700px; box-shadow: 0 12px 40px rgba(11,31,58,.22); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
-  .preview-stripe { background: var(--focus); color: var(--navy); padding: 10px 24px; font-size: 15px; font-weight: 700; }
-  .hdr { background: var(--navy); color: #fff; padding: 16px 28px; display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: 700; }
+  .scenarios button { font-size: 15px; font-weight: 600; margin: 0 8px 8px 0; padding: 10px 18px; background: var(--navy); color: #fff; border: 0; border-radius: 10px; cursor: pointer; }
+  .scenarios button:hover { background: var(--navy-soft); }
+  .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .shell { background: var(--bg); min-height: 700px; box-shadow: 0 12px 40px rgba(11,31,58,.22); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  .preview-stripe { background: var(--accent); color: var(--navy); padding: 10px 24px; font-size: 15px; font-weight: 700; }
+  .hdr { background: var(--navy); color: #fff; padding: 15px 28px; display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: 700; }
   .hdr span { font-size: 15px; font-weight: 400; color: var(--navy-muted); }
-  .strip { display: flex; gap: 4px; height: 6px; background: var(--track); }
-  .strip i { flex: 1; background: var(--track); }
-  .strip i.on { background: var(--primary); }
+  .strip { height: 4px; background: var(--track); }
+  .strip .sfill { height: 100%; background: var(--primary); width: 0; transition: width .25s ease; }
   .body { flex: 1; padding: 26px 24px 12px; }
+  .body.navy { background: var(--navy); }
   .col { max-width: 940px; margin: 0 auto; }
-  h1 { font-size: 30px; margin: 0 0 14px; color: var(--ink); }
+  h1 { font-size: 30px; margin: 0 0 14px; color: var(--ink); letter-spacing: -.01em; }
   .lead { font-size: 20px; line-height: 1.45; margin: 0 0 12px; }
   .muted { color: var(--muted); }
   .small { font-size: 15px; }
   .mono { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
-  .card { background: var(--surface); border: 3px solid var(--border); border-radius: 4px; padding: 14px 16px; margin: 10px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin: 10px 0; }
   .card.pickable { cursor: pointer; }
   .card.pickable:hover { background: var(--surface-alt); }
   .card.pickable:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .card.sel { border-color: var(--primary); background: var(--primary-tint); }
+  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 13px 15px; }
   .card.boot { background: var(--usb-bg); border-color: var(--usb-border); cursor: not-allowed; }
   .card .row { display: flex; align-items: flex-start; gap: 14px; }
   .card .grow { flex: 1; min-width: 0; }
   .card .title { font-size: 18px; font-weight: 700; }
   .card .size { font-size: 18px; font-weight: 700; white-space: nowrap; }
-  .card .meta { margin-top: 5px; font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
-  .card .meta .mono { color: var(--ink); }
+  .card .meta { margin-top: 5px; font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 0; align-items: center; }
+  .card .meta .mono { color: var(--ink); font-size: 14px; }
+  .card .meta .dot { color: var(--border-strong); margin: 0 8px; }
+  .card .meta .dev { color: var(--muted); }
   .radio { flex: none; width: 22px; height: 22px; margin-top: 2px; border: 2px solid var(--border-strong); border-radius: 50%; position: relative; }
   .sel .radio { border-color: var(--primary); }
   .sel .radio::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--primary); }
-  .chip { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--muted); border-radius: 4px; vertical-align: 2px; }
-  .chip.ok { color: var(--ok); background: var(--ok-tint); border-color: var(--ok-border); }
+  .chip { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 9px; background: var(--surface-alt); color: var(--muted); border-radius: 9px; vertical-align: 2px; }
+  .chip.ok { color: var(--ok); background: var(--ok-tint); }
   .bootbanner { margin-top: 8px; color: var(--danger); font-weight: 700; font-size: 15px; }
-  .panel { display: flex; gap: 14px; align-items: flex-start; border: 2px solid; border-radius: 4px; padding: 14px 16px; margin: 12px 0; font-size: 18px; line-height: 1.4; }
+  .panel { display: flex; gap: 14px; align-items: flex-start; border: 1px solid; border-radius: 12px; padding: 14px 16px; margin: 12px 0; font-size: 18px; line-height: 1.4; }
   .panel svg { flex: none; margin-top: 2px; }
   .panel.warn { background: var(--warn-bg); border-color: var(--warn-border); }
   .panel.danger { background: var(--danger-tint); border-color: var(--danger-border); }
   .panel.info { background: var(--surface-alt); border-color: var(--border); }
   .hint { max-width: 940px; margin: 0 auto; padding: 12px 24px 0; color: var(--muted); font-size: 15px; border-top: 1px solid var(--border); }
   .btnrow { max-width: 940px; margin: 0 auto; padding: 12px 24px 24px; display: flex; justify-content: space-between; gap: 12px; }
-  button.btn { font-size: 19px; font-weight: 700; padding: 12px 26px; border: 0; border-radius: 4px; cursor: pointer; }
+  button.btn { font-size: 19px; font-weight: 700; padding: 13px 26px; border: 0; border-radius: 11px; cursor: pointer; }
   button.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .primary { background: var(--primary); color: #fff; }
   .primary:hover:not(:disabled) { background: var(--primary-dark); }
+  .primary:active:not(:disabled) { background: var(--primary-press); }
   .danger { background: var(--danger); color: #fff; }
   .danger:hover:not(:disabled) { background: var(--danger-dark); }
+  .danger:active:not(:disabled) { background: var(--danger-press); }
   .secondary { background: #E4E8ED; color: var(--ink); }
-  .secondary:hover:not(:disabled) { background: #D3D9E0; }
+  .secondary:hover:not(:disabled) { background: #D9DFE6; }
+  .secondary:active:not(:disabled) { background: #C9D1DA; }
   button.btn:disabled { background: var(--disabled-bg); color: var(--disabled-fg); cursor: not-allowed; }
-  .linkbtn { background: none; border: 0; color: var(--primary); font-size: 15px; font-weight: 700; cursor: pointer; padding: 4px 2px; text-align: left; }
+  .linkbtn { background: none; border: 0; color: var(--primary); font-size: 15px; font-weight: 700; cursor: pointer; padding: 8px 12px; text-align: left; border-radius: 10px; margin-left: -12px; }
+  .linkbtn:hover { background: var(--primary-tint); }
   .linkbtn:focus-visible { outline: 3px solid var(--focus); }
-  input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 28px; font-weight: 700; width: 100%; padding: 12px 14px; border: 2px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--ink); }
+  input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 28px; font-weight: 700; width: 100%; padding: 14px 16px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); color: var(--ink); }
   input.token:focus { outline: 3px solid var(--focus); outline-offset: 1px; border-color: var(--focus); }
-  .match { font-size: 15px; margin-top: 8px; color: var(--muted); }
+  .match { font-size: 15px; margin-top: 10px; color: var(--muted); }
   .match.ok { color: var(--ok); font-weight: 600; }
-  .bigstat { font-size: 54px; font-weight: 700; line-height: 1; }
-  .bar { height: 32px; background: var(--track); border-radius: 3px; overflow: hidden; margin-top: 10px; }
-  .fill { height: 100%; background: var(--primary); width: 2%; }
-  .status { width: 96px; height: 96px; border-radius: 50%; color: #fff; font-size: 54px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 12px 0 18px; }
+  .bigstat { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; }
+  .bar { height: 14px; background: var(--track); border-radius: 7px; overflow: hidden; margin-top: 10px; }
+  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 7px; transition: width .2s ease; }
+  .status { width: 96px; height: 96px; border-radius: 50%; color: #fff; font-size: 54px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 12px 0 20px; }
   .status.ok { background: var(--ok); }
   .status.bad { background: var(--danger); }
   .ok { color: var(--ok); } .bad { color: var(--danger); }
-  ul.bullets { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 2px solid var(--border); border-radius: 4px; }
-  ul.bullets li { font-size: 20px; line-height: 1.45; padding: 14px 20px 0 20px; }
-  ul.bullets li:last-child { padding-bottom: 16px; }
+  ul.bullets { list-style: none; margin: 0; padding: 4px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  ul.bullets li { font-size: 20px; line-height: 1.45; padding: 14px 0; }
+  ul.bullets li + li { border-top: 1px solid var(--border); }
   ul.bullets li::before { content: "•"; color: var(--primary); font-weight: 700; margin-right: 12px; }
-  .ownercard { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 3px solid var(--border-strong); border-radius: 4px; padding: 18px; cursor: pointer; font-size: 20px; line-height: 1.45; }
+  .ownercard { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 18px; cursor: pointer; font-size: 20px; line-height: 1.45; }
   .ownercard:hover { background: var(--surface-alt); }
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .ownercard.checked { border-color: var(--primary); background: var(--primary-tint); }
-  .cbox { flex: none; width: 26px; height: 26px; margin-top: 2px; border: 2px solid var(--border-strong); border-radius: 3px; background: var(--surface); color: #fff; font-size: 20px; line-height: 24px; text-align: center; }
+  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 17px; }
+  .cbox { flex: none; width: 26px; height: 26px; margin-top: 2px; border: 2px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: #fff; font-size: 20px; line-height: 24px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
-  .countrow { display: flex; align-items: flex-end; gap: 16px; margin-top: 20px; }
-  .countrow .cap { font-size: 18px; color: var(--muted); padding-bottom: 8px; }
-  .countrow .cap.ready { color: var(--ok); font-weight: 600; }
+  .countcap { font-size: 18px; color: var(--muted); margin-top: 4px; }
+  .countcap.ready { color: var(--ok); font-weight: 600; }
   .methodblurb, .methodpace { font-size: 15px; color: var(--muted); margin: 3px 0 0 38px; }
-  .splashmark { width: 120px; height: 6px; background: var(--focus); margin: 18px 0 26px; }
-  .wordmark { font-size: 40px; font-weight: 700; color: var(--navy); margin: 60px 0 0; }
+  .splashmark { width: 124px; height: 8px; background: var(--accent); margin: 20px 0 28px; border-radius: 4px; }
+  .wordmark { font-size: 44px; font-weight: 700; color: #fff; margin: 70px 0 0; letter-spacing: -.01em; }
+  .body.navy h1, .body.navy .lead { color: #fff; }
+  .body.navy .muted { color: var(--navy-muted); }
 </style>
 </head>
 <body>
@@ -241,8 +250,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="shell">
     <div class="preview-stripe" id="stripe"></div>
     <div class="hdr"><div id="brand"></div><span id="step"></span></div>
-    <div class="strip" id="strip"></div>
-    <div class="body"><div class="col" id="main"></div></div>
+    <div class="strip"><div class="sfill" id="sfill"></div></div>
+    <div class="body" id="body"><div class="col" id="main"></div></div>
     <div class="hint" id="hint"></div>
     <div class="btnrow" id="btns"></div>
   </div>
@@ -265,7 +274,7 @@ document.getElementById("brand").textContent = P.app;
 
 const ICON_WARN = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 3 22 20 H2 Z" fill="none" stroke="#8A5A00" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9.5" x2="12" y2="14" stroke="#8A5A00" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.3" fill="#8A5A00"/></svg>';
 const ICON_WARN_RED = ICON_WARN.replaceAll("#8A5A00", "#B42318");
-const ICON_INFO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#5B6672" stroke-width="2"/><circle cx="12" cy="7.8" r="1.3" fill="#5B6672"/><line x1="12" y1="11" x2="12" y2="16.4" stroke="#5B6672" stroke-width="2.4" stroke-linecap="round"/></svg>';
+const ICON_INFO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#49566A" stroke-width="2"/><circle cx="12" cy="7.8" r="1.3" fill="#49566A"/><line x1="12" y1="11" x2="12" y2="16.4" stroke="#49566A" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const ICON_NO = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#B42318" stroke-width="2.6"/><line x1="6" y1="18" x2="18" y2="6" stroke="#B42318" stroke-width="2.6" stroke-linecap="round"/></svg>';
 
 function boot(m) {
@@ -292,10 +301,12 @@ function disks() {
 }
 function selectable() { return disks().filter(d => !d.isBoot); }
 function stepInfo() {
-  const map = {splash:[0,""], what:[1,"Step 1 of 8"], owner:[2,"Step 2 of 8"], pick:[3,"Step 3 of 8"],
-    blocked:[3,"Step 3 of 8"], empty:[3,"Step 3 of 8"], confirm:[4,"Step 4 of 8"], method:[5,"Step 5 of 8"],
-    advanced:[5,"Advanced"], last:[6,"Step 6 of 8"], working:[7,"Step 7 of 8"], done:[8,"Step 8 of 8"]};
-  return map[screen] || [0,""];
+  const map = {splash:[0,"",""], what:[1,"Step 1 of 8","What this is"], owner:[2,"Step 2 of 8","Ownership"],
+    pick:[3,"Step 3 of 8","Pick a disk"], blocked:[3,"Step 3 of 8","Pick a disk"], empty:[3,"Step 3 of 8","Pick a disk"],
+    confirm:[4,"Step 4 of 8","Confirm the disk"], method:[5,"Step 5 of 8","How thorough"],
+    advanced:[5,"Advanced","Advanced"], last:[6,"Step 6 of 8","Last chance"],
+    working:[7,"Step 7 of 8","Erasing"], done:[8,"Step 8 of 8","Finished"]};
+  return map[screen] || [0,"",""];
 }
 function btn(label, fn, cls, disabled) {
   const b = document.createElement("button");
@@ -314,6 +325,16 @@ function tokenOk() {
 function panel(kind, icon, text) {
   return `<div class="panel ${kind}">${icon}<div>${text}</div></div>`;
 }
+function metaLine(d) {
+  return `<div class="meta"><span>${d.bus}</span><span class="dot">·</span><span>Serial <span class="mono">${d.serial}</span></span><span class="dot">·</span><span>Device <span class="mono dev">${d.path}</span></span></div>`;
+}
+function summaryCard(d) {
+  return `<div class="card"><div class="row" style="align-items:center">
+    <div class="title grow">${d.name} &nbsp;<span class="chip">${d.kind}</span></div>
+    <div class="size">${d.size}</div></div>
+    ${metaLine(d)}
+  </div>`;
+}
 function diskCard(d) {
   const sel = selected && selected.path === d.path;
   const cls = d.isBoot ? "card boot" : ("card pickable" + (sel ? " sel" : ""));
@@ -325,7 +346,7 @@ function diskCard(d) {
           <div class="title grow">${d.name} &nbsp;<span class="chip">${d.kind}</span></div>
           <div class="size">${d.size}</div>
         </div>
-        <div class="meta"><span>${d.bus}</span><span>Serial <span class="mono">${d.serial}</span></span><span>Device <span class="mono">${d.path}</span></span></div>
+        ${metaLine(d)}
         ${d.isBoot ? `<div class="bootbanner">${P.bootUsb}</div>` : ""}
       </div>
     </div>
@@ -333,14 +354,9 @@ function diskCard(d) {
 }
 function draw() {
   const info = stepInfo();
-  document.getElementById("step").textContent = info[1];
-  const strip = document.getElementById("strip");
-  strip.innerHTML = "";
-  for (let i = 0; i < 8; i++) {
-    const seg = document.createElement("i");
-    if (i < info[0]) seg.className = "on";
-    strip.append(seg);
-  }
+  document.getElementById("step").textContent = info[2] && info[1] !== info[2] ? info[1] + " · " + info[2] : info[1];
+  document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
+  document.getElementById("body").className = screen === "splash" ? "body navy" : "body";
   const main = document.getElementById("main");
   const btns = document.getElementById("btns");
   const hint = document.getElementById("hint");
@@ -359,7 +375,7 @@ function draw() {
     btns.append(btn("I understand", () => { screen = "owner"; draw(); }, "primary"));
   } else if (screen === "owner") {
     main.innerHTML = `<h1>You must be the owner</h1>
-      <p class="lead">${P.ownerLead}</p>
+      <p class="lead muted">${P.ownerLead}</p>
       <div class="ownercard${owner ? " checked" : ""}" id="own" tabindex="0" role="checkbox" aria-checked="${owner}">
         <span class="cbox">${owner ? "✓" : ""}</span><span>${P.owner}</span></div>`;
     const card = main.querySelector("#own");
@@ -370,13 +386,13 @@ function draw() {
     hint.textContent = P.hints.owner;
     btns.append(btn("Continue", () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
-    main.innerHTML = `<div style="margin-top:34px">${ICON_WARN.replace('width="28" height="28"', 'width="72" height="72"')}</div>
-      <h1 style="margin-top:16px">Stop</h1><p class="lead">${P.identify}</p>`;
+    main.innerHTML = `<div style="margin-top:40px">${ICON_WARN.replace('width="28" height="28"', 'width="72" height="72"')}</div>
+      <h1 style="margin-top:18px">Stop</h1><p class="lead">${P.identify}</p>`;
     btns.append(btn("Back", () => { screen = "owner"; draw(); }));
     btns.append(btn("Close preview", closePreview, "primary"));
   } else if (screen === "empty") {
-    main.innerHTML = `<div style="margin-top:34px">${ICON_INFO.replace('width="26" height="26"', 'width="64" height="64"')}</div>
-      <h1 style="margin-top:16px">No disk to erase</h1><p class="lead">${P.empty}</p>`;
+    main.innerHTML = `<div style="margin-top:40px">${ICON_INFO.replace('width="26" height="26"', 'width="64" height="64"')}</div>
+      <h1 style="margin-top:18px">No disk to erase</h1><p class="lead">${P.empty}</p>`;
     btns.append(btn("Back", () => { screen = "owner"; draw(); }));
     btns.append(btn("Close preview", closePreview, "primary"));
   } else if (screen === "pick") {
@@ -396,10 +412,7 @@ function draw() {
   } else if (screen === "confirm") {
     const d = selected;
     main.innerHTML = `<h1>Confirm the disk</h1>
-      <div class="card"><div class="row" style="align-items:center">
-        <div class="title grow">${d.name}</div><div class="size">${d.size}</div></div>
-        <div class="meta"><span class="chip">${d.kind}</span><span>Serial <span class="mono">${d.serial}</span></span><span>Device <span class="mono">${d.path}</span></span></div>
-      </div>
+      ${summaryCard(d)}
       ${panel("warn", ICON_WARN, d.warning)}
       <p class="lead">${d.prompt}</p>
       <p><input class="token" id="tok" autocomplete="off" spellcheck="false"></p>
@@ -465,8 +478,8 @@ function draw() {
     if (!selected) { screen = "pick"; draw(); return; }
     const ready = tLeft <= 0;
     main.innerHTML = `<h1>Last chance</h1>${panel("danger", ICON_WARN_RED, selected.eraseLabel)}
-      <div class="countrow"><span class="bigstat" style="${ready ? "color:var(--ok)" : ""}">${ready ? "✓" : tLeft}</span>
-      <span class="cap${ready ? " ready" : ""}">${ready ? P.countdownReady : P.countdownCaption}</span></div>`;
+      <div style="margin-top:24px"><div class="bigstat" style="${ready ? "color:var(--ok)" : ""}">${ready ? "✓" : tLeft}</div>
+      <div class="countcap${ready ? " ready" : ""}">${ready ? P.countdownReady : P.countdownCaption}</div></div>`;
     btns.append(btn("Back", () => { if (timer) clearInterval(timer); screen = "method"; draw(); }));
     btns.append(btn("Erase now", () => { if (tLeft<=0) startWork(); }, "danger", tLeft>0));
   } else if (screen === "working") {
@@ -474,19 +487,18 @@ function draw() {
     const m = P.methods[method];
     const pct = demoPct === null ? 0 : demoPct;
     main.innerHTML = `<h1>Working</h1>
-      <div class="card"><div class="title">${selected.name} &nbsp; ${selected.size}</div>
-      <div class="meta"><span class="mono">${selected.path}</span></div></div>
-      <div class="bigstat" id="pct" style="margin-top:24px">${pct}%</div>
+      ${summaryCard(selected)}
+      <div class="bigstat" id="pct" style="margin-top:26px">${pct}%</div>
       <div class="bar"><div class="fill" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
-      <p class="muted" style="font-size:18px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p>`;
+      <p class="muted" style="font-size:18px;margin-top:16px" id="pulse">${m.title}. &nbsp;${P.working}</p>`;
     hint.textContent = P.hints.working;
   } else if (screen === "done") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
-    main.innerHTML = `<div class="status ${ok ? "ok" : "bad"}" style="margin-top:26px">${ok ? "✓" : "✕"}</div>
+    main.innerHTML = `<div class="status ${ok ? "ok" : "bad"}" style="margin-top:28px">${ok ? "✓" : "✕"}</div>
       <h1>${ok?"Finished":"The wipe did not finish"}</h1>
       <p class="lead ${ok?"ok":"bad"}">${ok?P.doneOk:P.doneFail}</p>
-      <p class="muted" style="font-size:18px">${selected.name} &nbsp; ${selected.size}</p>`;
+      ${summaryCard(selected)}`;
     btns.append(btn("Close preview", closePreview, "secondary"));
     btns.append(btn("Run again", () => boot(fail ? "fail" : mode), "primary"));
   }
