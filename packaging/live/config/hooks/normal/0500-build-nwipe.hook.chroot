@@ -1,10 +1,32 @@
 #!/bin/sh
 set -e
-# Pin nwipe v0.42 from upstream. No distro fallback — bookworm's nwipe is not 0.42.
-mkdir -p /usr/share/doc/beamo-wipe
+# Pin nwipe v0.42 by tag AND commit. Tags can move; the SHA cannot.
+# No distro fallback — bookworm's nwipe is not 0.42.
 NWIPE_TAG=v0.42
-git clone --depth 1 --branch "$NWIPE_TAG" https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe
+NWIPE_COMMIT=6082bde060091e66365d852a1877f2ee80c67105
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y --no-install-recommends \
+  build-essential \
+  automake \
+  autoconf \
+  git \
+  pkg-config \
+  libncurses-dev \
+  libparted-dev \
+  libconfig-dev \
+  ca-certificates
+
+mkdir -p /usr/share/doc/beamo-wipe
+git clone --depth 1 --branch "$NWIPE_TAG" \
+  https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe
 cd /tmp/nwipe
+got="$(git rev-parse HEAD)"
+if [ "$got" != "$NWIPE_COMMIT" ]; then
+  echo "ERROR: nwipe commit $got does not match pinned $NWIPE_COMMIT" >&2
+  exit 1
+fi
 if [ -x ./autogen.sh ]; then
   ./autogen.sh
 fi
@@ -19,9 +41,28 @@ if ! grep -q "0.42" /usr/share/doc/beamo-wipe/NWIPE_VERSION; then
   cat /usr/share/doc/beamo-wipe/NWIPE_VERSION >&2
   exit 1
 fi
-# Drop compilers from the shipped image after the build.
-apt-get purge -y build-essential automake autoconf git pkg-config || true
-apt-get autoremove -y || true
+
+# Drop compilers and VCS from the shipped image. Fail the build if they remain.
+apt-get purge -y \
+  build-essential \
+  automake \
+  autoconf \
+  git \
+  pkg-config \
+  libncurses-dev \
+  libparted-dev \
+  libconfig-dev
+apt-get autoremove -y --purge
+apt-get install -y --no-install-recommends libncurses6 libparted2 libconfig9
+if command -v gcc >/dev/null 2>&1; then
+  echo "ERROR: gcc is still present in the live image" >&2
+  exit 1
+fi
+if command -v git >/dev/null 2>&1; then
+  echo "ERROR: git is still present in the live image" >&2
+  exit 1
+fi
+
 # No network by default.
 systemctl mask NetworkManager.service wpa_supplicant.service || true
-chmod 755 /usr/local/bin/beamo-wipe || true
+chmod 755 /usr/local/bin/beamo-wipe

@@ -76,15 +76,23 @@ def test_logfile_for_is_unique_per_call(tmp_path, monkeypatch):
 def test_logs_not_on_target_name():
     with pytest.raises(SafetyError):
         assert_log_not_on_target("/mnt/target/log.txt", "/dev/nvme0n1")
+    with pytest.raises(SafetyError):
+        assert_log_not_on_target("/dev/sda", "/dev/nvme0n1")
     assert_log_not_on_target("/tmp/beamo-wipe/nwipe-nvme0n1.log", "/dev/nvme0n1")
 
 
 def test_live_markers():
-    assert is_live_environment(env={"BEAMO_WIPE_DRY_RUN": "1"}, paths_exist=[])
+    assert not is_live_environment(env={"BEAMO_WIPE_DRY_RUN": "1"}, paths_exist=[])
+    assert not is_live_environment(
+        env={"BEAMO_WIPE_LIVE": "1"}, cmdline="", paths_exist=[]
+    )
     assert is_live_environment(env={}, cmdline="boot=live quiet", paths_exist=[])
     assert not is_live_environment(env={}, cmdline="", paths_exist=[])
+    require_live_or_dry_run(env={"BEAMO_WIPE_DRY_RUN": "1"}, cmdline="")
     with pytest.raises(SafetyError):
         require_live_or_dry_run(env={}, cmdline="")
+    with pytest.raises(SafetyError):
+        require_live_or_dry_run(env={"BEAMO_WIPE_LIVE": "1"}, cmdline="")
 
 
 def test_owner_and_token_required_before_wipe(monkeypatch, tmp_path):
@@ -131,3 +139,29 @@ def test_owner_and_token_required_before_wipe(monkeypatch, tmp_path):
     assert req.device == disk.path
     assert req.boot_device == "/dev/sdb"
     assert str(tmp_path) in req.logfile
+
+
+def test_empty_confirm_token_never_matches():
+    from beamo_wipe.models import ConfirmSpec
+    from beamo_wipe.safety import token_matches
+
+    spec = ConfirmSpec(token="", prompt="x")
+    assert not token_matches("", spec)
+    assert not token_matches("   ", spec)
+    spec_ws = ConfirmSpec(token="  ", prompt="x")
+    assert not token_matches("  ", spec_ws)
+    assert not token_matches("256", spec_ws)
+
+
+def test_identity_change_refuses_wipe(monkeypatch, tmp_path):
+    from dataclasses import replace
+
+    from beamo_wipe.safety import assert_disk_identity
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    d = _disc("lsblk_same_size.json", "/dev/sdb")
+    disk = selectable_disks(d)[0]
+    swapped = replace(disk, serial="DIFFERENT-SERIAL")
+    with pytest.raises(SafetyError, match="identity"):
+        assert_disk_identity(swapped, d)

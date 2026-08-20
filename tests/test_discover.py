@@ -119,18 +119,18 @@ def _payload(blockdevices):
 
 
 def test_duplicate_beamo_wipe_labels_fail_closed():
-    """Two BEAMO_WIPE labels: cannot tell which stick we booted. List nothing."""
+    """Two USB sticks labeled BEAMO_WIPE: cannot tell which we booted. List nothing."""
     payload = _payload(
         [
             {
                 "name": "sda",
                 "path": "/dev/sda",
-                "size": 500107862016,
+                "size": 16000000000,
                 "type": "disk",
-                "tran": "sata",
+                "tran": "usb",
                 "rota": True,
-                "model": "ST500DM002",
-                "serial": "INTERNAL01",
+                "model": "Other Stick",
+                "serial": "OTHERUSB01",
                 "children": [
                     {
                         "name": "sda1",
@@ -401,6 +401,90 @@ def test_json_float_size_is_not_zero():
     disk = next(d for d in result.selectable if d.path == "/dev/sda")
     assert disk.size_bytes == 256060514304
     assert disk.size_gb_label != "0"
+
+
+def test_stale_internal_beamo_wipe_label_without_mounts_fails_closed():
+    """Leftover BEAMO_WIPE on SATA must not mark the internal disk as the USB."""
+    payload = _payload(
+        [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "sata",
+                "rota": True,
+                "model": "ST500DM002",
+                "serial": "INTERNAL01",
+                "children": [
+                    {
+                        "name": "sda1",
+                        "path": "/dev/sda1",
+                        "type": "part",
+                        "label": "BEAMO_WIPE",
+                    }
+                ],
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "model": "Beamo Wipe",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {
+                        "name": "sdb1",
+                        "path": "/dev/sdb1",
+                        "type": "part",
+                        "label": "DATA",
+                    }
+                ],
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+    assert result.error
+
+
+def test_env_boot_disagreeing_with_mount_fails_closed():
+    result = discover(
+        lsblk_payload=_load("lsblk_same_size.json"),
+        boot_path="/dev/nvme0n1",
+        mount_sources=["/dev/sdb1"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+    assert result.error
+
+
+def test_bare_kernel_name_mount_source_identifies_usb():
+    from beamo_wipe.discover import normalize_mount_source
+
+    assert normalize_mount_source("sdb1") == "/dev/sdb1"
+    assert normalize_mount_source("/dev/sdb1[data]") == "/dev/sdb1"
+    result = discover(
+        lsblk_payload=_load("lsblk_same_size.json"),
+        boot_path=None,
+        mount_sources=["sdb1"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot is not None
+    assert result.boot.path == "/dev/sdb"
+    assert "/dev/sdb" not in {d.path for d in result.selectable}
 
 
 def test_lsblk_failure_fails_closed(monkeypatch):

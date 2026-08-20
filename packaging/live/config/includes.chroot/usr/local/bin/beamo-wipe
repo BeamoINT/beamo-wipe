@@ -1,6 +1,11 @@
 #!/bin/sh
-export PYTHONPATH=/usr/lib/python3/dist-packages${PYTHONPATH:+:$PYTHONPATH}
+# Live USB entrypoint. Isolated sys.path so cwd cannot shadow the shipped package.
+export PYTHONPATH=/usr/lib/python3/dist-packages
 export BEAMO_WIPE_LIVE=1
-# Keyboard layout: US unless the live user changes it later.
+unset BEAMO_WIPE_DRY_RUN
+unset BEAMO_WIPE_DEMO
+unset BEAMO_WIPE_BOOT_DEVICE
 export LANG=C.UTF-8
-exec python3 -m beamo_wipe --fullscreen "$@"
+cd /
+# -P: do not prepend the current directory to sys.path (Python 3.11+, bookworm).
+exec python3 -P -m beamo_wipe --fullscreen "$@"

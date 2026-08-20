@@ -48,3 +48,7 @@ METHODS = {
 }
 
 DEFAULT_METHOD = MethodId.EVERYDAY
+
+ALLOWED_NWIPE_METHODS = frozenset({"prng", "dodshort", "zero"})
+ALLOWED_VERIFY = frozenset({"last", "off", "all"})
+ALLOWED_ROUNDS = frozenset({1})

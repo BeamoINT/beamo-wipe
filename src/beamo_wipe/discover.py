@@ -28,6 +28,15 @@ CANNOT_IDENTIFY = (
     "Cannot tell which disk is this USB. Unplug extra USB drives and reboot."
 )
 
+# Kernel cmdline keys that name the live medium. Matched as whole tokens so
+# a substring like debug=bootfrom= cannot steal identification.
+CMDLINE_BOOT_RE = re.compile(
+    r"(?:^|\s)(?:bootfrom|img_dev|live-media|boot_image)=(\S+)"
+)
+KERNEL_NAME_RE = re.compile(r"^[a-zA-Z0-9._+-]+$")
+LSBLK_TIMEOUT_S = 15
+FINDMNT_TIMEOUT_S = 8
+
 
 def size_gb_label(size_bytes: int) -> str:
     if size_bytes <= 0:
@@ -138,6 +147,31 @@ def _path_aliases(path: str) -> set:
     return aliases
 
 
+def normalize_mount_source(raw: str) -> str:
+    """Turn findmnt SOURCE into a /dev path. LABEL=/UUID= values stay unresolved."""
+    src = (raw or "").split("[", 1)[0].strip()
+    if not src:
+        return ""
+    if src.startswith("/dev/"):
+        return src
+    if "=" in src:
+        return src
+    if KERNEL_NAME_RE.fullmatch(src):
+        return f"/dev/{src}"
+    return src
+
+
+def _looks_like_live_medium(node: Dict[str, Any]) -> bool:
+    """Label fallback may only point at USB or optical media, never SATA/NVMe."""
+    if _node_type(node) == "rom":
+        return True
+    name = _clean(node.get("name")).lower()
+    if name.startswith("sr"):
+        return True
+    tran = (node.get("tran") or "").lower()
+    return tran == "usb"
+
+
 def _node_type(node: Dict[str, Any]) -> str:
     return (node.get("type") or "").lower()
 
@@ -222,7 +256,7 @@ def _resolve_boot_path(
     """Map a /dev path to the boot disk/rom, or None if it cannot be identified."""
     if not raw:
         return None
-    raw = raw.split("[", 1)[0].strip()
+    raw = normalize_mount_source(raw)
     if not raw.startswith("/dev/"):
         return None
     parent = parent_disk_path(raw, blockdevices)
@@ -262,6 +296,19 @@ def _label_boot_disks(blockdevices: Sequence[Dict[str, Any]]) -> List[str]:
         parent = parent_disk_path(node_path(node), blockdevices)
         if not parent or _is_loop_path(parent, blockdevices):
             continue
+        parent_node = None
+        parent_aliases = _path_aliases(parent)
+        for disk in disk_nodes(blockdevices):
+            if parent_aliases & _path_aliases(node_path(disk)):
+                parent_node = disk
+                break
+        if parent_node is None:
+            for cand, _p in flatten_blockdevices(blockdevices):
+                if parent_aliases & _path_aliases(node_path(cand)):
+                    parent_node = cand
+                    break
+        if parent_node is None or not _looks_like_live_medium(parent_node):
+            continue
         if parent not in seen:
             seen.add(parent)
             found.append(parent)
@@ -277,11 +324,11 @@ def identify_boot_path(
 ) -> Optional[str]:
     """Return the parent disk/rom path of the live medium, or None if unsure.
 
-    Live mounts are ground truth. Filesystem labels are used only when they
-    uniquely identify one disk. Loop devices are never the boot USB.
+    Live mounts are ground truth. An env/CLI override must agree with them.
+    Filesystem labels are used only when they uniquely identify one USB or
+    optical disk. Loop devices are never the boot USB.
     """
-    if env_boot:
-        return _resolve_boot_path(env_boot, blockdevices)
+    resolved_env = _resolve_boot_path(env_boot, blockdevices) if env_boot else None
 
     mount_hits: List[str] = []
     seen = set()
@@ -290,17 +337,20 @@ def identify_boot_path(
         if resolved and resolved not in seen:
             seen.add(resolved)
             mount_hits.append(resolved)
-    if len(mount_hits) == 1:
-        return mount_hits[0]
     if len(mount_hits) > 1:
         return None
+    if len(mount_hits) == 1:
+        if resolved_env and resolved_env != mount_hits[0]:
+            return None
+        return mount_hits[0]
+    if resolved_env:
+        return resolved_env
 
-    for key in ("bootfrom=", "img_dev=", "live-media=", "boot_image="):
-        if key in cmdline:
-            part = cmdline.split(key, 1)[1].split(" ", 1)[0].strip()
-            resolved = _resolve_boot_path(part, blockdevices)
-            if resolved:
-                return resolved
+    match = CMDLINE_BOOT_RE.search(cmdline or "")
+    if match:
+        resolved = _resolve_boot_path(match.group(1), blockdevices)
+        if resolved:
+            return resolved
 
     labels = _label_boot_disks(blockdevices)
     if len(labels) == 1:
@@ -326,10 +376,10 @@ def should_hide(node: Dict[str, Any], boot_path: Optional[str]) -> bool:
 def _node_is_boot(node: Dict[str, Any], boot_path: Optional[str]) -> bool:
     if not boot_path:
         return False
-    path = node_path(node)
-    if path == boot_path:
+    boot_aliases = _path_aliases(boot_path)
+    if _path_aliases(node_path(node)) & boot_aliases:
         return True
-    return boot_path in paths_under(node)
+    return any(_path_aliases(candidate) & boot_aliases for candidate in paths_under(node))
 
 
 def parse_lsblk_json(
@@ -366,7 +416,7 @@ def parse_lsblk_json(
     boot = next((d for d in disks if d.is_boot), None)
     if require_boot and boot is None:
         return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
-    selectable = tuple(d for d in disks if not d.is_boot)
+    selectable = tuple(d for d in disks if not d.is_boot and d.size_bytes > 0)
     return DiscoveryResult(
         disks=tuple(disks),
         selectable=selectable,
@@ -391,7 +441,9 @@ def run_lsblk() -> Dict[str, Any]:
         "-o",
         "NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,RM,HOTPLUG,MOUNTPOINT,LABEL,FSTYPE,VENDOR,PKNAME",
     ]
-    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    proc = subprocess.run(
+        cmd, check=True, capture_output=True, text=True, timeout=LSBLK_TIMEOUT_S
+    )
     return load_lsblk_json_text(proc.stdout)
 
 
@@ -412,10 +464,11 @@ def read_mount_sources(paths: Sequence[str] = LIVE_MOUNTS) -> List[str]:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=FINDMNT_TIMEOUT_S,
             )
-        except OSError:
+        except (OSError, subprocess.TimeoutExpired):
             continue
-        src = (proc.stdout or "").strip()
+        src = normalize_mount_source((proc.stdout or "").strip())
         if src:
             sources.append(src)
     return sources
@@ -445,5 +498,11 @@ def discover(
             cmdline=cmdline if cmdline is not None else read_cmdline(),
         )
         return parse_lsblk_json(payload, boot_path=identified, require_boot=True)
-    except (OSError, subprocess.CalledProcessError, ValueError, json.JSONDecodeError):
+    except (
+        OSError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        ValueError,
+        json.JSONDecodeError,
+    ):
         return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)

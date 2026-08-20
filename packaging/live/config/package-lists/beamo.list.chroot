@@ -1,4 +1,5 @@
 # Beamo Wipe live image — keep this small. No desktop, no browser, no network manager.
+# Compilers and git are installed only in the nwipe build hook, then purged.
 live-boot
 live-config
 live-config-systemd
@@ -31,17 +32,9 @@ dmidecode
 ca-certificates
 kbd
 console-setup
-sudo
 less
 nano
 iproute2
-iputils-ping
-curl
-build-essential
-automake
-autoconf
-libncurses-dev
-libparted-dev
-libconfig-dev
-pkg-config
-git
+libncurses6
+libparted2
+libconfig9

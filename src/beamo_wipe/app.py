@@ -12,7 +12,7 @@ from beamo_wipe import NWIPE_PINNED_VERSION, __version__
 from beamo_wipe.demo import Scenario, make_demo_wizard
 from beamo_wipe.discover import discover, load_lsblk_json_text
 from beamo_wipe.nwipe_runner import DryRunRunner, NwipeRunner
-from beamo_wipe.safety import SafetyError, require_live_or_dry_run
+from beamo_wipe.safety import SafetyError, require_live_or_dry_run, running_on_live_usb
 from beamo_wipe.wizard import Wizard
 
 
@@ -94,11 +94,31 @@ def _open_html(path: Path) -> int:
 
 
 def _build_wizard(args: argparse.Namespace) -> Wizard:
+    if running_on_live_usb():
+        # Real USB session: ignore preview flags so a fake "Finished" cannot
+        # be mistaken for a wipe, and so --boot-device cannot retarget the stick.
+        args.demo = False
+        args.empty = False
+        args.blocked = False
+        args.fail_demo = False
+        args.scenario = "happy"
+        args.lsblk_json = None
+        args.boot_device = None
+        args.dry_run = False
+        args.web = False
+        args.helper = False
+        os.environ.pop("BEAMO_WIPE_BOOT_DEVICE", None)
+        os.environ.pop("BEAMO_WIPE_DRY_RUN", None)
+        os.environ.pop("BEAMO_WIPE_DEMO", None)
+        os.environ["BEAMO_WIPE_LIVE"] = "1"
+
     if args.demo:
         os.environ["BEAMO_WIPE_DEMO"] = "1"
         os.environ["BEAMO_WIPE_DRY_RUN"] = "1"
         return make_demo_wizard(fail=args.fail_demo, scenario=_scenario(args))
 
+    if args.lsblk_json:
+        args.dry_run = True
     if args.dry_run:
         os.environ["BEAMO_WIPE_DRY_RUN"] = "1"
     if args.boot_device:
@@ -117,11 +137,10 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
     )
     use_dry = (
         args.dry_run
+        or args.demo
+        or bool(args.lsblk_json)
         or os.environ.get("BEAMO_WIPE_DEMO") == "1"
-        or (
-            os.environ.get("BEAMO_WIPE_DRY_RUN") == "1"
-            and os.environ.get("BEAMO_WIPE_LIVE") != "1"
-        )
+        or os.environ.get("BEAMO_WIPE_DRY_RUN") == "1"
     )
     if use_dry:
         runner = DryRunRunner(duration_s=3.0, fail=args.fail_demo)

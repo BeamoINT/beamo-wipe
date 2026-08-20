@@ -326,3 +326,59 @@ def test_confirm_erase_refuses_disk_removed_from_selectable(monkeypatch, tmp_pat
     assert wiz.screen == Screen.LAST_CHANCE
     assert not getattr(wiz.runner, "started", False)
     assert wiz.error
+
+
+def test_confirm_erase_refuses_identity_change_on_rediscover(monkeypatch, tmp_path):
+    from dataclasses import replace
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    target = wiz.selectable[0]
+    wiz.select_disk(target.path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    mutated = replace(wiz.discovery.selectable[0], serial="CHANGED")
+    fresh = type(wiz.discovery)(
+        disks=wiz.discovery.disks,
+        selectable=(mutated,) + wiz.discovery.selectable[1:],
+        boot=wiz.discovery.boot,
+        error=wiz.discovery.error,
+        boot_identified=wiz.discovery.boot_identified,
+    )
+    wiz.dry_run = False
+    wiz.preview = False
+    wiz._rediscover = lambda: fresh
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not getattr(wiz.runner, "started", False)
+    assert wiz.error
+    assert "identity" in (wiz.error or "").lower()
+
+
+def test_confirm_erase_refuses_real_runner_in_dry_run(monkeypatch, tmp_path):
+    from beamo_wipe.nwipe_runner import NwipeRunner
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.runner = NwipeRunner()
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert wiz.error
+    assert "nwipe" in (wiz.error or "").lower()

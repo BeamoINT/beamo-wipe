@@ -18,15 +18,17 @@ from beamo_wipe.models import (
     WipeRequest,
     WipeResult,
 )
+from beamo_wipe.discover import discover
 from beamo_wipe.safety import (
     SafetyError,
     assert_boot_excluded,
+    assert_disk_identity,
     assert_ready_to_wipe,
     confirm_spec,
     selectable_disks,
     token_matches,
 )
-from beamo_wipe.nwipe_runner import build_nwipe_argv
+from beamo_wipe.nwipe_runner import NwipeRunner, build_nwipe_argv
 
 
 class Runner(Protocol):
@@ -49,11 +51,13 @@ class Wizard:
         runner: Runner,
         clock: Callable[[], float] | None = None,
         dry_run: bool = True,
+        rediscover: Callable[[], DiscoveryResult] | None = None,
     ) -> None:
         self.discovery = discovery
         self.runner = runner
         self._clock = clock or time.monotonic
         self.dry_run = dry_run
+        self._rediscover = rediscover
         if dry_run:
             os.environ.setdefault("BEAMO_WIPE_DRY_RUN", "1")
         self.preview = False
@@ -232,13 +236,40 @@ class Wizard:
     def confirm_erase(self) -> None:
         if not self.erase_enabled or self.selected is None:
             return
+        if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
+            self.error = "Preview and dry-run cannot exec nwipe."
+            return
+        discovery = self.discovery
+        disk = self.selected
+        if not self.dry_run and not self.preview:
+            try:
+                discovery = (self._rediscover or discover)()
+                assert_boot_excluded(discovery)
+                assert_disk_identity(disk, discovery)
+            except SafetyError as exc:
+                self.error = str(exc)
+                return
+            except (OSError, ValueError) as exc:
+                self.error = f"Could not re-read disks: {exc}"
+                return
+            self.discovery = discovery
+            try:
+                disk = next(
+                    d
+                    for d in selectable_disks(discovery)
+                    if os.path.realpath(d.path) == os.path.realpath(disk.path)
+                )
+            except StopIteration:
+                self.error = "Selected disk is not in the safe list."
+                return
+            self.selected = disk
         try:
             request = assert_ready_to_wipe(
                 owner_ok=self.owner_ok,
-                disk=self.selected,
-                discovery=self.discovery,
+                disk=disk,
+                discovery=discovery,
                 typed_token=self.confirm_input,
-                countdown_complete=True,
+                countdown_complete=self.countdown_left <= 0.0,
                 method=self.method,
             )
             build_nwipe_argv(request)

@@ -85,13 +85,14 @@ def test_dry_run_never_calls_binary():
     assert runner.result is None or runner.result.ok
 
 
-def test_nwipe_runner_does_not_deadlock_on_stdout(tmp_path):
+def test_nwipe_runner_does_not_deadlock_on_stdout(tmp_path, monkeypatch):
     """A child that writes more than a pipe buffer must still be able to exit."""
     import stat
     import time
 
     from beamo_wipe.nwipe_runner import NwipeRunner
 
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     script = tmp_path / "fake_nwipe"
     script.write_text(
         "#!/bin/sh\n"
@@ -125,12 +126,13 @@ def test_nwipe_runner_does_not_deadlock_on_stdout(tmp_path):
     assert result.exit_code == 0
 
 
-def test_nwipe_runner_cancel_allows_start_again(tmp_path):
+def test_nwipe_runner_cancel_allows_start_again(tmp_path, monkeypatch):
     import stat
     import time
 
     from beamo_wipe.nwipe_runner import NwipeRunner
 
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     script = tmp_path / "fake_nwipe_sleep"
     script.write_text(
         "#!/bin/sh\n"
@@ -153,12 +155,13 @@ def test_nwipe_runner_cancel_allows_start_again(tmp_path):
     runner.cancel()
 
 
-def test_stale_logfile_does_not_show_100_percent(tmp_path):
+def test_stale_logfile_does_not_show_100_percent(tmp_path, monkeypatch):
     import stat
     import time
 
     from beamo_wipe.nwipe_runner import NwipeRunner
 
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     stale = tmp_path / "nwipe-vda.log"
     stale.write_text("/dev/vda: 100.00%, round 1 of 1\n", encoding="utf-8")
     script = tmp_path / "fake_nwipe_hang"
@@ -183,16 +186,48 @@ def test_stale_logfile_does_not_show_100_percent(tmp_path):
     runner.cancel()
 
 
-def test_parse_percent():
-    assert parse_percent("progress 12.5% remaining") == 12.5
-    assert parse_percent("no numbers") is None
-    assert parse_percent("101%") is None
-
-
-def test_dry_run_never_calls_binary():
-    runner = DryRunRunner(duration_s=0.01)
+def test_rejects_logfile_on_block_device():
     req = _request()
-    runner.start(req)
-    assert runner.started
-    # Immediate poll may still be running; that's fine.
-    assert runner.result is None or runner.result.ok
+    bad = WipeRequest(
+        device=req.device,
+        method=req.method,
+        boot_device=req.boot_device,
+        logfile="/dev/sda",
+    )
+    with pytest.raises(SafetyError):
+        build_nwipe_argv(bad)
+
+
+def test_rejects_force_flag():
+    req = _request()
+    argv = build_nwipe_argv(req)
+    argv.insert(-1, "--force")
+    with pytest.raises(SafetyError, match="force"):
+        validate_argv(argv, req)
+
+
+def test_rejects_partition_target():
+    req = WipeRequest(
+        device="/dev/vda1",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile="/tmp/beamo-wipe/nwipe-vda.log",
+    )
+    with pytest.raises(SafetyError):
+        build_nwipe_argv(req)
+
+
+def test_real_nwipe_binary_refuses_dry_run(monkeypatch, tmp_path):
+    from beamo_wipe.nwipe_runner import NwipeRunner
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    runner = NwipeRunner(binary="nwipe")
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile=str(tmp_path / "nwipe-vda.log"),
+    )
+    with pytest.raises(SafetyError, match="dry-run"):
+        runner.start(req)

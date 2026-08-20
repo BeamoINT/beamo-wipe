@@ -30,6 +30,22 @@ def test_parser_preview_aliases():
     assert args.helper
 
 
+def test_lsblk_json_forces_dry_run_without_env(monkeypatch):
+    from beamo_wipe.app import _build_wizard
+    from beamo_wipe.nwipe_runner import DryRunRunner
+
+    monkeypatch.delenv("BEAMO_WIPE_DRY_RUN", raising=False)
+    monkeypatch.delenv("BEAMO_WIPE_LIVE", raising=False)
+    monkeypatch.delenv("BEAMO_WIPE_DEMO", raising=False)
+    fixture = Path(__file__).resolve().parent / "fixtures" / "lsblk_same_size.json"
+    args = _parser().parse_args(
+        ["--lsblk-json", str(fixture), "--boot-device", "/dev/sdb"]
+    )
+    wiz = _build_wizard(args)
+    assert wiz.dry_run
+    assert isinstance(wiz.runner, DryRunRunner)
+
+
 def test_dry_run_env_does_not_build_nwipe_runner(monkeypatch):
     from beamo_wipe.app import _build_wizard
     from beamo_wipe.nwipe_runner import DryRunRunner

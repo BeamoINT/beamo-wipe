@@ -6,24 +6,69 @@ from __future__ import annotations
 import os
 import re
 import signal
+import stat
 import subprocess
 import threading
 import time
-from typing import Callable, List, Optional
+from typing import List, Optional
 
-from beamo_wipe.methods import METHODS, NwipeMethodSpec
-from beamo_wipe.models import MethodId, WipeRequest, WipeResult
-from beamo_wipe.safety import SafetyError, assert_not_boot
+from beamo_wipe import NWIPE_PINNED_VERSION
+from beamo_wipe.methods import (
+    ALLOWED_NWIPE_METHODS,
+    ALLOWED_ROUNDS,
+    ALLOWED_VERIFY,
+    METHODS,
+    NwipeMethodSpec,
+)
+from beamo_wipe.models import WipeRequest, WipeResult
+from beamo_wipe.safety import (
+    SafetyError,
+    assert_log_not_on_target,
+    assert_not_boot,
+    normalize_whole_disk,
+    require_real_live_for_nwipe,
+    truncate_log_file,
+)
 
 PERCENT_RE = re.compile(r"(?<!\d)(\d{1,3}(?:\.\d+)?)\s*%")
+NWIPE_VERSION_TIMEOUT_S = 5
+
+
+def _verify_pinned_nwipe(binary: str) -> None:
+    if os.path.basename(binary) != "nwipe":
+        return
+    try:
+        proc = subprocess.run(
+            [binary, "-V"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=NWIPE_VERSION_TIMEOUT_S,
+            shell=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SafetyError("Cannot verify the nwipe binary.") from exc
+    blob = f"{proc.stdout or ''}{proc.stderr or ''}"
+    if NWIPE_PINNED_VERSION not in blob:
+        raise SafetyError(
+            f"Refusing to exec nwipe; pinned version is {NWIPE_PINNED_VERSION}."
+        )
 
 
 def build_nwipe_argv(request: WipeRequest) -> List[str]:
     spec: NwipeMethodSpec = METHODS[request.method]
-    if not request.device.startswith("/dev/"):
-        raise SafetyError("Target must be a /dev/ path.")
-    if request.device == request.boot_device:
+    if spec.nwipe_method not in ALLOWED_NWIPE_METHODS:
+        raise SafetyError("nwipe method is not in the allowlist.")
+    if spec.verify not in ALLOWED_VERIFY:
+        raise SafetyError("nwipe verify flag is not in the allowlist.")
+    if spec.rounds not in ALLOWED_ROUNDS:
+        raise SafetyError("nwipe rounds value is not allowed.")
+    device = normalize_whole_disk(request.device)
+    boot = normalize_whole_disk(request.boot_device)
+    if device == boot:
         raise SafetyError("Target is the boot device.")
+    assert_not_boot(device, boot)
+    assert_log_not_on_target(request.logfile, device)
     argv = [
         "nwipe",
         "--autonuke",
@@ -31,47 +76,52 @@ def build_nwipe_argv(request: WipeRequest) -> List[str]:
         "--nowait",
         f"--method={spec.nwipe_method}",
         f"--verify={spec.verify}",
-        f"--rounds={str(spec.rounds)}",
+        f"--rounds={str(int(spec.rounds))}",
         f"--logfile={request.logfile}",
         "--PDFreportpath=noPDF",
-        f"--exclude={request.boot_device}",
+        f"--exclude={boot}",
     ]
     if spec.noblank:
         argv.append("--noblank")
-    argv.append(request.device)
+    argv.append(device)
     validate_argv(argv, request)
     return argv
 
 
 def validate_argv(argv: List[str], request: WipeRequest) -> None:
-    if "--force" in argv:
+    if any(a == "--force" or a.startswith("--force=") for a in argv):
         raise SafetyError("Refusing to pass --force to nwipe.")
     if argv[0] != "nwipe":
         raise SafetyError("First argument must be nwipe.")
     if "--autonuke" not in argv or "--nogui" not in argv:
         raise SafetyError("Non-interactive nwipe flags required.")
-    positionals = [a for a in argv[1:] if not a.startswith("-") and not a.startswith("/tmp/")]
-    # logfile and exclude contain paths as --flag=value, so they are not positionals.
-    devices = [a for a in argv if a.startswith("/dev/")]
-    if request.device not in devices:
-        raise SafetyError("Target device missing from argv.")
-    if argv[-1] != request.device:
+    device = normalize_whole_disk(request.device)
+    boot = normalize_whole_disk(request.boot_device)
+    if argv[-1] != device:
         raise SafetyError("Target device must be the only positional path, last.")
-    extra_positionals = [
-        a for a in argv[1:-1] if not a.startswith("-")
-    ]
+    extra_positionals = [a for a in argv[1:-1] if not a.startswith("-")]
     if extra_positionals:
         raise SafetyError("Refusing extra positional arguments.")
-    extra = [d for d in devices if d != request.device]
+    devices = [a for a in argv if a.startswith("/dev/")]
+    if device not in devices:
+        raise SafetyError("Target device missing from argv.")
+    extra = [d for d in devices if d != device]
     if extra:
         raise SafetyError("Refusing to pass more than one target device.")
-    exclude = f"--exclude={request.boot_device}"
+    exclude = f"--exclude={boot}"
     if exclude not in argv:
         raise SafetyError("Boot device must be excluded.")
-    # autonuke with NO device would wipe every disk — already checked last arg.
+    logfile_flags = [a for a in argv if a.startswith("--logfile=")]
+    if len(logfile_flags) != 1:
+        raise SafetyError("Exactly one --logfile= flag is required.")
+    log_value = logfile_flags[0].split("=", 1)[1]
+    if log_value.startswith("/dev/") or log_value != request.logfile:
+        raise SafetyError("Log path is not the approved log file.")
+    assert_log_not_on_target(log_value, device)
     if "--autonuke" in argv and argv[-1].startswith("-"):
         raise SafetyError("autonuke without an explicit device is forbidden.")
-    _ = positionals  # kept for readability
+    if any("\n" in a or "\r" in a or "\0" in a for a in argv):
+        raise SafetyError("Refusing control characters in nwipe arguments.")
 
 
 def parse_percent(text: str) -> Optional[float]:
@@ -95,15 +145,17 @@ class NwipeRunner:
         self._log_tail = ""
 
     def start(self, request: WipeRequest) -> None:
+        if os.path.basename(self.binary) == "nwipe":
+            require_real_live_for_nwipe()
+            _verify_pinned_nwipe(self.binary)
         assert_not_boot(request.device, request.boot_device)
         argv = build_nwipe_argv(request)
         argv[0] = self.binary
-        os.makedirs(os.path.dirname(request.logfile) or "/tmp/beamo-wipe", exist_ok=True)
-        try:
-            with open(request.logfile, "w", encoding="utf-8"):
-                pass
-        except OSError:
-            pass
+        if os.path.basename(self.binary) == "nwipe" and argv[0] != "nwipe" and os.path.basename(argv[0]) != "nwipe":
+            raise SafetyError("Refusing to exec a binary that is not nwipe.")
+        log_dir = os.path.dirname(request.logfile) or "/tmp/beamo-wipe"
+        os.makedirs(log_dir, exist_ok=True)
+        truncate_log_file(request.logfile, request.device)
         with self._lock:
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
@@ -118,6 +170,8 @@ class NwipeRunner:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                shell=False,
+                close_fds=True,
             )
 
     def poll(self, request: WipeRequest) -> Optional[WipeResult]:
@@ -147,13 +201,31 @@ class NwipeRunner:
         return self.result
 
     def _refresh_progress(self, logfile: str, proc: subprocess.Popen) -> None:
-        chunks = []
+        del proc
         try:
-            with open(logfile, encoding="utf-8", errors="replace") as fh:
-                chunks.append(fh.read()[-8000:])
+            fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW)
         except OSError:
-            pass
-        percent = parse_percent("\n".join(chunks))
+            return
+        text = ""
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode):
+                return
+            with os.fdopen(fd, "rb") as fh:
+                fd = -1
+                fh.seek(0, os.SEEK_END)
+                size = fh.tell()
+                fh.seek(max(0, size - 8000))
+                text = fh.read().decode("utf-8", errors="replace")
+        except OSError:
+            return
+        finally:
+            if fd >= 0:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+        percent = parse_percent(text)
         if percent is not None:
             self.progress = percent
 
