@@ -241,7 +241,9 @@ class _Button(tk.Frame):
             widget.bind("<Button-1>", self._click)
             widget.bind("<Enter>", self._enter)
             widget.bind("<Leave>", self._leave)
-        self.bind("<space>", self._key)
+            widget.bind("<space>", self._key)
+            widget.bind("<Return>", self._key)
+            widget.bind("<KP_Enter>", self._key)
 
     def _click(self, _event=None) -> str:
         self.focus_set()
@@ -1019,6 +1021,8 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         self._h(col, "Last chance").pack(fill=tk.X, pady=(24, 14))
         self._panel(col, kind="danger", text=self.w.erase_label()).pack(fill=tk.X)
+        if self.w.error:
+            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         count = tk.Frame(col, bg=BG)
         count.pack(anchor="w", pady=(22, 0))
         self._countdown_num = tk.Label(

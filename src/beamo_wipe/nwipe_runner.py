@@ -57,6 +57,11 @@ def validate_argv(argv: List[str], request: WipeRequest) -> None:
         raise SafetyError("Target device missing from argv.")
     if argv[-1] != request.device:
         raise SafetyError("Target device must be the only positional path, last.")
+    extra_positionals = [
+        a for a in argv[1:-1] if not a.startswith("-")
+    ]
+    if extra_positionals:
+        raise SafetyError("Refusing extra positional arguments.")
     extra = [d for d in devices if d != request.device]
     if extra:
         raise SafetyError("Refusing to pass more than one target device.")
@@ -83,7 +88,7 @@ class NwipeRunner:
 
     def __init__(self, binary: str = "nwipe") -> None:
         self.binary = binary
-        self._proc: Optional[subprocess.Popen[str]] = None
+        self._proc: Optional[subprocess.Popen] = None
         self._lock = threading.Lock()
         self.progress: Optional[float] = None
         self.result: Optional[WipeResult] = None
@@ -94,16 +99,25 @@ class NwipeRunner:
         argv = build_nwipe_argv(request)
         argv[0] = self.binary
         os.makedirs(os.path.dirname(request.logfile) or "/tmp/beamo-wipe", exist_ok=True)
+        try:
+            with open(request.logfile, "w", encoding="utf-8"):
+                pass
+        except OSError:
+            pass
         with self._lock:
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
             self.result = None
             self.progress = 0.0
+            self._log_tail = ""
+            self._last_sigusr1 = time.monotonic()
+            # DEVNULL so nwipe's cleanup() printf cannot fill a PIPE and hang.
+            # Progress is parsed from --logfile=. SIGUSR1 is rate-limited in poll().
             self._proc = subprocess.Popen(
                 argv,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
 
     def poll(self, request: WipeRequest) -> Optional[WipeResult]:
@@ -113,17 +127,14 @@ class NwipeRunner:
         code = proc.poll()
         self._refresh_progress(request.logfile, proc)
         if code is None:
-            try:
-                proc.send_signal(signal.SIGUSR1)
-            except (ProcessLookupError, OSError):
-                pass
+            now = time.monotonic()
+            if now - getattr(self, "_last_sigusr1", 0.0) >= 2.0:
+                try:
+                    proc.send_signal(signal.SIGUSR1)
+                    self._last_sigusr1 = now
+                except (ProcessLookupError, OSError):
+                    pass
             return None
-        output = ""
-        if proc.stdout:
-            try:
-                output = proc.stdout.read() or ""
-            except OSError:
-                output = ""
         ok = code == 0
         self.result = WipeResult(
             ok=ok,
@@ -133,10 +144,9 @@ class NwipeRunner:
         )
         self.progress = 100.0 if ok else self.progress
         self._proc = None
-        self._log_tail = output[-4000:]
         return self.result
 
-    def _refresh_progress(self, logfile: str, proc: subprocess.Popen[str]) -> None:
+    def _refresh_progress(self, logfile: str, proc: subprocess.Popen) -> None:
         chunks = []
         try:
             with open(logfile, encoding="utf-8", errors="replace") as fh:
@@ -148,7 +158,9 @@ class NwipeRunner:
             self.progress = percent
 
     def cancel(self) -> None:
-        proc = self._proc
+        with self._lock:
+            proc = self._proc
+            self._proc = None
         if proc is None:
             return
         proc.terminate()
@@ -156,6 +168,16 @@ class NwipeRunner:
             proc.wait(timeout=8)
         except subprocess.TimeoutExpired:
             proc.kill()
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+        self.result = WipeResult(
+            ok=False,
+            exit_code=proc.returncode if proc.returncode is not None else 143,
+            summary="cancelled",
+            logfile="",
+        )
 
 
 class DryRunRunner:

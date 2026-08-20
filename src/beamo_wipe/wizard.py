@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Callable, Optional, Protocol
 
@@ -20,6 +21,7 @@ from beamo_wipe.models import (
 from beamo_wipe.safety import (
     SafetyError,
     assert_boot_excluded,
+    assert_ready_to_wipe,
     confirm_spec,
     selectable_disks,
     token_matches,
@@ -52,6 +54,8 @@ class Wizard:
         self.runner = runner
         self._clock = clock or time.monotonic
         self.dry_run = dry_run
+        if dry_run:
+            os.environ.setdefault("BEAMO_WIPE_DRY_RUN", "1")
         self.preview = False
         self.screen = Screen.SPLASH
         self.owner_ok = False
@@ -172,6 +176,8 @@ class Wizard:
         self.screen = Screen.PICK
 
     def select_disk(self, path: str) -> None:
+        if self.screen != Screen.PICK:
+            return
         for disk in self.discovery.disks:
             if disk.path == path:
                 if disk.is_boot:
@@ -185,7 +191,9 @@ class Wizard:
 
     def move_selection(self, delta: int) -> None:
         """Move the pick-list highlight. First Up/Down chooses an edge disk."""
-        selectable = list(self.selectable)
+        if self.screen != Screen.PICK:
+            return
+        selectable = sorted(self.selectable, key=lambda d: d.path)
         if not selectable:
             return
         paths = [d.path for d in selectable]
@@ -198,6 +206,8 @@ class Wizard:
 
     def continue_pick(self) -> None:
         if self.screen != Screen.PICK or self.selected is None or self.selected.is_boot:
+            return
+        if self.selected.path not in {d.path for d in self.selectable}:
             return
         self.confirm_input = ""
         self.screen = Screen.CONFIRM
@@ -223,39 +233,25 @@ class Wizard:
         if not self.erase_enabled or self.selected is None:
             return
         try:
-            if not self.dry_run:
-                from beamo_wipe.safety import require_live_or_dry_run
-
-                require_live_or_dry_run()
-            assert_boot_excluded(self.discovery)
-            if not self.owner_ok:
-                raise SafetyError("Owner checkbox is required.")
-            if self.selected.is_boot:
-                raise SafetyError("Refusing to erase the Beamo boot device.")
-            spec = self.confirm
-            if spec is None or not token_matches(self.confirm_input, spec):
-                raise SafetyError("Confirm token does not match.")
-            boot = self.discovery.boot
-            if boot is None:
-                raise SafetyError("Boot device missing.")
-            from beamo_wipe.safety import logfile_for, assert_not_boot
-
-            assert_not_boot(self.selected.path, boot.path)
-            log = logfile_for(self.selected.path)
-            request = WipeRequest(
-                device=self.selected.path,
+            request = assert_ready_to_wipe(
+                owner_ok=self.owner_ok,
+                disk=self.selected,
+                discovery=self.discovery,
+                typed_token=self.confirm_input,
+                countdown_complete=True,
                 method=self.method,
-                boot_device=boot.path,
-                logfile=log,
             )
-            # Building argv is the last gate: autonuke without a device is rejected.
             build_nwipe_argv(request)
+            self.runner.start(request)
         except SafetyError as exc:
             self.error = str(exc)
             return
+        except OSError as exc:
+            self.error = f"Could not start nwipe: {exc}"
+            return
+        self.error = None
         self._wipe_request = request
         self.screen = Screen.WORKING
-        self.runner.start(request)
 
     def _finish(self, result: WipeResult) -> None:
         self.wipe_result = result
@@ -295,6 +291,7 @@ class Wizard:
             self.screen = mapping[self.screen]
             if self.screen != Screen.LAST_CHANCE:
                 self._erase_until = None
+            self.error = None
 
     def warning_text(self) -> str:
         if self.selected is None:

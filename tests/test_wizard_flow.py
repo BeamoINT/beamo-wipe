@@ -160,6 +160,22 @@ def test_move_selection_does_not_start_on_boot():
     assert wiz.selected.path in paths
 
 
+def test_move_selection_follows_path_sorted_order():
+    """Keyboard highlight must match the on-screen sort (path, boot last)."""
+    wiz, _clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    ordered = sorted(wiz.selectable, key=lambda d: d.path)
+    wiz.move_selection(1)
+    assert wiz.selected is not None
+    assert wiz.selected.path == ordered[0].path
+    if len(ordered) > 1:
+        wiz.move_selection(1)
+        assert wiz.selected.path == ordered[1].path
+
+
 def test_preview_splash_does_not_auto_advance():
     wiz = make_demo_wizard()
     assert wiz.preview
@@ -198,3 +214,115 @@ def test_reset_for_preview_clears_selection(monkeypatch, tmp_path):
     assert wiz.screen == Screen.SPLASH
     assert wiz.selected is None
     assert not wiz.owner_ok
+
+
+class _BoomRunner:
+    progress = None
+    result = None
+    started = False
+
+    def start(self, request) -> None:
+        raise OSError("nwipe: command not found")
+
+    def poll(self, request):
+        return None
+
+    def cancel(self) -> None:
+        return None
+
+
+def test_confirm_erase_does_not_enter_working_if_start_fails(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.runner = _BoomRunner()
+    try:
+        wiz.confirm_erase()
+    except OSError:
+        pass
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert wiz.error
+    wiz.tick()
+    assert wiz.screen == Screen.LAST_CHANCE
+
+
+def test_confirm_erase_safety_error_stays_on_last_chance(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.set_owner(False)
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert wiz.error
+    assert not getattr(wiz.runner, "started", False)
+
+
+def test_select_disk_ignored_after_confirm(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    first = wiz.selectable[0]
+    second = wiz.selectable[1]
+    wiz.select_disk(first.path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.select_disk(second.path)
+    assert wiz.selected is not None
+    assert wiz.selected.path == first.path
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.WORKING
+    assert wiz.runner._request.device == first.path
+
+
+def test_confirm_erase_refuses_disk_removed_from_selectable(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    from beamo_wipe.models import DiscoveryResult
+
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    # Unique size so the confirm token does not change when the list shrinks.
+    target = next(d for d in wiz.selectable if d.size_gb_label == "1000")
+    wiz.select_disk(target.path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.discovery = DiscoveryResult(
+        disks=wiz.discovery.disks,
+        selectable=tuple(d for d in wiz.discovery.selectable if d.path != target.path),
+        boot=wiz.discovery.boot,
+        error=wiz.discovery.error,
+        boot_identified=wiz.discovery.boot_identified,
+    )
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not getattr(wiz.runner, "started", False)
+    assert wiz.error

@@ -1,23 +1,24 @@
 #!/bin/sh
 set -e
-# Pin nwipe v0.42 from upstream. Fallback: Debian package.
+# Pin nwipe v0.42 from upstream. No distro fallback — bookworm's nwipe is not 0.42.
 mkdir -p /usr/share/doc/beamo-wipe
 NWIPE_TAG=v0.42
-if git clone --depth 1 --branch "$NWIPE_TAG" https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe; then
-  cd /tmp/nwipe
-  if [ -x ./autogen.sh ]; then
-    ./autogen.sh
-  fi
-  ./configure
-  make -j"$(nproc || echo 2)"
-  make install
-  cd /
-  rm -rf /tmp/nwipe
-else
-  echo "WARNING: could not clone nwipe $NWIPE_TAG; installing Debian nwipe" >&2
-  apt-get install -y nwipe
+git clone --depth 1 --branch "$NWIPE_TAG" https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe
+cd /tmp/nwipe
+if [ -x ./autogen.sh ]; then
+  ./autogen.sh
 fi
-nwipe -V > /usr/share/doc/beamo-wipe/NWIPE_VERSION 2>&1 || true
+./configure
+make -j"$(nproc || echo 2)"
+make install
+cd /
+rm -rf /tmp/nwipe
+nwipe -V > /usr/share/doc/beamo-wipe/NWIPE_VERSION 2>&1
+if ! grep -q "0.42" /usr/share/doc/beamo-wipe/NWIPE_VERSION; then
+  echo "ERROR: installed nwipe is not v0.42" >&2
+  cat /usr/share/doc/beamo-wipe/NWIPE_VERSION >&2
+  exit 1
+fi
 # Drop compilers from the shipped image after the build.
 apt-get purge -y build-essential automake autoconf git pkg-config || true
 apt-get autoremove -y || true

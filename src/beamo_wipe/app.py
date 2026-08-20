@@ -115,7 +115,15 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
         lsblk_payload=payload,
         boot_path=args.boot_device,
     )
-    if args.dry_run:
+    use_dry = (
+        args.dry_run
+        or os.environ.get("BEAMO_WIPE_DEMO") == "1"
+        or (
+            os.environ.get("BEAMO_WIPE_DRY_RUN") == "1"
+            and os.environ.get("BEAMO_WIPE_LIVE") != "1"
+        )
+    )
+    if use_dry:
         runner = DryRunRunner(duration_s=3.0, fail=args.fail_demo)
         return Wizard(discovery, runner, dry_run=True)
     runner = NwipeRunner()

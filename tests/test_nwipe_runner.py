@@ -62,6 +62,127 @@ def test_rejects_missing_device():
         validate_argv(argv, req)
 
 
+def test_validate_rejects_extra_positional():
+    req = _request()
+    argv = build_nwipe_argv(req)
+    argv.insert(-1, "/etc/passwd")
+    with pytest.raises(SafetyError):
+        validate_argv(argv, req)
+
+
+def test_parse_percent():
+    assert parse_percent("progress 12.5% remaining") == 12.5
+    assert parse_percent("no numbers") is None
+    assert parse_percent("101%") is None
+
+
+def test_dry_run_never_calls_binary():
+    runner = DryRunRunner(duration_s=0.01)
+    req = _request()
+    runner.start(req)
+    assert runner.started
+    # Immediate poll may still be running; that's fine.
+    assert runner.result is None or runner.result.ok
+
+
+def test_nwipe_runner_does_not_deadlock_on_stdout(tmp_path):
+    """A child that writes more than a pipe buffer must still be able to exit."""
+    import stat
+    import time
+
+    from beamo_wipe.nwipe_runner import NwipeRunner
+
+    script = tmp_path / "fake_nwipe"
+    script.write_text(
+        "#!/bin/sh\n"
+        "trap '' USR1\n"
+        "dd if=/dev/zero bs=1024 count=256 2>/dev/null\n"
+        "for arg in \"$@\"; do\n"
+        "  case \"$arg\" in --logfile=*) echo '12.5%' >> \"${arg#--logfile=}\" ;; esac\n"
+        "done\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile=str(tmp_path / "nwipe-vda.log"),
+    )
+    runner = NwipeRunner(binary=str(script))
+    runner.start(req)
+    deadline = time.monotonic() + 3.0
+    result = None
+    while time.monotonic() < deadline:
+        result = runner.poll(req)
+        if result is not None:
+            break
+        time.sleep(0.05)
+    if runner._proc is not None:
+        runner._proc.kill()
+    assert result is not None
+    assert result.exit_code == 0
+
+
+def test_nwipe_runner_cancel_allows_start_again(tmp_path):
+    import stat
+    import time
+
+    from beamo_wipe.nwipe_runner import NwipeRunner
+
+    script = tmp_path / "fake_nwipe_sleep"
+    script.write_text(
+        "#!/bin/sh\n"
+        "trap '' USR1\n"
+        "sleep 30\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile=str(tmp_path / "nwipe-vda.log"),
+    )
+    runner = NwipeRunner(binary=str(script))
+    runner.start(req)
+    runner.cancel()
+    time.sleep(0.05)
+    runner.start(req)
+    runner.cancel()
+
+
+def test_stale_logfile_does_not_show_100_percent(tmp_path):
+    import stat
+    import time
+
+    from beamo_wipe.nwipe_runner import NwipeRunner
+
+    stale = tmp_path / "nwipe-vda.log"
+    stale.write_text("/dev/vda: 100.00%, round 1 of 1\n", encoding="utf-8")
+    script = tmp_path / "fake_nwipe_hang"
+    script.write_text(
+        "#!/bin/sh\n"
+        "trap '' USR1\n"
+        "sleep 30\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile=str(stale),
+    )
+    runner = NwipeRunner(binary=str(script))
+    runner.start(req)
+    time.sleep(0.05)
+    assert runner.poll(req) is None
+    assert runner.progress != 100.0
+    runner.cancel()
+
+
 def test_parse_percent():
     assert parse_percent("progress 12.5% remaining") == 12.5
     assert parse_percent("no numbers") is None

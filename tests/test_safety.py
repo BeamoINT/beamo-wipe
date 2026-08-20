@@ -53,6 +53,26 @@ def test_refuse_wipe_boot_path():
     assert_not_boot("/dev/nvme0n1", "/dev/sdb")
 
 
+def test_nvme_sibling_namespaces_are_not_treated_as_boot():
+    assert_not_boot("/dev/nvme0n11", "/dev/nvme0n1")
+    assert_not_boot("/dev/nvme0n1", "/dev/nvme0n11")
+    with pytest.raises(SafetyError):
+        assert_not_boot("/dev/nvme0n1p1", "/dev/nvme0n1")
+    with pytest.raises(SafetyError):
+        assert_not_boot("/dev/nvme0n1", "/dev/nvme0n1p1")
+
+
+def test_logfile_for_is_unique_per_call(tmp_path, monkeypatch):
+    from beamo_wipe.safety import logfile_for
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    first = logfile_for("/dev/sda")
+    second = logfile_for("/dev/sda")
+    assert first != second
+    assert str(tmp_path) in first
+    assert str(tmp_path) in second
+
+
 def test_logs_not_on_target_name():
     with pytest.raises(SafetyError):
         assert_log_not_on_target("/mnt/target/log.txt", "/dev/nvme0n1")

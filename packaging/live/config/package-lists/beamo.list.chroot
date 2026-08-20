@@ -26,6 +26,7 @@ usbutils
 util-linux
 eject
 smartmontools
+hdparm
 dmidecode
 ca-certificates
 kbd

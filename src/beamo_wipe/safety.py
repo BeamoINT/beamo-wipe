@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple
 
@@ -71,17 +72,36 @@ def boot_device_in_selectable(discovery: DiscoveryResult) -> bool:
 def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
     """
     Default token is the size label (e.g. 256).
-    If two listed disks share that size, use last 4 of serial, else the device name.
+    If two listed disks share that size, use last 4 of serial when that
+    suffix is unique in the same-size set, else the full serial if unique,
+    else the device name.
     """
     same = [d for d in selectable if d.size_gb_label == disk.size_gb_label]
     if len(same) > 1:
         serial = (disk.serial or "").strip()
         if len(serial) >= 4:
             token = serial[-4:]
-            return ConfirmSpec(
-                token=token,
-                prompt=f"Type the last four characters of the serial shown above.",
-            )
+            same_token = [
+                d
+                for d in same
+                if (d.serial or "").strip()[-4:].casefold() == token.casefold()
+            ]
+            if len(same_token) == 1:
+                return ConfirmSpec(
+                    token=token,
+                    prompt="Type the last four characters of the serial shown above.",
+                )
+        if serial:
+            same_serial = [
+                d
+                for d in same
+                if (d.serial or "").strip().casefold() == serial.casefold()
+            ]
+            if len(same_serial) == 1:
+                return ConfirmSpec(
+                    token=serial,
+                    prompt="Type the serial number shown above.",
+                )
         token = disk.name
         return ConfirmSpec(
             token=token,
@@ -115,18 +135,24 @@ def assert_not_boot(device: str, boot_path: str) -> None:
         raise SafetyError("Missing device or boot path.")
     if os.path.realpath(device) == os.path.realpath(boot_path):
         raise SafetyError("Refusing to erase the Beamo boot device.")
-    # Child/parent: /dev/sda vs /dev/sda1
     dev = os.path.realpath(device)
     boot = os.path.realpath(boot_path)
-    if dev.startswith(boot) or boot.startswith(dev):
-        # /dev/sda vs /dev/sdb is fine; /dev/sda vs /dev/sda1 is not.
-        # Avoid treating /dev/sda as prefix of /dev/sdaa by requiring next char
-        # to be a digit or 'p' (nvme0n1p1) or end.
-        shorter, longer = (dev, boot) if len(dev) <= len(boot) else (boot, dev)
-        if longer.startswith(shorter) and len(longer) > len(shorter):
-            nxt = longer[len(shorter)]
-            if nxt.isdigit() or nxt in "pP":
-                raise SafetyError("Refusing to erase the Beamo boot device.")
+    if _is_partition_of(dev, boot) or _is_partition_of(boot, dev):
+        raise SafetyError("Refusing to erase the Beamo boot device.")
+
+
+def _is_partition_of(device: str, parent: str) -> bool:
+    """True if `device` is a partition of `parent` (sda1 of sda, nvme0n1p1 of nvme0n1).
+
+    Sibling NVMe namespaces (nvme0n1 vs nvme0n11) are not partitions.
+    """
+    if not device.startswith(parent) or len(device) <= len(parent):
+        return False
+    rest = device[len(parent) :]
+    parent_name = os.path.basename(parent)
+    if parent_name.startswith("nvme") or parent_name.startswith("mmcblk"):
+        return len(rest) > 1 and rest[0] in "pP" and rest[1:].isdigit()
+    return rest.isdigit()
 
 
 def assert_log_not_on_target(log_path: str, target: str) -> None:
@@ -154,7 +180,7 @@ def default_log_dir() -> Path:
 def logfile_for(target: str, log_dir: Optional[Path] = None) -> str:
     directory = log_dir or default_log_dir()
     safe_name = os.path.basename(target).replace("/", "_")
-    path = directory / f"nwipe-{safe_name}.log"
+    path = directory / f"nwipe-{safe_name}-{os.getpid()}-{time.time_ns()}.log"
     assert_log_not_on_target(str(path), target)
     return str(path)
 

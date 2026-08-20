@@ -40,3 +40,36 @@ def test_duplicate_size_uses_serial_suffix():
     assert token_matches(spec0.token.lower(), spec0)
     assert not token_matches(spec0.token, spec1)
     assert not token_matches(disks[0].size_gb_label, spec0)
+
+
+def test_same_size_colliding_serial_suffix_uses_device_name():
+    from beamo_wipe.models import Disk, DiskKind
+
+    d1 = Disk(
+        path="/dev/sda",
+        name="sda",
+        model="A",
+        serial="AAAA1234",
+        size_bytes=500_000_000_000,
+        size_gb_label="500",
+        kind=DiskKind.HDD,
+        bus="SATA",
+        label="",
+    )
+    d2 = Disk(
+        path="/dev/sdb",
+        name="sdb",
+        model="B",
+        serial="BBBB1234",
+        size_bytes=500_000_000_000,
+        size_gb_label="500",
+        kind=DiskKind.HDD,
+        bus="SATA",
+        label="",
+    )
+    spec1 = confirm_spec(d1, [d1, d2])
+    spec2 = confirm_spec(d2, [d1, d2])
+    assert spec1.token != spec2.token
+    assert not token_matches(spec1.token, spec2)
+    assert spec1.token in {"sda", "AAAA1234"}
+    assert spec2.token in {"sdb", "BBBB1234"}

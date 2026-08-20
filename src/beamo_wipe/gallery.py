@@ -415,6 +415,7 @@ function draw() {
       else { matchEl.textContent = P.matchWait; matchEl.className = "match"; }
     };
     inp.oninput = sync;
+    inp.onkeydown = (e) => { if (e.key === "Enter" && tokenOk()) { e.preventDefault(); screen = "method"; draw(); } };
     sync();
     setTimeout(() => { inp.focus(); inp.setSelectionRange(token.length, token.length); }, 0);
     hint.textContent = P.hints.confirm;
@@ -461,6 +462,7 @@ function draw() {
     btns.append(btn("Back", () => { screen = "method"; draw(); }));
     btns.append(btn("Continue", () => { screen = "method"; draw(); }, "primary"));
   } else if (screen === "last") {
+    if (!selected) { screen = "pick"; draw(); return; }
     const ready = tLeft <= 0;
     main.innerHTML = `<h1>Last chance</h1>${panel("danger", ICON_WARN_RED, selected.eraseLabel)}
       <div class="countrow"><span class="bigstat" style="${ready ? "color:var(--ok)" : ""}">${ready ? "✓" : tLeft}</span>
@@ -468,6 +470,7 @@ function draw() {
     btns.append(btn("Back", () => { if (timer) clearInterval(timer); screen = "method"; draw(); }));
     btns.append(btn("Erase now", () => { if (tLeft<=0) startWork(); }, "danger", tLeft>0));
   } else if (screen === "working") {
+    if (!selected) { screen = "pick"; draw(); return; }
     const m = P.methods[method];
     const pct = demoPct === null ? 0 : demoPct;
     main.innerHTML = `<h1>Working</h1>
@@ -478,6 +481,7 @@ function draw() {
       <p class="muted" style="font-size:18px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p>`;
     hint.textContent = P.hints.working;
   } else if (screen === "done") {
+    if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
     main.innerHTML = `<div class="status ${ok ? "ok" : "bad"}" style="margin-top:26px">${ok ? "✓" : "✕"}</div>
       <h1>${ok?"Finished":"The wipe did not finish"}</h1>

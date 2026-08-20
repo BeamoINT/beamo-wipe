@@ -8,6 +8,7 @@ import time
 
 from beamo_wipe import copy as C
 from beamo_wipe.models import MethodId, Screen
+from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.wizard import Wizard
 
 
@@ -66,6 +67,8 @@ def _plain_loop(wizard: Wizard) -> int:
             numbered = [d for d in ordered if not d.is_boot]
             try:
                 idx = int(choice) - 1
+                if idx < 0:
+                    raise IndexError
                 wizard.select_disk(numbered[idx].path)
                 wizard.continue_pick()
             except (ValueError, IndexError):
@@ -92,6 +95,8 @@ def _plain_loop(wizard: Wizard) -> int:
             continue
         if screen == Screen.LAST_CHANCE:
             print(wizard.erase_label())
+            if wizard.error:
+                print(wizard.error)
             while wizard.countdown_left > 0:
                 wizard.tick()
                 print(f"Wait {int(wizard.countdown_left + 0.99)}…")
@@ -104,6 +109,13 @@ def _plain_loop(wizard: Wizard) -> int:
             continue
         if screen == Screen.WORKING:
             print(C.WORKING_PULSE, wizard.progress)
+            if wizard.selected:
+                print(
+                    wizard.selected.display_name,
+                    wizard.selected.size_phrase,
+                    wizard.selected.path,
+                    wizard.selected.serial or "no serial",
+                )
             time.sleep(0.3)
             continue
         if screen == Screen.DONE:
@@ -154,11 +166,17 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, y + 2, 0, f"{mark}  Space to check. Enter continues only when checked.")
         elif wizard.screen == Screen.PICK:
             y = _wrap(stdscr, y, C.pick_subtitle(), w) + 1
+            if same_size_conflict(wizard.selectable):
+                y = _wrap(stdscr, y, C.SAME_SIZE_HINT, w) + 1
             ordered = sorted(wizard.discovery.disks, key=lambda d: (d.is_boot, d.path))
             for disk in ordered:
                 star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
                 extra = "  " + C.BOOT_USB_BANNER if disk.is_boot else ""
-                line = f"{star} {disk.display_name}  {disk.size_phrase}  {disk.kind.value}  {disk.path}{extra}"
+                serial = disk.serial or "no serial"
+                line = (
+                    f"{star} {disk.display_name}  {disk.size_phrase}  "
+                    f"{disk.kind.value}  {serial}  {disk.path}{extra}"
+                )
                 attr = curses.A_REVERSE if star == ">" else curses.A_NORMAL
                 if disk.is_boot:
                     attr = curses.A_DIM
@@ -204,12 +222,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _wrap(stdscr, y, C.SSD_FOOTER, w)
         elif wizard.screen == Screen.LAST_CHANCE:
             _wrap(stdscr, y, wizard.erase_label(), w)
+            if wizard.error:
+                _wrap(stdscr, y + 2, wizard.error, w)
             _add(stdscr, y + 3, 0, f"Wait {int(wizard.countdown_left + 0.99)}s" if wizard.countdown_left else "Enter to erase.")
         elif wizard.screen == Screen.WORKING:
             _add(stdscr, y, 0, C.WORKING_PULSE)
             _add(stdscr, y + 2, 0, f"{wizard.progress or 0:.0f}%")
             if wizard.selected:
                 _add(stdscr, y + 4, 0, f"{wizard.selected.display_name} {wizard.selected.size_phrase}")
+                _add(
+                    stdscr,
+                    y + 5,
+                    0,
+                    f"{wizard.selected.path}  {wizard.selected.serial or 'no serial'}",
+                )
         elif wizard.screen == Screen.DONE:
             _wrap(
                 stdscr,

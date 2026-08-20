@@ -78,13 +78,20 @@ def _as_bool(value: Any) -> Optional[bool]:
 def _as_int(value: Any) -> int:
     if value is None or value == "":
         return 0
+    if isinstance(value, bool):
+        return int(value)
     if isinstance(value, int):
         return value
+    if isinstance(value, float):
+        return int(value)
     text = str(value).strip()
     try:
         return int(text)
     except ValueError:
-        return 0
+        try:
+            return int(float(text))
+        except ValueError:
+            return 0
 
 
 def _clean(value: Any) -> str:
@@ -122,27 +129,48 @@ def disk_nodes(blockdevices: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return disks
 
 
-def parent_disk_path(
-    path: str, blockdevices: Sequence[Dict[str, Any]]
-) -> Optional[str]:
-    """Return the type=disk path that owns `path` (itself, or its ancestor)."""
+def _path_aliases(path: str) -> set:
     aliases = {path}
     try:
         aliases.add(os.path.realpath(path))
     except OSError:
         pass
+    return aliases
+
+
+def _node_type(node: Dict[str, Any]) -> str:
+    return (node.get("type") or "").lower()
+
+
+def parent_disk_path(
+    path: str, blockdevices: Sequence[Dict[str, Any]]
+) -> Optional[str]:
+    """Return the type=disk (or type=rom) path that owns `path`.
+
+    Loop devices are not boot media. Partitions resolve to their disk.
+    A path that is not in the tree returns None (fail closed).
+    """
+    aliases = _path_aliases(path)
     for disk in disk_nodes(blockdevices):
         for candidate in paths_under(disk):
-            names = {candidate}
-            try:
-                names.add(os.path.realpath(candidate))
-            except OSError:
-                pass
-            if aliases & names:
+            if aliases & _path_aliases(candidate):
                 return node_path(disk)
-    for node, _parent in flatten_blockdevices(blockdevices):
-        if node_path(node) in aliases:
+    for node, parent in flatten_blockdevices(blockdevices):
+        if not (aliases & _path_aliases(node_path(node))):
+            continue
+        typ = _node_type(node)
+        if typ == "loop":
+            return None
+        if typ in {"disk", "rom"}:
             return node_path(node)
+        pk = _clean(node.get("pkname"))
+        if pk:
+            for disk in disk_nodes(blockdevices):
+                if _clean(disk.get("name")) == pk:
+                    return node_path(disk)
+        if parent is not None and _node_type(parent) in {"disk", "rom"}:
+            return node_path(parent)
+        return None
     return None
 
 
@@ -159,7 +187,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
     return Disk(
         path=path,
         name=name,
-        model=_clean(node.get("model")) or "Unknown model",
+        model=_clean(node.get("model")) or label or "Unknown model",
         serial=_clean(node.get("serial")),
         size_bytes=_as_int(node.get("size")),
         size_gb_label=size_gb_label(_as_int(node.get("size"))),
@@ -180,6 +208,66 @@ def labels_for(node: Dict[str, Any]) -> List[str]:
     return found
 
 
+def _is_loop_path(path: str, blockdevices: Sequence[Dict[str, Any]]) -> bool:
+    aliases = _path_aliases(path)
+    for node, _parent in flatten_blockdevices(blockdevices):
+        if aliases & _path_aliases(node_path(node)):
+            return _node_type(node) == "loop"
+    return bool(re.match(r"^loop", os.path.basename(path), re.IGNORECASE))
+
+
+def _resolve_boot_path(
+    raw: str, blockdevices: Sequence[Dict[str, Any]]
+) -> Optional[str]:
+    """Map a /dev path to the boot disk/rom, or None if it cannot be identified."""
+    if not raw:
+        return None
+    raw = raw.split("[", 1)[0].strip()
+    if not raw.startswith("/dev/"):
+        return None
+    parent = parent_disk_path(raw, blockdevices)
+    candidate = parent or raw
+    if _is_loop_path(candidate, blockdevices):
+        return None
+    aliases = _path_aliases(candidate)
+    for node, _parent in flatten_blockdevices(blockdevices):
+        if not (aliases & _path_aliases(node_path(node))):
+            continue
+        if _node_type(node) == "loop":
+            return None
+        if _node_type(node) in {"disk", "rom"}:
+            return node_path(node)
+        resolved = parent_disk_path(node_path(node), blockdevices)
+        return resolved
+    return None
+
+
+def _label_boot_disks(blockdevices: Sequence[Dict[str, Any]]) -> List[str]:
+    found: List[str] = []
+    seen = set()
+
+    def _norm(label: str) -> str:
+        return re.sub(r"[^A-Z0-9]", "", (label or "").upper())
+
+    for node, _parent in flatten_blockdevices(blockdevices):
+        if _node_type(node) == "loop":
+            continue
+        matched = False
+        for label in labels_for(node):
+            if _norm(label) == "BEAMOWIPE" or label.upper() in BOOT_LABELS:
+                matched = True
+                break
+        if not matched:
+            continue
+        parent = parent_disk_path(node_path(node), blockdevices)
+        if not parent or _is_loop_path(parent, blockdevices):
+            continue
+        if parent not in seen:
+            seen.add(parent)
+            found.append(parent)
+    return found
+
+
 def identify_boot_path(
     blockdevices: Sequence[Dict[str, Any]],
     *,
@@ -187,42 +275,36 @@ def identify_boot_path(
     mount_sources: Optional[Sequence[str]] = None,
     cmdline: str = "",
 ) -> Optional[str]:
-    """Return the parent disk path of the live medium, or None if unsure."""
+    """Return the parent disk/rom path of the live medium, or None if unsure.
+
+    Live mounts are ground truth. Filesystem labels are used only when they
+    uniquely identify one disk. Loop devices are never the boot USB.
+    """
     if env_boot:
-        parent = parent_disk_path(env_boot, blockdevices)
-        return parent or env_boot
+        return _resolve_boot_path(env_boot, blockdevices)
 
-    def _norm(label: str) -> str:
-        return re.sub(r"[^A-Z0-9]", "", (label or "").upper())
-
-    for node, _parent in flatten_blockdevices(blockdevices):
-        for label in labels_for(node):
-            if _norm(label) == "BEAMOWIPE" or label.upper() in BOOT_LABELS:
-                parent = parent_disk_path(node_path(node), blockdevices)
-                if parent:
-                    return parent
-
+    mount_hits: List[str] = []
+    seen = set()
     for source in mount_sources or ():
-        if not source:
-            continue
-        # SOURCE may be /dev/sda1 or /dev/sr0
-        raw = source.split("[", 1)[0].strip()
-        if not raw.startswith("/dev/"):
-            continue
-        parent = parent_disk_path(raw, blockdevices)
-        if parent:
-            return parent
-        # Optical / whole-device mounts
-        if raw:
-            return raw
+        resolved = _resolve_boot_path(source, blockdevices) if source else None
+        if resolved and resolved not in seen:
+            seen.add(resolved)
+            mount_hits.append(resolved)
+    if len(mount_hits) == 1:
+        return mount_hits[0]
+    if len(mount_hits) > 1:
+        return None
 
-    # live-boot sometimes puts bootfrom=/dev/sda1 on the kernel command line
     for key in ("bootfrom=", "img_dev=", "live-media=", "boot_image="):
         if key in cmdline:
             part = cmdline.split(key, 1)[1].split(" ", 1)[0].strip()
-            if part.startswith("/dev/"):
-                parent = parent_disk_path(part, blockdevices)
-                return parent or part
+            resolved = _resolve_boot_path(part, blockdevices)
+            if resolved:
+                return resolved
+
+    labels = _label_boot_disks(blockdevices)
+    if len(labels) == 1:
+        return labels[0]
     return None
 
 
@@ -241,6 +323,15 @@ def should_hide(node: Dict[str, Any], boot_path: Optional[str]) -> bool:
     return typ != "disk"
 
 
+def _node_is_boot(node: Dict[str, Any], boot_path: Optional[str]) -> bool:
+    if not boot_path:
+        return False
+    path = node_path(node)
+    if path == boot_path:
+        return True
+    return boot_path in paths_under(node)
+
+
 def parse_lsblk_json(
     payload: Dict[str, Any],
     *,
@@ -253,38 +344,28 @@ def parse_lsblk_json(
 
     disks: List[Disk] = []
     for node in disk_nodes(blockdevices):
-        path = _clean(node.get("path")) or f"/dev/{_clean(node.get('name'))}"
-        is_boot = bool(boot_path and path == boot_path)
+        is_boot = _node_is_boot(node, boot_path)
         if should_hide(node, boot_path) and not is_boot:
             continue
         disks.append(node_to_disk(node, is_boot=is_boot))
 
     # Boot medium might be type=rom (ISO in a VM). Still surface it, marked.
-    if boot_path and not any(d.path == boot_path for d in disks):
+    if boot_path and not any(d.is_boot for d in disks):
         for node, _parent in flatten_blockdevices(blockdevices):
-            path = _clean(node.get("path")) or f"/dev/{_clean(node.get('name'))}"
-            if path == boot_path:
+            if _node_type(node) == "loop":
+                continue
+            if not _node_is_boot(node, boot_path):
+                continue
+            if _node_type(node) in {"rom", "disk"}:
                 disks.append(node_to_disk(node, is_boot=True))
                 break
         else:
-            # We know the path from mounts but lsblk missed it: synthesize.
-            name = os.path.basename(boot_path)
-            disks.append(
-                Disk(
-                    path=boot_path,
-                    name=name,
-                    model="Beamo boot device",
-                    serial="",
-                    size_bytes=0,
-                    size_gb_label="0",
-                    kind=DiskKind.UNKNOWN,
-                    bus="USB",
-                    label="BEAMO_WIPE",
-                    is_boot=True,
-                )
-            )
+            if require_boot:
+                return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
 
     boot = next((d for d in disks if d.is_boot), None)
+    if require_boot and boot is None:
+        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
     selectable = tuple(d for d in disks if not d.is_boot)
     return DiscoveryResult(
         disks=tuple(disks),
@@ -350,12 +431,19 @@ def discover(
 ) -> DiscoveryResult:
     if env is None:
         env = os.environ
-    payload = lsblk_payload if lsblk_payload is not None else run_lsblk()
-    blockdevices = payload.get("blockdevices") or []
-    identified = boot_path or identify_boot_path(
-        blockdevices,
-        env_boot=env.get("BEAMO_WIPE_BOOT_DEVICE") or boot_path,
-        mount_sources=mount_sources if mount_sources is not None else read_mount_sources(),
-        cmdline=cmdline if cmdline is not None else read_cmdline(),
-    )
-    return parse_lsblk_json(payload, boot_path=identified, require_boot=True)
+    try:
+        payload = lsblk_payload if lsblk_payload is not None else run_lsblk()
+        if not isinstance(payload, dict):
+            raise ValueError("lsblk JSON root must be an object")
+        blockdevices = payload.get("blockdevices") or []
+        identified = identify_boot_path(
+            blockdevices,
+            env_boot=boot_path or env.get("BEAMO_WIPE_BOOT_DEVICE"),
+            mount_sources=(
+                mount_sources if mount_sources is not None else read_mount_sources()
+            ),
+            cmdline=cmdline if cmdline is not None else read_cmdline(),
+        )
+        return parse_lsblk_json(payload, boot_path=identified, require_boot=True)
+    except (OSError, subprocess.CalledProcessError, ValueError, json.JSONDecodeError):
+        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)

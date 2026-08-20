@@ -30,6 +30,21 @@ def test_parser_preview_aliases():
     assert args.helper
 
 
+def test_dry_run_env_does_not_build_nwipe_runner(monkeypatch):
+    from beamo_wipe.app import _build_wizard
+    from beamo_wipe.nwipe_runner import DryRunRunner
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.delenv("BEAMO_WIPE_LIVE", raising=False)
+    fixture = Path(__file__).resolve().parent / "fixtures" / "lsblk_same_size.json"
+    args = _parser().parse_args(
+        ["--lsblk-json", str(fixture), "--boot-device", "/dev/sdb"]
+    )
+    wiz = _build_wizard(args)
+    assert wiz.dry_run
+    assert isinstance(wiz.runner, DryRunRunner)
+
+
 def test_gallery_html_is_preview_only(tmp_path):
     path = write_gallery(tmp_path / "index.html")
     text = path.read_text(encoding="utf-8")
@@ -75,3 +90,21 @@ def test_empty_discovery_only_boot():
     assert result.boot_identified
     assert result.selectable == ()
     assert any(d.is_boot for d in result.disks)
+
+
+def test_tk_last_chance_renders_safety_error():
+    import inspect
+
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    source = inspect.getsource(TkWizard._last)
+    assert "self.w.error" in source
+
+
+def test_tk_return_activates_focused_button():
+    import inspect
+
+    from beamo_wipe.ui.tk_wizard import _Button
+
+    source = inspect.getsource(_Button.__init__)
+    assert "<Return>" in source or "<KP_Enter>" in source
