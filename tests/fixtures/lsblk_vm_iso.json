@@ -1,0 +1,30 @@
+{
+   "blockdevices": [
+      {
+         "name": "sr0",
+         "path": "/dev/sr0",
+         "size": 700000000,
+         "type": "rom",
+         "tran": "sata",
+         "rota": true,
+         "model": "QEMU DVD-ROM",
+         "serial": "QM00001"
+      },
+      {
+         "name": "vda",
+         "path": "/dev/vda",
+         "size": 10737418240,
+         "type": "disk",
+         "tran": "virtio",
+         "rota": true,
+         "model": "QEMU HARDDISK",
+         "serial": "disk10Gtest"
+      },
+      {
+         "name": "loop0",
+         "path": "/dev/loop0",
+         "size": 412000000,
+         "type": "loop"
+      }
+   ]
+}

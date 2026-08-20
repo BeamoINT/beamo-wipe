@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beamo Wipe — this does not erase disks</title>
+  <style>
+    :root {
+      --bg: #f4f0e6;
+      --ink: #1a1a1a;
+      --muted: #4a4a4a;
+      --navy: #0b1f3a;
+      --card: #fff;
+      --warn: #b42318;
+      --line: #c9c3b6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 1.45;
+    }
+    header {
+      background: var(--navy);
+      color: #fff;
+      padding: 28px 32px;
+    }
+    header h1 { margin: 0; font-size: 36px; }
+    header p { margin: 10px 0 0; font-size: 22px; }
+    main { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
+    .banner {
+      background: #fde8e6;
+      border: 3px solid var(--warn);
+      color: var(--warn);
+      padding: 18px 20px;
+      font-weight: 700;
+      margin: 0 0 28px;
+    }
+    h2 { font-size: 28px; margin: 32px 0 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      font-size: 22px;
+    }
+    th, td {
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    th { background: var(--navy); color: #fff; }
+    ol { padding-left: 1.2em; }
+    li { margin: 10px 0; }
+    .small { color: var(--muted); font-size: 18px; }
+    a { color: #1f4b99; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Beamo Wipe</h1>
+    <p>Boot helper. Not a wipe program.</p>
+  </header>
+  <main>
+    <p class="banner">This page does not erase disks. Restart the PC and open the boot menu.</p>
+    <p>This USB is a <strong>bootable</strong> tool. Windows and macOS will not wipe a drive from here. You restart the computer and tell it to start from this USB.</p>
+
+    <h2>Typical boot-menu keys</h2>
+    <table>
+      <thead>
+        <tr><th>PC</th><th>Boot menu key (typical)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Dell</td><td>F12</td></tr>
+        <tr><td>HP</td><td>F9 or Esc</td></tr>
+        <tr><td>Lenovo</td><td>F12</td></tr>
+        <tr><td>ASUS</td><td>F8 or Esc</td></tr>
+        <tr><td>Acer</td><td>F12</td></tr>
+        <tr><td>MSI</td><td>F11</td></tr>
+        <tr><td>Gigabyte</td><td>F12</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Windows 10 / 11 fallback</h2>
+    <ol>
+      <li>Settings → System → Recovery</li>
+      <li>Advanced startup → Restart now</li>
+      <li>Use a device → pick this USB</li>
+    </ol>
+
+    <h2>What this USB is</h2>
+    <p>A guided front-end for <strong>nwipe</strong>, free open-source disk erasure software. Beamo did not write that engine. There is no warranty.</p>
+    <p>For x86_64 PCs that can boot from USB. <strong>Apple Silicon Macs are not supported.</strong> Some Intel Macs may show this USB; many will not. Not for Chromebooks.</p>
+    <p class="small">Source: <a href="https://github.com/BeamoINT/beamo-wipe">github.com/BeamoINT/beamo-wipe</a></p>
+  </main>
+</body>
+</html>

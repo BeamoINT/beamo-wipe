@@ -1,0 +1,24 @@
+{
+   "blockdevices": [
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung SSD 970 EVO",
+         "serial": "S4EVNX0N123456"
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "ST500DM002",
+         "serial": "Z9A12345"
+      }
+   ]
+}

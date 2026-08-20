@@ -1,0 +1,77 @@
+{
+   "blockdevices": [
+      {
+         "name": "loop0",
+         "path": "/dev/loop0",
+         "size": 412000000,
+         "type": "loop",
+         "tran": null,
+         "rota": false,
+         "model": null,
+         "serial": null,
+         "label": null
+      },
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "label": null,
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "size": 15500000000,
+               "type": "part",
+               "label": "BEAMO_WIPE"
+            }
+         ]
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung SSD 970 EVO",
+         "serial": "S4EVNX0N123456",
+         "children": [
+            {
+               "name": "nvme0n1p1",
+               "path": "/dev/nvme0n1p1",
+               "size": 536870912,
+               "type": "part"
+            },
+            {
+               "name": "nvme0n1p2",
+               "path": "/dev/nvme0n1p2",
+               "size": 255523643392,
+               "type": "part"
+            }
+         ]
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 1000204886016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "WDC WD10EZEX-00WN4A0",
+         "serial": "WD-WCC6Y1234567",
+         "children": [
+            {
+               "name": "sda1",
+               "path": "/dev/sda1",
+               "size": 1000204886016,
+               "type": "part"
+            }
+         ]
+      }
+   ]
+}

@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+# Pin nwipe v0.42 from upstream. Fallback: Debian package.
+mkdir -p /usr/share/doc/beamo-wipe
+NWIPE_TAG=v0.42
+if git clone --depth 1 --branch "$NWIPE_TAG" https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe; then
+  cd /tmp/nwipe
+  if [ -x ./autogen.sh ]; then
+    ./autogen.sh
+  fi
+  ./configure
+  make -j"$(nproc || echo 2)"
+  make install
+  cd /
+  rm -rf /tmp/nwipe
+else
+  echo "WARNING: could not clone nwipe $NWIPE_TAG; installing Debian nwipe" >&2
+  apt-get install -y nwipe
+fi
+nwipe -V > /usr/share/doc/beamo-wipe/NWIPE_VERSION 2>&1 || true
+# Drop compilers from the shipped image after the build.
+apt-get purge -y build-essential automake autoconf git pkg-config || true
+apt-get autoremove -y || true
+# No network by default.
+systemctl mask NetworkManager.service wpa_supplicant.service || true
+chmod 755 /usr/local/bin/beamo-wipe || true

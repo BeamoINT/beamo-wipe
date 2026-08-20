@@ -1,0 +1,6 @@
+#!/bin/sh
+export PYTHONPATH=/usr/lib/python3/dist-packages${PYTHONPATH:+:$PYTHONPATH}
+export BEAMO_WIPE_LIVE=1
+# Keyboard layout: US unless the live user changes it later.
+export LANG=C.UTF-8
+exec python3 -m beamo_wipe --fullscreen "$@"

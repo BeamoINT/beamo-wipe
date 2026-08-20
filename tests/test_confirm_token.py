@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+from pathlib import Path
+
+from beamo_wipe.discover import discover, load_lsblk_json_text
+from beamo_wipe.safety import confirm_spec, selectable_disks, token_matches
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _disc(name: str, boot: str):
+    payload = load_lsblk_json_text((FIXTURES / name).read_text(encoding="utf-8"))
+    return discover(
+        lsblk_payload=payload,
+        boot_path=boot,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+
+
+def test_unique_size_uses_gb_label():
+    d = _disc("lsblk_vm_iso.json", "/dev/sr0")
+    disk = selectable_disks(d)[0]
+    spec = confirm_spec(disk, selectable_disks(d))
+    assert spec.token == disk.size_gb_label
+    assert token_matches(spec.token, spec)
+    assert token_matches(" " + spec.token + " ", spec)
+    assert not token_matches("999", spec)
+
+
+def test_duplicate_size_uses_serial_suffix():
+    d = _disc("lsblk_same_size.json", "/dev/sdb")
+    disks = selectable_disks(d)
+    assert disks[0].size_gb_label == disks[1].size_gb_label
+    spec0 = confirm_spec(disks[0], disks)
+    spec1 = confirm_spec(disks[1], disks)
+    assert spec0.token == disks[0].serial[-4:]
+    assert spec1.token == disks[1].serial[-4:]
+    assert spec0.token != spec1.token
+    assert token_matches(spec0.token.lower(), spec0)
+    assert not token_matches(spec0.token, spec1)
+    assert not token_matches(disks[0].size_gb_label, spec0)
