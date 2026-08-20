@@ -1,18 +1,39 @@
 #!/bin/bash
 # Runs as root inside debian:bookworm. Invoked by scripts/build-iso.sh.
+# Builds on the container's own disk so debootstrap can mknod.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+ISO_NAME="${BEAMO_WIPE_ISO_NAME:-beamo-wipe-0.1.0-amd64.iso}"
+
 apt-get update
-apt-get install -y --no-install-recommends \
+apt-get install -y \
   live-build \
   xorriso \
   isolinux \
   syslinux-common \
   squashfs-tools \
   ca-certificates \
-  git
+  git \
+  cpio \
+  rsync \
+  file \
+  xz-utils \
+  bzip2
 
-cd /work/packaging/live
+mkdir -p /build
+# Do not copy previous failed chroots or git objects; we need config + sources.
+rsync -a \
+  --exclude '.git/' \
+  --exclude 'dist/' \
+  --exclude 'packaging/live/chroot/' \
+  --exclude 'packaging/live/cache/' \
+  --exclude 'packaging/live/.build/' \
+  --exclude 'packaging/live/.stage/' \
+  --exclude 'packaging/live/binary/' \
+  --exclude 'packaging/live/tmp/' \
+  /src/ /build/
+
+cd /build/packaging/live
 
 lb clean --all || true
 
@@ -39,5 +60,13 @@ lb config \
   --mirror-chroot "http://deb.debian.org/debian/" \
   --mirror-binary "http://deb.debian.org/debian/"
 
-# Keep our package list / includes; lb config should not delete them.
 lb build
+
+found="$(find /build/packaging/live -maxdepth 2 -name '*.iso' -print | head -n 1)"
+if [ -z "$found" ] || [ ! -f "$found" ]; then
+  echo "live-build produced no ISO" >&2
+  ls -la /build/packaging/live || true
+  exit 1
+fi
+cp -v "$found" "/out/${ISO_NAME}"
+ls -lh "/out/${ISO_NAME}"

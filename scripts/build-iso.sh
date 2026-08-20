@@ -56,23 +56,23 @@ chmod +x "$LIVE/config/includes.chroot/usr/local/bin/beamo-wipe" \
 
 mkdir -p "$OUT_DIR"
 
-echo "Running Debian live-build in Docker (linux/amd64). This can take a while…"
-docker run --rm --privileged --platform linux/amd64 \
-  -v "$ROOT":/work \
-  -w /work/packaging/live \
-  debian:bookworm \
-  bash /work/packaging/live/inside-docker.sh
+echo "Running Debian live-build in Docker (linux/amd64)."
+echo "The chroot is built on the container filesystem (not a macOS bind mount),"
+echo "because debootstrap needs mknod. This can take a while…"
 
-# live-build names the ISO live-image-amd64.hybrid.iso or similar
-found="$(find "$LIVE" -maxdepth 1 -name '*.iso' -print | head -n 1)"
-if [ -z "$found" ]; then
-  found="$(find "$LIVE" -maxdepth 2 -name '*.hybrid.iso' -print | head -n 1)"
-fi
-if [ -z "$found" ] || [ ! -f "$found" ]; then
-  echo "live-build finished but no ISO was found under packaging/live." >&2
-  echo "Check the Docker log above." >&2
+# Bind mounts on Docker Desktop for Mac are nodev/noexec — debootstrap
+# cannot mknod there. Copy the tree onto the container disk, build, copy ISO out.
+docker run --rm --privileged --platform linux/amd64 \
+  -e BEAMO_WIPE_VERSION="$VERSION" \
+  -e BEAMO_WIPE_ISO_NAME="$ISO_NAME" \
+  -v "$ROOT":/src:ro \
+  -v "$OUT_DIR":/out \
+  debian:bookworm \
+  bash /src/packaging/live/inside-docker.sh
+
+if [ ! -f "$OUT_DIR/$ISO_NAME" ]; then
+  echo "live-build finished but $OUT_DIR/$ISO_NAME was not written." >&2
   exit 1
 fi
-cp "$found" "$OUT_DIR/$ISO_NAME"
 echo "Wrote $OUT_DIR/$ISO_NAME"
 ls -lh "$OUT_DIR/$ISO_NAME"
