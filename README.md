@@ -9,6 +9,29 @@ and this wizard. You do not pay for a secret wipe algorithm.
 > **No warranty.** See [LICENSE](LICENSE) (GPL-3.0-or-later) and [NOTICE](NOTICE).
 > Owner-operated sanitization before recycle or resale. Not a lab certificate.
 
+## See the UI on this computer
+
+Nothing is erased. Fake disks only. This is the way to look at the screens
+without building an ISO or booting a USB.
+
+```bash
+cd "/path/to/Beamo Wiper"   # this repo
+./preview                   # real Tk window (same screens as the live USB)
+./preview --web             # browser click-through of the same copy
+./preview --helper          # boot-menu helper page (does not wipe)
+./preview --empty           # no other disks
+./preview --blocked         # cannot identify the USB
+./preview --fail            # finished screen after a failed wipe
+./preview --console         # keyboard screens in the terminal
+```
+
+`make preview` and `make preview-web` are the same commands.
+
+The Tk window is the real app. The browser page is a click-through so you can
+see the flow in Safari or Chrome without installing anything extra.
+
+If `./preview` cannot open a window (no Tk), it falls back to `--console`.
+
 ## What this is not
 
 - Not for **Apple Silicon** Macs, Chromebooks, Android, or RAID controllers.
@@ -42,7 +65,8 @@ packages are missing, the script prints the missing pieces and exits non-zero.
 **Preview on your Mac/PC (fake disks, no wipe):**
 
 ```bash
-python3 -m beamo_wipe --demo
+./preview
+./preview --web
 ```
 
 **QEMU, after you have an ISO** (throws away a 10G virtual disk):
@@ -108,8 +132,9 @@ Tests use fake `lsblk` JSON. They never run nwipe on a real disk.
 ## Development
 
 ```bash
-python3 -m beamo_wipe --demo           # Tk wizard, fake disks
-python3 -m beamo_wipe --demo --console # keyboard screens
+./preview                      # Tk wizard, fake disks
+./preview --web                # browser click-through
+python3 -m beamo_wipe --demo   # same as ./preview
 ```
 
 Default everyday method is nwipe `prng`, one round, verify last, no blank pass.

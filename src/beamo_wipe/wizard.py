@@ -24,7 +24,7 @@ from beamo_wipe.safety import (
     selectable_disks,
     token_matches,
 )
-from beamo_wipe.nwipe_runner import DryRunRunner, build_nwipe_argv
+from beamo_wipe.nwipe_runner import build_nwipe_argv
 
 
 class Runner(Protocol):
@@ -52,6 +52,7 @@ class Wizard:
         self.runner = runner
         self._clock = clock or time.monotonic
         self.dry_run = dry_run
+        self.preview = False
         self.screen = Screen.SPLASH
         self.owner_ok = False
         self.selected: Optional[Disk] = None
@@ -102,7 +103,11 @@ class Wizard:
         return getattr(self.runner, "progress", None)
 
     def tick(self) -> None:
-        if self.screen == Screen.SPLASH and self.now >= self._splash_until:
+        if (
+            self.screen == Screen.SPLASH
+            and not self.preview
+            and self.now >= self._splash_until
+        ):
             self.screen = Screen.WHAT
         if self.screen == Screen.WORKING and self._wipe_request is not None:
             result = self.runner.poll(self._wipe_request)
@@ -112,6 +117,27 @@ class Wizard:
     def skip_splash(self) -> None:
         if self.screen == Screen.SPLASH:
             self.screen = Screen.WHAT
+
+    def reset_for_preview(self) -> None:
+        """Start the wizard over. Preview only — never used on a live wipe."""
+        from beamo_wipe.nwipe_runner import DryRunRunner
+
+        fail = bool(getattr(self.runner, "fail", False))
+        duration = float(getattr(self.runner, "duration_s", 8.0))
+        self.runner = DryRunRunner(duration_s=duration, fail=fail)
+        self.screen = Screen.SPLASH
+        self.owner_ok = False
+        self.selected = None
+        self.confirm_input = ""
+        self.method = DEFAULT_METHOD
+        self.wants_shutdown = False
+        self.error = None
+        self.wipe_result = None
+        self._splash_until = self.now + SPLASH_S
+        self._erase_until = None
+        self._wipe_request = None
+        self._advanced_from = None
+        self.log_text = ""
 
     def shutdown(self) -> None:
         self.wants_shutdown = True
@@ -156,6 +182,19 @@ class Wizard:
                     return
                 self.selected = disk
                 return
+
+    def move_selection(self, delta: int) -> None:
+        """Move the pick-list highlight. First Up/Down chooses an edge disk."""
+        selectable = list(self.selectable)
+        if not selectable:
+            return
+        paths = [d.path for d in selectable]
+        if self.selected is None or self.selected.path not in paths:
+            idx = 0 if delta >= 0 else len(paths) - 1
+        else:
+            idx = paths.index(self.selected.path) + delta
+            idx = max(0, min(len(paths) - 1, idx))
+        self.select_disk(paths[idx])
 
     def continue_pick(self) -> None:
         if self.screen != Screen.PICK or self.selected is None or self.selected.is_boot:
@@ -268,20 +307,7 @@ class Wizard:
         return erase_now_label(self.selected)
 
 
-def make_demo_wizard(fail: bool = False) -> Wizard:
-    from pathlib import Path
+def make_demo_wizard(*args, **kwargs):
+    from beamo_wipe.demo import make_demo_wizard as _make
 
-    from beamo_wipe.discover import discover, load_lsblk_json_text
-    import os
-
-    text = Path(__file__).with_name("demo_lsblk.json").read_text(encoding="utf-8")
-    payload = load_lsblk_json_text(text)
-    env = {
-        **os.environ,
-        "BEAMO_WIPE_DRY_RUN": "1",
-        "BEAMO_WIPE_DEMO": "1",
-        "BEAMO_WIPE_BOOT_DEVICE": "/dev/sdb",
-    }
-    discovery = discover(lsblk_payload=payload, boot_path="/dev/sdb", env=env)
-    runner = DryRunRunner(duration_s=2.4, fail=fail)
-    return Wizard(discovery, runner, dry_run=True)
+    return _make(*args, **kwargs)

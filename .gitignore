@@ -48,7 +48,8 @@ packaging/live/config/includes.binary/NOTICE
 packaging/live/config/includes.binary/LICENSE
 packaging/live/config/includes.binary/SOURCE.txt
 
-# OS / editor
+# Generated browser gallery (./preview --web)
+/web-preview/
 .DS_Store
 Thumbs.db
 *.swp

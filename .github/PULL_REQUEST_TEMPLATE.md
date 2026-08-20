@@ -12,4 +12,4 @@
 ## Test plan
 
 - [ ] `python3 -m pytest`
-- [ ] `python3 -m beamo_wipe --demo` (if UI changed)
+- [ ] `./preview` (if UI changed)

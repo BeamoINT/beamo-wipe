@@ -32,6 +32,12 @@ def test_copy_module_has_no_forbidden_claims():
             copy.ENGINE_LINE,
             copy.DONE_OK,
             copy.DONE_FAIL,
+            copy.DONE_OK_PREVIEW,
+            copy.DONE_FAIL_PREVIEW,
+            copy.PREVIEW_BANNER,
+            copy.SAME_SIZE_HINT,
+            copy.NOT_LIVE_ERROR,
+            " ".join(card["blurb"] + " " + card["pace"] for card in copy.METHOD_CARDS.values()),
         ]
     ).lower()
     for phrase in FORBIDDEN:

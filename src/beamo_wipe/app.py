@@ -1,17 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Process entry. Preview with --demo. Never auto-starts a wipe."""
+"""Process entry. Preview with ./preview or --demo. Never auto-starts a wipe."""
 
 from __future__ import annotations
 
 import argparse
 import os
 import sys
+from pathlib import Path
 
 from beamo_wipe import NWIPE_PINNED_VERSION, __version__
+from beamo_wipe.demo import Scenario, make_demo_wizard
 from beamo_wipe.discover import discover, load_lsblk_json_text
 from beamo_wipe.nwipe_runner import DryRunRunner, NwipeRunner
 from beamo_wipe.safety import SafetyError, require_live_or_dry_run
-from beamo_wipe.wizard import Wizard, make_demo_wizard
+from beamo_wipe.wizard import Wizard
+
+
+def project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -19,25 +25,79 @@ def _parser() -> argparse.ArgumentParser:
         prog="beamo-wipe",
         description=(
             "Guided front-end for nwipe. This is not a wipe engine. "
-            "It will not erase disks from inside Windows or macOS."
+            "It will not erase disks from inside Windows or macOS. "
+            "On this computer, use --preview or ./preview (fake disks)."
         ),
     )
-    p.add_argument("--demo", action="store_true", help="Fake disks. No real wipe.")
+    p.add_argument(
+        "--demo",
+        "--preview",
+        dest="demo",
+        action="store_true",
+        help="Tk window with fake disks. Nothing is erased.",
+    )
+    p.add_argument(
+        "--web",
+        "--gallery",
+        dest="web",
+        action="store_true",
+        help="Open a browser click-through of the screens. Does not wipe.",
+    )
+    p.add_argument(
+        "--helper",
+        action="store_true",
+        help="Open the boot-menu helper page (does not wipe).",
+    )
+    p.add_argument(
+        "--scenario",
+        choices=("happy", "empty", "blocked", "fail"),
+        default="happy",
+        help="Preview disk list: happy, empty, blocked, or fail.",
+    )
+    p.add_argument("--empty", action="store_true", help="Preview: only the Beamo USB.")
+    p.add_argument("--blocked", action="store_true", help="Preview: cannot identify USB.")
+    p.add_argument(
+        "--fail",
+        "--fail-demo",
+        dest="fail_demo",
+        action="store_true",
+        help="Preview a failed wipe.",
+    )
     p.add_argument("--console", action="store_true", help="Use the keyboard console UI.")
     p.add_argument("--fullscreen", action="store_true", help="Fill the screen (live USB).")
     p.add_argument("--dry-run", action="store_true", help="Do not invoke nwipe.")
     p.add_argument("--lsblk-json", help="Read disks from an lsblk JSON file.")
     p.add_argument("--boot-device", help="Override live-medium path (tests only).")
-    p.add_argument("--fail-demo", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--version", action="version", version=f"Beamo Wipe {__version__}")
     return p
+
+
+def _scenario(args: argparse.Namespace) -> Scenario:
+    if args.empty:
+        return "empty"
+    if args.blocked:
+        return "blocked"
+    if args.fail_demo:
+        return "fail"
+    return args.scenario  # type: ignore[return-value]
+
+
+def _open_html(path: Path) -> int:
+    if not path.is_file():
+        print(f"Missing file: {path}", file=sys.stderr)
+        return 2
+    import webbrowser
+
+    webbrowser.open(path.resolve().as_uri())
+    print(path)
+    return 0
 
 
 def _build_wizard(args: argparse.Namespace) -> Wizard:
     if args.demo:
         os.environ["BEAMO_WIPE_DEMO"] = "1"
         os.environ["BEAMO_WIPE_DRY_RUN"] = "1"
-        return make_demo_wizard(fail=args.fail_demo)
+        return make_demo_wizard(fail=args.fail_demo, scenario=_scenario(args))
 
     if args.dry_run:
         os.environ["BEAMO_WIPE_DRY_RUN"] = "1"
@@ -79,6 +139,27 @@ def _shutdown() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.empty or args.blocked or args.fail_demo or args.scenario != "happy":
+        args.demo = True
+    if args.web:
+        from beamo_wipe.gallery import open_gallery, write_gallery
+
+        dest = project_root() / "web-preview" / "index.html"
+        if not (project_root() / "helper" / "index.html").is_file():
+            dest = Path.cwd() / "web-preview" / "index.html"
+        if os.environ.get("BEAMO_WIPE_NO_OPEN") == "1":
+            path = write_gallery(dest)
+            print(path)
+            return 0
+        path = open_gallery(dest)
+        print(path)
+        return 0
+    if args.helper:
+        helper = project_root() / "helper" / "index.html"
+        if not helper.is_file():
+            helper = Path.cwd() / "helper" / "index.html"
+        return _open_html(helper)
+
     try:
         wizard = _build_wizard(args)
     except SafetyError as exc:
@@ -88,12 +169,13 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    windowed = args.demo and not args.fullscreen
     use_console = args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
     if not use_console:
         try:
             from beamo_wipe.ui.tk_wizard import run_tk
 
-            code = run_tk(wizard, fullscreen=args.fullscreen or not args.demo)
+            code = run_tk(wizard, fullscreen=args.fullscreen or not windowed)
             if wizard.wants_shutdown and not args.demo:
                 _shutdown()
             return code

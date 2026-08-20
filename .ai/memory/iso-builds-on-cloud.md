@@ -22,5 +22,5 @@ spend a session waiting on local TCG.
   `beamo-support-deployer`; unset those per command if you need the user
   account (see workspace `cloudflare-pages-sites.md`).
 
-Local `python3 -m pytest` and `python3 -m beamo_wipe --demo` stay on the Mac.
+Local `python3 -m pytest` and `./preview` stay on the Mac.
 The ISO/KVM path does not.

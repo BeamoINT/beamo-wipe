@@ -1,0 +1,11 @@
+#!/bin/sh
+# Preview Beamo Wipe on this computer. Fake disks. Nothing is erased.
+#
+#   ./preview           Tk window (the real USB screens)
+#   ./preview --web     browser click-through
+#   ./preview --helper  boot-menu helper page
+#   ./preview --empty | --blocked | --fail
+#   ./preview --console
+set -eu
+ROOT="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+exec "$ROOT/scripts/preview.sh" "$@"

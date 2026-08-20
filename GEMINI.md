@@ -19,7 +19,8 @@ Other agents may be working here. Stage explicit paths only. Never `git add -A`.
 ```bash
 python3 -m pytest
 ./scripts/test-all.sh
-python3 -m beamo_wipe --demo
+./preview                # Tk window, fake disks, nothing erased
+./preview --web          # browser click-through
 ./scripts/build-iso.sh   # amd64 live image: run this on GCP/AWS, not this Mac
 ```
 
@@ -42,6 +43,7 @@ Any change to disk selection or nwipe flags is a `safety:` commit and needs a te
 ## Layout
 
 - `src/beamo_wipe/` — wizard, discover, safety, nwipe_runner
+- `./preview` — local Tk / `--web` gallery (not shipped as a wipe tool)
 - `helper/index.html` — boot-menu helper (does not wipe)
 - `packaging/live/` — live-build config, Dockerized by `scripts/build-iso.sh`
 - `docs/claims.md` — Amazon copy

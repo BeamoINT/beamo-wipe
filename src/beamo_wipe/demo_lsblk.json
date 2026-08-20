@@ -72,6 +72,24 @@
                "type": "part"
             }
          ]
+      },
+      {
+         "name": "sdd",
+         "path": "/dev/sdd",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "sata",
+         "rota": false,
+         "model": "Crucial MX500",
+         "serial": "MX500AABBCC11",
+         "children": [
+            {
+               "name": "sdd1",
+               "path": "/dev/sdd1",
+               "size": 256060514304,
+               "type": "part"
+            }
+         ]
       }
    ]
 }

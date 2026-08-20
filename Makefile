@@ -1,4 +1,4 @@
-.PHONY: test iso demo lint
+.PHONY: test iso demo preview preview-web lint
 
 test:
 	python3 -m pytest
@@ -6,5 +6,8 @@ test:
 iso:
 	./scripts/build-iso.sh
 
-demo:
-	python3 -m beamo_wipe --demo
+demo preview:
+	./preview
+
+preview-web:
+	./preview --web

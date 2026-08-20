@@ -49,6 +49,9 @@ def test_happy_path_dry_run(monkeypatch, tmp_path):
     wiz.set_owner(True)
     wiz.continue_owner()
     assert wiz.screen == Screen.PICK
+    assert wiz.selected is None
+    wiz.continue_pick()
+    assert wiz.screen == Screen.PICK
     boot = wiz.discovery.boot
     assert boot is not None
     wiz.select_disk(boot.path)
@@ -122,3 +125,76 @@ def test_nonzero_exit_is_not_success(monkeypatch, tmp_path):
     assert wiz.screen == Screen.DONE
     assert not wiz.done_ok
     assert "secure" not in (wiz.log_text or "").lower()
+
+
+def test_back_from_last_chance_redraws_method_state():
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    assert wiz.screen == Screen.LAST_CHANCE
+    wiz.back()
+    assert wiz.screen == Screen.METHOD
+    assert wiz._erase_until is None
+
+
+def test_move_selection_does_not_start_on_boot():
+    wiz, _clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    assert wiz.selected is None
+    wiz.move_selection(1)
+    assert wiz.selected is not None
+    assert not wiz.selected.is_boot
+    boot = wiz.discovery.boot
+    assert boot is not None
+    paths = {d.path for d in wiz.selectable}
+    assert wiz.selected.path in paths
+
+
+def test_preview_splash_does_not_auto_advance():
+    wiz = make_demo_wizard()
+    assert wiz.preview
+    assert wiz.screen == Screen.SPLASH
+    wiz._splash_until = wiz.now - 1
+    wiz.tick()
+    assert wiz.screen == Screen.SPLASH
+    wiz.skip_splash()
+    assert wiz.screen == Screen.WHAT
+
+
+def test_empty_and_blocked_scenarios():
+    empty = make_demo_wizard(scenario="empty")
+    empty.skip_splash()
+    empty.accept_what()
+    empty.set_owner(True)
+    empty.continue_owner()
+    assert empty.screen == Screen.PICK_EMPTY
+    blocked = make_demo_wizard(scenario="blocked")
+    blocked.skip_splash()
+    blocked.accept_what()
+    blocked.set_owner(True)
+    blocked.continue_owner()
+    assert blocked.screen == Screen.PICK_BLOCKED
+
+
+def test_reset_for_preview_clears_selection(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz = make_demo_wizard()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.reset_for_preview()
+    assert wiz.screen == Screen.SPLASH
+    assert wiz.selected is None
+    assert not wiz.owner_ok

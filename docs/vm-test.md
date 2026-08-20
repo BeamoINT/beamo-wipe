@@ -6,16 +6,17 @@ Do not treat this Apple silicon Mac as the ISO/QEMU gate. Docker `linux/amd64`
 and `qemu-system-x86_64` here are TCG. Run `./scripts/build-iso.sh` and the
 QEMU wipe below on an **x86_64 Linux VM** via the `gcloud` or `aws` CLI
 (KVM/nested virt), copy the ISO out, and delete the VM. Pytest and
-`--demo` stay local.
+`./preview` stay local.
 
 ## Demo (no ISO)
 
 ```bash
 python3 -m pytest
-python3 -m beamo_wipe --demo
+./preview
+./preview --web
 ```
 
-Keyboard-only can finish `--demo --console`.
+Keyboard-only can finish `./preview --console`.
 
 ## ISO in QEMU (x86_64)
 

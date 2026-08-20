@@ -25,6 +25,8 @@ def _plain_loop(wizard: Wizard) -> int:
         screen = wizard.screen
         print("\n" + "=" * 60)
         print(C.APP_NAME, screen.value)
+        if wizard.preview:
+            print(C.PREVIEW_BANNER)
         print("=" * 60)
         if screen == Screen.SPLASH:
             print(C.SPLASH_TAGLINE)
@@ -56,19 +58,18 @@ def _plain_loop(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
-            for i, disk in enumerate(wizard.discovery.disks, 1):
+            ordered = sorted(wizard.discovery.disks, key=lambda d: (d.is_boot, d.path))
+            for i, disk in enumerate(ordered, 1):
                 mark = "BOOT — do not erase" if disk.is_boot else str(i)
                 print(f"[{mark}] {disk.display_name} {disk.size_phrase} {disk.path} {disk.serial}")
             choice = input("Number of disk to erase: ").strip()
-            selectable = list(wizard.selectable)
+            numbered = [d for d in ordered if not d.is_boot]
             try:
                 idx = int(choice) - 1
-                # Map number to all disks list but skip boot
-                numbered = [d for d in wizard.discovery.disks if not d.is_boot]
                 wizard.select_disk(numbered[idx].path)
                 wizard.continue_pick()
             except (ValueError, IndexError):
-                del selectable
+                pass
             continue
         if screen == Screen.CONFIRM:
             disk = wizard.selected
@@ -106,9 +107,17 @@ def _plain_loop(wizard: Wizard) -> int:
             time.sleep(0.3)
             continue
         if screen == Screen.DONE:
-            print(C.DONE_OK if wizard.done_ok else C.DONE_FAIL)
-            input("Press Enter to shut down… ")
-            wizard.shutdown()
+            if wizard.preview:
+                print(C.DONE_OK_PREVIEW if wizard.done_ok else C.DONE_FAIL_PREVIEW)
+                ans = input("Enter to run again, or q to close… ").strip().lower()
+                if ans in ("q", "quit", "close"):
+                    wizard.shutdown()
+                else:
+                    wizard.reset_for_preview()
+            else:
+                print(C.DONE_OK if wizard.done_ok else C.DONE_FAIL)
+                input("Press Enter to shut down… ")
+                wizard.shutdown()
             continue
         if screen == Screen.ADVANCED:
             input("Press Enter to go back… ")
@@ -128,6 +137,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
         h, w = stdscr.getmaxyx()
         _add(stdscr, 0, 0, C.APP_NAME + "   " + wizard.screen.value, curses.A_BOLD)
         y = 2
+        if wizard.preview:
+            _add(stdscr, 1, 0, C.PREVIEW_BANNER)
+            y = 3
         if wizard.screen == Screen.SPLASH:
             y = _wrap(stdscr, y, C.SPLASH_TAGLINE, w)
             _add(stdscr, y + 1, 0, "Press any key.")
@@ -142,7 +154,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, y + 2, 0, f"{mark}  Space to check. Enter continues only when checked.")
         elif wizard.screen == Screen.PICK:
             y = _wrap(stdscr, y, C.pick_subtitle(), w) + 1
-            for disk in wizard.discovery.disks:
+            ordered = sorted(wizard.discovery.disks, key=lambda d: (d.is_boot, d.path))
+            for disk in ordered:
                 star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
                 extra = "  " + C.BOOT_USB_BANNER if disk.is_boot else ""
                 line = f"{star} {disk.display_name}  {disk.size_phrase}  {disk.kind.value}  {disk.path}{extra}"
@@ -198,8 +211,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.selected:
                 _add(stdscr, y + 4, 0, f"{wizard.selected.display_name} {wizard.selected.size_phrase}")
         elif wizard.screen == Screen.DONE:
-            _wrap(stdscr, y, C.DONE_OK if wizard.done_ok else C.DONE_FAIL, w)
-            _add(stdscr, y + 4, 0, "Enter: shut down")
+            _wrap(
+                stdscr,
+                y,
+                (C.DONE_OK_PREVIEW if wizard.done_ok else C.DONE_FAIL_PREVIEW)
+                if wizard.preview
+                else (C.DONE_OK if wizard.done_ok else C.DONE_FAIL),
+                w,
+            )
+            _add(
+                stdscr,
+                y + 4,
+                0,
+                "Enter: run again    C: close" if wizard.preview else "Enter: shut down",
+            )
         stdscr.refresh()
         ch = stdscr.getch()
         if ch == -1:
@@ -231,19 +256,18 @@ def _handle(wizard: Wizard, ch: int) -> None:
         elif wizard.screen == Screen.LAST_CHANCE and wizard.erase_enabled:
             wizard.confirm_erase()
         elif wizard.screen in (Screen.DONE, Screen.PICK_BLOCKED, Screen.PICK_EMPTY):
-            wizard.shutdown()
+            if wizard.screen == Screen.DONE and wizard.preview:
+                wizard.reset_for_preview()
+            else:
+                wizard.shutdown()
+        return
+    if wizard.preview and wizard.screen == Screen.DONE and ch in (ord("c"), ord("C")):
+        wizard.shutdown()
         return
     if wizard.screen == Screen.OWNER and ch == ord(" "):
         wizard.set_owner(not wizard.owner_ok)
     if wizard.screen == Screen.PICK and ch in (curses.KEY_UP, curses.KEY_DOWN):
-        paths = [d.path for d in wizard.selectable]
-        if not paths:
-            return
-        cur = wizard.selected.path if wizard.selected else paths[0]
-        idx = paths.index(cur) if cur in paths else 0
-        idx = idx - 1 if ch == curses.KEY_UP else idx + 1
-        idx = max(0, min(len(paths) - 1, idx))
-        wizard.select_disk(paths[idx])
+        wizard.move_selection(-1 if ch == curses.KEY_UP else 1)
     if wizard.screen == Screen.METHOD and ch in (ord("1"), ord("2"), ord("3")):
         mapping = {ord("1"): MethodId.EVERYDAY, ord("2"): MethodId.EXTRA, ord("3"): MethodId.QUICK_ZERO}
         wizard.set_method(mapping[ch])

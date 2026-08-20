@@ -1,0 +1,33 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "loop0",
+         "path": "/dev/loop0",
+         "size": 400000000,
+         "type": "loop",
+         "tran": null,
+         "rota": false,
+         "model": null,
+         "serial": null
+      }
+   ]
+}
