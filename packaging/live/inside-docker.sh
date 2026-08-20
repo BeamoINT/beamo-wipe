@@ -50,10 +50,10 @@ lb config \
   --iso-preparer "Beamo" \
   --iso-publisher "Beamo https://github.com/BeamoINT/beamo-wipe" \
   --iso-volume "BEAMO_WIPE" \
-  --archive-areas "main contrib non-free-firmware" \
+  --archive-areas "main" \
   --apt-recommends false \
-  --firmware-binary true \
-  --firmware-chroot true \
+  --firmware-binary false \
+  --firmware-chroot false \
   --initsystem systemd \
   --bootappend-live "boot=live components hostname=beamo-wipe username=root noeject nopersistence noswap" \
   --mirror-bootstrap "http://deb.debian.org/debian/" \

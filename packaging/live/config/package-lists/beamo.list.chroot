@@ -21,7 +21,6 @@ xserver-xorg-input-libinput
 xinit
 x11-xserver-utils
 tk
-firmware-linux-free
 pciutils
 usbutils
 util-linux
