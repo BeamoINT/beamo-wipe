@@ -243,6 +243,51 @@ def test_escape_goes_back(ui):
     assert wiz.screen == Screen.OWNER
 
 
+def _pick_list_overflows(app) -> bool:
+    canvas = app._pick_canvas
+    if canvas is None:
+        return False
+    app.root.update()
+    bbox = canvas.bbox("all")
+    return bool(bbox) and bbox[3] > canvas.winfo_height()
+
+
+def test_pick_list_scrolls_selected_card_into_view(ui):
+    """Keyboard navigation keeps the selected disk visible in long lists."""
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.PICK, size=MIN_WINDOW)
+    if not _pick_list_overflows(app):
+        pytest.skip("disk list fits without scrolling at this size")
+    ordered = sorted(wiz.selectable, key=lambda d: d.path)
+    for _ in range(len(ordered)):
+        (app.root.focus_get() or app.root).event_generate("<KeyPress>", keysym="Down")
+        app.root.update()
+    last = ordered[-1]
+    assert wiz.selected is not None and wiz.selected.path == last.path
+    canvas = app._pick_canvas
+    card = app._pick_cards[last.path]
+    top, bottom = canvas.yview()
+    content_h = float(canvas.bbox("all")[3])
+    y0 = card.winfo_y() / content_h
+    y1 = (card.winfo_y() + card.winfo_height()) / content_h
+    assert y0 >= top - 0.02, "selected card scrolled above the view"
+    assert y1 <= bottom + 0.02, "selected card scrolled below the view"
+
+
+def test_pick_list_keeps_scroll_position_on_click(ui):
+    """Clicking a disk must not snap the rebuilt list back to the top."""
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.PICK, size=MIN_WINDOW)
+    if not _pick_list_overflows(app):
+        pytest.skip("disk list fits without scrolling at this size")
+    app._pick_canvas.yview_moveto(0.5)
+    app.root.update()
+    first = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    app._click_disk(first.path)
+    app.root.update()
+    assert app._pick_canvas.yview()[0] > 0.2
+
+
 def test_every_screen_has_a_focusable_action(ui):
     """Keyboard users always land on (or can Tab to) a live control."""
     for screen in (Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM,

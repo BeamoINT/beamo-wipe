@@ -8,11 +8,15 @@ is built from the same components so the wizard looks and behaves
 consistently on the live USB (Linux Tk + DejaVu) and in ./preview.
 
 Design rules:
-- One card pattern: white, rounded, soft shadow, hairline border.
+- One card pattern: white, rounded, hairline border, flat. Elevation is
+  reserved for pressable actions (primary/danger buttons cast a shadow);
+  stacked cards stay calm so lists scan cleanly.
 - One selectable pattern: radio/checkbox card; selected = primary tint +
   primary ring; hover = alt surface; keyboard focus = focus ring.
 - One alert pattern: filled badge icon + text (warn / danger / info).
 - One status pattern: centered icon, title, message (blocked/empty/done).
+- One screen-header pattern: bold title at a standard rhythm, optional
+  muted subtitle. Identifiers (serials, paths) render in readable mono.
 - Keyboard affordances are drawn as key-caps, not buried in prose.
 """
 
@@ -221,6 +225,22 @@ def _icon_alert(parent: tk.Widget, kind: str, size: int = 34) -> tk.Canvas:
             size / 2 - 2, size * 0.72, size / 2 + 2, size * 0.72 + 4,
             fill="#FFFFFF", outline="",
         )
+    return cv
+
+
+def _icon_emblem(parent: tk.Widget, size: int = 96) -> tk.Canvas:
+    """The Beamo Wipe brand mark at splash size: an amber rounded tile with a
+    navy disk platter. Same amber as the header brand bar, drawn so it never
+    depends on font glyph coverage."""
+    cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
+    _round_rect(cv, 2, 2, size - 2, size - 2, size * 0.24, fill=ACCENT, outline="")
+    cx = size / 2.0
+    platter = size * 0.30
+    cv.create_oval(
+        cx - platter, cx - platter, cx + platter, cx + platter, fill=NAVY, outline=""
+    )
+    hub = size * 0.10
+    cv.create_oval(cx - hub, cx - hub, cx + hub, cx + hub, fill=ACCENT, outline="")
     return cv
 
 
@@ -593,6 +613,13 @@ class TkWizard:
         self._shown: Optional[Screen] = None
         self._primary_cmd: Optional[Callable[[], None]] = None
         self._after_id: Optional[str] = None
+        # Pick-list scroll state: the list is rebuilt on every redraw, so the
+        # scroll offset is saved before teardown and restored (or the selected
+        # card scrolled into view after keyboard navigation) after rebuild.
+        self._pick_canvas: Optional[tk.Canvas] = None
+        self._pick_cards: dict = {}
+        self._pick_scroll = 0.0
+        self._pick_ensure_visible = False
         self._build_chrome()
         self._confirm_var.trace_add("write", self._confirm_var_written)
         self.root.bind("<Escape>", self._on_escape)
@@ -714,6 +741,13 @@ class TkWizard:
         self._header_step.configure(
             text=f"{step[1]} · {step[2]}" if step[2] and step[1] != step[2] else step[1]
         )
+        if self._pick_canvas is not None:
+            try:
+                self._pick_scroll = self._pick_canvas.yview()[0]
+            except tk.TclError:
+                pass
+            self._pick_canvas = None
+            self._pick_cards = {}
         self._clear(self._body)
         self._clear(self._footer)
         self._primary = None
@@ -766,6 +800,30 @@ class TkWizard:
             anchor=kw.get("anchor", "w"),
         )
 
+    def _title_block(
+        self,
+        col: tk.Frame,
+        title: str,
+        subtitle: Optional[str] = None,
+        *,
+        compact: bool = False,
+    ) -> None:
+        """The one screen-header pattern: bold title, optional muted subtitle.
+
+        Every working screen opens with the same rhythm so the eye lands in
+        the same place on each step. ``compact`` is for the method screen,
+        the tightest layout, which must fit the 1024x740 minimum window.
+        """
+        top = 12 if compact else 26
+        bottom = 8 if compact else 14
+        if subtitle:
+            self._h(col, title).pack(fill=tk.X, pady=(top, 6))
+            self._p(col, subtitle, fg=MUTED, font=self.font_b).pack(
+                fill=tk.X, pady=(0, bottom)
+            )
+        else:
+            self._h(col, title).pack(fill=tk.X, pady=(top, bottom))
+
     def _chip(self, parent: tk.Widget, text: str, *, fg: str, bg: str) -> _Box:
         chip = _Box(parent, radius=8, fill=bg, outline=None, ow=0, padx=10, pady=3)
         tk.Label(chip.inner, text=text, font=self.font_tiny, fg=fg, bg=bg).pack()
@@ -805,7 +863,14 @@ class TkWizard:
             bg=NAVY if dark else BG, anchor="w",
         ).pack(side=tk.LEFT)
 
-    def _panel(self, parent: tk.Widget, *, kind: str, text: str) -> _Box:
+    def _panel(
+        self,
+        parent: tk.Widget,
+        *,
+        kind: str,
+        text: str,
+        extra: Optional[str] = None,
+    ) -> _Box:
         colors = {
             "warn": (WARN_BG, WARN_BORDER),
             "danger": (DANGER_TINT, DANGER_BORDER),
@@ -818,10 +883,17 @@ class TkWizard:
         icon = _icon_alert(row, kind, 34)
         icon.configure(bg=bg)
         icon.pack(side=tk.LEFT, anchor="n", pady=2)
+        lines = tk.Frame(row, bg=bg)
+        lines.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
         tk.Label(
-            row, text=text, font=self.font_b, fg=INK, bg=bg,
+            lines, text=text, font=self.font_b, fg=INK, bg=bg,
             wraplength=WRAP - 130, justify=tk.LEFT, anchor="w",
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
+        ).pack(fill=tk.X)
+        if extra:
+            tk.Label(
+                lines, text=extra, font=self.font_s, fg=MUTED, bg=bg,
+                wraplength=WRAP - 130, justify=tk.LEFT, anchor="w",
+            ).pack(fill=tk.X, pady=(6, 0))
         return box
 
     def _bind_tree(self, widget: tk.Widget, click) -> None:
@@ -864,6 +936,9 @@ class TkWizard:
             w.bind("<Leave>", leave)
 
     def _meta_line(self, parent: tk.Widget, disk: Disk, bg: str) -> tk.Frame:
+        """Bus · serial · path. The serial is the disambiguator the confirm
+        token and the same-size warning point at, so it gets full-size ink
+        mono instead of being buried with the path."""
         meta = tk.Frame(parent, bg=bg)
 
         def dot() -> None:
@@ -875,7 +950,7 @@ class TkWizard:
         dot()
         tk.Label(meta, text="Serial ", font=self.font_s, fg=MUTED, bg=bg).pack(side=tk.LEFT)
         tk.Label(
-            meta, text=disk.serial or "no serial", font=self.font_mono_sm, fg=INK, bg=bg
+            meta, text=disk.serial or "no serial", font=self.font_mono, fg=INK, bg=bg
         ).pack(side=tk.LEFT)
         dot()
         tk.Label(meta, text="Device ", font=self.font_s, fg=MUTED, bg=bg).pack(side=tk.LEFT)
@@ -888,7 +963,7 @@ class TkWizard:
         """The selected disk, shown the same way on confirm, working, and done."""
         box = _Box(
             parent, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=20, pady=18, shadow=True,
+            padx=20, pady=18,
         )
         inner = box.inner
         top = tk.Frame(inner, bg=SURFACE)
@@ -973,19 +1048,19 @@ class TkWizard:
     def _splash(self) -> None:
         col = self._column(self._body, fill_height=True, bg=NAVY)
         tk.Frame(col, bg=NAVY).pack(fill=tk.BOTH, expand=True)
+        emblem = _icon_emblem(col, 96)
+        emblem.configure(bg=NAVY)
+        emblem.pack()
         tk.Label(
             col, text=C.APP_NAME, font=self.font_display, fg="#FFFFFF", bg=NAVY,
             anchor="center",
-        ).pack(fill=tk.X)
-        bar = tk.Canvas(col, width=140, height=10, bg=NAVY, highlightthickness=0)
-        _round_rect(bar, 1, 1, 139, 9, 4, fill=ACCENT, outline="")
-        bar.pack(pady=(24, 30))
+        ).pack(fill=tk.X, pady=(26, 0))
         self._p(
             col, C.SPLASH_TAGLINE, fg=NAVY_TEXT, bg=NAVY, font=self.font_lead,
             wraplength=720, justify=tk.CENTER, anchor="center",
-        ).pack(fill=tk.X)
+        ).pack(fill=tk.X, pady=(20, 0))
         any_key = tk.Frame(col, bg=NAVY)
-        any_key.pack(pady=(34, 0))
+        any_key.pack(pady=(36, 0))
         self._kbd(any_key, "any key", dark=True).pack(side=tk.LEFT)
         tk.Label(
             any_key, text=" to continue.", font=self.font_b, fg=NAVY_TEXT, bg=NAVY,
@@ -998,37 +1073,25 @@ class TkWizard:
 
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._h(col, "What this is").pack(fill=tk.X, pady=(30, 18))
+        self._title_block(col, "What this is")
         card = _Box(
             col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=22, pady=18, shadow=True,
+            padx=22, pady=20,
         )
         card.pack(fill=tk.X)
         for i, bullet in enumerate(C.WHAT_BULLETS):
             line = tk.Frame(card.inner, bg=SURFACE)
             line.pack(fill=tk.X, pady=(2 if i == 0 else 14, 2 if i == len(C.WHAT_BULLETS) - 1 else 0))
-            tk.Label(
-                line, text="•", font=self.font_bold, fg=PRIMARY, bg=SURFACE
-            ).pack(side=tk.LEFT, anchor="n")
+            marker = tk.Canvas(line, width=12, height=30, bg=SURFACE, highlightthickness=0)
+            marker.create_oval(2, 11, 10, 19, fill=PRIMARY, outline="")
+            marker.pack(side=tk.LEFT, anchor="n")
             tk.Label(
                 line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
                 wraplength=WRAP - 110, justify=tk.LEFT, anchor="w",
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
-        info = _Box(col, radius=14, fill=SURFACE_ALT, outline=BORDER, ow=1, padx=18, pady=14)
-        info.pack(fill=tk.X, pady=(16, 0))
-        icon = _icon_alert(info.inner, "info", 26)
-        icon.configure(bg=SURFACE_ALT)
-        icon.pack(side=tk.LEFT, anchor="n", pady=2)
-        notes = tk.Frame(info.inner, bg=SURFACE_ALT)
-        notes.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
-        tk.Label(
-            notes, text=C.ENGINE_LINE, font=self.font_s, fg=MUTED, bg=SURFACE_ALT,
-            wraplength=WRAP - 130, justify=tk.LEFT, anchor="w",
-        ).pack(fill=tk.X)
-        tk.Label(
-            notes, text=C.SECURE_BOOT_HINT, font=self.font_s, fg=MUTED, bg=SURFACE_ALT,
-            wraplength=WRAP - 130, justify=tk.LEFT, anchor="w",
-        ).pack(fill=tk.X, pady=(8, 0))
+        self._panel(
+            col, kind="info", text=C.ENGINE_LINE, extra=C.SECURE_BOOT_HINT
+        ).pack(fill=tk.X, pady=(16, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self.w.shutdown)
         self._primary_btn(row, C.BTN_UNDERSTAND, self.w.accept_what)
@@ -1038,8 +1101,7 @@ class TkWizard:
     def _owner(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._owner_var.set(1 if self.w.owner_ok else 0)
-        self._h(col, "You must be the owner").pack(fill=tk.X, pady=(30, 12))
-        self._p(col, C.OWNER_LEAD, fg=MUTED).pack(fill=tk.X, pady=(0, 24))
+        self._title_block(col, "You must be the owner", C.OWNER_LEAD)
         checked = bool(self.w.owner_ok)
         card = _Box(
             col,
@@ -1050,7 +1112,6 @@ class TkWizard:
             padx=20,
             pady=20,
             ring=True,
-            shadow=True,
         )
         card.pack(fill=tk.X)
         card.configure(cursor="hand2", takefocus=1)
@@ -1086,7 +1147,7 @@ class TkWizard:
         self.w.set_owner(bool(self._owner_var.get()))
         self._draw()
 
-    def _disk_row(self, parent: tk.Widget, disk: Disk, selected: bool) -> None:
+    def _disk_row(self, parent: tk.Widget, disk: Disk, selected: bool) -> _Box:
         if disk.is_boot:
             fill, outline, ow = USB_BG, USB_BORDER, 1
         elif selected:
@@ -1095,9 +1156,9 @@ class TkWizard:
             fill, outline, ow = SURFACE, BORDER, 1
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=ow,
-            padx=18, pady=16, shadow=True,
+            padx=18, pady=16,
         )
-        card.pack(fill=tk.X, pady=6, padx=2)
+        card.pack(fill=tk.X, pady=(0, 10), padx=2)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -1126,7 +1187,7 @@ class TkWizard:
             tk.Label(
                 inner, text=banner, font=self.font_s_bold, fg=DANGER, bg=fill, anchor="w"
             ).pack(fill=tk.X, pady=(10, 0), padx=(42, 0))
-            return
+            return card
 
         def _click(_e, p=disk.path):
             self._click_disk(p)
@@ -1141,17 +1202,17 @@ class TkWizard:
                 lambda c=card: c.set_style(fill=SURFACE_ALT),
                 lambda c=card: c.set_style(fill=SURFACE),
             )
+        return card
 
     def _pick(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._h(col, "Pick a disk").pack(fill=tk.X, pady=(26, 6))
-        self._p(col, C.pick_subtitle(), fg=MUTED, font=self.font_b).pack(fill=tk.X, pady=(0, 16))
+        self._title_block(col, "Pick a disk", C.pick_subtitle())
         if same_size_conflict(self.w.selectable):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
             self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(0, 12))
         list_wrap = tk.Frame(col, bg=BG)
-        list_wrap.pack(fill=tk.BOTH, expand=True, pady=(2, 8))
+        list_wrap.pack(fill=tk.BOTH, expand=True, pady=(2, 4))
         canvas = tk.Canvas(list_wrap, bg=BG, highlightthickness=0)
         scroll = tk.Scrollbar(
             list_wrap, orient=tk.VERTICAL, command=canvas.yview, width=14, troughcolor=BG
@@ -1163,8 +1224,15 @@ class TkWizard:
             canvas.itemconfigure(window_id, width=max(1, canvas.winfo_width()))
             canvas.configure(scrollregion=canvas.bbox("all"))
 
+        def _on_canvas_configure(_event=None) -> None:
+            _stretch()
+            # The canvas settles through several Configure events during a
+            # rebuild; restoring on each one is idempotent and the last one
+            # runs with final geometry.
+            self._pick_restore_scroll()
+
         cards.bind("<Configure>", _stretch)
-        canvas.bind("<Configure>", _stretch)
+        canvas.bind("<Configure>", _on_canvas_configure)
         canvas.configure(yscrollcommand=scroll.set)
 
         def _wheel(event) -> Optional[str]:
@@ -1188,7 +1256,8 @@ class TkWizard:
         items: List = sorted(self.w.discovery.disks, key=lambda d: (d.is_boot, d.path))
         for disk in items:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
-            self._disk_row(cards, disk, selected)
+            self._pick_cards[disk.path] = self._disk_row(cards, disk, selected)
+        self._pick_canvas = canvas
         row = self._footer_shell(C.HINT_PICK)
         back = self._back_btn(row)
         can = self.w.selected is not None and not self.w.selected.is_boot
@@ -1197,7 +1266,44 @@ class TkWizard:
         # action when a disk is chosen, otherwise the safe way out.
         (self._primary if can and self._primary is not None else back).focus_set()
 
+    def _pick_restore_scroll(self) -> None:
+        """Keep the rebuilt list where the user left it.
+
+        Redraws destroy and rebuild the list canvas; without this the list
+        snapped back to the top on every selection change. After keyboard
+        navigation, scroll the selected card into view instead. Runs on the
+        list canvas's <Configure> so it always measures final geometry.
+        """
+        canvas = self._pick_canvas
+        if canvas is None:
+            return
+        try:
+            bbox = canvas.bbox("all")
+            if not bbox:
+                return
+            content_h = max(1.0, float(bbox[3]))
+            view_h = float(canvas.winfo_height())
+            if view_h <= 1.0:
+                return
+            selected = self.w.selected
+            card = self._pick_cards.get(selected.path) if selected else None
+            if self._pick_ensure_visible and card is not None:
+                top, _bottom = canvas.yview()
+                view0 = top * content_h
+                view1 = view0 + view_h
+                y0 = float(card.winfo_y())
+                y1 = y0 + card.winfo_height()
+                if y0 < view0:
+                    canvas.yview_moveto(max(0.0, y0 / content_h))
+                elif y1 > view1:
+                    canvas.yview_moveto(max(0.0, min(1.0, (y1 - view_h) / content_h)))
+            else:
+                canvas.yview_moveto(self._pick_scroll)
+        except tk.TclError:
+            pass
+
     def _click_disk(self, path: str) -> None:
+        self._pick_ensure_visible = False
         self.w.select_disk(path)
         self._draw()
 
@@ -1208,7 +1314,9 @@ class TkWizard:
         icon = _icon_alert(col, kind, 88)
         icon.configure(bg=BG)
         icon.pack()
-        self._h(col, title).pack(pady=(22, 12))
+        heading = self._h(col, title)
+        heading.configure(anchor="center", justify=tk.CENTER)
+        heading.pack(fill=tk.X, pady=(24, 12))
         self._p(
             col, message, wraplength=720, justify=tk.CENTER, anchor="center"
         ).pack(fill=tk.X)
@@ -1236,13 +1344,13 @@ class TkWizard:
         spec = self.w.confirm
         assert spec is not None
         col = self._column(self._body, fill_height=True)
-        self._h(col, "Confirm the disk").pack(fill=tk.X, pady=(26, 16))
+        self._title_block(col, "Confirm the disk")
         self._disk_summary(col, disk).pack(fill=tk.X)
         self._panel(col, kind="warn", text=self.w.warning_text()).pack(fill=tk.X, pady=14)
         self._p(col, spec.prompt).pack(fill=tk.X, pady=(2, 10))
         shell = _Box(
             col, radius=14, fill=SURFACE, outline=BORDER_STRONG, ow=1,
-            padx=16, pady=10, ring=True, shadow=True,
+            padx=16, pady=10, ring=True,
         )
         shell.pack(fill=tk.X)
         entry = tk.Entry(
@@ -1263,18 +1371,18 @@ class TkWizard:
         shell.set_focused(True)
         entry.focus_set()
         match_row = tk.Frame(col, bg=BG)
-        match_row.pack(fill=tk.X, pady=(12, 0))
-        self._match_icon = tk.Canvas(match_row, width=22, height=22, highlightthickness=0, bg=BG)
+        match_row.pack(fill=tk.X, pady=(14, 0))
+        self._match_icon = tk.Canvas(match_row, width=26, height=26, highlightthickness=0, bg=BG)
         self._match_icon.pack(side=tk.LEFT)
         self._match_label = tk.Label(
             match_row,
             text="",
-            font=self.font_s,
+            font=self.font_b,
             fg=MUTED,
             bg=BG,
             anchor="w",
         )
-        self._match_label.pack(side=tk.LEFT, padx=(10, 0))
+        self._match_label.pack(side=tk.LEFT, padx=(12, 0))
         self._paint_match()
         row = self._footer_shell(C.HINT_CONFIRM)
         self._back_btn(row)
@@ -1286,14 +1394,14 @@ class TkWizard:
         cv = self._match_icon
         cv.delete("all")
         if self.w.token_ok:
-            cv.create_oval(1, 1, 21, 21, fill=OK, outline="")
+            cv.create_oval(1, 1, 25, 25, fill=OK, outline="")
             cv.create_line(
-                6, 11.5, 9.5, 15, 16, 7,
-                fill="#FFFFFF", width=2.5, capstyle="round", joinstyle="round",
+                7, 13.5, 11, 17.5, 19, 8,
+                fill="#FFFFFF", width=3, capstyle="round", joinstyle="round",
             )
             self._match_label.configure(text=C.CONFIRM_MATCH_OK, fg=OK)
         else:
-            cv.create_oval(2, 2, 20, 20, outline=BORDER_STRONG, width=2)
+            cv.create_oval(2, 2, 24, 24, outline=BORDER_STRONG, width=2)
             self._match_label.configure(text=C.CONFIRM_MATCH_WAIT, fg=MUTED)
 
     def _confirm_var_written(self, *_a) -> None:
@@ -1310,9 +1418,9 @@ class TkWizard:
         outline = PRIMARY if selected else BORDER
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
-            padx=18, pady=9, shadow=True,
+            padx=18, pady=12,
         )
-        card.pack(fill=tk.X, pady=3)
+        card.pack(fill=tk.X, pady=(0, 10))
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -1329,7 +1437,7 @@ class TkWizard:
             self._chip(title_row, C.RECOMMENDED_TAG, fg=OK, bg=OK_TINT).pack(
                 side=tk.LEFT, padx=(12, 0)
             )
-        for text in (card_copy["blurb"], card_copy["pace"]):
+        for i, text in enumerate((card_copy["blurb"], card_copy["pace"])):
             tk.Label(
                 inner,
                 text=text,
@@ -1339,7 +1447,7 @@ class TkWizard:
                 wraplength=WRAP - 120,
                 justify=tk.LEFT,
                 anchor="w",
-            ).pack(fill=tk.X, padx=(58, 16), pady=(1, 0))
+            ).pack(fill=tk.X, padx=(58, 16), pady=(4 if i == 0 else 2, 0))
 
         def _click(_e, m=method):
             self._choose_method(m)
@@ -1359,10 +1467,10 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         # Tightest screen in the wizard: keep the whole column inside the
         # 1024x740 minimum window with the footer fully visible.
-        self._h(col, "How thorough").pack(fill=tk.X, pady=(14, 8))
+        self._title_block(col, "How thorough", compact=True)
         for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
             self._method_card(col, method)
-        self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(6, 2))
+        self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(2, 2))
         adv = _Button(
             col,
             text=C.BTN_ADVANCED,
@@ -1384,12 +1492,12 @@ class TkWizard:
 
     def _last(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._h(col, "Last chance").pack(fill=tk.X, pady=(26, 14))
+        self._title_block(col, "Last chance")
         self._panel(col, kind="danger", text=self.w.erase_label()).pack(fill=tk.X)
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         count = tk.Frame(col, bg=BG)
-        count.pack(pady=(26, 0))
+        count.pack(pady=(24, 0))
         ring = tk.Canvas(count, width=190, height=190, bg=BG, highlightthickness=0)
         ring.pack()
         self._countdown_ring = ring
@@ -1440,15 +1548,15 @@ class TkWizard:
     def _working(self) -> None:
         col = self._column(self._body, fill_height=True)
         disk = self.w.selected
-        self._h(col, "Working").pack(fill=tk.X, pady=(26, 16))
+        self._title_block(col, "Working")
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
         card_copy = C.METHOD_CARDS[self.w.method]
         self._progress_pct = tk.Label(
             col, text="", font=self.font_stat, fg=INK, bg=BG, anchor="w"
         )
-        self._progress_pct.pack(fill=tk.X, pady=(28, 10))
-        bar = tk.Canvas(col, height=18, bg=BG, highlightthickness=0)
+        self._progress_pct.pack(fill=tk.X, pady=(30, 12))
+        bar = tk.Canvas(col, height=20, bg=BG, highlightthickness=0)
         bar.pack(fill=tk.X)
         bar.bind("<Configure>", lambda _e: self._refresh_working())
         self._progress_bar = bar
@@ -1481,10 +1589,10 @@ class TkWizard:
             return
         bar.delete("all")
         width = max(bar.winfo_width(), 1)
-        _round_rect(bar, 0, 0, width, 18, 9, fill=TRACK, outline="")
+        _round_rect(bar, 0, 0, width, 20, 10, fill=TRACK, outline="")
         fill_w = width * min(1.0, frac)
         if fill_w > 1:
-            _round_rect(bar, 0, 0, max(fill_w, 18), 18, 9, fill=PRIMARY, outline="")
+            _round_rect(bar, 0, 0, max(fill_w, 20), 20, 10, fill=PRIMARY, outline="")
 
     def _done(self) -> None:
         col = self._column(self._body, fill_height=True)
@@ -1497,7 +1605,7 @@ class TkWizard:
         icon.pack()
         heading = self._h(col, title)
         heading.configure(anchor="center", justify=tk.CENTER)
-        heading.pack(fill=tk.X, pady=(22, 10))
+        heading.pack(fill=tk.X, pady=(24, 10))
         if self.w.preview:
             msg = C.DONE_OK_PREVIEW if ok else C.DONE_FAIL_PREVIEW
         else:
@@ -1506,7 +1614,7 @@ class TkWizard:
             col, msg, fg=color, wraplength=720, justify=tk.CENTER, anchor="center"
         ).pack(fill=tk.X)
         if self.w.selected is not None:
-            self._disk_summary(col, self.w.selected).pack(fill=tk.X, pady=(22, 0))
+            self._disk_summary(col, self.w.selected).pack(fill=tk.X, pady=(24, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         row = self._footer_shell(C.HINT_DEFAULT)
         if self.w.preview:
@@ -1519,13 +1627,12 @@ class TkWizard:
 
     def _advanced(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._h(col, "Advanced").pack(fill=tk.X, pady=(26, 10))
-        self._p(col, C.ADVANCED_LEAD, fg=MUTED, font=self.font_b).pack(fill=tk.X, pady=(0, 14))
+        self._title_block(col, "Advanced", C.ADVANCED_LEAD)
         from beamo_wipe.methods import METHODS
 
         card = _Box(
             col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=20, pady=14, shadow=True,
+            padx=20, pady=14,
         )
         card.pack(fill=tk.X)
         count = len(METHODS)
@@ -1612,6 +1719,7 @@ class TkWizard:
             self._draw()
             return "break"
         if self.w.screen == Screen.PICK and event.keysym in ("Up", "Down"):
+            self._pick_ensure_visible = True
             self.w.move_selection(-1 if event.keysym == "Up" else 1)
             self._draw()
             return "break"

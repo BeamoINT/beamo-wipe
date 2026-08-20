@@ -171,7 +171,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .mono { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
   .kbd { display: inline-block; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px; padding: 2px 9px; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.3; }
   .kbd.dark { background: var(--navy-soft); border-color: #33517F; color: var(--navy-text); }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin: 6px 0 12px; box-shadow: var(--shadow); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin: 0 0 10px; }
   .card.pickable { cursor: pointer; }
   .card.pickable:hover { background: var(--surface-alt); }
   .card.pickable:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -183,7 +183,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .card .title { font-size: 18px; font-weight: 700; }
   .card .size { font-size: 20px; font-weight: 700; white-space: nowrap; }
   .card .meta { margin-top: 6px; font-size: 16px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 0; align-items: center; }
-  .card .meta .mono { color: var(--ink); font-size: 15px; }
+  .card .meta .mono { color: var(--ink); font-size: 16px; }
   .card .meta .dot { color: var(--border-strong); margin: 0 8px; }
   .card .meta .dev { color: var(--muted); }
   .radio { flex: none; width: 26px; height: 26px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 50%; position: relative; background: var(--surface); }
@@ -215,25 +215,25 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .linkbtn { background: none; border: 0; color: var(--primary); font-size: 16px; font-weight: 700; cursor: pointer; padding: 8px 12px; text-align: left; border-radius: 10px; margin-left: -12px; }
   .linkbtn:hover { background: var(--primary-tint); }
   .linkbtn:focus-visible { outline: 3px solid var(--focus); }
-  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px 16px; box-shadow: var(--shadow); }
+  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px 16px; }
   .entryshell:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
   input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 30px; font-weight: 700; width: 100%; padding: 6px 0; border: 0; outline: none; background: transparent; color: var(--ink); }
-  .match { display: flex; align-items: center; gap: 10px; font-size: 16px; margin-top: 12px; color: var(--muted); }
+  .match { display: flex; align-items: center; gap: 12px; font-size: 18px; margin-top: 14px; color: var(--muted); }
   .match.ok { color: var(--ok); font-weight: 600; }
   .bigstat { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; }
-  .bar { height: 18px; background: var(--track); border-radius: 9px; overflow: hidden; margin-top: 10px; }
-  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 9px; transition: width .2s ease; }
-  .status { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 22px; }
+  .bar { height: 20px; background: var(--track); border-radius: 10px; overflow: hidden; margin-top: 10px; }
+  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 10px; transition: width .2s ease; }
+  .status { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
   .status.ok { background: var(--ok-tint); }
   .status.bad { background: var(--danger-tint); }
   .status .core { width: 78px; height: 78px; border-radius: 50%; color: #fff; font-size: 44px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .status.ok .core { background: var(--ok); }
   .status.bad .core { background: var(--danger); }
   .ok { color: var(--ok); } .bad { color: var(--danger); }
-  ul.bullets { list-style: none; margin: 0; padding: 18px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
+  ul.bullets { list-style: none; margin: 0; padding: 20px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
   ul.bullets li { font-size: 20px; line-height: 1.45; padding: 7px 0; display: flex; }
-  ul.bullets li::before { content: "•"; color: var(--primary); font-weight: 700; margin-right: 14px; flex: none; }
-  .ownercard { display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 20px; cursor: pointer; font-size: 20px; line-height: 1.45; box-shadow: var(--shadow); }
+  ul.bullets li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin: 11px 14px 0 2px; flex: none; }
+  .ownercard { display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 20px; cursor: pointer; font-size: 20px; line-height: 1.45; }
   .ownercard:hover { background: var(--surface-alt); }
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 19px; }
@@ -244,14 +244,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 64px; font-weight: 700; }
   .countcap { font-size: 18px; color: var(--muted); margin-top: 12px; }
   .countcap.ready { color: var(--ok); font-weight: 600; }
-  .methodblurb, .methodpace { font-size: 16px; color: var(--muted); margin: 2px 16px 0 58px; }
+  .methodblurb { font-size: 16px; color: var(--muted); margin: 4px 16px 0 58px; }
+  .methodpace { font-size: 16px; color: var(--muted); margin: 2px 16px 0 58px; }
   .centerstage { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .centerstage h1 { margin: 22px 0 12px; }
+  .centerstage h1 { margin: 24px 0 12px; }
   .centerstage .lead { max-width: 720px; }
   .splashwrap { min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .wordmark { font-size: 54px; font-weight: 700; color: #fff; letter-spacing: -.01em; }
-  .splashmark { width: 140px; height: 10px; background: var(--accent); margin: 24px 0 30px; border-radius: 5px; }
-  .anykey { margin-top: 34px; font-size: 18px; color: var(--navy-text); display: flex; align-items: center; gap: 8px; }
+  .wordmark { font-size: 54px; font-weight: 700; color: #fff; letter-spacing: -.01em; margin-top: 26px; }
+  .anykey { margin-top: 36px; font-size: 18px; color: var(--navy-text); display: flex; align-items: center; gap: 8px; }
   .body.navy h1, .body.navy .lead { color: #fff; }
   .body.navy .muted { color: var(--navy-muted); }
 </style>
@@ -311,8 +311,9 @@ function badge(kind, size) {
     `<circle cx="${s/2}" cy="${s*0.75}" r="${s*0.06}" fill="#fff"/></svg>`;
 }
 const ICON_NO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#B42318" stroke-width="2.6"/><line x1="6" y1="18" x2="18" y2="6" stroke="#B42318" stroke-width="2.6" stroke-linecap="round"/></svg>';
-const MATCH_WAIT = '<svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" fill="none" stroke="#9DA9BB" stroke-width="2"/></svg>';
-const MATCH_OK = '<svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="10" fill="#166E43"/><path d="M6.5 11.5 9.5 14.5 15.5 7.5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const MATCH_WAIT = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#7A89A1" stroke-width="2"/></svg>';
+const MATCH_OK = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#166E43"/><path d="M7 13.5 11 17.5 19 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const EMBLEM = '<svg width="96" height="96" viewBox="0 0 96 96"><rect x="2" y="2" width="92" height="92" rx="22" fill="#E8A317"/><circle cx="48" cy="48" r="28.8" fill="#0A1C36"/><circle cx="48" cy="48" r="9.6" fill="#E8A317"/></svg>';
 
 // Key names inside hint copy render as key-caps, mirroring _hint_bar.
 const KEY_RE = /(Up\/Down|1, 2, or 3|any key|Enter|Esc|Space)/g;
@@ -422,8 +423,8 @@ function draw() {
   btns.innerHTML = "";
   renderHint(P.hints.default);
   if (screen === "splash") {
-    main.innerHTML = `<div class="splashwrap"><div class="wordmark">${P.app}</div><div class="splashmark"></div>
-      <p class="lead" style="color:var(--navy-text);max-width:720px">${P.splash}</p>
+    main.innerHTML = `<div class="splashwrap">${EMBLEM}<div class="wordmark">${P.app}</div>
+      <p class="lead" style="color:var(--navy-text);max-width:720px;margin-top:20px">${P.splash}</p>
       <div class="anykey"><span class="kbd dark">any key</span><span>to continue.</span></div></div>`;
     renderHint(P.hints.splash);
     btns.append(btn("Continue", () => { screen = "what"; draw(); }, "primary"));
@@ -434,8 +435,8 @@ function draw() {
     btns.append(btn("Close preview", closePreview, "secondary"));
     btns.append(btn("I understand", () => { screen = "owner"; draw(); }, "primary"));
   } else if (screen === "owner") {
-    main.innerHTML = `<h1>You must be the owner</h1>
-      <p class="lead muted" style="margin-bottom:24px">${P.ownerLead}</p>
+    main.innerHTML = `<h1 style="margin-bottom:6px">You must be the owner</h1>
+      <p class="lead muted" style="font-size:18px;margin:0 0 14px">${P.ownerLead}</p>
       <div class="ownercard${owner ? " checked" : ""}" id="own" tabindex="0" role="checkbox" aria-checked="${owner}">
         <span class="cbox">${owner ? "✓" : ""}</span><span>${P.owner}</span></div>`;
     const card = main.querySelector("#own");
@@ -456,7 +457,7 @@ function draw() {
     btns.append(btn("Back", () => { screen = "owner"; draw(); }));
     btns.append(btn("Close preview", closePreview, "primary"));
   } else if (screen === "pick") {
-    let html = `<h1 style="margin-bottom:6px">Pick a disk</h1><p class="muted" style="font-size:18px;margin:0 0 16px">${P.pickSubtitle}</p>`;
+    let html = `<h1 style="margin-bottom:6px">Pick a disk</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.pickSubtitle}</p>`;
     if (P.sameSizeConflict && mode === "happy") html += panel("warn", P.sameSize);
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += panel("info", P.ssd);
     disks().forEach(d => { html += diskCard(d); });
@@ -497,11 +498,11 @@ function draw() {
     cont.id = "cont";
     btns.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 style="margin-bottom:10px">How thorough</h1>`;
+    let html = `<h1 style="margin-bottom:8px">How thorough</h1>`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
-      html += `<div class="card pickable${sel ? " sel" : ""}" data-id="${id}" tabindex="0" role="button" style="padding-top:11px;padding-bottom:11px">
+      html += `<div class="card pickable${sel ? " sel" : ""}" data-id="${id}" tabindex="0" role="button" style="padding-top:12px;padding-bottom:12px">
         <div class="row"><span class="radio"></span>
           <div class="grow">
             <div class="title"><span class="kbd">${m.key}</span>&nbsp; ${m.title}${id === "everyday" ? ` &nbsp;<span class="chip ok">${P.recommended}</span>` : ""}</div>
@@ -524,7 +525,7 @@ function draw() {
     btns.append(btn("Back", () => { screen = "confirm"; draw(); }));
     btns.append(btn("Continue", () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
   } else if (screen === "advanced") {
-    let html = `<h1 style="margin-bottom:10px">Advanced</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.advancedLead}</p><div class="card" style="padding:14px 20px">`;
+    let html = `<h1 style="margin-bottom:6px">Advanced</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.advancedLead}</p><div class="card" style="padding:14px 20px">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       html += `<p class="mono" style="font-size:15px;margin:6px 0">${id}: nwipe --method=${m.nwipe} &nbsp;(${m.docs})</p>`;
@@ -558,7 +559,7 @@ function draw() {
     const pct = demoPct === null ? 0 : demoPct;
     main.innerHTML = `<h1>Working</h1>
       ${summaryCard(selected)}
-      <div class="bigstat" id="pct" style="margin:28px 0 10px">${pct}%</div>
+      <div class="bigstat" id="pct" style="margin:30px 0 12px">${pct}%</div>
       <div class="bar" style="margin-top:0"><div class="fill" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
       <p class="muted" style="font-size:18px;margin-top:18px" id="pulse">${m.title}. &nbsp;${P.working}</p>`;
     renderHint(P.hints.working);
