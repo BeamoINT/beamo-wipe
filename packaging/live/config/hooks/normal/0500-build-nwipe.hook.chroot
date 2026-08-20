@@ -53,7 +53,23 @@ apt-get purge -y \
   libparted-dev \
   libconfig-dev
 apt-get autoremove -y --purge
+# autoremove keeps any package still reachable through another installed
+# package's Depends/Recommends, and what stays reachable depends on the exact
+# chroot contents (x11-xserver-utils Depends: cpp anchors the C toolchain
+# chain). The image contract is "no compiler toolchain", so purge whatever
+# compiler packages actually remain instead of trusting the cascade.
+# Deliberately not cpp: x11-xserver-utils needs it, and a bare preprocessor
+# cannot compile (cc1 lives in the gcc-12 package). The patterns never match
+# the runtime libgcc-s1/libstdc++6 or gcc-12-base.
+leftovers="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(gcc|g\+\+)(-[0-9]+)?(:[a-z0-9-]+)?$|^lib(gcc|stdc\+\+)-[0-9]+-dev(:[a-z0-9-]+)?$' || true)"
+if [ -n "$leftovers" ]; then
+  apt-get purge -y $leftovers
+  apt-get autoremove -y --purge
+fi
 apt-get install -y --no-install-recommends libncurses6 libparted2 libconfig9
+# Clear the shell's command cache: this hook ran git/gcc earlier, and dash
+# would otherwise answer command -v from the stale cache after the purge.
+hash -r 2>/dev/null || true
 if command -v gcc >/dev/null 2>&1; then
   echo "ERROR: gcc is still present in the live image" >&2
   exit 1
