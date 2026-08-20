@@ -20,10 +20,12 @@ Other agents may be working here. Stage explicit paths only. Never `git add -A`.
 python3 -m pytest
 ./scripts/test-all.sh
 python3 -m beamo_wipe --demo
-./scripts/build-iso.sh
+./scripts/build-iso.sh   # amd64 live image: run this on GCP/AWS, not this Mac
 ```
 
-The real gate is local pytest. GitHub Actions may be billing-blocked on this org; do not treat a red Actions badge as a product defect.
+The real gate for Python is local pytest. GitHub Actions may be billing-blocked on this org; do not treat a red Actions badge as a product defect.
+
+**ISO build and QEMU wipe tests:** this Mac is Apple silicon (Docker amd64 and `qemu-system-x86_64` are TCG). Do not wait on local emulation. Use the `gcloud` or `aws` CLI to run `./scripts/build-iso.sh` and the `docs/vm-test.md` QEMU wipe on an **x86_64 Linux VM** (KVM), copy the ISO out, and tear the VM down. See `.ai/memory/iso-builds-on-cloud.md`.
 
 ## Safety boundaries
 
