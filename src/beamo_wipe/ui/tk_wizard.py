@@ -3,13 +3,22 @@
 
 This module is a small design system on plain Tk (no assets, no themes):
 tokens, canvas-drawn rounded components (buttons, cards, chips, panels,
-progress bars), and canvas icons. Every screen is built from the same
-components so the wizard looks and behaves consistently on the live USB
-(Linux Tk + DejaVu) and in ./preview.
+progress bars, key-caps, a countdown ring), and canvas icons. Every screen
+is built from the same components so the wizard looks and behaves
+consistently on the live USB (Linux Tk + DejaVu) and in ./preview.
+
+Design rules:
+- One card pattern: white, rounded, soft shadow, hairline border.
+- One selectable pattern: radio/checkbox card; selected = primary tint +
+  primary ring; hover = alt surface; keyboard focus = focus ring.
+- One alert pattern: filled badge icon + text (warn / danger / info).
+- One status pattern: centered icon, title, message (blocked/empty/done).
+- Keyboard affordances are drawn as key-caps, not buried in prose.
 """
 
 from __future__ import annotations
 
+import re
 import tkinter as tk
 from tkinter import font as tkfont
 from typing import Callable, List, Optional
@@ -18,48 +27,53 @@ from beamo_wipe import copy as C
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
-from beamo_wipe.wizard import Wizard
+from beamo_wipe.wizard import COUNTDOWN_S, Wizard
 
 # --- Design tokens ---------------------------------------------------------
 
-BG = "#EDF0F4"
+BG = "#E9EDF4"
 SURFACE = "#FFFFFF"
-SURFACE_ALT = "#F4F7FB"
-INK = "#122033"
-MUTED = "#49566A"
-FAINT = "#66707D"
-BORDER = "#D8DEE6"
-BORDER_STRONG = "#A9B4C2"
-NAVY = "#0B1F3A"
-NAVY_SOFT = "#16305A"
-NAVY_MUTED = "#C3CFDF"
-PRIMARY = "#1F4B99"
-PRIMARY_DARK = "#173A79"
-PRIMARY_PRESS = "#122E5E"
-PRIMARY_TINT = "#E8F0FB"
+SURFACE_ALT = "#F2F5FA"
+INK = "#0E1B2C"
+MUTED = "#43506A"
+BORDER = "#D6DDE7"
+# Strong border: also the unchecked radio/checkbox/key-cap outline, so it
+# must stay >= 3:1 on every surface (WCAG non-text contrast).
+BORDER_STRONG = "#7A89A1"
+NAVY = "#0A1C36"
+NAVY_SOFT = "#16315C"
+NAVY_MUTED = "#C9D6E8"
+NAVY_TEXT = "#D9E2F0"
+PRIMARY = "#2456C7"
+PRIMARY_DARK = "#1C44A3"
+PRIMARY_PRESS = "#16357E"
+PRIMARY_TINT = "#E8EEFB"
 DANGER = "#B42318"
 DANGER_DARK = "#8F1B12"
 DANGER_PRESS = "#6F140D"
-DANGER_TINT = "#FCEDEA"
-DANGER_BORDER = "#EBB4AB"
-OK = "#177245"
-OK_TINT = "#E9F4ED"
-WARN = "#8A5A00"
-WARN_BG = "#FDF3D7"
-WARN_BORDER = "#E7D59B"
-USB_BG = "#F4F0E6"
-USB_BORDER = "#DCD3BE"
-FOCUS = "#173A79"
+DANGER_TINT = "#FBEBE8"
+DANGER_BORDER = "#E5A89E"
+OK = "#166E43"
+OK_TINT = "#E6F2EA"
+WARN = "#7A5200"
+WARN_BG = "#FBF0D3"
+WARN_BORDER = "#E3CE93"
+USB_BG = "#F3EEE2"
+USB_BORDER = "#D8CDB4"
+FOCUS = "#1C44A3"
 ACCENT = "#E8A317"
-DISABLED_BG = "#E3E7EC"
-DISABLED_FG = "#7A8492"
-TRACK = "#DDE3EA"
+DISABLED_BG = "#E2E6EC"
+DISABLED_FG = "#7A8494"
+TRACK = "#DCE2EB"
+SHADOW_A = "#D8DFE9"
+SHADOW_B = "#E3E8F0"
 PREVIEW_BG = "#E8A317"
-PREVIEW_FG = "#0B1F3A"
+PREVIEW_FG = "#0A1C36"
 
 CONTENT_W = 940
 WRAP = CONTENT_W - 72
-RADIUS = 14
+RADIUS = 16
+SHADOW_H = 6
 
 _STEP_ORDER = {
     Screen.WHAT: (1, "Step 1 of 8", "What this is"),
@@ -73,6 +87,13 @@ _STEP_ORDER = {
     Screen.LAST_CHANCE: (6, "Step 6 of 8", "Last chance"),
     Screen.WORKING: (7, "Step 7 of 8", "Erasing"),
     Screen.DONE: (8, "Step 8 of 8", "Finished"),
+}
+
+# Spans of hint copy that render as key-caps instead of plain text.
+_KEY_TOKEN_RE = re.compile(r"(Up/Down|1, 2, or 3|any key|Enter|Esc|Space)")
+_KEY_TOKEN_KEYS = {
+    "Up/Down": ("↑", "↓"),
+    "1, 2, or 3": ("1", "2", "3"),
 }
 
 
@@ -133,12 +154,12 @@ def _icon_radio(parent: tk.Widget, selected: bool, size: int = 26) -> tk.Canvas:
     return cv
 
 
-def _icon_check_box(parent: tk.Widget, checked: bool, size: int = 30) -> tk.Canvas:
+def _icon_check_box(parent: tk.Widget, checked: bool, size: int = 32) -> tk.Canvas:
     cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
     pad = 2
     if checked:
         _round_rect(
-            cv, pad, pad, size - pad, size - pad, 7,
+            cv, pad, pad, size - pad, size - pad, 8,
             fill=PRIMARY, outline=PRIMARY, width=2,
         )
         cv.create_line(
@@ -155,8 +176,8 @@ def _icon_check_box(parent: tk.Widget, checked: bool, size: int = 30) -> tk.Canv
         )
     else:
         _round_rect(
-            cv, pad, pad, size - pad, size - pad, 7,
-            fill="", outline=BORDER_STRONG, width=2,
+            cv, pad, pad, size - pad, size - pad, 8,
+            fill=SURFACE, outline=BORDER_STRONG, width=2,
         )
     return cv
 
@@ -172,55 +193,62 @@ def _icon_no_entry(parent: tk.Widget, size: int = 26) -> tk.Canvas:
     return cv
 
 
-def _icon_warn(
-    parent: tk.Widget, size: int = 30, *, color: str = WARN, bg: str = WARN_BG
-) -> tk.Canvas:
+def _icon_alert(parent: tk.Widget, kind: str, size: int = 34) -> tk.Canvas:
+    """Filled badge: triangle for warn/danger, circle for info. White glyph."""
     cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
-    cv.create_polygon(
-        size / 2, 3, size - 3, size - 4, 3, size - 4,
-        fill=bg, outline=color, width=2, joinstyle="round",
-    )
-    cv.create_line(
-        size / 2, size * 0.34, size / 2, size * 0.62, fill=color, width=3,
-        capstyle="round",
-    )
-    cv.create_oval(
-        size / 2 - 2, size * 0.72, size / 2 + 2, size * 0.72 + 4, fill=color, outline=""
-    )
-    return cv
-
-
-def _icon_info(parent: tk.Widget, size: int = 26, *, color: str = MUTED) -> tk.Canvas:
-    cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
-    pad = 2
-    cv.create_oval(pad, pad, size - pad, size - pad, outline=color, width=2)
-    cv.create_oval(
-        size / 2 - 2, size * 0.26, size / 2 + 2, size * 0.26 + 4, fill=color, outline=""
-    )
-    cv.create_line(
-        size / 2, size * 0.46, size / 2, size * 0.72, fill=color, width=3,
-        capstyle="round",
-    )
-    return cv
-
-
-def _icon_status(parent: tk.Widget, ok: bool, size: int = 96) -> tk.Canvas:
-    cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
-    color = OK if ok else DANGER
-    cv.create_oval(2, 2, size - 2, size - 2, fill=color, outline="")
-    if ok:
+    if kind == "info":
+        color = PRIMARY
+        cv.create_oval(2, 2, size - 2, size - 2, fill=color, outline="")
+        cv.create_oval(
+            size / 2 - 2.5, size * 0.24, size / 2 + 2.5, size * 0.24 + 5,
+            fill="#FFFFFF", outline="",
+        )
         cv.create_line(
-            size * 0.26, size * 0.52, size * 0.44, size * 0.70, size * 0.76, size * 0.30,
-            fill="#FFFFFF", width=max(4, size // 12), capstyle="round", joinstyle="round",
+            size / 2, size * 0.46, size / 2, size * 0.74,
+            fill="#FFFFFF", width=3, capstyle="round",
         )
     else:
-        w = max(4, size // 12)
+        color = WARN if kind == "warn" else DANGER
+        cv.create_polygon(
+            size / 2, 2, size - 2, size - 3, 2, size - 3,
+            fill=color, outline=color, width=6, joinstyle="round",
+        )
         cv.create_line(
-            size * 0.32, size * 0.32, size * 0.68, size * 0.68,
+            size / 2, size * 0.36, size / 2, size * 0.62,
+            fill="#FFFFFF", width=3, capstyle="round",
+        )
+        cv.create_oval(
+            size / 2 - 2, size * 0.72, size / 2 + 2, size * 0.72 + 4,
+            fill="#FFFFFF", outline="",
+        )
+    return cv
+
+
+def _icon_status(parent: tk.Widget, ok: bool, size: int = 104) -> tk.Canvas:
+    cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
+    color = OK if ok else DANGER
+    tint = OK_TINT if ok else DANGER_TINT
+    cv.create_oval(1, 1, size - 1, size - 1, fill=tint, outline="")
+    pad = size // 8
+    cv.create_oval(pad, pad, size - pad, size - pad, fill=color, outline="")
+    cx0, cy0, cx1, cy1 = pad, pad, size - pad, size - pad
+    if ok:
+        cv.create_line(
+            cx0 + (cx1 - cx0) * 0.22, cy0 + (cy1 - cy0) * 0.52,
+            cx0 + (cx1 - cx0) * 0.42, cy0 + (cy1 - cy0) * 0.72,
+            cx0 + (cx1 - cx0) * 0.78, cy0 + (cy1 - cy0) * 0.28,
+            fill="#FFFFFF", width=max(5, size // 14), capstyle="round", joinstyle="round",
+        )
+    else:
+        w = max(5, size // 14)
+        cv.create_line(
+            cx0 + (cx1 - cx0) * 0.30, cy0 + (cy1 - cy0) * 0.30,
+            cx0 + (cx1 - cx0) * 0.70, cy0 + (cy1 - cy0) * 0.70,
             fill="#FFFFFF", width=w, capstyle="round",
         )
         cv.create_line(
-            size * 0.32, size * 0.68, size * 0.68, size * 0.32,
+            cx0 + (cx1 - cx0) * 0.30, cy0 + (cy1 - cy0) * 0.70,
+            cx0 + (cx1 - cx0) * 0.70, cy0 + (cy1 - cy0) * 0.30,
             fill="#FFFFFF", width=w, capstyle="round",
         )
     return cv
@@ -233,7 +261,9 @@ class _Box(tk.Canvas):
     """Rounded-rectangle container hosting one inner frame of widgets.
 
     The canvas background shows through at the rounded corners, so it always
-    matches the parent surface. Content lives in ``self.inner``.
+    matches the parent surface. Content lives in ``self.inner``. With
+    ``shadow=True`` the card gets a soft two-layer drop shadow (the canvas
+    reserves SHADOW_H pixels at the bottom for it).
     """
 
     def __init__(
@@ -248,6 +278,7 @@ class _Box(tk.Canvas):
         pady: int = 14,
         bg: Optional[str] = None,
         ring: bool = False,
+        shadow: bool = False,
     ) -> None:
         super().__init__(
             parent,
@@ -263,6 +294,7 @@ class _Box(tk.Canvas):
         self._padx = padx
         self._pady = pady
         self._ring = ring
+        self._shadow = shadow
         self._focused = False
         self.inner = tk.Frame(self, bg=fill)
         self._win = self.create_window(padx, pady, window=self.inner, anchor="nw")
@@ -270,14 +302,22 @@ class _Box(tk.Canvas):
         self.bind("<Configure>", self._sync_width)
 
     def _sync_height(self, _event=None) -> None:
-        need_h = self.inner.winfo_reqheight() + 2 * self._pady
+        need_h = self.inner.winfo_reqheight() + 2 * self._pady + self._shadow_h
         if self.winfo_height() != need_h:
             self.configure(height=need_h)
-        # Requested width follows content; fill=X parents still stretch us.
+        # Hug the content width only when no parent has stretched us (we are
+        # unmapped, or our actual size still equals our own request). fill=X
+        # parents own the width instead.
         need_w = self.inner.winfo_reqwidth() + 2 * self._padx
-        if need_w > 1 and self.winfo_width() <= 1:
+        if need_w > 1 and (
+            self.winfo_width() <= 1 or self.winfo_width() == self.winfo_reqwidth()
+        ):
             self.configure(width=need_w)
         self._redraw()
+
+    @property
+    def _shadow_h(self) -> int:
+        return SHADOW_H if self._shadow else 0
 
     def _sync_width(self, _event=None) -> None:
         width = self.winfo_width()
@@ -292,14 +332,24 @@ class _Box(tk.Canvas):
         if width <= 1 or height <= 1:
             return
         inset = 3 if self._ring else 1
+        bottom = height - inset - self._shadow_h
+        if self._shadow:
+            _round_rect(
+                self, inset + 1, inset + 4, width - inset - 1, bottom + 4,
+                self._radius, fill=SHADOW_B, outline="", tags="rr",
+            )
+            _round_rect(
+                self, inset, inset + 2, width - inset, bottom + 2,
+                self._radius, fill=SHADOW_A, outline="", tags="rr",
+            )
         if self._ring and self._focused:
             _round_rect(
-                self, 1, 1, width - 1, height - 1, self._radius + 2,
+                self, 1, 1, width - 1, bottom + 2, self._radius + 2,
                 fill=FOCUS, outline="", tags="rr",
             )
         _round_rect(
             self,
-            inset, inset, width - inset, height - inset,
+            inset, inset, width - inset, bottom,
             self._radius,
             fill=self._fill,
             outline=self._outline or "",
@@ -307,6 +357,21 @@ class _Box(tk.Canvas):
             tags="rr",
         )
         self.tag_lower("rr")
+
+    def fit_now(self) -> None:
+        """Size the canvas to its content synchronously.
+
+        The <Configure>-driven sync only runs once the canvas has been
+        mapped, so an unmapped box briefly requests Tk's default canvas size.
+        For small hugged boxes (chips, key-caps) that transient request can
+        exceed the window width and fight the window manager. Call this after
+        adding content to request the right size up front.
+        """
+        self.inner.update_idletasks()
+        self.configure(
+            width=self.inner.winfo_reqwidth() + 2 * self._padx,
+            height=self.inner.winfo_reqheight() + 2 * self._pady + self._shadow_h,
+        )
 
     def set_focused(self, focused: bool) -> None:
         if focused == self._focused:
@@ -345,14 +410,22 @@ class _Box(tk.Canvas):
 
 
 class _Button(tk.Canvas):
-    """Canvas button: identical rendering on Linux Tk and macOS preview."""
+    """Canvas button: identical rendering on Linux Tk and macOS preview.
+
+    Primary and danger buttons carry a soft shadow; secondary is a bordered
+    white button; ghost is a quiet text button. All enabled buttons show a
+    focus ring on keyboard focus.
+    """
 
     _VARIANTS = {
-        "primary": (PRIMARY, "#FFFFFF", PRIMARY_DARK, PRIMARY_PRESS),
-        "danger": (DANGER, "#FFFFFF", DANGER_DARK, DANGER_PRESS),
-        "secondary": ("#E4E8ED", INK, "#D9DFE6", "#C9D1DA"),
-        "ghost": (None, PRIMARY, PRIMARY_TINT, "#D7E4F7"),
+        "primary": (PRIMARY, "#FFFFFF", PRIMARY_DARK, PRIMARY_PRESS, None),
+        "danger": (DANGER, "#FFFFFF", DANGER_DARK, DANGER_PRESS, None),
+        "secondary": (SURFACE, INK, SURFACE_ALT, "#E6EAF0", BORDER_STRONG),
+        "ghost": (None, PRIMARY, PRIMARY_TINT, "#D9E5F8", None),
     }
+
+    _SHADOWED = ("primary", "danger")
+    _SHADOW_GAP = 4
 
     def __init__(
         self,
@@ -363,15 +436,16 @@ class _Button(tk.Canvas):
         font: tkfont.Font,
         variant: str = "secondary",
         enabled: bool = True,
+        compact: bool = False,
     ) -> None:
         self._command = command
         self._variant = variant
         self._enabled = enabled
         self._focused = False
         self._hovering = False
-        pad_x, pad_y = 24, 12
+        pad_x, pad_y = (20, 8) if compact else (26, 13)
         width = font.measure(text) + 2 * pad_x + 6
-        height = font.metrics("linespace") + 2 * pad_y + 6
+        height = font.metrics("linespace") + 2 * pad_y + 6 + self._SHADOW_GAP
         super().__init__(
             parent,
             width=width,
@@ -385,37 +459,46 @@ class _Button(tk.Canvas):
         self._bw = width
         self._bh = height
         self._label = self.create_text(
-            width / 2, height / 2, text=text, font=font, anchor="center"
+            width / 2, (height - self._SHADOW_GAP) / 2, text=text, font=font, anchor="center"
         )
         self.bind("<Button-1>", self._click)
         self.bind("<Enter>", self._enter)
         self.bind("<Leave>", self._leave)
+        # Space activates the focused control. Return/KP_Enter deliberately
+        # stay unbound here so Enter always means "this screen's primary
+        # action" via the gated global handler, no matter where focus sits.
         self.bind("<space>", self._key)
-        self.bind("<Return>", self._key)
-        self.bind("<KP_Enter>", self._key)
         self.bind("<FocusIn>", self._focus_in)
         self.bind("<FocusOut>", self._focus_out)
         self._draw()
 
     def _state_colors(self) -> tuple:
-        bg, fg, hover, press = self._VARIANTS[self._variant]
+        bg, fg, hover, press, outline = self._VARIANTS[self._variant]
         if not self._enabled:
-            return DISABLED_BG, DISABLED_FG
+            return DISABLED_BG, DISABLED_FG, None
         if self._hovering and hover is not None:
-            return hover, fg
-        return bg, fg
+            return hover, fg, outline
+        return bg, fg, outline
 
     def _draw(self) -> None:
         self.delete("rr")
-        fill, fg = self._state_colors()
+        fill, fg, outline = self._state_colors()
+        gap = self._SHADOW_GAP
+        body_bottom = self._bh - 1 - gap
+        if self._enabled and self._variant in self._SHADOWED:
+            _round_rect(
+                self, 4, 4 + 2, self._bw - 4, body_bottom + gap, 13,
+                fill=SHADOW_A, outline="", tags="rr",
+            )
         if self._focused and self._enabled:
             _round_rect(
-                self, 1, 1, self._bw - 1, self._bh - 1, 13,
+                self, 1, 1, self._bw - 1, body_bottom + 2, 14,
                 fill=FOCUS, outline="", tags="rr",
             )
         _round_rect(
-            self, 3, 3, self._bw - 3, self._bh - 3, 11,
-            fill=fill or "", outline="", tags="rr",
+            self, 3, 3, self._bw - 3, body_bottom, 12,
+            fill=fill or "", outline=outline or "", width=1 if outline else 0,
+            tags="rr",
         )
         self.tag_lower("rr")
         self.itemconfigure(self._label, fill=fg)
@@ -469,47 +552,51 @@ class TkWizard:
             title = f"{C.APP_NAME} — PREVIEW (nothing is erased)"
         self.root.title(title)
         self.root.configure(bg=BG)
-        self.root.minsize(1024, 700)
+        self.root.minsize(1024, 740)
         if fullscreen:
             self.root.attributes("-fullscreen", True)
         else:
             self.root.geometry("1280x820")
         family = _family(self.root)
         mono = _mono_family(self.root)
-        self.font_display = tkfont.Font(root=self.root, family=family, size=44, weight="bold")
-        self.font_h = tkfont.Font(root=self.root, family=family, size=30, weight="bold")
+        self.font_display = tkfont.Font(root=self.root, family=family, size=54, weight="bold")
+        self.font_h = tkfont.Font(root=self.root, family=family, size=34, weight="bold")
         self.font_lead = tkfont.Font(root=self.root, family=family, size=20)
         self.font_b = tkfont.Font(root=self.root, family=family, size=18)
         self.font_bold = tkfont.Font(root=self.root, family=family, size=18, weight="bold")
-        self.font_s = tkfont.Font(root=self.root, family=family, size=15)
-        self.font_s_bold = tkfont.Font(root=self.root, family=family, size=15, weight="bold")
-        self.font_tiny = tkfont.Font(root=self.root, family=family, size=13, weight="bold")
-        self.font_btn = tkfont.Font(root=self.root, family=family, size=19, weight="bold")
+        self.font_size_big = tkfont.Font(root=self.root, family=family, size=20, weight="bold")
+        self.font_s = tkfont.Font(root=self.root, family=family, size=16)
+        self.font_s_bold = tkfont.Font(root=self.root, family=family, size=16, weight="bold")
+        self.font_tiny = tkfont.Font(root=self.root, family=family, size=14, weight="bold")
+        self.font_btn = tkfont.Font(root=self.root, family=family, size=20, weight="bold")
         self.font_mono = tkfont.Font(root=self.root, family=mono, size=16)
-        self.font_mono_sm = tkfont.Font(root=self.root, family=mono, size=14)
-        self.font_entry = tkfont.Font(root=self.root, family=mono, size=28, weight="bold")
-        self.font_stat = tkfont.Font(root=self.root, family=family, size=56, weight="bold")
-        self.font_brand = tkfont.Font(root=self.root, family=family, size=20, weight="bold")
+        self.font_mono_sm = tkfont.Font(root=self.root, family=mono, size=15)
+        self.font_entry = tkfont.Font(root=self.root, family=mono, size=30, weight="bold")
+        self.font_stat = tkfont.Font(root=self.root, family=family, size=64, weight="bold")
+        self.font_brand = tkfont.Font(root=self.root, family=family, size=21, weight="bold")
         self._confirm_var = tk.StringVar()
         self._owner_var = tk.IntVar(value=0)
         self._body: Optional[tk.Frame] = None
         self._footer: Optional[tk.Frame] = None
         self._header_step: Optional[tk.Label] = None
         self._strip: Optional[tk.Canvas] = None
-        self._hint: Optional[tk.Label] = None
+        self._hint: Optional[tk.Frame] = None
         self._primary: Optional[_Button] = None
+        self._countdown_ring: Optional[tk.Canvas] = None
         self._countdown_num: Optional[tk.Label] = None
         self._countdown_label: Optional[tk.Label] = None
         self._progress_label: Optional[tk.Label] = None
         self._progress_pct: Optional[tk.Label] = None
         self._progress_bar: Optional[tk.Canvas] = None
         self._match_label: Optional[tk.Label] = None
+        self._match_icon: Optional[tk.Canvas] = None
         self._shown: Optional[Screen] = None
         self._primary_cmd: Optional[Callable[[], None]] = None
         self._after_id: Optional[str] = None
         self._build_chrome()
         self._confirm_var.trace_add("write", self._confirm_var_written)
         self.root.bind("<Escape>", self._on_escape)
+        self.root.bind("<KP_Enter>", self._on_return)
         self.root.bind("<Return>", self._on_return)
         self.root.bind("<Key>", self._on_key)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
@@ -530,27 +617,33 @@ class TkWizard:
                 bg=PREVIEW_BG,
                 font=self.font_s_bold,
             ).pack(side=tk.LEFT, padx=24, pady=8)
-        header = tk.Frame(self.root, bg=NAVY, height=58)
+        header = tk.Frame(self.root, bg=NAVY, height=64)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
+        mark = tk.Canvas(header, width=13, height=28, bg=NAVY, highlightthickness=0)
+        _round_rect(mark, 1, 1, 12, 27, 5, fill=ACCENT, outline="")
+        mark.pack(side=tk.LEFT, padx=(28, 0), pady=18)
         tk.Label(
             header,
             text=C.APP_NAME,
             fg="#FFFFFF",
             bg=NAVY,
             font=self.font_brand,
-        ).pack(side=tk.LEFT, padx=28)
+        ).pack(side=tk.LEFT, padx=(12, 28))
         self._header_step = tk.Label(
             header, text="", fg=NAVY_MUTED, bg=NAVY, font=self.font_s
         )
         self._header_step.pack(side=tk.RIGHT, padx=28)
-        self._strip = tk.Canvas(self.root, height=4, bg=TRACK, highlightthickness=0)
+        self._strip = tk.Canvas(self.root, height=6, bg=TRACK, highlightthickness=0)
         self._strip.pack(fill=tk.X)
         self._strip.bind("<Configure>", lambda _e: self._draw_strip())
-        self._body = tk.Frame(self.root, bg=BG)
-        self._body.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
+        # Pack the footer first: when a small screen cannot fit everything,
+        # pack clips the last-packed widget, and the action buttons must be
+        # the last thing that ever gets clipped.
         self._footer = tk.Frame(self.root, bg=BG)
         self._footer.pack(fill=tk.X, side=tk.BOTTOM)
+        self._body = tk.Frame(self.root, bg=BG)
+        self._body.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
         for area, expand in ((self._body, True), (self._footer, False)):
             area.grid_columnconfigure(0, weight=1)
             area.grid_columnconfigure(1, minsize=CONTENT_W, weight=0)
@@ -568,7 +661,7 @@ class TkWizard:
         step = _STEP_ORDER.get(self.w.screen, (0, "", ""))[0]
         frac = step / 8.0
         if frac > 0:
-            cv.create_rectangle(0, 0, width * frac, 4, fill=PRIMARY, outline="")
+            _round_rect(cv, 0, 0, max(6.0, width * frac), 6, 3, fill=PRIMARY, outline="")
 
     def _column(self, parent: tk.Widget, *, fill_height: bool, bg: str = BG) -> tk.Frame:
         col = tk.Frame(parent, bg=bg)
@@ -625,12 +718,14 @@ class TkWizard:
         self._clear(self._footer)
         self._primary = None
         self._primary_cmd = None
+        self._countdown_ring = None
         self._countdown_num = None
         self._countdown_label = None
         self._progress_label = None
         self._progress_pct = None
         self._progress_bar = None
         self._match_label = None
+        self._match_icon = None
         screen = self.w.screen
         self._body.configure(bg=NAVY if screen == Screen.SPLASH else BG)
         dispatch = {
@@ -667,14 +762,48 @@ class TkWizard:
             fg=kw.get("fg", INK),
             bg=kw.get("bg", BG),
             wraplength=kw.get("wraplength", WRAP),
-            justify=tk.LEFT,
-            anchor="w",
+            justify=kw.get("justify", tk.LEFT),
+            anchor=kw.get("anchor", "w"),
         )
 
     def _chip(self, parent: tk.Widget, text: str, *, fg: str, bg: str) -> _Box:
-        chip = _Box(parent, radius=9, fill=bg, outline=None, ow=0, padx=9, pady=3)
+        chip = _Box(parent, radius=8, fill=bg, outline=None, ow=0, padx=10, pady=3)
         tk.Label(chip.inner, text=text, font=self.font_tiny, fg=fg, bg=bg).pack()
+        chip.fit_now()
         return chip
+
+    def _kbd(self, parent: tk.Widget, text: str, *, dark: bool = False) -> _Box:
+        """A keyboard key-cap. Makes keyboard affordances scannable."""
+        fill = NAVY_SOFT if dark else SURFACE
+        outline = "#33517F" if dark else BORDER_STRONG
+        fg = NAVY_TEXT if dark else INK
+        cap = _Box(parent, radius=7, fill=fill, outline=outline, ow=1, padx=9, pady=2)
+        tk.Label(cap.inner, text=text, font=self.font_tiny, fg=fg, bg=fill).pack()
+        cap.fit_now()
+        return cap
+
+    def _hint_bar(self, parent: tk.Widget, hint: str, *, dark: bool = False) -> tk.Frame:
+        """Hint copy with known key names rendered as key-caps."""
+        bar = tk.Frame(parent, bg=NAVY if dark else BG)
+        fg = NAVY_MUTED if dark else MUTED
+        pos = 0
+        for match in _KEY_TOKEN_RE.finditer(hint):
+            if match.start() > pos:
+                self._hint_text(bar, hint[pos:match.start()], fg, dark)
+            for key in _KEY_TOKEN_KEYS.get(match.group(0), (match.group(0),)):
+                self._kbd(bar, key, dark=dark).pack(side=tk.LEFT, padx=(0, 5))
+            pos = match.end()
+        if pos < len(hint):
+            self._hint_text(bar, hint[pos:], fg, dark)
+        return bar
+
+    def _hint_text(self, parent: tk.Widget, text: str, fg: str, dark: bool) -> None:
+        if not text:
+            return
+        tk.Label(
+            parent, text=text, font=self.font_s, fg=fg,
+            bg=NAVY if dark else BG, anchor="w",
+        ).pack(side=tk.LEFT)
 
     def _panel(self, parent: tk.Widget, *, kind: str, text: str) -> _Box:
         colors = {
@@ -683,21 +812,16 @@ class TkWizard:
             "info": (SURFACE_ALT, BORDER),
         }
         bg, border = colors[kind]
-        box = _Box(parent, radius=12, fill=bg, outline=border, ow=1, padx=16, pady=14)
+        box = _Box(parent, radius=14, fill=bg, outline=border, ow=1, padx=18, pady=16)
         row = tk.Frame(box.inner, bg=bg)
         row.pack(fill=tk.X)
-        if kind == "warn":
-            icon = _icon_warn(row, 30)
-        elif kind == "danger":
-            icon = _icon_warn(row, 30, color=DANGER, bg=DANGER_TINT)
-        else:
-            icon = _icon_info(row, 26)
+        icon = _icon_alert(row, kind, 34)
         icon.configure(bg=bg)
         icon.pack(side=tk.LEFT, anchor="n", pady=2)
         tk.Label(
             row, text=text, font=self.font_b, fg=INK, bg=bg,
-            wraplength=WRAP - 120, justify=tk.LEFT, anchor="w",
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+            wraplength=WRAP - 130, justify=tk.LEFT, anchor="w",
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
         return box
 
     def _bind_tree(self, widget: tk.Widget, click) -> None:
@@ -762,7 +886,10 @@ class TkWizard:
 
     def _disk_summary(self, parent: tk.Widget, disk: Disk) -> _Box:
         """The selected disk, shown the same way on confirm, working, and done."""
-        box = _Box(parent, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1, padx=18, pady=16)
+        box = _Box(
+            parent, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
+            padx=20, pady=18, shadow=True,
+        )
         inner = box.inner
         top = tk.Frame(inner, bg=SURFACE)
         top.pack(fill=tk.X)
@@ -773,7 +900,7 @@ class TkWizard:
             side=tk.LEFT, padx=(12, 0)
         )
         tk.Label(
-            top, text=disk.size_phrase, font=self.font_bold, fg=INK, bg=SURFACE, anchor="e"
+            top, text=disk.size_phrase, font=self.font_size_big, fg=INK, bg=SURFACE, anchor="e"
         ).pack(side=tk.RIGHT)
         self._meta_line(inner, disk, SURFACE).pack(fill=tk.X, pady=(6, 0))
         return box
@@ -787,22 +914,22 @@ class TkWizard:
         assert self._footer is not None
         col = self._column(self._footer, fill_height=False)
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
-        self._hint = tk.Label(
-            col, text=hint, font=self.font_s, fg=MUTED, bg=BG, anchor="w"
-        )
+        self._hint = self._hint_bar(col, hint)
         self._hint.pack(fill=tk.X, pady=(12, 0))
         row = tk.Frame(col, bg=BG)
-        row.pack(fill=tk.X, pady=(12, 24))
+        row.pack(fill=tk.X, pady=(12, 20))
         return row
 
-    def _back_btn(self, row: tk.Frame) -> None:
-        _Button(
+    def _back_btn(self, row: tk.Frame) -> _Button:
+        btn = _Button(
             row,
             text=C.BTN_BACK,
             command=self._nav(self.w.back),
             font=self.font_btn,
             variant="secondary",
-        ).pack(side=tk.LEFT)
+        )
+        btn.pack(side=tk.LEFT)
+        return btn
 
     def _secondary_btn(self, row: tk.Frame, text: str, command: Callable[[], None]) -> _Button:
         btn = _Button(
@@ -845,17 +972,25 @@ class TkWizard:
 
     def _splash(self) -> None:
         col = self._column(self._body, fill_height=True, bg=NAVY)
-        tk.Frame(col, bg=NAVY, height=96).pack()
+        tk.Frame(col, bg=NAVY).pack(fill=tk.BOTH, expand=True)
         tk.Label(
-            col, text=C.APP_NAME, font=self.font_display, fg="#FFFFFF", bg=NAVY, anchor="w"
+            col, text=C.APP_NAME, font=self.font_display, fg="#FFFFFF", bg=NAVY,
+            anchor="center",
         ).pack(fill=tk.X)
-        bar = tk.Canvas(col, width=124, height=8, bg=NAVY, highlightthickness=0)
-        _round_rect(bar, 1, 1, 123, 7, 3, fill=ACCENT, outline="")
-        bar.pack(anchor="w", pady=(20, 28))
-        self._p(col, C.SPLASH_TAGLINE, fg=NAVY_MUTED, bg=NAVY).pack(fill=tk.X)
+        bar = tk.Canvas(col, width=140, height=10, bg=NAVY, highlightthickness=0)
+        _round_rect(bar, 1, 1, 139, 9, 4, fill=ACCENT, outline="")
+        bar.pack(pady=(24, 30))
         self._p(
-            col, "Press any key to continue.", fg=NAVY_MUTED, bg=NAVY, font=self.font_b
-        ).pack(fill=tk.X, pady=(28, 0))
+            col, C.SPLASH_TAGLINE, fg=NAVY_TEXT, bg=NAVY, font=self.font_lead,
+            wraplength=720, justify=tk.CENTER, anchor="center",
+        ).pack(fill=tk.X)
+        any_key = tk.Frame(col, bg=NAVY)
+        any_key.pack(pady=(34, 0))
+        self._kbd(any_key, "any key", dark=True).pack(side=tk.LEFT)
+        tk.Label(
+            any_key, text=" to continue.", font=self.font_b, fg=NAVY_TEXT, bg=NAVY,
+        ).pack(side=tk.LEFT)
+        tk.Frame(col, bg=NAVY).pack(fill=tk.BOTH, expand=True)
         row = self._footer_shell(C.HINT_SPLASH)
         self._primary_btn(row, C.BTN_CONTINUE, self.w.skip_splash)
         if self._primary is not None:
@@ -863,21 +998,37 @@ class TkWizard:
 
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._h(col, "What this is").pack(fill=tk.X, pady=(30, 16))
-        card = _Box(col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1, padx=20, pady=16)
+        self._h(col, "What this is").pack(fill=tk.X, pady=(30, 18))
+        card = _Box(
+            col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
+            padx=22, pady=18, shadow=True,
+        )
         card.pack(fill=tk.X)
         for i, bullet in enumerate(C.WHAT_BULLETS):
             line = tk.Frame(card.inner, bg=SURFACE)
-            line.pack(fill=tk.X, pady=(2 if i == 0 else 12, 2 if i == len(C.WHAT_BULLETS) - 1 else 0))
+            line.pack(fill=tk.X, pady=(2 if i == 0 else 14, 2 if i == len(C.WHAT_BULLETS) - 1 else 0))
             tk.Label(
                 line, text="•", font=self.font_bold, fg=PRIMARY, bg=SURFACE
             ).pack(side=tk.LEFT, anchor="n")
             tk.Label(
                 line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
-                wraplength=WRAP - 100, justify=tk.LEFT, anchor="w",
-            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
-        self._p(col, C.ENGINE_LINE, fg=MUTED, font=self.font_s).pack(fill=tk.X, pady=(18, 6))
-        self._p(col, C.SECURE_BOOT_HINT, fg=MUTED, font=self.font_s).pack(fill=tk.X)
+                wraplength=WRAP - 110, justify=tk.LEFT, anchor="w",
+            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        info = _Box(col, radius=14, fill=SURFACE_ALT, outline=BORDER, ow=1, padx=18, pady=14)
+        info.pack(fill=tk.X, pady=(16, 0))
+        icon = _icon_alert(info.inner, "info", 26)
+        icon.configure(bg=SURFACE_ALT)
+        icon.pack(side=tk.LEFT, anchor="n", pady=2)
+        notes = tk.Frame(info.inner, bg=SURFACE_ALT)
+        notes.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        tk.Label(
+            notes, text=C.ENGINE_LINE, font=self.font_s, fg=MUTED, bg=SURFACE_ALT,
+            wraplength=WRAP - 130, justify=tk.LEFT, anchor="w",
+        ).pack(fill=tk.X)
+        tk.Label(
+            notes, text=C.SECURE_BOOT_HINT, font=self.font_s, fg=MUTED, bg=SURFACE_ALT,
+            wraplength=WRAP - 130, justify=tk.LEFT, anchor="w",
+        ).pack(fill=tk.X, pady=(8, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self.w.shutdown)
         self._primary_btn(row, C.BTN_UNDERSTAND, self.w.accept_what)
@@ -888,7 +1039,7 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         self._owner_var.set(1 if self.w.owner_ok else 0)
         self._h(col, "You must be the owner").pack(fill=tk.X, pady=(30, 12))
-        self._p(col, C.OWNER_LEAD, fg=MUTED).pack(fill=tk.X, pady=(0, 22))
+        self._p(col, C.OWNER_LEAD, fg=MUTED).pack(fill=tk.X, pady=(0, 24))
         checked = bool(self.w.owner_ok)
         card = _Box(
             col,
@@ -896,13 +1047,14 @@ class TkWizard:
             fill=PRIMARY_TINT if checked else SURFACE,
             outline=PRIMARY if checked else BORDER_STRONG,
             ow=2 if checked else 1,
-            padx=18,
-            pady=18,
+            padx=20,
+            pady=20,
             ring=True,
+            shadow=True,
         )
         card.pack(fill=tk.X)
         card.configure(cursor="hand2", takefocus=1)
-        box = _icon_check_box(card.inner, checked, 30)
+        box = _icon_check_box(card.inner, checked, 32)
         box.configure(bg=card._fill)
         box.pack(side=tk.LEFT, anchor="n", pady=2)
         text = tk.Label(
@@ -911,11 +1063,11 @@ class TkWizard:
             font=self.font_lead,
             fg=INK,
             bg=card._fill,
-            wraplength=WRAP - 140,
+            wraplength=WRAP - 150,
             justify=tk.LEFT,
             anchor="w",
         )
-        text.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
+        text.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(18, 0))
         self._bind_tree(card, self._owner_clicked)
         card.bind("<space>", self._owner_clicked)
         card.bind("<FocusIn>", lambda _e: card.set_focused(True))
@@ -941,8 +1093,11 @@ class TkWizard:
             fill, outline, ow = PRIMARY_TINT, PRIMARY, 2
         else:
             fill, outline, ow = SURFACE, BORDER, 1
-        card = _Box(parent, radius=RADIUS, fill=fill, outline=outline, ow=ow, padx=16, pady=14)
-        card.pack(fill=tk.X, pady=5, padx=2)
+        card = _Box(
+            parent, radius=RADIUS, fill=fill, outline=outline, ow=ow,
+            padx=18, pady=16, shadow=True,
+        )
+        card.pack(fill=tk.X, pady=6, padx=2)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -953,7 +1108,7 @@ class TkWizard:
         icon.configure(bg=fill)
         icon.pack(side=tk.LEFT, anchor="n", pady=2)
         title_col = tk.Frame(top, bg=fill)
-        title_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        title_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
         title_row = tk.Frame(title_col, bg=fill)
         title_row.pack(fill=tk.X)
         tk.Label(
@@ -963,14 +1118,14 @@ class TkWizard:
             side=tk.LEFT, padx=(12, 0)
         )
         tk.Label(
-            title_row, text=disk.size_phrase, font=self.font_bold, fg=INK, bg=fill, anchor="e"
+            title_row, text=disk.size_phrase, font=self.font_size_big, fg=INK, bg=fill, anchor="e"
         ).pack(side=tk.RIGHT)
-        self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(5, 0))
+        self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(6, 0))
         if disk.is_boot:
             banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
             tk.Label(
                 inner, text=banner, font=self.font_s_bold, fg=DANGER, bg=fill, anchor="w"
-            ).pack(fill=tk.X, pady=(8, 0))
+            ).pack(fill=tk.X, pady=(10, 0), padx=(42, 0))
             return
 
         def _click(_e, p=disk.path):
@@ -990,7 +1145,7 @@ class TkWizard:
     def _pick(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._h(col, "Pick a disk").pack(fill=tk.X, pady=(26, 6))
-        self._p(col, C.pick_subtitle(), fg=MUTED, font=self.font_b).pack(fill=tk.X, pady=(0, 14))
+        self._p(col, C.pick_subtitle(), fg=MUTED, font=self.font_b).pack(fill=tk.X, pady=(0, 16))
         if same_size_conflict(self.w.selectable):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
@@ -1035,22 +1190,32 @@ class TkWizard:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
             self._disk_row(cards, disk, selected)
         row = self._footer_shell(C.HINT_PICK)
-        self._back_btn(row)
+        back = self._back_btn(row)
         can = self.w.selected is not None and not self.w.selected.is_boot
         self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_pick, enabled=can)
+        # Always land keyboard focus somewhere sensible: the obvious next
+        # action when a disk is chosen, otherwise the safe way out.
+        (self._primary if can and self._primary is not None else back).focus_set()
 
     def _click_disk(self, path: str) -> None:
         self.w.select_disk(path)
         self._draw()
 
-    def _blocked(self) -> None:
+    def _status_screen(self, kind: str, title: str, message: str) -> None:
+        """Centered status layout shared by the blocked and empty screens."""
         col = self._column(self._body, fill_height=True)
-        tk.Frame(col, bg=BG, height=56).pack()
-        icon = _icon_warn(col, 72)
+        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
+        icon = _icon_alert(col, kind, 88)
         icon.configure(bg=BG)
-        icon.pack(anchor="w", pady=(0, 20))
-        self._h(col, "Stop").pack(fill=tk.X, pady=(0, 12))
-        self._p(col, self.w.error or C.IDENTIFY_ERROR).pack(fill=tk.X)
+        icon.pack()
+        self._h(col, title).pack(pady=(22, 12))
+        self._p(
+            col, message, wraplength=720, justify=tk.CENTER, anchor="center"
+        ).pack(fill=tk.X)
+        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
+
+    def _blocked(self) -> None:
+        self._status_screen("warn", "Stop", self.w.error or C.IDENTIFY_ERROR)
         row = self._footer_shell(C.HINT_DEFAULT)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self.w.shutdown)
@@ -1058,13 +1223,7 @@ class TkWizard:
             self._primary.focus_set()
 
     def _empty(self) -> None:
-        col = self._column(self._body, fill_height=True)
-        tk.Frame(col, bg=BG, height=56).pack()
-        icon = _icon_info(col, 64)
-        icon.configure(bg=BG)
-        icon.pack(anchor="w", pady=(0, 20))
-        self._h(col, "No disk to erase").pack(fill=tk.X, pady=(0, 12))
-        self._p(col, C.EMPTY_DISKS).pack(fill=tk.X)
+        self._status_screen("info", "No disk to erase", C.EMPTY_DISKS)
         row = self._footer_shell(C.HINT_DEFAULT)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self.w.shutdown)
@@ -1077,13 +1236,13 @@ class TkWizard:
         spec = self.w.confirm
         assert spec is not None
         col = self._column(self._body, fill_height=True)
-        self._h(col, "Confirm the disk").pack(fill=tk.X, pady=(26, 14))
+        self._h(col, "Confirm the disk").pack(fill=tk.X, pady=(26, 16))
         self._disk_summary(col, disk).pack(fill=tk.X)
         self._panel(col, kind="warn", text=self.w.warning_text()).pack(fill=tk.X, pady=14)
         self._p(col, spec.prompt).pack(fill=tk.X, pady=(2, 10))
         shell = _Box(
-            col, radius=12, fill=SURFACE, outline=BORDER_STRONG, ow=1,
-            padx=14, pady=8, ring=True,
+            col, radius=14, fill=SURFACE, outline=BORDER_STRONG, ow=1,
+            padx=16, pady=10, ring=True, shadow=True,
         )
         shell.pack(fill=tk.X)
         entry = tk.Entry(
@@ -1103,29 +1262,46 @@ class TkWizard:
         entry.bind("<FocusOut>", lambda _e: shell.set_focused(False))
         shell.set_focused(True)
         entry.focus_set()
+        match_row = tk.Frame(col, bg=BG)
+        match_row.pack(fill=tk.X, pady=(12, 0))
+        self._match_icon = tk.Canvas(match_row, width=22, height=22, highlightthickness=0, bg=BG)
+        self._match_icon.pack(side=tk.LEFT)
         self._match_label = tk.Label(
-            col,
-            text=C.CONFIRM_MATCH_OK if self.w.token_ok else C.CONFIRM_MATCH_WAIT,
+            match_row,
+            text="",
             font=self.font_s,
-            fg=OK if self.w.token_ok else MUTED,
+            fg=MUTED,
             bg=BG,
             anchor="w",
         )
-        self._match_label.pack(fill=tk.X, pady=(10, 0))
+        self._match_label.pack(side=tk.LEFT, padx=(10, 0))
+        self._paint_match()
         row = self._footer_shell(C.HINT_CONFIRM)
         self._back_btn(row)
         self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_confirm, enabled=self.w.token_ok)
+
+    def _paint_match(self) -> None:
+        if self._match_icon is None or self._match_label is None:
+            return
+        cv = self._match_icon
+        cv.delete("all")
+        if self.w.token_ok:
+            cv.create_oval(1, 1, 21, 21, fill=OK, outline="")
+            cv.create_line(
+                6, 11.5, 9.5, 15, 16, 7,
+                fill="#FFFFFF", width=2.5, capstyle="round", joinstyle="round",
+            )
+            self._match_label.configure(text=C.CONFIRM_MATCH_OK, fg=OK)
+        else:
+            cv.create_oval(2, 2, 20, 20, outline=BORDER_STRONG, width=2)
+            self._match_label.configure(text=C.CONFIRM_MATCH_WAIT, fg=MUTED)
 
     def _confirm_var_written(self, *_a) -> None:
         if self.w.screen != Screen.CONFIRM:
             return
         self.w.set_confirm_input(self._confirm_var.get())
         self._set_primary_enabled(self.w.token_ok)
-        if self._match_label is not None:
-            if self.w.token_ok:
-                self._match_label.configure(text=C.CONFIRM_MATCH_OK, fg=OK)
-            else:
-                self._match_label.configure(text=C.CONFIRM_MATCH_WAIT, fg=MUTED)
+        self._paint_match()
 
     def _method_card(self, parent: tk.Widget, method: MethodId) -> None:
         card_copy = C.METHOD_CARDS[method]
@@ -1134,9 +1310,9 @@ class TkWizard:
         outline = PRIMARY if selected else BORDER
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
-            padx=16, pady=14,
+            padx=18, pady=9, shadow=True,
         )
-        card.pack(fill=tk.X, pady=5)
+        card.pack(fill=tk.X, pady=3)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -1144,8 +1320,8 @@ class TkWizard:
         icon.configure(bg=fill)
         icon.pack(side=tk.LEFT, anchor="n", pady=2)
         title_row = tk.Frame(top, bg=fill)
-        title_row.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
-        self._chip(title_row, card_copy["key"], fg=MUTED, bg=SURFACE_ALT).pack(side=tk.LEFT)
+        title_row.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
+        self._kbd(title_row, card_copy["key"]).pack(side=tk.LEFT)
         tk.Label(
             title_row, text=card_copy["title"], font=self.font_bold, fg=INK, bg=fill, anchor="w"
         ).pack(side=tk.LEFT, padx=(12, 0))
@@ -1160,10 +1336,10 @@ class TkWizard:
                 font=self.font_s,
                 fg=MUTED,
                 bg=fill,
-                wraplength=WRAP - 110,
+                wraplength=WRAP - 120,
                 justify=tk.LEFT,
                 anchor="w",
-            ).pack(fill=tk.X, padx=(56, 16), pady=(3, 0))
+            ).pack(fill=tk.X, padx=(58, 16), pady=(1, 0))
 
         def _click(_e, m=method):
             self._choose_method(m)
@@ -1181,21 +1357,26 @@ class TkWizard:
 
     def _method(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._h(col, "How thorough").pack(fill=tk.X, pady=(26, 12))
+        # Tightest screen in the wizard: keep the whole column inside the
+        # 1024x740 minimum window with the footer fully visible.
+        self._h(col, "How thorough").pack(fill=tk.X, pady=(14, 8))
         for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
             self._method_card(col, method)
-        self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(10, 8))
+        self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(6, 2))
         adv = _Button(
             col,
             text=C.BTN_ADVANCED,
             command=self.w.open_advanced,
             font=self.font_s_bold,
             variant="ghost",
+            compact=True,
         )
         adv.pack(anchor="w", pady=(2, 0))
         row = self._footer_shell(C.HINT_METHOD)
         self._back_btn(row)
         self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_method)
+        if self._primary is not None:
+            self._primary.focus_set()
 
     def _choose_method(self, method: MethodId) -> None:
         self.w.set_method(method)
@@ -1208,17 +1389,20 @@ class TkWizard:
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         count = tk.Frame(col, bg=BG)
-        count.pack(anchor="w", pady=(24, 0))
+        count.pack(pady=(26, 0))
+        ring = tk.Canvas(count, width=190, height=190, bg=BG, highlightthickness=0)
+        ring.pack()
+        self._countdown_ring = ring
         self._countdown_num = tk.Label(
-            count, text="", font=self.font_stat, fg=INK, bg=BG, anchor="w"
+            ring, text="", font=self.font_stat, fg=INK, bg=BG, anchor="center"
         )
-        self._countdown_num.pack(fill=tk.X)
+        ring.create_window(95, 92, window=self._countdown_num)
         self._countdown_label = tk.Label(
-            count, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="w", justify=tk.LEFT
+            col, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center", justify=tk.CENTER
         )
-        self._countdown_label.pack(fill=tk.X, pady=(2, 0))
+        self._countdown_label.pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
-        self._back_btn(row)
+        back = self._back_btn(row)
         self._primary_btn(
             row,
             C.BTN_ERASE,
@@ -1226,39 +1410,52 @@ class TkWizard:
             enabled=self.w.erase_enabled,
             danger=True,
         )
+        # Safe default: focus Back, never the Erase button.
+        back.focus_set()
         self._refresh_last_chance()
 
     def _refresh_last_chance(self) -> None:
-        if self._countdown_label is None or self._countdown_num is None:
+        if self._countdown_ring is None or self._countdown_label is None:
             return
         left = int(self.w.countdown_left + 0.99)
+        ring = self._countdown_ring
+        ring.delete("arc")
+        ring.create_oval(14, 14, 176, 176, outline=TRACK, width=13, tags="arc")
         if left > 0:
-            self._countdown_num.configure(text=str(left), fg=INK)
+            frac = min(1.0, max(0.0, self.w.countdown_left / COUNTDOWN_S))
+            ring.create_arc(
+                14, 14, 176, 176, start=90, extent=-359.99 * frac,
+                style=tk.ARC, outline=PRIMARY, width=13, tags="arc",
+            )
+            if self._countdown_num is not None:
+                self._countdown_num.configure(text=str(left), fg=INK)
             self._countdown_label.configure(text=C.COUNTDOWN_CAPTION, fg=MUTED)
         else:
-            self._countdown_num.configure(text="✓", fg=OK)
+            ring.create_oval(14, 14, 176, 176, outline=OK, width=13, tags="arc")
+            if self._countdown_num is not None:
+                self._countdown_num.configure(text="✓", fg=OK)
             self._countdown_label.configure(text=C.COUNTDOWN_READY, fg=OK)
         self._set_primary_enabled(self.w.erase_enabled)
 
     def _working(self) -> None:
         col = self._column(self._body, fill_height=True)
         disk = self.w.selected
-        self._h(col, "Working").pack(fill=tk.X, pady=(26, 14))
+        self._h(col, "Working").pack(fill=tk.X, pady=(26, 16))
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
         card_copy = C.METHOD_CARDS[self.w.method]
         self._progress_pct = tk.Label(
             col, text="", font=self.font_stat, fg=INK, bg=BG, anchor="w"
         )
-        self._progress_pct.pack(fill=tk.X, pady=(28, 8))
-        bar = tk.Canvas(col, height=14, bg=BG, highlightthickness=0)
+        self._progress_pct.pack(fill=tk.X, pady=(28, 10))
+        bar = tk.Canvas(col, height=18, bg=BG, highlightthickness=0)
         bar.pack(fill=tk.X)
         bar.bind("<Configure>", lambda _e: self._refresh_working())
         self._progress_bar = bar
         self._progress_label = self._p(
             col, f"{card_copy['title']}.  {C.WORKING_PULSE}", fg=MUTED, font=self.font_b
         )
-        self._progress_label.pack(fill=tk.X, pady=(16, 0))
+        self._progress_label.pack(fill=tk.X, pady=(18, 0))
         self._footer_shell(C.HINT_WORKING)
         self._refresh_working()
 
@@ -1284,28 +1481,33 @@ class TkWizard:
             return
         bar.delete("all")
         width = max(bar.winfo_width(), 1)
-        _round_rect(bar, 0, 0, width, 14, 7, fill=TRACK, outline="")
+        _round_rect(bar, 0, 0, width, 18, 9, fill=TRACK, outline="")
         fill_w = width * min(1.0, frac)
         if fill_w > 1:
-            _round_rect(bar, 0, 0, max(fill_w, 14), 14, 7, fill=PRIMARY, outline="")
+            _round_rect(bar, 0, 0, max(fill_w, 18), 18, 9, fill=PRIMARY, outline="")
 
     def _done(self) -> None:
         col = self._column(self._body, fill_height=True)
         ok = self.w.done_ok
         title = "Finished" if ok else "The wipe did not finish"
         color = OK if ok else DANGER
-        tk.Frame(col, bg=BG, height=40).pack()
-        icon = _icon_status(col, ok, 96)
+        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
+        icon = _icon_status(col, ok, 104)
         icon.configure(bg=BG)
-        icon.pack(anchor="w", pady=(0, 20))
-        self._h(col, title).pack(fill=tk.X, pady=(0, 10))
+        icon.pack()
+        heading = self._h(col, title)
+        heading.configure(anchor="center", justify=tk.CENTER)
+        heading.pack(fill=tk.X, pady=(22, 10))
         if self.w.preview:
             msg = C.DONE_OK_PREVIEW if ok else C.DONE_FAIL_PREVIEW
         else:
             msg = C.DONE_OK if ok else C.DONE_FAIL
-        self._p(col, msg, fg=color).pack(fill=tk.X)
+        self._p(
+            col, msg, fg=color, wraplength=720, justify=tk.CENTER, anchor="center"
+        ).pack(fill=tk.X)
         if self.w.selected is not None:
-            self._disk_summary(col, self.w.selected).pack(fill=tk.X, pady=(18, 0))
+            self._disk_summary(col, self.w.selected).pack(fill=tk.X, pady=(22, 0))
+        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         row = self._footer_shell(C.HINT_DEFAULT)
         if self.w.preview:
             self._secondary_btn(row, C.BTN_CLOSE_PREVIEW, self.w.shutdown)
@@ -1321,7 +1523,10 @@ class TkWizard:
         self._p(col, C.ADVANCED_LEAD, fg=MUTED, font=self.font_b).pack(fill=tk.X, pady=(0, 14))
         from beamo_wipe.methods import METHODS
 
-        card = _Box(col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1, padx=18, pady=12)
+        card = _Box(
+            col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
+            padx=20, pady=14, shadow=True,
+        )
         card.pack(fill=tk.X)
         count = len(METHODS)
         for i, spec in enumerate(METHODS.values()):
@@ -1350,6 +1555,8 @@ class TkWizard:
         row = self._footer_shell(C.HINT_DEFAULT)
         self._back_btn(row)
         self._primary_btn(row, C.BTN_CONTINUE, self.w.close_advanced)
+        if self._primary is not None:
+            self._primary.focus_set()
 
     # -- keyboard ------------------------------------------------------------
 
@@ -1393,7 +1600,7 @@ class TkWizard:
         return "break"
 
     def _on_key(self, event) -> Optional[str]:
-        if event.keysym in ("Return", "Escape", "Tab"):
+        if event.keysym in ("Return", "KP_Enter", "Escape", "Tab"):
             return None
         if self.w.screen == Screen.SPLASH:
             self.w.skip_splash()
@@ -1408,11 +1615,14 @@ class TkWizard:
             self.w.move_selection(-1 if event.keysym == "Up" else 1)
             self._draw()
             return "break"
-        if self.w.screen == Screen.METHOD and event.char in ("1", "2", "3"):
-            mapping = {"1": MethodId.EVERYDAY, "2": MethodId.EXTRA, "3": MethodId.QUICK_ZERO}
-            self.w.set_method(mapping[event.char])
-            self._draw()
-            return "break"
+        if self.w.screen == Screen.METHOD:
+            # Some X servers/IMEs deliver keysym with an empty char.
+            digit = event.char if event.char in ("1", "2", "3") else event.keysym
+            if digit in ("1", "2", "3"):
+                mapping = {"1": MethodId.EVERYDAY, "2": MethodId.EXTRA, "3": MethodId.QUICK_ZERO}
+                self.w.set_method(mapping[digit])
+                self._draw()
+                return "break"
         return None
 
     def _close(self) -> None:

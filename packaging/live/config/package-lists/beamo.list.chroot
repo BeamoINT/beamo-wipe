@@ -22,6 +22,10 @@ xserver-xorg-input-libinput
 xinit
 x11-xserver-utils
 tk
+# The wizard UI is designed on DejaVu (see ui/tk_wizard.py _family). With
+# recommends off, no X font is guaranteed otherwise and Tk would fall back
+# to the X server's unscalable built-in "fixed" bitmap font.
+fonts-dejavu-core
 pciutils
 usbutils
 util-linux

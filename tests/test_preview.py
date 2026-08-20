@@ -117,10 +117,21 @@ def test_tk_last_chance_renders_safety_error():
     assert "self.w.error" in source
 
 
-def test_tk_return_activates_focused_button():
+def test_tk_enter_is_always_the_gated_screen_action():
+    """Enter/KP_Enter mean "this screen's primary action", everywhere.
+
+    Buttons activate on Space only, so a focused button can never shadow the
+    global Return handler — that handler is where the gates live (owner
+    checkbox, token match, countdown). Pinning both halves of the contract.
+    """
     import inspect
 
-    from beamo_wipe.ui.tk_wizard import _Button
+    from beamo_wipe.ui.tk_wizard import TkWizard, _Button
 
-    source = inspect.getsource(_Button.__init__)
-    assert "<Return>" in source or "<KP_Enter>" in source
+    button_src = inspect.getsource(_Button.__init__)
+    assert '"<space>"' in button_src
+    assert "<Return>" not in button_src and "<KP_Enter>" not in button_src
+
+    init_src = inspect.getsource(TkWizard.__init__)
+    assert 'bind("<Return>", self._on_return)' in init_src
+    assert 'bind("<KP_Enter>", self._on_return)' in init_src
