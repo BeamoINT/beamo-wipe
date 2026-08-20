@@ -36,8 +36,12 @@ packaging/live/config/chroot
 packaging/live/config/common
 packaging/live/config/source
 packaging/live/config/package-lists/live.list.chroot
+packaging/live/config/hooks/live/
+packaging/live/config/hooks/normal/*.hook.chroot
+!packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot
 packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/
 packaging/live/config/includes.chroot/usr/share/beamo-wipe/
+packaging/live/config/includes.chroot/usr/share/doc/beamo-wipe/
 packaging/live/config/includes.binary/START-HERE.html
 packaging/live/config/includes.binary/README.txt
 packaging/live/config/includes.binary/NOTICE
