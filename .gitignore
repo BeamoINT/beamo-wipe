@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ISO / USB / live-build artifacts (never commit)
+*.iso
+*.img
+*.raw
+*.squashfs
+dist/
+packaging/live/cache/
+packaging/live/chroot/
+packaging/live/.build/
+packaging/live/binary/
+packaging/live/binary.iso
+packaging/live/binary.hybrid.iso
+packaging/live/binary.iso.hash
+packaging/live/.stage/
+packaging/live/tmp/
+packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/
+packaging/live/config/includes.chroot/usr/share/beamo-wipe/
+packaging/live/config/includes.binary/START-HERE.html
+packaging/live/config/includes.binary/README.txt
+packaging/live/config/includes.binary/NOTICE
+packaging/live/config/includes.binary/LICENSE
+packaging/live/config/includes.binary/SOURCE.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
