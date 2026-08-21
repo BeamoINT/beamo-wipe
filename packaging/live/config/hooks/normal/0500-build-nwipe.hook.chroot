@@ -19,8 +19,22 @@ apt-get install -y --no-install-recommends \
   ca-certificates
 
 mkdir -p /usr/share/doc/beamo-wipe
-git clone --depth 1 --branch "$NWIPE_TAG" \
-  https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe
+# QEMU user-mode amd64 git+GnuTLS often drops the pack once; retry.
+n=0
+while :; do
+  rm -rf /tmp/nwipe
+  if git clone --depth 1 --branch "$NWIPE_TAG" \
+    https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe; then
+    break
+  fi
+  n=$((n + 1))
+  if [ "$n" -ge 5 ]; then
+    echo "ERROR: git clone nwipe failed after $n attempts" >&2
+    exit 1
+  fi
+  echo "W: git clone nwipe failed, retry $n/5" >&2
+  sleep $((n * 8))
+done
 cd /tmp/nwipe
 got="$(git rev-parse HEAD)"
 if [ "$got" != "$NWIPE_COMMIT" ]; then

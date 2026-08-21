@@ -59,6 +59,7 @@ def test_nwipe_hook_fails_closed_instead_of_unpinned_fallback():
     assert "apt-get purge -y nwipe" not in text
     assert "ERROR: gcc is still present" in text
     assert "ERROR: nwipe commit" in text
+    assert "git clone nwipe failed after" in text
 
 
 def test_live_launcher_isolates_sys_path_and_preview_env():
