@@ -35,7 +35,26 @@ make -j"$(nproc || echo 2)"
 make install
 cd /
 rm -rf /tmp/nwipe
-nwipe -V > /usr/share/doc/beamo-wipe/NWIPE_VERSION 2>&1
+# Keep the engine off PATH so a second TTY cannot skip the wizard gates.
+install -d -m 0755 /usr/lib/beamo-wipe
+if [ ! -x /usr/local/bin/nwipe ]; then
+  echo "ERROR: nwipe did not install to /usr/local/bin/nwipe" >&2
+  exit 1
+fi
+mv /usr/local/bin/nwipe /usr/lib/beamo-wipe/nwipe
+chmod 0755 /usr/lib/beamo-wipe/nwipe
+if [ -e /usr/bin/nwipe ] || [ -e /usr/local/bin/nwipe ] \
+  || [ -e /usr/sbin/nwipe ] || [ -e /usr/local/sbin/nwipe ]; then
+  echo "ERROR: nwipe is still on PATH" >&2
+  exit 1
+fi
+cat > /usr/local/bin/nwipe << 'EOF'
+#!/bin/sh
+echo "nwipe is not run directly. Boot Beamo Wipe and use the screens." >&2
+exit 2
+EOF
+chmod 0755 /usr/local/bin/nwipe
+/usr/lib/beamo-wipe/nwipe -V > /usr/share/doc/beamo-wipe/NWIPE_VERSION 2>&1
 if ! grep -q "0.42" /usr/share/doc/beamo-wipe/NWIPE_VERSION; then
   echo "ERROR: installed nwipe is not v0.42" >&2
   cat /usr/share/doc/beamo-wipe/NWIPE_VERSION >&2
@@ -79,6 +98,25 @@ if command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
-# No network by default.
-systemctl mask NetworkManager.service wpa_supplicant.service || true
+# No network by default. Extra TTYs would bypass the confirm gates.
+# live-build's chroot is not PID 1, so `systemctl mask` is often a no-op.
+# Write the mask units as symlinks; keep systemctl as a best-effort extra.
+systemctl mask NetworkManager.service wpa_supplicant.service \
+  systemd-networkd.service systemd-networkd.socket systemd-timesyncd.service \
+  ssh.service ssh.socket sshd.service sshd.socket || true
+for tty in tty2 tty3 tty4 tty5 tty6; do
+  ln -sfn /dev/null "/etc/systemd/system/getty@${tty}.service"
+  systemctl mask "getty@${tty}.service" || true
+done
+ln -sfn /dev/null /etc/systemd/system/serial-getty@ttyS0.service
+systemctl mask serial-getty@ttyS0.service || true
+# Debian live-config 0140-xinit writes an infinite `startx` loop on tty1
+# (sourced from /etc/profile.d before ~/.profile). Remove the component.
+rm -f /lib/live/config/0140-xinit
+mkdir -p /etc/systemd/logind.conf.d
+cat > /etc/systemd/logind.conf.d/beamo-kiosk.conf << 'EOF'
+[Login]
+NAutoVTs=1
+ReserveVT=1
+EOF
 chmod 755 /usr/local/bin/beamo-wipe

@@ -7,8 +7,8 @@ import os
 import time
 from typing import Callable, Optional, Protocol
 
-from beamo_wipe.copy import confirm_warning, erase_now_label
-from beamo_wipe.methods import DEFAULT_METHOD
+from beamo_wipe.copy import REDISCOVER_ERROR, confirm_warning, erase_now_label
+from beamo_wipe.methods import DEFAULT_METHOD, METHODS
 from beamo_wipe.models import (
     ConfirmSpec,
     Disk,
@@ -25,6 +25,7 @@ from beamo_wipe.safety import (
     assert_disk_identity,
     assert_ready_to_wipe,
     confirm_spec,
+    listed_disks as safety_listed_disks,
     selectable_disks,
     token_matches,
 )
@@ -74,6 +75,7 @@ class Wizard:
         self._wipe_request: Optional[WipeRequest] = None
         self._advanced_from: Optional[Screen] = None
         self.log_text = ""
+        self._done_keyboard_armed = False
 
     @property
     def now(self) -> float:
@@ -84,10 +86,15 @@ class Wizard:
         return selectable_disks(self.discovery)
 
     @property
+    def listed_disks(self):
+        """Boot (marked) plus selectable targets. Nothing else is shown."""
+        return safety_listed_disks(self.discovery)
+
+    @property
     def confirm(self) -> Optional[ConfirmSpec]:
         if self.selected is None:
             return None
-        return confirm_spec(self.selected, self.selectable)
+        return confirm_spec(self.selected, self.listed_disks)
 
     @property
     def token_ok(self) -> bool:
@@ -146,9 +153,24 @@ class Wizard:
         self._wipe_request = None
         self._advanced_from = None
         self.log_text = ""
+        self._done_keyboard_armed = False
 
     def shutdown(self) -> None:
         self.wants_shutdown = True
+
+    def arm_done_keyboard(self) -> None:
+        """Allow Enter on Done after the confirming key has been released."""
+        if self.screen == Screen.DONE:
+            self._done_keyboard_armed = True
+
+    def accept_done_keyboard(self) -> None:
+        """Enter on Done. Ignored while Return is still held from Erase."""
+        if self.screen != Screen.DONE or not self._done_keyboard_armed:
+            return
+        if self.preview:
+            self.reset_for_preview()
+        else:
+            self.shutdown()
 
     def accept_what(self) -> None:
         if self.screen != Screen.WHAT:
@@ -182,14 +204,12 @@ class Wizard:
     def select_disk(self, path: str) -> None:
         if self.screen != Screen.PICK:
             return
-        for disk in self.discovery.disks:
-            if disk.path == path:
-                if disk.is_boot:
-                    return
-                if disk not in self.selectable and disk.path not in {
-                    d.path for d in self.selectable
-                }:
-                    return
+        want = os.path.realpath(path)
+        boot = self.discovery.boot
+        if boot is not None and os.path.realpath(boot.path) == want:
+            return
+        for disk in self.selectable:
+            if os.path.realpath(disk.path) == want:
                 self.selected = disk
                 return
 
@@ -211,12 +231,18 @@ class Wizard:
     def continue_pick(self) -> None:
         if self.screen != Screen.PICK or self.selected is None or self.selected.is_boot:
             return
-        if self.selected.path not in {d.path for d in self.selectable}:
+        want = os.path.realpath(self.selected.path)
+        if want not in {os.path.realpath(d.path) for d in self.selectable}:
             return
+        if self.discovery.boot is not None:
+            if want == os.path.realpath(self.discovery.boot.path):
+                return
         self.confirm_input = ""
         self.screen = Screen.CONFIRM
 
     def set_confirm_input(self, text: str) -> None:
+        if self.screen != Screen.CONFIRM:
+            return
         self.confirm_input = text
 
     def continue_confirm(self) -> None:
@@ -225,6 +251,10 @@ class Wizard:
         self.screen = Screen.METHOD
 
     def set_method(self, method: MethodId) -> None:
+        if self.screen != Screen.METHOD:
+            return
+        if method not in METHODS:
+            return
         self.method = method
 
     def continue_method(self) -> None:
@@ -234,6 +264,8 @@ class Wizard:
         self._erase_until = self.now + COUNTDOWN_S
 
     def confirm_erase(self) -> None:
+        if self.screen != Screen.LAST_CHANCE:
+            return
         if not self.erase_enabled or self.selected is None:
             return
         if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
@@ -244,13 +276,17 @@ class Wizard:
         if not self.dry_run and not self.preview:
             try:
                 discovery = (self._rediscover or discover)()
+            except (OSError, ValueError) as exc:
+                self.error = f"Could not re-read disks: {exc}"
+                return
+            if not discovery.boot_identified or discovery.boot is None:
+                self.error = REDISCOVER_ERROR
+                return
+            try:
                 assert_boot_excluded(discovery)
                 assert_disk_identity(disk, discovery)
             except SafetyError as exc:
                 self.error = str(exc)
-                return
-            except (OSError, ValueError) as exc:
-                self.error = f"Could not re-read disks: {exc}"
                 return
             self.discovery = discovery
             try:
@@ -287,17 +323,15 @@ class Wizard:
     def _finish(self, result: WipeResult) -> None:
         self.wipe_result = result
         self.screen = Screen.DONE
-        if result.ok:
-            self.log_text = result.summary
-        else:
-            self.log_text = result.summary
+        self._done_keyboard_armed = False
+        self.log_text = result.summary
 
     @property
     def done_ok(self) -> bool:
         return bool(self.wipe_result and self.wipe_result.ok)
 
     def open_advanced(self) -> None:
-        if self.screen in (Screen.SPLASH, Screen.WORKING):
+        if self.screen in (Screen.SPLASH, Screen.WORKING, Screen.ADVANCED):
             return
         self._advanced_from = self.screen
         self.screen = Screen.ADVANCED

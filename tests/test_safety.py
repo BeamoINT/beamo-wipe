@@ -86,13 +86,35 @@ def test_live_markers():
     assert not is_live_environment(
         env={"BEAMO_WIPE_LIVE": "1"}, cmdline="", paths_exist=[]
     )
-    assert is_live_environment(env={}, cmdline="boot=live quiet", paths_exist=[])
+    assert is_live_environment(
+        env={}, cmdline="boot=live quiet", live_medium_mounted=True
+    )
+    assert is_live_environment(
+        env={}, cmdline="quiet boot=live components", live_medium_mounted=True
+    )
+    assert is_live_environment(env={}, cmdline="boot=casper", live_medium_mounted=True)
+    assert not is_live_environment(
+        env={}, cmdline="boot=live quiet", live_medium_mounted=False
+    )
+    assert not is_live_environment(env={}, cmdline="boot=live quiet", paths_exist=[])
     assert not is_live_environment(env={}, cmdline="", paths_exist=[])
+    assert not is_live_environment(
+        env={}, cmdline="", paths_exist=["/run/live", "/lib/live/mount"]
+    )
+    assert not is_live_environment(env={}, cmdline="debug=boot=live")
+    assert not is_live_environment(env={}, cmdline="boot=live-extra")
     require_live_or_dry_run(env={"BEAMO_WIPE_DRY_RUN": "1"}, cmdline="")
     with pytest.raises(SafetyError):
         require_live_or_dry_run(env={}, cmdline="")
     with pytest.raises(SafetyError):
         require_live_or_dry_run(env={"BEAMO_WIPE_LIVE": "1"}, cmdline="")
+    require_live_or_dry_run(
+        env={}, cmdline="boot=live", live_medium_mounted=True
+    )
+    with pytest.raises(SafetyError):
+        require_live_or_dry_run(
+            env={}, cmdline="boot=live", live_medium_mounted=False
+        )
 
 
 def test_owner_and_token_required_before_wipe(monkeypatch, tmp_path):
@@ -151,6 +173,38 @@ def test_empty_confirm_token_never_matches():
     spec_ws = ConfirmSpec(token="  ", prompt="x")
     assert not token_matches("  ", spec_ws)
     assert not token_matches("256", spec_ws)
+
+
+def test_nbd_is_not_a_wipe_target():
+    from beamo_wipe.safety import normalize_whole_disk
+
+    with pytest.raises(SafetyError):
+        normalize_whole_disk("/dev/nbd0")
+    with pytest.raises(SafetyError):
+        normalize_whole_disk("/dev/nbd1")
+
+
+def test_wwn_change_is_identity_change(monkeypatch, tmp_path):
+    from dataclasses import replace
+
+    from beamo_wipe.safety import assert_disk_identity
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    d = _disc("lsblk_same_size.json", "/dev/sdb")
+    disk = selectable_disks(d)[0]
+    swapped = replace(disk, wwn="WWN-CHANGED")
+    with pytest.raises(SafetyError, match="identity"):
+        assert_disk_identity(swapped, d)
+
+
+def test_char_device_is_not_a_wipe_target():
+    from beamo_wipe.safety import assert_existing_is_block_device
+
+    if not Path("/dev/null").exists():
+        pytest.skip("no /dev/null")
+    with pytest.raises(SafetyError, match="block device"):
+        assert_existing_is_block_device("/dev/null")
 
 
 def test_identity_change_refuses_wipe(monkeypatch, tmp_path):

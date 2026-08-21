@@ -46,6 +46,28 @@ def test_lsblk_json_forces_dry_run_without_env(monkeypatch):
     assert isinstance(wiz.runner, DryRunRunner)
 
 
+def test_dry_run_does_not_poweroff_the_machine(monkeypatch):
+    """--dry-run / --lsblk-json is not the live USB. Shut down must not poweroff."""
+    from beamo_wipe import app as app_mod
+
+    powered = []
+    monkeypatch.setattr(app_mod, "_shutdown", lambda: powered.append(True))
+    monkeypatch.setattr(app_mod, "running_on_live_usb", lambda: False)
+    fixture = Path(__file__).resolve().parent / "fixtures" / "lsblk_same_size.json"
+
+    def fake_ui(wizard, fullscreen=False):
+        wizard.wants_shutdown = True
+        return 0
+
+    monkeypatch.setattr("beamo_wipe.ui.tk_wizard.run_tk", fake_ui)
+    monkeypatch.setattr("beamo_wipe.ui.console_wizard.run_console", fake_ui)
+    code = app_mod.main(
+        ["--lsblk-json", str(fixture), "--boot-device", "/dev/sdb", "--console"]
+    )
+    assert code == 0
+    assert powered == []
+
+
 def test_dry_run_env_does_not_build_nwipe_runner(monkeypatch):
     from beamo_wipe.app import _build_wizard
     from beamo_wipe.nwipe_runner import DryRunRunner
@@ -135,3 +157,36 @@ def test_tk_enter_is_always_the_gated_screen_action():
     init_src = inspect.getsource(TkWizard.__init__)
     assert 'bind("<Return>", self._on_return)' in init_src
     assert 'bind("<KP_Enter>", self._on_return)' in init_src
+    assert 'bind("<KeyRelease-Return>", self._on_return_release)' in init_src
+    assert 'bind("<KeyRelease-KP_Enter>", self._on_return_release)' in init_src
+
+
+def test_advanced_button_redraws_via_nav():
+    import inspect
+
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    source = inspect.getsource(TkWizard._method)
+    assert "_nav(self.w.open_advanced)" in source
+
+
+def test_last_chance_hint_does_not_say_enter_continues():
+    import inspect
+
+    from beamo_wipe import copy as C
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    assert "continues" not in C.HINT_LAST_CHANCE.lower()
+    assert "erases" in C.HINT_LAST_CHANCE.lower()
+    source = inspect.getsource(TkWizard._last)
+    assert "HINT_LAST_CHANCE" in source
+
+
+def test_splash_escape_skips_splash():
+    import inspect
+
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    source = inspect.getsource(TkWizard._on_escape)
+    assert "skip_splash" in source
+

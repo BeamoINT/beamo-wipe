@@ -42,6 +42,8 @@ IDENTIFY_ERROR = (
     "Cannot tell which disk is this USB. Unplug extra USB drives and reboot."
 )
 
+REDISCOVER_ERROR = "Could not re-read disks. Erase did not start."
+
 EMPTY_DISKS = (
     "No other disks found. Power off, connect the drive you want to wipe "
     "(SATA/NVMe), and boot this USB again."
@@ -133,7 +135,10 @@ HINT_DEFAULT = "Enter continues.  Esc goes back."
 HINT_PICK = "Click a disk, or use Up/Down.  Enter continues.  Esc goes back."
 HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
 HINT_METHOD = "Press 1, 2, or 3 to choose.  Enter continues."
-HINT_CONFIRM = "Type the number (or serial letters) shown above, then Enter."
+HINT_CONFIRM = "Type exactly what the prompt asks for, then Enter."
+HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
+HINT_BLOCKED = "Enter shuts down.  Esc goes back."
+HINT_DONE = "Enter shuts down."
 HINT_WORKING = "Leave this USB plugged in until the finished screen."
 HINT_SPLASH = "Press any key, or click Continue."
 

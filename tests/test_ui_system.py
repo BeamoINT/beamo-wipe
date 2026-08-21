@@ -66,6 +66,9 @@ def test_every_hint_key_name_renders_as_a_key_cap():
         C.HINT_OWNER,
         C.HINT_METHOD,
         C.HINT_CONFIRM,
+        C.HINT_LAST_CHANCE,
+        C.HINT_BLOCKED,
+        C.HINT_DONE,
         C.HINT_SPLASH,
     )
     for hint in hints:

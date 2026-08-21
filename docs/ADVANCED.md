@@ -23,6 +23,10 @@ Always passed:
 - `--logfile=` under `/tmp/beamo-wipe/` (tmpfs — never the target disk)
 - never `--force`
 
+The engine binary lives at `/usr/lib/beamo-wipe/nwipe` (pinned v0.42). It is
+not on PATH; a stub at `/usr/local/bin/nwipe` refuses direct invocation so
+the wizard gates cannot be skipped from another console.
+
 `--autonuke` with a device list wipes only those devices. The runner still
 refuses to build argv unless the target is last and the boot device is
 excluded. autonuke with no device is forbidden.

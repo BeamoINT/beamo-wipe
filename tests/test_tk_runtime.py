@@ -235,6 +235,46 @@ def test_keyboard_only_flow_reaches_working(ui):
     assert wiz.screen == Screen.WORKING
 
 
+def test_held_enter_does_not_shutdown_failed_done(ui):
+    """Auto-repeat Return after a fast fail must not power off before Done is read."""
+    wiz, app = ui(fail=True)
+    wiz.preview = False
+    wiz.runner.duration_s = 0.05
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    wiz._erase_until = 0.0
+    wiz.tick()
+    app._draw()
+    app.root.update()
+    assert wiz.erase_enabled
+    root = app.root
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    deadline = time.monotonic() + 3
+    while wiz.screen != Screen.DONE and time.monotonic() < deadline:
+        wiz.tick()
+        try:
+            root.update()
+        except tk.TclError:
+            break
+        time.sleep(0.02)
+    assert wiz.screen == Screen.DONE
+    assert not wiz.done_ok
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    try:
+        root.update()
+    except tk.TclError:
+        pytest.fail("Done Return tore down the window before the key was released")
+    assert not wiz.wants_shutdown
+    (root.focus_get() or root).event_generate("<KeyRelease>", keysym="Return")
+    root.update()
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    try:
+        root.update()
+    except tk.TclError:
+        pass
+    assert wiz.wants_shutdown
+
+
 def test_escape_goes_back(ui):
     wiz, app = ui()
     _drive_to(wiz, app, Screen.PICK)

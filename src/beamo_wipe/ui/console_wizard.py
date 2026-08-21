@@ -21,6 +21,14 @@ def run_console(wizard: Wizard) -> int:
 
 def _plain_loop(wizard: Wizard) -> int:
     """Last-resort TTY with input(). Still requires confirms; never auto-wipes."""
+    try:
+        return _plain_loop_body(wizard)
+    except EOFError:
+        wizard.shutdown()
+        return 0
+
+
+def _plain_loop_body(wizard: Wizard) -> int:
     while not wizard.wants_shutdown:
         wizard.tick()
         screen = wizard.screen
@@ -59,12 +67,21 @@ def _plain_loop(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
-            ordered = sorted(wizard.discovery.disks, key=lambda d: (d.is_boot, d.path))
-            for i, disk in enumerate(ordered, 1):
-                mark = "BOOT — do not erase" if disk.is_boot else str(i)
-                print(f"[{mark}] {disk.display_name} {disk.size_phrase} {disk.path} {disk.serial}")
+            boot = wizard.discovery.boot
+            if boot is not None:
+                print(
+                    f"[BOOT — do not erase] {boot.display_name} {boot.size_phrase} "
+                    f"{boot.path} {boot.serial}"
+                )
+            if same_size_conflict(wizard.listed_disks):
+                print(C.SAME_SIZE_HINT)
+            numbered = sorted(wizard.selectable, key=lambda d: d.path)
+            for i, disk in enumerate(numbered, 1):
+                print(
+                    f"[{i}] {disk.display_name} {disk.size_phrase} "
+                    f"{disk.path} {disk.serial}"
+                )
             choice = input("Number of disk to erase: ").strip()
-            numbered = [d for d in ordered if not d.is_boot]
             try:
                 idx = int(choice) - 1
                 if idx < 0:
@@ -77,7 +94,13 @@ def _plain_loop(wizard: Wizard) -> int:
         if screen == Screen.CONFIRM:
             disk = wizard.selected
             spec = wizard.confirm
-            print(disk.display_name if disk else "", disk.size_phrase if disk else "")
+            if disk:
+                print(
+                    disk.display_name,
+                    disk.size_phrase,
+                    disk.serial or "no serial",
+                    disk.path,
+                )
             print(wizard.warning_text())
             print(spec.prompt if spec else "")
             typed = input("> ")
@@ -90,7 +113,9 @@ def _plain_loop(wizard: Wizard) -> int:
             print(C.SSD_FOOTER)
             choice = input("Choice [1]: ").strip() or "1"
             mapping = {"1": MethodId.EVERYDAY, "2": MethodId.EXTRA, "3": MethodId.QUICK_ZERO}
-            wizard.set_method(mapping.get(choice, MethodId.EVERYDAY))
+            if choice not in mapping:
+                continue
+            wizard.set_method(mapping[choice])
             wizard.continue_method()
             continue
         if screen == Screen.LAST_CHANCE:
@@ -108,7 +133,8 @@ def _plain_loop(wizard: Wizard) -> int:
                 wizard.back()
             continue
         if screen == Screen.WORKING:
-            print(C.WORKING_PULSE, wizard.progress)
+            pct = "—" if wizard.progress is None else wizard.progress
+            print(C.WORKING_PULSE, pct)
             if wizard.selected:
                 print(
                     wizard.selected.display_name,
@@ -166,12 +192,16 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, y + 2, 0, f"{mark}  Space to check. Enter continues only when checked.")
         elif wizard.screen == Screen.PICK:
             y = _wrap(stdscr, y, C.pick_subtitle(), w) + 1
-            if same_size_conflict(wizard.selectable):
+            if same_size_conflict(wizard.listed_disks):
                 y = _wrap(stdscr, y, C.SAME_SIZE_HINT, w) + 1
-            ordered = sorted(wizard.discovery.disks, key=lambda d: (d.is_boot, d.path))
+            ordered = sorted(wizard.listed_disks, key=lambda d: (d.is_boot, d.path))
             for disk in ordered:
                 star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
-                extra = "  " + C.BOOT_USB_BANNER if disk.is_boot else ""
+                extra = ""
+                if disk.is_boot:
+                    extra = "  " + (
+                        C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
+                    )
                 serial = disk.serial or "no serial"
                 line = (
                     f"{star} {disk.display_name}  {disk.size_phrase}  "
@@ -185,8 +215,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, min(h - 2, y + 1), 0, "Up/Down then Enter. Esc back.")
         elif wizard.screen == Screen.PICK_BLOCKED:
             _wrap(stdscr, y, wizard.error or C.IDENTIFY_ERROR, w)
+            _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.PICK_EMPTY:
             _wrap(stdscr, y, C.EMPTY_DISKS, w)
+            _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.CONFIRM and wizard.selected:
             disk = wizard.selected
             _add(stdscr, y, 0, disk.display_name, curses.A_BOLD)
@@ -227,7 +259,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, y + 3, 0, f"Wait {int(wizard.countdown_left + 0.99)}s" if wizard.countdown_left else "Enter to erase.")
         elif wizard.screen == Screen.WORKING:
             _add(stdscr, y, 0, C.WORKING_PULSE)
-            _add(stdscr, y + 2, 0, f"{wizard.progress or 0:.0f}%")
+            if wizard.progress is None:
+                _add(stdscr, y + 2, 0, "—")
+            else:
+                _add(stdscr, y + 2, 0, f"{wizard.progress:.0f}%")
             if wizard.selected:
                 _add(stdscr, y + 4, 0, f"{wizard.selected.display_name} {wizard.selected.size_phrase}")
                 _add(
@@ -254,6 +289,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
         stdscr.refresh()
         ch = stdscr.getch()
         if ch == -1:
+            if wizard.screen == Screen.DONE:
+                wizard.arm_done_keyboard()
             time.sleep(0.08)
             continue
         _handle(wizard, ch)
@@ -282,8 +319,8 @@ def _handle(wizard: Wizard, ch: int) -> None:
         elif wizard.screen == Screen.LAST_CHANCE and wizard.erase_enabled:
             wizard.confirm_erase()
         elif wizard.screen in (Screen.DONE, Screen.PICK_BLOCKED, Screen.PICK_EMPTY):
-            if wizard.screen == Screen.DONE and wizard.preview:
-                wizard.reset_for_preview()
+            if wizard.screen == Screen.DONE:
+                wizard.accept_done_keyboard()
             else:
                 wizard.shutdown()
         return

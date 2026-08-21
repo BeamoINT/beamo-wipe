@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from beamo_wipe.models import Screen
+from beamo_wipe.models import Screen, WipeResult
 from beamo_wipe.nwipe_runner import DryRunRunner
 from beamo_wipe.wizard import Wizard, make_demo_wizard
 
@@ -382,3 +382,115 @@ def test_confirm_erase_refuses_real_runner_in_dry_run(monkeypatch, tmp_path):
     assert wiz.screen == Screen.LAST_CHANCE
     assert wiz.error
     assert "nwipe" in (wiz.error or "").lower()
+
+
+def test_set_method_ignored_off_method_screen():
+    from beamo_wipe.methods import DEFAULT_METHOD
+    from beamo_wipe.models import MethodId
+
+    wiz, _clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    assert wiz.method == DEFAULT_METHOD
+    wiz.set_method(MethodId.QUICK_ZERO)
+    assert wiz.method == DEFAULT_METHOD
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    assert wiz.screen == Screen.METHOD
+    wiz.set_method(MethodId.QUICK_ZERO)
+    assert wiz.method == MethodId.QUICK_ZERO
+
+
+def test_confirm_input_ignored_after_confirm_screen(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    token = wiz.confirm.token
+    wiz.set_confirm_input(token)
+    wiz.continue_confirm()
+    assert wiz.screen == Screen.METHOD
+    wiz.set_confirm_input("nope")
+    assert wiz.confirm_input == token
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.set_confirm_input("nope")
+    assert wiz.confirm_input == token
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.WORKING
+
+
+def test_open_advanced_twice_does_not_trap_on_advanced():
+    wiz, _clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    assert wiz.screen == Screen.METHOD
+    wiz.open_advanced()
+    assert wiz.screen == Screen.ADVANCED
+    wiz.open_advanced()
+    wiz.close_advanced()
+    assert wiz.screen == Screen.METHOD
+    wiz.open_advanced()
+    wiz.back()
+    assert wiz.screen == Screen.METHOD
+
+
+def test_confirm_erase_unidentified_rediscover_is_not_usb_unplug_copy(
+    monkeypatch, tmp_path
+):
+    from beamo_wipe.copy import IDENTIFY_ERROR, REDISCOVER_ERROR
+    from beamo_wipe.models import DiscoveryResult
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.dry_run = False
+    wiz.preview = False
+    wiz._rediscover = lambda: DiscoveryResult(
+        error="Cannot tell which disk is this USB. Unplug extra USB drives and reboot.",
+        boot_identified=False,
+    )
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not getattr(wiz.runner, "started", False)
+    assert wiz.error == REDISCOVER_ERROR
+    assert wiz.error != IDENTIFY_ERROR
+
+
+def test_done_keyboard_ignored_until_armed(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, _clock = _wiz(fail=True)
+    wiz.preview = False
+    wiz._finish(
+        WipeResult(ok=False, exit_code=1, summary="The wipe did not finish.", logfile="")
+    )
+    assert wiz.screen == Screen.DONE
+    wiz.accept_done_keyboard()
+    assert not wiz.wants_shutdown
+    wiz.arm_done_keyboard()
+    wiz.accept_done_keyboard()
+    assert wiz.wants_shutdown
+

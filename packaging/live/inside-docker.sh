@@ -55,10 +55,18 @@ lb config \
   --firmware-binary false \
   --firmware-chroot false \
   --initsystem systemd \
-  --bootappend-live "boot=live components hostname=beamo-wipe username=root noeject nopersistence noswap" \
-  --mirror-bootstrap "http://deb.debian.org/debian/" \
-  --mirror-chroot "http://deb.debian.org/debian/" \
-  --mirror-binary "http://deb.debian.org/debian/"
+  --bootappend-live "boot=live components hostname=beamo-wipe username=root noeject nopersistence noswap ip=frommedia nox11autologin" \
+  --bootappend-live-failsafe "boot=live components hostname=beamo-wipe username=root noeject nopersistence noswap ip=frommedia nox11autologin memtest noapic noapm nodma nomce nolapic nosmp nosplash vga=788" \
+  --mirror-bootstrap "https://deb.debian.org/debian/" \
+  --mirror-chroot "https://deb.debian.org/debian/" \
+  --mirror-binary "https://deb.debian.org/debian/" \
+  --parent-mirror-bootstrap "https://deb.debian.org/debian/" \
+  --parent-mirror-chroot "https://deb.debian.org/debian/" \
+  --parent-mirror-binary "https://deb.debian.org/debian/" \
+  --mirror-chroot-security "https://security.debian.org/" \
+  --mirror-binary-security "https://security.debian.org/" \
+  --parent-mirror-chroot-security "https://security.debian.org/" \
+  --parent-mirror-binary-security "https://security.debian.org/"
 
 lb build
 

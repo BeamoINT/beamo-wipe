@@ -48,6 +48,9 @@ class Disk:
     bus: str
     label: str
     is_boot: bool = False
+    wwn: str = ""
+    vendor: str = ""
+    mountpoints: Tuple[str, ...] = ()
 
     @property
     def display_name(self) -> str:
@@ -70,6 +73,10 @@ class WipeRequest:
     method: MethodId
     boot_device: str
     logfile: str
+    # Linux st_rdev of the target at confirm time. 0 when the node is absent
+    # (unit tests / dry-run). Re-checked immediately before exec.
+    device_rdev: int = 0
+    device_size_bytes: int = 0
 
 
 @dataclass(frozen=True)

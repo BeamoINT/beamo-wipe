@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import os
 import re
 import signal
@@ -12,7 +13,7 @@ import threading
 import time
 from typing import List, Optional
 
-from beamo_wipe import NWIPE_PINNED_VERSION
+from beamo_wipe import NWIPE_PINNED_PATH, NWIPE_PINNED_VERSION
 from beamo_wipe.methods import (
     ALLOWED_NWIPE_METHODS,
     ALLOWED_ROUNDS,
@@ -23,20 +24,67 @@ from beamo_wipe.methods import (
 from beamo_wipe.models import WipeRequest, WipeResult
 from beamo_wipe.safety import (
     SafetyError,
+    assert_existing_is_block_device,
     assert_log_not_on_target,
     assert_not_boot,
+    assert_size_unchanged,
+    block_rdev,
     normalize_whole_disk,
     require_real_live_for_nwipe,
     truncate_log_file,
 )
 
 PERCENT_RE = re.compile(r"(?<!\d)(\d{1,3}(?:\.\d+)?)\s*%")
+# nwipe 0.42 SIGUSR1: "/dev/vda: 045.23%, round 1 of 1, pass 1 of 1, eta …"
+NWIPE_PROGRESS_RE = re.compile(r":\s*(\d{1,3}(?:\.\d+)?)\s*%,\s*round\b")
+# nwipe 0.42 (device.c / nwipe.c) when the target is mounted and --force is unset.
+NWIPE_BUSY_RE = re.compile(
+    r"(?:is reported as IN USE|is IN USE but --force is not set, not wiping it)"
+)
+NWIPE_ABORT_RE = re.compile(r"Nwipe was aborted by the user")
+NWIPE_OPEN_FAIL_RE = re.compile(r"Unable to open device")
+NWIPE_FAILURE_RE = re.compile(r"(?:>>> FAILURE! <<<|-FAILED-|UABORTED|INSANITY)")
+NWIPE_GEOMETRY_RE = re.compile(r"No sane device geometry")
+# Logged by nwipe_options_log() after pthread_sigmask(SIGUSR1) and the
+# signal-handler thread exist. Until then SIGUSR1 uses the default action
+# (terminate). The PRNG auto-bench (8 generators × 1.0s) runs before that.
+NWIPE_SIGUSR1_READY_MARKERS = (
+    "Program options are set as follows",
+    " do not show GUI interface",
+    "Using direct I/O",
+    "Using cached I/O",
+)
 NWIPE_VERSION_TIMEOUT_S = 5
+# Drive Status is written before create_system_multi_disc_pdf()/smartctl.
+# 64KiB from EOF can be only that tail, hiding | Erased |.
+NWIPE_COMPLETION_LOG_BYTES = 1024 * 1024
+NWIPE_CLEAN_ENV = {
+    "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "HOME": "/root",
+    "TERM": "linux",
+}
+
+
+def resolve_nwipe_binary(binary: str) -> str:
+    """Production always execs the pinned path. Relative PATH lookup is forbidden."""
+    if not binary:
+        raise SafetyError("nwipe binary path is missing.")
+    base = os.path.basename(binary)
+    if base != "nwipe":
+        if not os.path.isabs(binary):
+            raise SafetyError("Refusing to exec a relative non-nwipe binary.")
+        return binary
+    if binary in {"nwipe", NWIPE_PINNED_PATH}:
+        return NWIPE_PINNED_PATH
+    raise SafetyError("nwipe is not at the pinned path.")
 
 
 def _verify_pinned_nwipe(binary: str) -> None:
     if os.path.basename(binary) != "nwipe":
         return
+    assert_nwipe_binary_safe(binary)
     try:
         proc = subprocess.run(
             [binary, "-V"],
@@ -55,6 +103,59 @@ def _verify_pinned_nwipe(binary: str) -> None:
         )
 
 
+def assert_nwipe_binary_safe(path: str) -> None:
+    """Pinned engine must be a root-owned ELF, not a script or a writable stub."""
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        raise SafetyError("Cannot stat nwipe binary.") from exc
+    if stat.S_ISLNK(st.st_mode):
+        raise SafetyError("Refusing to exec nwipe through a symlink.")
+    if not stat.S_ISREG(st.st_mode):
+        raise SafetyError("nwipe is not a regular file.")
+    if not (st.st_mode & stat.S_IXUSR):
+        raise SafetyError("nwipe is not executable.")
+    if stat.S_IMODE(st.st_mode) & 0o022:
+        raise SafetyError("nwipe binary is writable by group or others.")
+    if os.geteuid() == 0 and st.st_uid != 0:
+        raise SafetyError("nwipe binary must be owned by root.")
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise SafetyError("Cannot open nwipe binary.") from exc
+    try:
+        magic = os.read(fd, 4)
+    finally:
+        os.close(fd)
+    if magic != b"\x7fELF":
+        raise SafetyError("nwipe binary is not an ELF executable.")
+
+
+def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
+    """True if another process is already exec'ing the pinned engine."""
+    try:
+        pinned = os.path.realpath(NWIPE_PINNED_PATH)
+    except OSError:
+        return False
+    try:
+        names = os.listdir("/proc")
+    except OSError:
+        return False
+    for name in names:
+        if not name.isdigit():
+            continue
+        pid = int(name)
+        if exclude_pid is not None and pid == exclude_pid:
+            continue
+        try:
+            exe = os.path.realpath(os.readlink(f"/proc/{name}/exe"))
+        except OSError:
+            continue
+        if exe == pinned:
+            return True
+    return False
+
+
 def build_nwipe_argv(request: WipeRequest) -> List[str]:
     spec: NwipeMethodSpec = METHODS[request.method]
     if spec.nwipe_method not in ALLOWED_NWIPE_METHODS:
@@ -63,8 +164,8 @@ def build_nwipe_argv(request: WipeRequest) -> List[str]:
         raise SafetyError("nwipe verify flag is not in the allowlist.")
     if spec.rounds not in ALLOWED_ROUNDS:
         raise SafetyError("nwipe rounds value is not allowed.")
-    device = normalize_whole_disk(request.device)
-    boot = normalize_whole_disk(request.boot_device)
+    device = normalize_whole_disk(request.device, allow_optical=False)
+    boot = normalize_whole_disk(request.boot_device, allow_optical=True)
     if device == boot:
         raise SafetyError("Target is the boot device.")
     assert_not_boot(device, boot)
@@ -95,13 +196,25 @@ def validate_argv(argv: List[str], request: WipeRequest) -> None:
         raise SafetyError("First argument must be nwipe.")
     if "--autonuke" not in argv or "--nogui" not in argv:
         raise SafetyError("Non-interactive nwipe flags required.")
-    device = normalize_whole_disk(request.device)
-    boot = normalize_whole_disk(request.boot_device)
+    for required in ("--autonuke", "--nogui", "--nowait", "--PDFreportpath=noPDF"):
+        if argv.count(required) != 1:
+            raise SafetyError(f"Exactly one {required} flag is required.")
+    for prefix in ("--method=", "--verify=", "--rounds=", "--logfile=", "--exclude="):
+        hits = [a for a in argv if a.startswith(prefix)]
+        if len(hits) != 1:
+            raise SafetyError(f"Exactly one {prefix} flag is required.")
+    if argv.count("--noblank") > 1:
+        raise SafetyError("Refusing duplicate --noblank flags.")
+    device = normalize_whole_disk(request.device, allow_optical=False)
+    boot = normalize_whole_disk(request.boot_device, allow_optical=True)
     if argv[-1] != device:
         raise SafetyError("Target device must be the only positional path, last.")
     extra_positionals = [a for a in argv[1:-1] if not a.startswith("-")]
     if extra_positionals:
         raise SafetyError("Refusing extra positional arguments.")
+    for flag in argv[1:-1]:
+        if not _nwipe_flag_allowed(flag):
+            raise SafetyError("Refusing unexpected nwipe argument.")
     devices = [a for a in argv if a.startswith("/dev/")]
     if device not in devices:
         raise SafetyError("Target device missing from argv.")
@@ -118,10 +231,40 @@ def validate_argv(argv: List[str], request: WipeRequest) -> None:
     if log_value.startswith("/dev/") or log_value != request.logfile:
         raise SafetyError("Log path is not the approved log file.")
     assert_log_not_on_target(log_value, device)
+    if "--PDFreportpath=noPDF" not in argv:
+        raise SafetyError("PDF reports must be disabled.")
     if "--autonuke" in argv and argv[-1].startswith("-"):
         raise SafetyError("autonuke without an explicit device is forbidden.")
     if any("\n" in a or "\r" in a or "\0" in a for a in argv):
         raise SafetyError("Refusing control characters in nwipe arguments.")
+
+
+def _nwipe_flag_allowed(flag: str) -> bool:
+    if flag in {"--autonuke", "--nogui", "--nowait", "--noblank"}:
+        return True
+    if flag == "--PDFreportpath=noPDF":
+        return True
+    if flag.startswith("--method="):
+        return flag.split("=", 1)[1] in ALLOWED_NWIPE_METHODS
+    if flag.startswith("--verify="):
+        return flag.split("=", 1)[1] in ALLOWED_VERIFY
+    if flag.startswith("--rounds="):
+        try:
+            return int(flag.split("=", 1)[1], 10) in ALLOWED_ROUNDS
+        except ValueError:
+            return False
+    if flag.startswith("--logfile="):
+        return bool(flag.split("=", 1)[1]) and not flag.split("=", 1)[1].startswith("-")
+    if flag.startswith("--exclude="):
+        rest = flag.split("=", 1)[1]
+        if not rest or any(ch in rest for ch in " \t\n\r\0,;"):
+            return False
+        try:
+            normalize_whole_disk(rest, allow_optical=True)
+        except SafetyError:
+            return False
+        return True
+    return False
 
 
 def parse_percent(text: str) -> Optional[float]:
@@ -133,101 +276,307 @@ def parse_percent(text: str) -> Optional[float]:
     return last
 
 
+def _device_log_names(device: str) -> List[str]:
+    names = []
+    for raw in (device, os.path.realpath(device), os.path.basename(device)):
+        if raw and raw not in names:
+            names.append(raw)
+    return names
+
+
+def _line_mentions_device(line: str, device: str) -> bool:
+    for name in _device_log_names(device):
+        if not name:
+            continue
+        if re.search(r"(?:^|[^\w/])" + re.escape(name) + r"(?:[^\w]|$)", line):
+            return True
+    return False
+
+
+def target_skipped_busy(log_text: str, device: str) -> bool:
+    """True if nwipe logged that *this* target is in use and was not wiped."""
+    text = log_text or ""
+    for line in text.splitlines():
+        if not NWIPE_BUSY_RE.search(line):
+            continue
+        if _line_mentions_device(line, device):
+            return True
+    return False
+
+
+def nwipe_accepts_sigusr1(log_text: str) -> bool:
+    """True once the log shows nwipe 0.42 has installed its SIGUSR1 handler."""
+    text = log_text or ""
+    return any(marker in text for marker in NWIPE_SIGUSR1_READY_MARKERS)
+
+
+def _target_open_failed(log_text: str, device: str) -> bool:
+    for line in (log_text or "").splitlines():
+        if not NWIPE_OPEN_FAIL_RE.search(line):
+            continue
+        if _line_mentions_device(line, device):
+            return True
+    return False
+
+
+def _target_geometry_failed(log_text: str, device: str) -> bool:
+    for line in (log_text or "").splitlines():
+        if not NWIPE_GEOMETRY_RE.search(line):
+            continue
+        if _line_mentions_device(line, device):
+            return True
+    return False
+
+
+def _target_reported_failure(log_text: str, device: str) -> bool:
+    for line in (log_text or "").splitlines():
+        if not NWIPE_FAILURE_RE.search(line):
+            continue
+        if _line_mentions_device(line, device):
+            return True
+    return False
+
+
+def _target_last_percent(log_text: str, device: str) -> Optional[float]:
+    """Last SIGUSR1 progress percent for this device.
+
+    The Erasure Summary table also prints ``0.00%`` / ``100.00%`` on a
+    device line. That is not live progress and must not replace a SIGUSR1
+    reading (WORKING would jump to 0% just before Done).
+    """
+    last = None
+    for line in (log_text or "").splitlines():
+        if not _line_mentions_device(line, device):
+            continue
+        match = NWIPE_PROGRESS_RE.search(line)
+        if match is None:
+            continue
+        value = float(match.group(1))
+        if 0.0 <= value <= 100.0:
+            last = value
+    return last
+
+
+def _target_reported_success(log_text: str, device: str) -> bool:
+    """True only for the Drive Status 'Erased' row.
+
+    nwipe 0.42 SIGUSR1 logs ``/dev/X: Success`` whenever the wipe thread
+    pointer is unset and result is 0 — including after nwipe_options_log()
+    and before pthread_create. That line is not a completed wipe.
+    """
+    for line in (log_text or "").splitlines():
+        if not _line_mentions_device(line, device):
+            continue
+        if re.search(r"\|\s*Erased\s*\|", line):
+            return True
+    return False
+
+
+def evaluate_nwipe_completion(
+    exit_code: int, log_text: str, device: str
+) -> tuple[bool, str]:
+    """Map nwipe's process exit to owner-facing success.
+
+    nwipe 0.42 returns 0 and logs "Nwipe successfully completed" when no wipe
+    thread ran (busy skip, open failure, insane geometry) and also after a
+    user abort that already logged a percent. SIGUSR1 may log
+    ``/dev/X: Success`` before pthread_create. Those must not become Finished.
+    """
+    if target_skipped_busy(log_text, device):
+        return False, "nwipe skipped the disk because it is in use"
+    if NWIPE_ABORT_RE.search(log_text or ""):
+        return False, "nwipe was aborted"
+    if _target_open_failed(log_text, device):
+        return False, "nwipe could not open the disk"
+    if _target_geometry_failed(log_text, device):
+        return False, "nwipe could not use the disk"
+    if _target_reported_failure(log_text, device):
+        return False, "nwipe reported a failure"
+    if exit_code != 0:
+        return False, f"nwipe exited {exit_code}"
+    if _target_reported_success(log_text, device):
+        return True, "finished"
+    last = _target_last_percent(log_text, device)
+    if last is not None and last >= 100.0:
+        return True, "finished"
+    return False, "nwipe exited without wiping"
+
+
 class NwipeRunner:
     """Real subprocess runner. Use DryRunRunner in tests and --demo."""
 
-    def __init__(self, binary: str = "nwipe") -> None:
+    def __init__(self, binary: str = NWIPE_PINNED_PATH) -> None:
         self.binary = binary
         self._proc: Optional[subprocess.Popen] = None
         self._lock = threading.Lock()
+        self._lock_fd: Optional[int] = None
         self.progress: Optional[float] = None
         self.result: Optional[WipeResult] = None
         self._log_tail = ""
+        self._last_sigusr1 = 0.0
+        self._sigusr1_armed = False
 
     def start(self, request: WipeRequest) -> None:
-        if os.path.basename(self.binary) == "nwipe":
+        resolved = resolve_nwipe_binary(self.binary)
+        real_engine = os.path.basename(resolved) == "nwipe"
+        if real_engine:
             require_real_live_for_nwipe()
-            _verify_pinned_nwipe(self.binary)
+            if pinned_nwipe_already_running(exclude_pid=os.getpid()):
+                raise SafetyError("A wipe is already running.")
+            _verify_pinned_nwipe(resolved)
+            assert_existing_is_block_device(request.device, required=True)
+            assert_size_unchanged(request.device, request.device_size_bytes)
+            now_rdev = block_rdev(request.device)
+            if now_rdev is None:
+                raise SafetyError("Target is not a block device.")
+            if not request.device_rdev or now_rdev != request.device_rdev:
+                raise SafetyError("Disk identity changed. Refusing to erase.")
         assert_not_boot(request.device, request.boot_device)
         argv = build_nwipe_argv(request)
-        argv[0] = self.binary
-        if os.path.basename(self.binary) == "nwipe" and argv[0] != "nwipe" and os.path.basename(argv[0]) != "nwipe":
-            raise SafetyError("Refusing to exec a binary that is not nwipe.")
-        log_dir = os.path.dirname(request.logfile) or "/tmp/beamo-wipe"
-        os.makedirs(log_dir, exist_ok=True)
+        argv[0] = resolved
+        assert_log_not_on_target(request.logfile, request.device)
         truncate_log_file(request.logfile, request.device)
+        popen_env = None
+        if real_engine:
+            env = dict(NWIPE_CLEAN_ENV)
+            env["TERM"] = "linux"
+            popen_env = env
         with self._lock:
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
+            self._acquire_wipe_lock(request)
             self.result = None
-            self.progress = 0.0
+            self.progress = None
             self._log_tail = ""
-            self._last_sigusr1 = time.monotonic()
-            # DEVNULL so nwipe's cleanup() printf cannot fill a PIPE and hang.
-            # Progress is parsed from --logfile=. SIGUSR1 is rate-limited in poll().
-            self._proc = subprocess.Popen(
-                argv,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                shell=False,
-                close_fds=True,
-            )
+            self._last_sigusr1 = 0.0
+            self._sigusr1_armed = False
+            popen_kwargs = {
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "shell": False,
+                "close_fds": True,
+                "cwd": "/",
+                "env": popen_env,
+            }
+            # Python os.open uses O_CLOEXEC. pass_fds keeps the flock in the
+            # child so a crashed wizard cannot start a second nwipe.
+            if self._lock_fd is not None:
+                popen_kwargs["pass_fds"] = (self._lock_fd,)
+            try:
+                self._proc = subprocess.Popen(argv, **popen_kwargs)
+            except Exception:
+                self._release_wipe_lock()
+                raise
 
     def poll(self, request: WipeRequest) -> Optional[WipeResult]:
         proc = self._proc
         if proc is None:
             return self.result
         code = proc.poll()
-        self._refresh_progress(request.logfile, proc)
+        self._refresh_progress(request.logfile, request.device)
         if code is None:
+            if not getattr(self, "_sigusr1_armed", False):
+                ready_text = self._read_log_tail(request.logfile, 65536)
+                if nwipe_accepts_sigusr1(ready_text):
+                    self._sigusr1_armed = True
             now = time.monotonic()
-            if now - getattr(self, "_last_sigusr1", 0.0) >= 2.0:
+            if getattr(self, "_sigusr1_armed", False) and now - getattr(
+                self, "_last_sigusr1", 0.0
+            ) >= 2.0:
                 try:
                     proc.send_signal(signal.SIGUSR1)
                     self._last_sigusr1 = now
                 except (ProcessLookupError, OSError):
                     pass
             return None
-        ok = code == 0
+        log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
+        if log_text:
+            self._log_tail = log_text
+            percent = _target_last_percent(log_text, request.device)
+            if percent is not None:
+                self.progress = percent
+        ok, summary = evaluate_nwipe_completion(code, log_text, request.device)
         self.result = WipeResult(
             ok=ok,
             exit_code=code,
-            summary="finished" if ok else f"nwipe exited {code}",
+            summary=summary,
             logfile=request.logfile,
         )
         self.progress = 100.0 if ok else self.progress
         self._proc = None
+        self._release_wipe_lock()
         return self.result
 
-    def _refresh_progress(self, logfile: str, proc: subprocess.Popen) -> None:
-        del proc
+    def _read_log_tail(self, logfile: str, nbytes: int) -> str:
         try:
             fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW)
         except OSError:
-            return
-        text = ""
+            return ""
         try:
             st = os.fstat(fd)
             if not stat.S_ISREG(st.st_mode):
-                return
+                return ""
             with os.fdopen(fd, "rb") as fh:
                 fd = -1
                 fh.seek(0, os.SEEK_END)
                 size = fh.tell()
-                fh.seek(max(0, size - 8000))
-                text = fh.read().decode("utf-8", errors="replace")
+                fh.seek(max(0, size - nbytes))
+                return fh.read().decode("utf-8", errors="replace")
         except OSError:
-            return
+            return ""
         finally:
             if fd >= 0:
                 try:
                     os.close(fd)
                 except OSError:
                     pass
-        percent = parse_percent(text)
+
+    def _refresh_progress(self, logfile: str, device: str) -> None:
+        text = self._read_log_tail(logfile, 8000)
+        if not text:
+            return
+        self._log_tail = text
+        percent = _target_last_percent(text, device)
         if percent is not None:
             self.progress = percent
+
+    def _acquire_wipe_lock(self, request: WipeRequest) -> None:
+        directory = os.path.dirname(request.logfile)
+        if not directory:
+            raise SafetyError("Cannot lock: log directory missing.")
+        lock_path = os.path.join(directory, "wipe.lock")
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        except OSError as exc:
+            raise SafetyError(f"Cannot create wipe lock: {exc}") from exc
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode):
+                os.close(fd)
+                raise SafetyError("Wipe lock is not a regular file.")
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(fd)
+            raise SafetyError("A wipe is already running.")
+        except Exception:
+            os.close(fd)
+            raise
+        self._lock_fd = fd
+
+    def _release_wipe_lock(self) -> None:
+        fd = self._lock_fd
+        self._lock_fd = None
+        if fd is None:
+            return
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            os.close(fd)
+        except OSError:
+            pass
 
     def cancel(self) -> None:
         with self._lock:
@@ -250,6 +599,7 @@ class NwipeRunner:
             summary="cancelled",
             logfile="",
         )
+        self._release_wipe_lock()
 
 
 class DryRunRunner:
@@ -271,7 +621,7 @@ class DryRunRunner:
         self._started = time.monotonic()
         self.started = True
         self.cancelled = False
-        self.progress = 0.0
+        self.progress = None
         self.result = None
 
     def poll(self, request: WipeRequest) -> Optional[WipeResult]:

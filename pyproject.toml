@@ -26,7 +26,7 @@ dev = ["pytest>=8"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-beamo_wipe = ["demo_lsblk.json", "demo_empty.json", "demo_blocked.json"]
+beamo_wipe = ["demo_lsblk.json", "demo_empty.json", "demo_blocked.json", "assets/*.png", "assets/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

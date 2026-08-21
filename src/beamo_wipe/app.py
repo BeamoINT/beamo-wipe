@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import signal
 import sys
 from pathlib import Path
 
@@ -93,24 +95,28 @@ def _open_html(path: Path) -> int:
     return 0
 
 
+def apply_live_session_overrides(args: argparse.Namespace) -> None:
+    """On the live USB, preview/gallery flags cannot disguise a fake wipe."""
+    if not running_on_live_usb():
+        return
+    args.demo = False
+    args.empty = False
+    args.blocked = False
+    args.fail_demo = False
+    args.scenario = "happy"
+    args.lsblk_json = None
+    args.boot_device = None
+    args.dry_run = False
+    args.web = False
+    args.helper = False
+    os.environ.pop("BEAMO_WIPE_BOOT_DEVICE", None)
+    os.environ.pop("BEAMO_WIPE_DRY_RUN", None)
+    os.environ.pop("BEAMO_WIPE_DEMO", None)
+    os.environ["BEAMO_WIPE_LIVE"] = "1"
+
+
 def _build_wizard(args: argparse.Namespace) -> Wizard:
-    if running_on_live_usb():
-        # Real USB session: ignore preview flags so a fake "Finished" cannot
-        # be mistaken for a wipe, and so --boot-device cannot retarget the stick.
-        args.demo = False
-        args.empty = False
-        args.blocked = False
-        args.fail_demo = False
-        args.scenario = "happy"
-        args.lsblk_json = None
-        args.boot_device = None
-        args.dry_run = False
-        args.web = False
-        args.helper = False
-        os.environ.pop("BEAMO_WIPE_BOOT_DEVICE", None)
-        os.environ.pop("BEAMO_WIPE_DRY_RUN", None)
-        os.environ.pop("BEAMO_WIPE_DEMO", None)
-        os.environ["BEAMO_WIPE_LIVE"] = "1"
+    apply_live_session_overrides(args)
 
     if args.demo:
         os.environ["BEAMO_WIPE_DEMO"] = "1"
@@ -153,12 +159,16 @@ def _shutdown() -> None:
     import subprocess
 
     for cmd in (
-        ["systemctl", "poweroff"],
-        ["shutdown", "-h", "now"],
-        ["poweroff"],
+        ["/usr/bin/systemctl", "poweroff"],
+        ["/bin/systemctl", "poweroff"],
+        ["/sbin/shutdown", "-h", "now"],
+        ["/usr/sbin/shutdown", "-h", "now"],
+        ["/sbin/poweroff"],
+        ["/usr/sbin/poweroff"],
+        ["/sbin/halt", "-p"],
     ):
         try:
-            subprocess.Popen(cmd)
+            subprocess.Popen(cmd, close_fds=True)
             return
         except OSError:
             continue
@@ -168,6 +178,13 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.empty or args.blocked or args.fail_demo or args.scenario != "happy":
         args.demo = True
+    apply_live_session_overrides(args)
+    if not args.demo:
+        try:
+            signal.signal(signal.SIGTSTP, signal.SIG_IGN)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+        except (AttributeError, ValueError, OSError):
+            pass
     if args.web:
         from beamo_wipe.gallery import open_gallery, write_gallery
 
@@ -195,6 +212,9 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     windowed = args.demo and not args.fullscreen
     use_console = args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
@@ -203,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
             from beamo_wipe.ui.tk_wizard import run_tk
 
             code = run_tk(wizard, fullscreen=args.fullscreen or not windowed)
-            if wizard.wants_shutdown and not args.demo:
+            if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
                 _shutdown()
             return code
         except Exception as exc:  # noqa: BLE001 — fall back to console
@@ -213,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
     from beamo_wipe.ui.console_wizard import run_console
 
     code = run_console(wizard)
-    if wizard.wants_shutdown and not args.demo:
+    if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
         _shutdown()
     return code
 

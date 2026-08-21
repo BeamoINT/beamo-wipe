@@ -4,27 +4,60 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+from urllib.parse import quote
 
 from beamo_wipe import copy as C
 from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
-from beamo_wipe.safety import confirm_spec, same_size_conflict
+from beamo_wipe.safety import confirm_spec, listed_disks, same_size_conflict
 
 
 def project_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+_ASSETS = Path(__file__).resolve().parent / "assets"
+
+
+def _mark_body() -> str:
+    """The brand mark's inner artwork (path elements), whitespace-collapsed."""
+    svg = (_ASSETS / "logo-mark.svg").read_text(encoding="utf-8")
+    body = re.sub(r"^[\s\S]*?<svg[^>]*>", "", svg)
+    body = re.sub(r"</svg>\s*$", "", body)
+    return re.sub(r"\s+", " ", body).strip()
+
+
+def _logo_svg(width: int, height: int) -> str:
+    """The real Beamo mark as a one-line inline SVG sized for the template."""
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="128 162 264 221" aria-hidden="true">{_mark_body()}</svg>'
+    )
+
+
+def _favicon_uri() -> str:
+    """The mark on a navy tile, as a self-contained data-URI favicon."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+        '<rect width="64" height="64" rx="14" fill="#0A1B34"/>'
+        '<g transform="translate(9 12.75) scale(0.1742) translate(-128 -162)">'
+        + _mark_body()
+        + "</g></svg>"
+    )
+    return "data:image/svg+xml," + quote(svg, safe="")
+
+
 def _disks_payload(scenario: str = "happy") -> list[dict]:
     result = discovery_for_scenario(scenario)  # type: ignore[arg-type]
-    selectable = result.selectable
+    peers = listed_disks(result)
     out = []
     for disk in result.disks:
         spec = None
         if not disk.is_boot:
-            spec = confirm_spec(disk, selectable)
+            spec = confirm_spec(disk, peers)
         out.append(
             {
                 "path": disk.path,
@@ -59,7 +92,7 @@ def gallery_html() -> str:
         "empty": C.EMPTY_DISKS,
         "ssd": C.SSD_FOOTER,
         "sameSize": C.SAME_SIZE_HINT,
-        "sameSizeConflict": same_size_conflict(result.selectable),
+        "sameSizeConflict": same_size_conflict(listed_disks(result)),
         "working": C.WORKING_PULSE,
         "doneOk": C.DONE_OK_PREVIEW,
         "doneFail": C.DONE_FAIL_PREVIEW,
@@ -77,6 +110,8 @@ def gallery_html() -> str:
             "owner": C.HINT_OWNER,
             "method": C.HINT_METHOD,
             "confirm": C.HINT_CONFIRM,
+            "lastChance": C.HINT_LAST_CHANCE,
+            "blocked": C.HINT_BLOCKED,
             "working": C.HINT_WORKING,
             "splash": C.HINT_SPLASH,
         },
@@ -95,7 +130,13 @@ def gallery_html() -> str:
         "disks": _disks_payload("happy"),
     }
     data = json.dumps(payload)
-    return _TEMPLATE.replace("__PAYLOAD__", data)
+    return (
+        _TEMPLATE
+        .replace("__PAYLOAD__", data)
+        .replace("__LOGO_HEADER__", _logo_svg(36, 30))
+        .replace("__LOGO_SPLASH__", _logo_svg(139, 116))
+        .replace("__FAVICON__", _favicon_uri())
+    )
 
 
 def write_gallery(dest: Path | None = None) -> Path:
@@ -126,24 +167,25 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="__FAVICON__">
 <title>Beamo Wipe — screen preview</title>
 <style>
   :root {
-    --bg: #E8ECF4; --surface: #FFFFFF; --surface-alt: #F3F6FB;
-    --ink: #0C1728; --muted: #44506A;
-    --border: #D7DEE9; --border-strong: #74839F;
+    --bg: #EDF0F7; --surface: #FFFFFF; --surface-alt: #F4F6FB;
+    --ink: #0C1728; --muted: #47536B;
+    --border: #DCE2EC; --border-strong: #74839F;
     --navy: #0A1B34; --navy-soft: #16315C; --navy-muted: #C9D6E8; --navy-text: #DAE3F1;
     --navy-deep: #071426; --navy-glow: #1C3A6E; --header-top: #10264A;
-    --primary: #2050C8; --primary-dark: #1A3FA0; --primary-press: #142F7A; --primary-tint: #E8EEFB;
+    --primary: #1D4ED8; --primary-dark: #1A41B8; --primary-press: #16337F; --primary-tint: #E9EFFC;
     --danger: #B3261E; --danger-dark: #8E1D16; --danger-press: #6E1510; --danger-tint: #FBEBE9; --danger-border: #E6A79E;
     --ok: #17703F; --ok-tint: #E7F2EB;
     --warn: #7A5200; --warn-bg: #FBF1D5; --warn-border: #E3CE96;
     --usb-bg: #F4EFE3; --usb-border: #D9CEB5;
     --focus: #1A3FA0; --accent: #E8A317;
-    --disabled-bg: #E3E7EE; --disabled-fg: #717C8E; --track: #DDE3ED;
-    --shadow: 0 1px 2px rgba(12,23,40,.05), 0 5px 12px rgba(12,23,40,.09);
-    --shadow-btn: 0 1px 2px rgba(12,23,40,.18), 0 3px 6px rgba(12,23,40,.16);
-    --halo: 0 0 0 3px rgba(32,80,200,.16), 0 0 0 6px rgba(32,80,200,.07);
+    --disabled-bg: #E4E8EF; --disabled-fg: #6E7989; --track: #DFE5EF;
+  --shadow: 0 1px 2px rgba(12,23,40,.04), 0 3px 6px rgba(12,23,40,.05), 0 12px 26px rgba(12,23,40,.07);
+  --shadow-btn: 0 1px 2px rgba(12,23,40,.14), 0 2px 5px rgba(12,23,40,.12), 0 7px 15px rgba(12,23,40,.10);
+    --halo: 0 0 0 3px rgba(29,78,216,.16), 0 0 0 6px rgba(29,78,216,.07);
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: #D5DBE4; color: var(--ink); }
@@ -157,7 +199,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .shell { background: var(--bg); min-height: 740px; box-shadow: 0 12px 40px rgba(10,27,52,.25); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
   .preview-stripe { background: var(--accent); color: var(--navy); padding: 10px 28px; font-size: 16px; font-weight: 700; }
-  .hdr { background: linear-gradient(180deg, var(--header-top), var(--navy)); border-bottom: 1px solid #1A3560; color: #fff; height: 66px; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; }
+  .hdr { background: radial-gradient(110px 62px at 43px 50%, rgba(28,58,110,.85), rgba(28,58,110,0) 72%), linear-gradient(180deg, var(--header-top), var(--navy)); border-bottom: 1px solid #1A3560; color: #fff; height: 66px; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; }
   .brandrow { display: flex; align-items: center; gap: 14px; font-size: 21px; font-weight: 700; }
   .brandrow svg { flex: none; display: block; }
   .steppill { font-size: 14px; font-weight: 700; color: var(--navy-muted); background: var(--navy-soft); border: 1px solid #2A4A7E; border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
@@ -173,26 +215,27 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .mono { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
   .kbd { display: inline-block; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px; padding: 2px 9px; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.3; }
   .kbd.dark { background: var(--navy-soft); border-color: #33517F; color: var(--navy-text); }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin: 0 4px 10px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin: 0 4px 12px; }
   .card.hero { box-shadow: var(--shadow); margin-left: 0; margin-right: 0; }
   .card.pickable { cursor: pointer; }
   .card.pickable:hover { background: var(--surface-alt); }
   .card.pickable:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 15px 17px; box-shadow: var(--halo); }
+  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 17px 19px; box-shadow: var(--halo); }
   .card.sel:hover { background: var(--primary-tint); }
   .card.boot { background: var(--usb-bg); border-color: var(--usb-border); cursor: not-allowed; }
   .card .row { display: flex; align-items: flex-start; gap: 16px; }
   .card .grow { flex: 1; min-width: 0; }
   .card .title { font-size: 18px; font-weight: 700; }
-  .card .size { font-size: 20px; font-weight: 700; white-space: nowrap; }
+  .card .size { font-size: 22px; font-weight: 700; white-space: nowrap; }
   .card .meta { margin-top: 6px; font-size: 16px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 0; align-items: center; }
   .card .meta .mono { color: var(--ink); font-size: 16px; }
+  .card .meta .mono.ser { font-weight: 700; }
   .card .meta .dot { color: var(--border-strong); margin: 0 8px; }
   .card .meta .dev { color: var(--muted); }
   .radio { flex: none; width: 26px; height: 26px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 50%; position: relative; background: var(--surface); }
   .sel .radio { border-color: var(--primary); }
   .sel .radio::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--primary); }
-  .chip { display: inline-block; font-size: 14px; font-weight: 700; padding: 3px 10px; background: var(--surface-alt); color: var(--muted); border-radius: 8px; vertical-align: 2px; }
+  .chip { display: inline-block; font-size: 14px; font-weight: 700; padding: 3px 12px; background: var(--surface-alt); color: var(--muted); border-radius: 999px; vertical-align: 2px; }
   .chip.ok { color: var(--ok); background: var(--ok-tint); }
   .bootbanner { margin-top: 10px; margin-left: 42px; color: var(--danger); font-weight: 700; font-size: 16px; }
   .panel { display: flex; gap: 16px; align-items: flex-start; border: 1px solid; border-radius: 14px; padding: 16px 18px; margin: 12px 0; font-size: 18px; line-height: 1.4; }
@@ -200,10 +243,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .panel.warn { background: var(--warn-bg); border-color: var(--warn-border); }
   .panel.danger { background: var(--danger-tint); border-color: var(--danger-border); }
   .panel.info { background: var(--surface-alt); border-color: var(--border); }
-  .hint { max-width: 940px; margin: 0 auto; padding: 12px 24px 0; color: var(--muted); font-size: 16px; border-top: 1px solid var(--border); line-height: 2; }
+  .hint { max-width: 940px; margin: 0 auto; padding: 14px 24px 0; color: var(--muted); font-size: 16px; border-top: 1px solid var(--border); line-height: 2; }
   .hint .kbd { margin: 0 1px; }
-  .btnrow { max-width: 940px; margin: 0 auto; padding: 12px 24px 20px; display: flex; justify-content: space-between; gap: 12px; }
-  button.btn { font-size: 20px; font-weight: 700; padding: 13px 26px; border: 0; border-radius: 12px; cursor: pointer; min-width: 124px; }
+  .btnrow { max-width: 940px; margin: 0 auto; padding: 14px 24px 22px; display: flex; justify-content: space-between; gap: 12px; }
+  button.btn { font-size: 20px; font-weight: 700; padding: 15px 28px; border: 0; border-radius: 999px; cursor: pointer; min-width: 124px; }
   button.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-btn); min-width: 172px; }
   .primary:hover:not(:disabled) { background: var(--primary-dark); }
@@ -218,14 +261,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .linkbtn { background: none; border: 0; color: var(--primary); font-size: 16px; font-weight: 700; cursor: pointer; padding: 8px 12px; text-align: left; border-radius: 10px; margin-left: -12px; }
   .linkbtn:hover { background: var(--primary-tint); }
   .linkbtn:focus-visible { outline: 3px solid var(--focus); }
-  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px 16px; box-shadow: var(--shadow); }
+  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 12px 18px; box-shadow: var(--shadow); }
   .entryshell:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
   input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 30px; font-weight: 700; width: 100%; padding: 6px 0; border: 0; outline: none; background: transparent; color: var(--ink); }
-  .match { display: flex; align-items: center; gap: 12px; font-size: 18px; margin-top: 14px; color: var(--muted); }
+  .match { display: flex; align-items: center; gap: 12px; font-size: 20px; margin-top: 16px; color: var(--muted); }
   .match.ok { color: var(--ok); font-weight: 600; }
   .bigstat { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; min-height: 70px; }
-  .bar { height: 22px; background: var(--track); border-radius: 11px; overflow: hidden; margin-top: 10px; }
-  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 11px; transition: width .2s ease; }
+  .bar { height: 26px; background: var(--track); border-radius: 13px; overflow: hidden; margin-top: 10px; box-shadow: inset 0 1px 3px rgba(12,23,40,.10); }
+  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 13px; transition: width .2s ease; }
   .fill.indet { width: 30%; animation: slide 1.7s ease-in-out infinite alternate; }
   @keyframes slide { from { margin-left: 0; } to { margin-left: 70%; } }
   .status { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
@@ -240,12 +283,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .badgehalo.info { background: var(--surface-alt); }
   .ok { color: var(--ok); } .bad { color: var(--danger); }
   ul.bullets { list-style: none; margin: 0; padding: 20px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
-  ul.bullets li { font-size: 20px; line-height: 1.45; padding: 7px 0; display: flex; }
+  ul.bullets li { font-size: 20px; line-height: 1.45; padding: 8px 0; display: flex; }
   ul.bullets li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin: 11px 14px 0 2px; flex: none; }
-  .ownercard { display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 20px; cursor: pointer; font-size: 20px; line-height: 1.45; }
+  .ownercard { display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 22px; cursor: pointer; font-size: 20px; line-height: 1.45; }
   .ownercard:hover { background: var(--surface-alt); }
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 19px; box-shadow: var(--halo); }
+  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 21px; box-shadow: var(--halo); }
   .ownercard.checked:hover { background: var(--primary-tint); }
   .cbox { flex: none; width: 32px; height: 32px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: #fff; font-size: 22px; font-weight: 700; line-height: 28px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
@@ -253,11 +296,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 64px; font-weight: 700; }
   .countcap { font-size: 18px; color: var(--muted); margin-top: 12px; }
   .countcap.ready { color: var(--ok); font-weight: 600; }
+  .advrow { font-size: 15px; margin: 0; padding: 10px 0; }
+  .advrow + .advrow { border-top: 1px solid var(--border); }
   .methodblurb { font-size: 16px; color: var(--muted); margin: 4px 16px 0 58px; }
-  .methodpace { font-size: 16px; color: var(--muted); margin: 2px 16px 0 58px; }
+  .methodpace { font-size: 16px; color: var(--muted); margin: 4px 16px 0 58px; display: flex; gap: 8px; align-items: flex-start; }
+  .methodpace svg { flex: none; margin-top: 2px; }
   .centerstage { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .centerstage h1 { margin: 24px 0 12px; }
-  .centerstage .lead { max-width: 720px; }
+  .centerstage h1 { margin: 26px 0 12px; }
+  .centerstage .lead { max-width: 760px; }
   .splashwrap { min-height: 560px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .emblemwrap { position: relative; width: 176px; height: 176px; display: flex; align-items: center; justify-content: center; }
   .emblemwrap::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(232,163,23,.20), rgba(232,163,23,.07) 55%, transparent 72%); }
@@ -286,7 +332,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
   <div class="shell">
     <div class="preview-stripe" id="stripe"></div>
-    <div class="hdr"><div class="brandrow"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="7" fill="#E8A317"/><circle cx="15" cy="15" r="9" fill="#071426"/><circle cx="15" cy="15" r="3" fill="#E8A317"/></svg><div id="brand"></div></div><span class="steppill" id="step"></span></div>
+    <div class="hdr"><div class="brandrow">__LOGO_HEADER__<div id="brand"></div></div><span class="steppill" id="step"></span></div>
     <div class="strip"><div class="sfill" id="sfill"></div></div>
     <div class="body" id="body"><div class="col" id="main"></div></div>
     <div class="hint" id="hint"></div>
@@ -313,7 +359,7 @@ document.getElementById("brand").textContent = P.app;
 function badge(kind, size) {
   const s = size;
   if (kind === "info") {
-    const c = "#2050C8";
+    const c = "#1D4ED8";
     return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
       `<circle cx="${s/2}" cy="${s/2}" r="${s/2-2}" fill="${c}"/>` +
       `<circle cx="${s/2}" cy="${s*0.26}" r="${s*0.075}" fill="#fff"/>` +
@@ -326,9 +372,9 @@ function badge(kind, size) {
     `<circle cx="${s/2}" cy="${s*0.75}" r="${s*0.06}" fill="#fff"/></svg>`;
 }
 const ICON_NO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#B3261E" stroke-width="2.6"/><line x1="6" y1="18" x2="18" y2="6" stroke="#B3261E" stroke-width="2.6" stroke-linecap="round"/></svg>';
-const MATCH_WAIT = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#74839F" stroke-width="2"/></svg>';
-const MATCH_OK = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#17703F"/><path d="M7 13.5 11 17.5 19 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const EMBLEM = '<svg width="108" height="108" viewBox="0 0 108 108"><rect x="2" y="2" width="104" height="104" rx="25" fill="#E8A317"/><circle cx="54" cy="54" r="32.4" fill="#071426"/><circle cx="54" cy="54" r="10.8" fill="#E8A317"/></svg>';
+const MATCH_WAIT = '<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="none" stroke="#74839F" stroke-width="2"/></svg>';
+const MATCH_OK = '<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#17703F"/><path d="M8 15.5 12.5 20 22 9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const EMBLEM = '__LOGO_SPLASH__';
 
 // Key names inside hint copy render as key-caps, mirroring _hint_bar.
 const KEY_RE = /(Up\/Down|1, 2, or 3|any key|Enter|Esc|Space)/g;
@@ -401,7 +447,7 @@ function panel(kind, text) {
   return `<div class="panel ${kind}">${badge(kind, 34)}<div>${text}</div></div>`;
 }
 function metaLine(d) {
-  return `<div class="meta"><span>${d.bus}</span><span class="dot">·</span><span>Serial <span class="mono">${d.serial}</span></span><span class="dot">·</span><span>Device <span class="mono dev">${d.path}</span></span></div>`;
+  return `<div class="meta"><span>${d.bus}</span><span class="dot">·</span><span>Serial <span class="mono ser">${d.serial}</span></span><span class="dot">·</span><span>Device <span class="mono dev">${d.path}</span></span></div>`;
 }
 function summaryCard(d) {
   return `<div class="card hero" style="padding:18px 20px"><div class="row" style="align-items:center">
@@ -430,7 +476,7 @@ function diskCard(d) {
 function draw() {
   const info = stepInfo();
   const stepEl = document.getElementById("step");
-  stepEl.textContent = info[2] && info[1] !== info[2] ? info[1] + " · " + info[2] : info[1];
+  stepEl.textContent = info[1];
   stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
   document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
   document.getElementById("body").className = screen === "splash" ? "body navy" : "body";
@@ -441,7 +487,7 @@ function draw() {
   renderHint(P.hints.default);
   if (screen === "splash") {
     main.innerHTML = `<div class="splashwrap"><div class="emblemwrap">${EMBLEM}</div><div class="wordmark">${P.app}</div>
-      <p class="lead" style="color:var(--navy-text);max-width:720px;margin-top:22px">${P.splash}</p>
+      <p class="lead" style="color:var(--navy-text);max-width:760px;margin-top:22px">${P.splash}</p>
       <div class="anykey"><span class="kbd dark">any key</span><span>to continue.</span></div></div>`;
     renderHint(P.hints.splash);
     btns.append(btn("Continue", () => { screen = "what"; draw(); }, "primary"));
@@ -526,7 +572,7 @@ function draw() {
           <div class="grow">
             <div class="title"><span class="kbd">${m.key}</span>&nbsp; ${m.title}${id === "everyday" ? ` &nbsp;<span class="chip ok">${P.recommended}</span>` : ""}</div>
             <div class="methodblurb">${m.blurb}</div>
-            <div class="methodpace">${m.pace}</div>
+            <div class="methodpace"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="#47536B" stroke-width="1.6"/><path d="M9 4.6V9l3.1 2" fill="none" stroke="#47536B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${m.pace}</span></div>
           </div>
         </div>
       </div>`;
@@ -544,10 +590,10 @@ function draw() {
     btns.append(btn("Back", () => { screen = "confirm"; draw(); }));
     btns.append(btn("Continue", () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
   } else if (screen === "advanced") {
-    let html = `<h1 style="margin-bottom:6px">Advanced</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.advancedLead}</p><div class="card hero" style="padding:14px 20px">`;
+    let html = `<h1 style="margin-bottom:6px">Advanced</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.advancedLead}</p><div class="card hero" style="padding:10px 20px">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
-      html += `<p class="mono" style="font-size:15px;margin:6px 0">${id}: nwipe --method=${m.nwipe} &nbsp;(${m.docs})</p>`;
+      html += `<p class="mono advrow">${id}: nwipe --method=${m.nwipe} &nbsp;(${m.docs})</p>`;
     });
     html += `</div><p class="muted small" style="margin-top:18px">Log file (never on the target disk): <span class="mono">(no wipe yet)</span></p>
       <p class="muted small">${P.advancedNote}</p>`;
@@ -557,21 +603,22 @@ function draw() {
   } else if (screen === "last") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ready = tLeft <= 0;
-    const CIRC = 2 * Math.PI * 81;
+    const CIRC = 2 * Math.PI * 85;
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = ready ? "var(--ok)" : "var(--primary)";
     main.innerHTML = `<h1>Last chance</h1>${panel("danger", selected.eraseLabel)}
-      <div class="ringwrap"><div style="position:relative;width:190px;height:190px">
-        <svg width="190" height="190" viewBox="0 0 190 190">
-          <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="13"/>
-          ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--ok)" stroke-width="13"/>` :
-            `<circle cx="95" cy="95" r="81" fill="none" stroke="${ringColor}" stroke-width="13" stroke-linecap="round"
-              stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC * (1 - frac)}" transform="rotate(-90 95 95)"/>`}
+      <div class="ringwrap"><div style="position:relative;width:200px;height:200px">
+        <svg width="200" height="200" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="85" fill="none" stroke="var(--track)" stroke-width="13"/>
+          ${ready ? `<circle cx="100" cy="100" r="85" fill="none" stroke="var(--ok)" stroke-width="13"/>` :
+            `<circle cx="100" cy="100" r="85" fill="none" stroke="${ringColor}" stroke-width="13" stroke-linecap="round"
+              stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC * (1 - frac)}" transform="rotate(-90 100 100)"/>`}
         </svg>
         <div class="ringnum" style="${ready ? "color:var(--ok)" : ""}">${ready ? "✓" : tLeft}</div></div>
       <div class="countcap${ready ? " ready" : ""}">${ready ? P.countdownReady : P.countdownCaption}</div></div>`;
     btns.append(btn("Back", () => { if (timer) clearInterval(timer); screen = "method"; draw(); }));
     btns.append(btn("Erase now", () => { if (tLeft<=0) startWork(); }, "danger", tLeft>0));
+    renderHint(P.hints.lastChance);
   } else if (screen === "working") {
     if (!selected) { screen = "pick"; draw(); return; }
     const m = P.methods[method];
@@ -587,7 +634,7 @@ function draw() {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
     main.innerHTML = `<div class="centerstage"><div class="status ${ok ? "ok" : "bad"}"><div class="core">${ok ? "✓" : "✕"}</div></div>
-      <h1 style="margin-top:0">${ok?"Finished":"The wipe did not finish"}</h1>
+      <h1 style="margin-top:2px">${ok?"Finished":"The wipe did not finish"}</h1>
       <p class="lead ${ok?"ok":"bad"}">${ok?P.doneOk:P.doneFail}</p>
       <div style="width:100%;margin-top:10px">${summaryCard(selected)}</div></div>`;
     btns.append(btn("Close preview", closePreview, "secondary"));

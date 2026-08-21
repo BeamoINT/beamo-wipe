@@ -1,11 +1,20 @@
 #!/bin/sh
 # Live USB entrypoint. Isolated sys.path so cwd cannot shadow the shipped package.
 export PYTHONPATH=/usr/lib/python3/dist-packages
+export PYTHONNOUSERSITE=1
 export BEAMO_WIPE_LIVE=1
 unset BEAMO_WIPE_DRY_RUN
 unset BEAMO_WIPE_DEMO
 unset BEAMO_WIPE_BOOT_DEVICE
+unset LD_PRELOAD
+unset LD_LIBRARY_PATH
+unset PYTHONHOME
+unset PYTHONSTARTUP
+unset PYTHONUSERBASE
+umask 077
 export LANG=C.UTF-8
 cd /
-# -P: do not prepend the current directory to sys.path (Python 3.11+, bookworm).
-exec python3 -P -m beamo_wipe --fullscreen "$@"
+# -s: ignore user site-packages. -P: do not prepend cwd (Python 3.11+, bookworm).
+# "$@" is only --console / --fullscreen from the kiosk profile. app.py still
+# strips preview/gallery/boot-device flags if this binary is invoked by hand.
+exec python3 -sP -m beamo_wipe --fullscreen "$@"
