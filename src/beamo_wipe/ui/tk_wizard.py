@@ -3,18 +3,22 @@
 
 This module is a small design system on plain Tk (no assets, no themes):
 tokens, canvas-drawn rounded components (buttons, cards, chips, panels,
-progress bars, key-caps, a countdown ring), and canvas icons. Every screen
-is built from the same components so the wizard looks and behaves
-consistently on the live USB (Linux Tk + DejaVu) and in ./preview.
+progress bars, key-caps, a countdown ring), gradient chrome, and canvas
+icons. Every screen is built from the same components so the wizard looks
+and behaves consistently on the live USB (Linux Tk + DejaVu) and in
+./preview.
 
 Design rules:
 - One card pattern: white, rounded, hairline border, flat. Elevation is
-  reserved for pressable actions (primary/danger buttons cast a shadow);
-  stacked cards stay calm so lists scan cleanly.
+  reserved for the hero surface on a screen (the bullet card, the owner
+  checkbox, the confirm entry, the disk summary) and for pressable
+  actions; stacked list rows stay calm so lists scan cleanly.
 - One selectable pattern: radio/checkbox card; selected = primary tint +
-  primary ring; hover = alt surface; keyboard focus = focus ring.
+  primary ring + a soft primary halo; hover = alt surface; keyboard
+  focus = focus ring.
 - One alert pattern: filled badge icon + text (warn / danger / info).
-- One status pattern: centered icon, title, message (blocked/empty/done).
+- One status pattern: tinted halo badge, title, message (blocked/empty/
+  done).
 - One screen-header pattern: bold title at a standard rhythm, optional
   muted subtitle. Identifiers (serials, paths) render in readable mono.
 - Keyboard affordances are drawn as key-caps, not buried in prose.
@@ -22,6 +26,7 @@ Design rules:
 
 from __future__ import annotations
 
+import math
 import re
 import tkinter as tk
 from tkinter import font as tkfont
@@ -35,49 +40,53 @@ from beamo_wipe.wizard import COUNTDOWN_S, Wizard
 
 # --- Design tokens ---------------------------------------------------------
 
-BG = "#E9EDF4"
+BG = "#E8ECF4"
 SURFACE = "#FFFFFF"
-SURFACE_ALT = "#F2F5FA"
-INK = "#0E1B2C"
-MUTED = "#43506A"
-BORDER = "#D6DDE7"
+SURFACE_ALT = "#F3F6FB"
+INK = "#0C1728"
+MUTED = "#44506A"
+BORDER = "#D7DEE9"
 # Strong border: also the unchecked radio/checkbox/key-cap outline, so it
 # must stay >= 3:1 on every surface (WCAG non-text contrast).
-BORDER_STRONG = "#7A89A1"
-NAVY = "#0A1C36"
+BORDER_STRONG = "#74839F"
+NAVY = "#0A1B34"
 NAVY_SOFT = "#16315C"
 NAVY_MUTED = "#C9D6E8"
-NAVY_TEXT = "#D9E2F0"
-PRIMARY = "#2456C7"
-PRIMARY_DARK = "#1C44A3"
-PRIMARY_PRESS = "#16357E"
+NAVY_TEXT = "#DAE3F1"
+NAVY_DEEP = "#071426"  # splash gradient edge / emblem platter
+NAVY_GLOW = "#1C3A6E"  # splash spotlight center (decorative)
+HEADER_TOP = "#10264A"  # header gradient top
+PRIMARY = "#2050C8"
+PRIMARY_DARK = "#1A3FA0"
+PRIMARY_PRESS = "#142F7A"
 PRIMARY_TINT = "#E8EEFB"
-DANGER = "#B42318"
-DANGER_DARK = "#8F1B12"
-DANGER_PRESS = "#6F140D"
-DANGER_TINT = "#FBEBE8"
-DANGER_BORDER = "#E5A89E"
-OK = "#166E43"
-OK_TINT = "#E6F2EA"
+DANGER = "#B3261E"
+DANGER_DARK = "#8E1D16"
+DANGER_PRESS = "#6E1510"
+DANGER_TINT = "#FBEBE9"
+DANGER_BORDER = "#E6A79E"
+OK = "#17703F"
+OK_TINT = "#E7F2EB"
 WARN = "#7A5200"
-WARN_BG = "#FBF0D3"
-WARN_BORDER = "#E3CE93"
-USB_BG = "#F3EEE2"
-USB_BORDER = "#D8CDB4"
-FOCUS = "#1C44A3"
+WARN_BG = "#FBF1D5"
+WARN_BORDER = "#E3CE96"
+USB_BG = "#F4EFE3"
+USB_BORDER = "#D9CEB5"
+FOCUS = "#1A3FA0"
 ACCENT = "#E8A317"
-DISABLED_BG = "#E2E6EC"
-DISABLED_FG = "#7A8494"
-TRACK = "#DCE2EB"
-SHADOW_A = "#D8DFE9"
-SHADOW_B = "#E3E8F0"
+DISABLED_BG = "#E3E7EE"
+DISABLED_FG = "#717C8E"
+TRACK = "#DDE3ED"
+SHADOW_A = "#D9E0EA"
+SHADOW_B = "#E4E9F1"
 PREVIEW_BG = "#E8A317"
-PREVIEW_FG = "#0A1C36"
+PREVIEW_FG = "#0A1B34"
 
 CONTENT_W = 940
 WRAP = CONTENT_W - 72
 RADIUS = 16
 SHADOW_H = 6
+HALO_INSET = 5  # canvas margin a haloed _Box reserves for its glow
 
 _STEP_ORDER = {
     Screen.WHAT: (1, "Step 1 of 8", "What this is"),
@@ -115,6 +124,56 @@ def _mono_family(root: tk.Tk) -> str:
         if candidate in families:
             return candidate
     return "TkFixedFont"
+
+
+# --- Color and gradient helpers --------------------------------------------
+
+
+def _mix(a: str, b: str, t: float) -> str:
+    """Blend two #RRGGBB colors. t=0 gives a, t=1 gives b."""
+    ca = [int(a[i : i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i : i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
+
+
+def _vgradient(
+    canvas: tk.Canvas,
+    width: float,
+    height: float,
+    top: str,
+    bottom: str,
+    *,
+    bands: int = 40,
+    tags: str = "grad",
+) -> None:
+    """Vertical gradient drawn as stacked bands (Tk has no native gradient)."""
+    for i in range(bands):
+        color = _mix(top, bottom, i / max(1, bands - 1))
+        y0 = height * i / bands
+        y1 = height * (i + 1) / bands + 1
+        canvas.create_rectangle(-2, y0, width + 2, y1, fill=color, outline="", tags=tags)
+
+
+def _radial(
+    canvas: tk.Canvas,
+    cx: float,
+    cy: float,
+    radius: float,
+    inner: str,
+    outer: str,
+    *,
+    steps: int = 34,
+    squash: float = 0.82,
+    tags: str = "glow",
+) -> None:
+    """Soft elliptical spotlight: concentric ovals, inner color at the core."""
+    for i in range(steps, 0, -1):
+        r = radius * i / steps
+        color = _mix(inner, outer, i / steps)
+        canvas.create_oval(
+            cx - r, cy - r * squash, cx + r, cy + r * squash,
+            fill=color, outline="", tags=tags,
+        )
 
 
 # --- Rounded rectangles ----------------------------------------------------
@@ -197,50 +256,75 @@ def _icon_no_entry(parent: tk.Widget, size: int = 26) -> tk.Canvas:
     return cv
 
 
-def _icon_alert(parent: tk.Widget, kind: str, size: int = 34) -> tk.Canvas:
-    """Filled badge: triangle for warn/danger, circle for info. White glyph."""
-    cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
+def _draw_alert_glyph(cv: tk.Canvas, x: float, y: float, size: float, kind: str) -> None:
+    """Filled badge at (x, y): triangle for warn/danger, circle for info."""
     if kind == "info":
-        color = PRIMARY
-        cv.create_oval(2, 2, size - 2, size - 2, fill=color, outline="")
+        cv.create_oval(x + 2, y + 2, x + size - 2, y + size - 2, fill=PRIMARY, outline="")
         cv.create_oval(
-            size / 2 - 2.5, size * 0.24, size / 2 + 2.5, size * 0.24 + 5,
+            x + size / 2 - 2.5, y + size * 0.24, x + size / 2 + 2.5, y + size * 0.24 + 5,
             fill="#FFFFFF", outline="",
         )
         cv.create_line(
-            size / 2, size * 0.46, size / 2, size * 0.74,
+            x + size / 2, y + size * 0.46, x + size / 2, y + size * 0.74,
             fill="#FFFFFF", width=3, capstyle="round",
         )
     else:
         color = WARN if kind == "warn" else DANGER
         cv.create_polygon(
-            size / 2, 2, size - 2, size - 3, 2, size - 3,
+            x + size / 2, y + 2, x + size - 2, y + size - 3, x + 2, y + size - 3,
             fill=color, outline=color, width=6, joinstyle="round",
         )
         cv.create_line(
-            size / 2, size * 0.36, size / 2, size * 0.62,
+            x + size / 2, y + size * 0.36, x + size / 2, y + size * 0.62,
             fill="#FFFFFF", width=3, capstyle="round",
         )
         cv.create_oval(
-            size / 2 - 2, size * 0.72, size / 2 + 2, size * 0.72 + 4,
+            x + size / 2 - 2, y + size * 0.72, x + size / 2 + 2, y + size * 0.72 + 4,
             fill="#FFFFFF", outline="",
         )
+
+
+def _icon_alert(parent: tk.Widget, kind: str, size: int = 34) -> tk.Canvas:
+    """Filled badge: triangle for warn/danger, circle for info. White glyph."""
+    cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
+    _draw_alert_glyph(cv, 0, 0, size, kind)
     return cv
 
 
-def _icon_emblem(parent: tk.Widget, size: int = 96) -> tk.Canvas:
-    """The Beamo Wipe brand mark at splash size: an amber rounded tile with a
-    navy disk platter. Same amber as the header brand bar, drawn so it never
-    depends on font glyph coverage."""
+def _icon_badge(parent: tk.Widget, kind: str, size: int = 96) -> tk.Canvas:
+    """Status-screen badge: the alert glyph on a tinted halo circle."""
     cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
-    _round_rect(cv, 2, 2, size - 2, size - 2, size * 0.24, fill=ACCENT, outline="")
-    cx = size / 2.0
+    tint = {"warn": WARN_BG, "danger": DANGER_TINT, "info": SURFACE_ALT}[kind]
+    cv.create_oval(1, 1, size - 1, size - 1, fill=tint, outline="")
+    glyph = size * 0.58
+    off = (size - glyph) / 2
+    _draw_alert_glyph(cv, off, off, glyph, kind)
+    return cv
+
+
+def _draw_emblem(cv: tk.Canvas, cx: float, cy: float, size: float, tags: str = "emblem") -> None:
+    """The Beamo Wipe brand mark centered at (cx, cy): an amber rounded tile
+    with a navy disk platter. Drawn, so it never depends on font glyphs."""
+    half = size / 2.0
+    _round_rect(
+        cv, cx - half, cy - half, cx + half, cy + half, size * 0.24,
+        fill=ACCENT, outline="", tags=tags,
+    )
     platter = size * 0.30
     cv.create_oval(
-        cx - platter, cx - platter, cx + platter, cx + platter, fill=NAVY, outline=""
+        cx - platter, cy - platter, cx + platter, cy + platter,
+        fill=NAVY_DEEP, outline="", tags=tags,
     )
     hub = size * 0.10
-    cv.create_oval(cx - hub, cx - hub, cx + hub, cx + hub, fill=ACCENT, outline="")
+    cv.create_oval(
+        cx - hub, cy - hub, cx + hub, cy + hub, fill=ACCENT, outline="", tags=tags,
+    )
+
+
+def _icon_emblem(parent: tk.Widget, size: int = 96) -> tk.Canvas:
+    """The brand mark as its own canvas widget (same amber as the header)."""
+    cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
+    _draw_emblem(cv, size / 2.0, size / 2.0, size - 4)
     return cv
 
 
@@ -283,7 +367,8 @@ class _Box(tk.Canvas):
     The canvas background shows through at the rounded corners, so it always
     matches the parent surface. Content lives in ``self.inner``. With
     ``shadow=True`` the card gets a soft two-layer drop shadow (the canvas
-    reserves SHADOW_H pixels at the bottom for it).
+    reserves SHADOW_H pixels at the bottom for it). With ``halo=True`` the
+    card gets a soft primary glow — the selected state for cards.
     """
 
     def __init__(
@@ -299,6 +384,7 @@ class _Box(tk.Canvas):
         bg: Optional[str] = None,
         ring: bool = False,
         shadow: bool = False,
+        halo: bool = False,
     ) -> None:
         super().__init__(
             parent,
@@ -315,6 +401,7 @@ class _Box(tk.Canvas):
         self._pady = pady
         self._ring = ring
         self._shadow = shadow
+        self._halo = halo
         self._focused = False
         self.inner = tk.Frame(self, bg=fill)
         self._win = self.create_window(padx, pady, window=self.inner, anchor="nw")
@@ -339,6 +426,12 @@ class _Box(tk.Canvas):
     def _shadow_h(self) -> int:
         return SHADOW_H if self._shadow else 0
 
+    @property
+    def _inset(self) -> int:
+        if self._halo:
+            return HALO_INSET
+        return 3 if self._ring else 1
+
     def _sync_width(self, _event=None) -> None:
         width = self.winfo_width()
         if width > 1:
@@ -351,7 +444,7 @@ class _Box(tk.Canvas):
         height = self.winfo_height()
         if width <= 1 or height <= 1:
             return
-        inset = 3 if self._ring else 1
+        inset = self._inset
         bottom = height - inset - self._shadow_h
         if self._shadow:
             _round_rect(
@@ -361,6 +454,16 @@ class _Box(tk.Canvas):
             _round_rect(
                 self, inset, inset + 2, width - inset, bottom + 2,
                 self._radius, fill=SHADOW_A, outline="", tags="rr",
+            )
+        if self._halo:
+            base = self.cget("bg")
+            _round_rect(
+                self, inset - 3, inset - 3, width - inset + 3, bottom + 3,
+                self._radius + 3, fill=_mix(PRIMARY, base, 0.14), outline="", tags="rr",
+            )
+            _round_rect(
+                self, inset - 1.5, inset - 1.5, width - inset + 1.5, bottom + 1.5,
+                self._radius + 2, fill=_mix(PRIMARY, base, 0.30), outline="", tags="rr",
             )
         if self._ring and self._focused:
             _round_rect(
@@ -432,9 +535,9 @@ class _Box(tk.Canvas):
 class _Button(tk.Canvas):
     """Canvas button: identical rendering on Linux Tk and macOS preview.
 
-    Primary and danger buttons carry a soft shadow; secondary is a bordered
-    white button; ghost is a quiet text button. All enabled buttons show a
-    focus ring on keyboard focus.
+    Primary and danger buttons carry a soft two-layer shadow; secondary is a
+    bordered white button; ghost is a quiet text button. All enabled buttons
+    show a focus ring on keyboard focus.
     """
 
     _VARIANTS = {
@@ -457,6 +560,7 @@ class _Button(tk.Canvas):
         variant: str = "secondary",
         enabled: bool = True,
         compact: bool = False,
+        min_width: int = 0,
     ) -> None:
         self._command = command
         self._variant = variant
@@ -464,7 +568,7 @@ class _Button(tk.Canvas):
         self._focused = False
         self._hovering = False
         pad_x, pad_y = (20, 8) if compact else (26, 13)
-        width = font.measure(text) + 2 * pad_x + 6
+        width = max(min_width, font.measure(text) + 2 * pad_x + 6)
         height = font.metrics("linespace") + 2 * pad_y + 6 + self._SHADOW_GAP
         super().__init__(
             parent,
@@ -507,7 +611,11 @@ class _Button(tk.Canvas):
         body_bottom = self._bh - 1 - gap
         if self._enabled and self._variant in self._SHADOWED:
             _round_rect(
-                self, 4, 4 + 2, self._bw - 4, body_bottom + gap, 13,
+                self, 5, 5 + 2, self._bw - 5, body_bottom + gap, 13,
+                fill=SHADOW_B, outline="", tags="rr",
+            )
+            _round_rect(
+                self, 4, 4 + 1, self._bw - 4, body_bottom + gap - 1, 13,
                 fill=SHADOW_A, outline="", tags="rr",
             )
         if self._focused and self._enabled:
@@ -563,6 +671,88 @@ class _Button(tk.Canvas):
         self._draw()
 
 
+class _Scrollbar(tk.Canvas):
+    """Slim rounded-thumb scrollbar for the disk list.
+
+    Same yview protocol as a stock scrollbar (the list canvas drives it via
+    yscrollcommand; drags and track clicks call back into the canvas), drawn
+    as a quiet rounded thumb so the list does not carry native chrome.
+    """
+
+    WIDTH = 12
+    MIN_THUMB = 30
+
+    def __init__(self, parent: tk.Widget, command: Callable) -> None:
+        super().__init__(
+            parent,
+            width=self.WIDTH,
+            highlightthickness=0,
+            bd=0,
+            bg=parent.cget("bg"),
+            takefocus=0,
+        )
+        self._command = command
+        self._first = 0.0
+        self._last = 1.0
+        self._drag_off: Optional[float] = None
+        self.bind("<Configure>", lambda _e: self._draw_thumb())
+        self.bind("<Button-1>", self._press)
+        self.bind("<B1-Motion>", self._drag)
+        self.bind("<ButtonRelease-1>", self._release)
+
+    def set(self, first, last) -> None:
+        self._first, self._last = float(first), float(last)
+        self._draw_thumb()
+
+    def _thumb_span(self) -> Optional[tuple]:
+        height = self.winfo_height()
+        if height <= 1:
+            return None
+        if self._first <= 0.001 and self._last >= 0.999:
+            return None  # everything fits: no thumb at all
+        y0 = self._first * height
+        y1 = self._last * height
+        if y1 - y0 < self.MIN_THUMB:
+            y1 = y0 + self.MIN_THUMB
+            if y1 > height:
+                y0, y1 = height - self.MIN_THUMB, float(height)
+        return y0, y1
+
+    def _draw_thumb(self) -> None:
+        self.delete("thumb")
+        span = self._thumb_span()
+        if span is None:
+            return
+        y0, y1 = span
+        color = BORDER_STRONG if self._drag_off is not None else _mix(BORDER_STRONG, BG, 0.35)
+        _round_rect(
+            self, 2, y0 + 2, self.WIDTH - 2, max(y1 - 2, y0 + 4), 5,
+            fill=color, outline="", tags="thumb",
+        )
+
+    def _press(self, event) -> None:
+        span = self._thumb_span()
+        if span is not None and span[0] <= event.y <= span[1]:
+            self._drag_off = event.y - span[0]
+            self._draw_thumb()
+        else:
+            self._command("scroll", 1 if span and event.y > span[1] else -1, "pages")
+
+    def _drag(self, event) -> None:
+        if self._drag_off is None:
+            return
+        height = max(1, self.winfo_height())
+        span = max(1e-6, self._last - self._first)
+        first = (event.y - self._drag_off) / height
+        first = max(0.0, min(1.0 - span, first))
+        self._command("moveto", first)
+
+    def _release(self, _event) -> None:
+        if self._drag_off is not None:
+            self._drag_off = None
+            self._draw_thumb()
+
+
 class TkWizard:
     def __init__(self, wizard: Wizard, fullscreen: bool = False) -> None:
         self.w = wizard
@@ -598,7 +788,7 @@ class TkWizard:
         self._owner_var = tk.IntVar(value=0)
         self._body: Optional[tk.Frame] = None
         self._footer: Optional[tk.Frame] = None
-        self._header_step: Optional[tk.Label] = None
+        self._header: Optional[tk.Canvas] = None
         self._strip: Optional[tk.Canvas] = None
         self._hint: Optional[tk.Frame] = None
         self._primary: Optional[_Button] = None
@@ -608,6 +798,7 @@ class TkWizard:
         self._progress_label: Optional[tk.Label] = None
         self._progress_pct: Optional[tk.Label] = None
         self._progress_bar: Optional[tk.Canvas] = None
+        self._indet = 0.0
         self._match_label: Optional[tk.Label] = None
         self._match_icon: Optional[tk.Canvas] = None
         self._shown: Optional[Screen] = None
@@ -643,24 +834,12 @@ class TkWizard:
                 fg=PREVIEW_FG,
                 bg=PREVIEW_BG,
                 font=self.font_s_bold,
-            ).pack(side=tk.LEFT, padx=24, pady=8)
-        header = tk.Frame(self.root, bg=NAVY, height=64)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        mark = tk.Canvas(header, width=13, height=28, bg=NAVY, highlightthickness=0)
-        _round_rect(mark, 1, 1, 12, 27, 5, fill=ACCENT, outline="")
-        mark.pack(side=tk.LEFT, padx=(28, 0), pady=18)
-        tk.Label(
-            header,
-            text=C.APP_NAME,
-            fg="#FFFFFF",
-            bg=NAVY,
-            font=self.font_brand,
-        ).pack(side=tk.LEFT, padx=(12, 28))
-        self._header_step = tk.Label(
-            header, text="", fg=NAVY_MUTED, bg=NAVY, font=self.font_s
+            ).pack(side=tk.LEFT, padx=28, pady=8)
+        self._header = tk.Canvas(
+            self.root, height=66, bg=NAVY, highlightthickness=0, bd=0
         )
-        self._header_step.pack(side=tk.RIGHT, padx=28)
+        self._header.pack(fill=tk.X)
+        self._header.bind("<Configure>", lambda _e: self._draw_header())
         self._strip = tk.Canvas(self.root, height=6, bg=TRACK, highlightthickness=0)
         self._strip.pack(fill=tk.X)
         self._strip.bind("<Configure>", lambda _e: self._draw_strip())
@@ -676,6 +855,42 @@ class TkWizard:
             area.grid_columnconfigure(1, minsize=CONTENT_W, weight=0)
             area.grid_columnconfigure(2, weight=1)
             area.grid_rowconfigure(0, weight=1 if expand else 0)
+
+    def _draw_header(self) -> None:
+        cv = self._header
+        if cv is None:
+            return
+        width = cv.winfo_width()
+        height = cv.winfo_height()
+        if width <= 1 or height <= 1:
+            return
+        cv.delete("all")
+        _vgradient(cv, width, height, HEADER_TOP, NAVY, bands=36)
+        cv.create_rectangle(0, height - 1, width, height, fill=_mix(NAVY_SOFT, NAVY, 0.4))
+        mid = height / 2.0
+        _draw_emblem(cv, 28 + 15, mid - 1, 30)
+        cv.create_text(
+            28 + 30 + 14, mid, anchor="w",
+            text=C.APP_NAME, font=self.font_brand, fill="#FFFFFF",
+        )
+        step = _STEP_ORDER.get(self.w.screen, (0, "", ""))
+        label = f"{step[1]} · {step[2]}" if step[2] and step[1] != step[2] else step[1]
+        if label:
+            font = self.font_tiny
+            tw = font.measure(label)
+            th = font.metrics("linespace")
+            pad_x, pad_y = 14, 7
+            x1 = width - 28
+            x0 = x1 - tw - 2 * pad_x
+            y0 = mid - th / 2 - pad_y
+            y1 = mid + th / 2 + pad_y
+            _round_rect(
+                cv, x0, y0, x1, y1, (y1 - y0) / 2,
+                fill=NAVY_SOFT, outline=_mix(NAVY_SOFT, "#FFFFFF", 0.18), width=1,
+            )
+            cv.create_text(
+                (x0 + x1) / 2, mid, text=label, font=font, fill=NAVY_MUTED,
+            )
 
     def _draw_strip(self) -> None:
         cv = self._strip
@@ -737,10 +952,6 @@ class TkWizard:
 
     def _draw(self) -> None:
         assert self._body is not None and self._footer is not None
-        step = _STEP_ORDER.get(self.w.screen, (0, "", ""))
-        self._header_step.configure(
-            text=f"{step[1]} · {step[2]}" if step[2] and step[1] != step[2] else step[1]
-        )
         if self._pick_canvas is not None:
             try:
                 self._pick_scroll = self._pick_canvas.yview()[0]
@@ -761,7 +972,7 @@ class TkWizard:
         self._match_label = None
         self._match_icon = None
         screen = self.w.screen
-        self._body.configure(bg=NAVY if screen == Screen.SPLASH else BG)
+        self._body.configure(bg=NAVY_DEEP if screen == Screen.SPLASH else BG)
         dispatch = {
             Screen.SPLASH: self._splash,
             Screen.WHAT: self._what,
@@ -777,6 +988,7 @@ class TkWizard:
             Screen.ADVANCED: self._advanced,
         }
         dispatch[screen]()
+        self._draw_header()
         self._draw_strip()
         self._shown = screen
 
@@ -842,7 +1054,7 @@ class TkWizard:
 
     def _hint_bar(self, parent: tk.Widget, hint: str, *, dark: bool = False) -> tk.Frame:
         """Hint copy with known key names rendered as key-caps."""
-        bar = tk.Frame(parent, bg=NAVY if dark else BG)
+        bar = tk.Frame(parent, bg=NAVY_DEEP if dark else BG)
         fg = NAVY_MUTED if dark else MUTED
         pos = 0
         for match in _KEY_TOKEN_RE.finditer(hint):
@@ -860,7 +1072,7 @@ class TkWizard:
             return
         tk.Label(
             parent, text=text, font=self.font_s, fg=fg,
-            bg=NAVY if dark else BG, anchor="w",
+            bg=NAVY_DEEP if dark else BG, anchor="w",
         ).pack(side=tk.LEFT)
 
     def _panel(
@@ -963,7 +1175,7 @@ class TkWizard:
         """The selected disk, shown the same way on confirm, working, and done."""
         box = _Box(
             parent, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=20, pady=18,
+            padx=20, pady=18, shadow=True,
         )
         inner = box.inner
         top = tk.Frame(inner, bg=SURFACE)
@@ -1002,6 +1214,7 @@ class TkWizard:
             command=self._nav(self.w.back),
             font=self.font_btn,
             variant="secondary",
+            min_width=124,
         )
         btn.pack(side=tk.LEFT)
         return btn
@@ -1033,6 +1246,7 @@ class TkWizard:
             font=self.font_btn,
             variant="danger" if danger else "primary",
             enabled=enabled,
+            min_width=172,
         )
         btn.pack(side=tk.RIGHT)
         self._primary = btn
@@ -1046,37 +1260,66 @@ class TkWizard:
     # -- screens ---------------------------------------------------------------
 
     def _splash(self) -> None:
-        col = self._column(self._body, fill_height=True, bg=NAVY)
-        tk.Frame(col, bg=NAVY).pack(fill=tk.BOTH, expand=True)
-        emblem = _icon_emblem(col, 96)
-        emblem.configure(bg=NAVY)
-        emblem.pack()
-        tk.Label(
-            col, text=C.APP_NAME, font=self.font_display, fg="#FFFFFF", bg=NAVY,
-            anchor="center",
-        ).pack(fill=tk.X, pady=(26, 0))
-        self._p(
-            col, C.SPLASH_TAGLINE, fg=NAVY_TEXT, bg=NAVY, font=self.font_lead,
-            wraplength=720, justify=tk.CENTER, anchor="center",
-        ).pack(fill=tk.X, pady=(20, 0))
-        any_key = tk.Frame(col, bg=NAVY)
-        any_key.pack(pady=(36, 0))
-        self._kbd(any_key, "any key", dark=True).pack(side=tk.LEFT)
-        tk.Label(
-            any_key, text=" to continue.", font=self.font_b, fg=NAVY_TEXT, bg=NAVY,
-        ).pack(side=tk.LEFT)
-        tk.Frame(col, bg=NAVY).pack(fill=tk.BOTH, expand=True)
+        cv = tk.Canvas(self._body, bg=NAVY_DEEP, highlightthickness=0, bd=0)
+        cv.grid(row=0, column=0, columnspan=3, sticky="nsew")
+        cv.bind("<Configure>", lambda _e: self._splash_redraw(cv))
         row = self._footer_shell(C.HINT_SPLASH)
         self._primary_btn(row, C.BTN_CONTINUE, self.w.skip_splash)
         if self._primary is not None:
             self._primary.focus_set()
+
+    def _splash_redraw(self, cv: tk.Canvas) -> None:
+        width = cv.winfo_width()
+        height = cv.winfo_height()
+        if width <= 1 or height <= 1:
+            return
+        cv.delete("all")
+        cx = width / 2.0
+        # Spotlight: a soft blue glow high center, fading to deep navy.
+        _radial(cv, cx, height * 0.40, max(width, height) * 0.72, NAVY_GLOW, NAVY_DEEP)
+        emblem_cy = height * 0.5 - 132
+        # Warm halo behind the brand mark: amber barely lifted out of the blue.
+        for r, t in ((88, 0.90), (74, 0.82), (62, 0.74)):
+            cv.create_oval(
+                cx - r, emblem_cy - r, cx + r, emblem_cy + r,
+                fill=_mix(ACCENT, NAVY_GLOW, t), outline="",
+            )
+        _draw_emblem(cv, cx, emblem_cy, 108)
+        y = emblem_cy + 54 + 40
+        cv.create_text(
+            cx, y, anchor="n", text=C.APP_NAME, font=self.font_display, fill="#FFFFFF",
+        )
+        y += self.font_display.metrics("linespace") + 22
+        cv.create_text(
+            cx, y, anchor="n", text=C.SPLASH_TAGLINE, font=self.font_lead,
+            fill=NAVY_TEXT, width=720, justify="center",
+        )
+        y += self.font_lead.metrics("linespace") * 2 + 46
+        cap_font = self.font_tiny
+        cap_text = "any key"
+        cap_w = cap_font.measure(cap_text) + 24
+        cap_h = cap_font.metrics("linespace") + 12
+        tail = " to continue."
+        tail_w = self.font_b.measure(tail)
+        x0 = cx - (cap_w + tail_w) / 2.0
+        _round_rect(
+            cv, x0, y, x0 + cap_w, y + cap_h, 8,
+            fill=NAVY_SOFT, outline="#33517F", width=1,
+        )
+        cv.create_text(
+            x0 + cap_w / 2, y + cap_h / 2, text=cap_text, font=cap_font, fill=NAVY_TEXT,
+        )
+        cv.create_text(
+            x0 + cap_w + 2, y + cap_h / 2, anchor="w",
+            text=tail, font=self.font_b, fill=NAVY_TEXT,
+        )
 
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, "What this is")
         card = _Box(
             col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=22, pady=20,
+            padx=22, pady=20, shadow=True,
         )
         card.pack(fill=tk.X)
         for i, bullet in enumerate(C.WHAT_BULLETS):
@@ -1112,6 +1355,7 @@ class TkWizard:
             padx=20,
             pady=20,
             ring=True,
+            halo=checked,
         )
         card.pack(fill=tk.X)
         card.configure(cursor="hand2", takefocus=1)
@@ -1156,9 +1400,9 @@ class TkWizard:
             fill, outline, ow = SURFACE, BORDER, 1
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=ow,
-            padx=18, pady=16,
+            padx=18, pady=16, halo=selected and not disk.is_boot,
         )
-        card.pack(fill=tk.X, pady=(0, 10), padx=2)
+        card.pack(fill=tk.X, pady=(0, 10), padx=4)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -1214,9 +1458,7 @@ class TkWizard:
         list_wrap = tk.Frame(col, bg=BG)
         list_wrap.pack(fill=tk.BOTH, expand=True, pady=(2, 4))
         canvas = tk.Canvas(list_wrap, bg=BG, highlightthickness=0)
-        scroll = tk.Scrollbar(
-            list_wrap, orient=tk.VERTICAL, command=canvas.yview, width=14, troughcolor=BG
-        )
+        scroll = _Scrollbar(list_wrap, canvas.yview)
         cards = tk.Frame(canvas, bg=BG)
         window_id = canvas.create_window((0, 0), window=cards, anchor="nw")
 
@@ -1252,7 +1494,7 @@ class TkWizard:
             widget.bind("<Button-4>", _wheel)
             widget.bind("<Button-5>", _wheel)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
         items: List = sorted(self.w.discovery.disks, key=lambda d: (d.is_boot, d.path))
         for disk in items:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
@@ -1311,7 +1553,7 @@ class TkWizard:
         """Centered status layout shared by the blocked and empty screens."""
         col = self._column(self._body, fill_height=True)
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
-        icon = _icon_alert(col, kind, 88)
+        icon = _icon_badge(col, kind, 96)
         icon.configure(bg=BG)
         icon.pack()
         heading = self._h(col, title)
@@ -1350,7 +1592,7 @@ class TkWizard:
         self._p(col, spec.prompt).pack(fill=tk.X, pady=(2, 10))
         shell = _Box(
             col, radius=14, fill=SURFACE, outline=BORDER_STRONG, ow=1,
-            padx=16, pady=10, ring=True,
+            padx=16, pady=10, ring=True, shadow=True,
         )
         shell.pack(fill=tk.X)
         entry = tk.Entry(
@@ -1418,9 +1660,9 @@ class TkWizard:
         outline = PRIMARY if selected else BORDER
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
-            padx=18, pady=12,
+            padx=18, pady=12, halo=selected,
         )
-        card.pack(fill=tk.X, pady=(0, 10))
+        card.pack(fill=tk.X, pady=(0, 10), padx=4)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -1531,10 +1773,16 @@ class TkWizard:
         ring.create_oval(14, 14, 176, 176, outline=TRACK, width=13, tags="arc")
         if left > 0:
             frac = min(1.0, max(0.0, self.w.countdown_left / COUNTDOWN_S))
+            extent = -359.99 * frac
             ring.create_arc(
-                14, 14, 176, 176, start=90, extent=-359.99 * frac,
+                14, 14, 176, 176, start=90, extent=extent,
                 style=tk.ARC, outline=PRIMARY, width=13, tags="arc",
             )
+            # Rounded cap: Tk arcs have square ends, so dot the moving tip.
+            tip = math.radians(90 + extent)
+            tx = 95 + 81 * math.cos(tip)
+            ty = 95 - 81 * math.sin(tip)
+            ring.create_oval(tx - 6.5, ty - 6.5, tx + 6.5, ty + 6.5, fill=PRIMARY, outline="", tags="arc")
             if self._countdown_num is not None:
                 self._countdown_num.configure(text=str(left), fg=INK)
             self._countdown_label.configure(text=C.COUNTDOWN_CAPTION, fg=MUTED)
@@ -1556,7 +1804,7 @@ class TkWizard:
             col, text="", font=self.font_stat, fg=INK, bg=BG, anchor="w"
         )
         self._progress_pct.pack(fill=tk.X, pady=(30, 12))
-        bar = tk.Canvas(col, height=20, bg=BG, highlightthickness=0)
+        bar = tk.Canvas(col, height=22, bg=BG, highlightthickness=0)
         bar.pack(fill=tk.X)
         bar.bind("<Configure>", lambda _e: self._refresh_working())
         self._progress_bar = bar
@@ -1573,26 +1821,36 @@ class TkWizard:
         pulse = f"{C.METHOD_CARDS[self.w.method]['title']}.  {C.WORKING_PULSE}"
         pct = self.w.progress
         if pct is None:
+            # nwipe has not reported a number yet: slide a segment back and
+            # forth so the screen never looks frozen.
             if self._progress_pct is not None:
-                self._progress_pct.configure(text="…")
+                self._progress_pct.configure(text="")
             self._progress_label.configure(text=pulse)
-            self._paint_bar(0.02)
+            self._indet = (self._indet + 0.045) % 2.0
+            pos = self._indet if self._indet <= 1.0 else 2.0 - self._indet
+            self._paint_bar(None, pos)
         else:
             if self._progress_pct is not None:
                 self._progress_pct.configure(text=f"{pct:.0f}%")
             self._progress_label.configure(text=pulse)
             self._paint_bar(max(0.02, pct / 100.0))
 
-    def _paint_bar(self, frac: float) -> None:
+    def _paint_bar(self, frac: Optional[float], indet_pos: float = 0.0) -> None:
         bar = self._progress_bar
         if bar is None:
             return
         bar.delete("all")
         width = max(bar.winfo_width(), 1)
-        _round_rect(bar, 0, 0, width, 20, 10, fill=TRACK, outline="")
+        _round_rect(bar, 0, 0, width, 22, 11, fill=TRACK, outline="")
+        if frac is None:
+            seg = width * 0.30
+            x1 = seg + (width - seg) * indet_pos
+            x0 = x1 - seg
+            _round_rect(bar, max(0, x0), 0, min(width, x1), 22, 11, fill=PRIMARY, outline="")
+            return
         fill_w = width * min(1.0, frac)
         if fill_w > 1:
-            _round_rect(bar, 0, 0, max(fill_w, 20), 20, 10, fill=PRIMARY, outline="")
+            _round_rect(bar, 0, 0, max(fill_w, 22), 22, 11, fill=PRIMARY, outline="")
 
     def _done(self) -> None:
         col = self._column(self._body, fill_height=True)
@@ -1632,7 +1890,7 @@ class TkWizard:
 
         card = _Box(
             col, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=20, pady=14,
+            padx=20, pady=14, shadow=True,
         )
         card.pack(fill=tk.X)
         count = len(METHODS)

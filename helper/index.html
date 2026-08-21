@@ -6,22 +6,24 @@
   <title>Beamo Wipe — this does not erase disks</title>
   <style>
     :root {
-      --bg: #E9EDF4;
+      --bg: #E8ECF4;
       --surface: #FFFFFF;
-      --surface-alt: #F2F5FA;
-      --ink: #0E1B2C;
-      --muted: #43506A;
-      --border: #D6DDE7;
-      --border-strong: #7A89A1;
-      --navy: #0A1C36;
+      --surface-alt: #F3F6FB;
+      --ink: #0C1728;
+      --muted: #44506A;
+      --border: #D7DEE9;
+      --border-strong: #74839F;
+      --navy: #0A1B34;
+      --navy-soft: #16315C;
       --navy-muted: #C9D6E8;
-      --primary: #2456C7;
-      --danger: #B42318;
-      --danger-tint: #FBEBE8;
-      --danger-border: #E5A89E;
-      --focus: #1C44A3;
+      --header-top: #10264A;
+      --primary: #2050C8;
+      --danger: #B3261E;
+      --danger-tint: #FBEBE9;
+      --danger-border: #E6A79E;
+      --focus: #1A3FA0;
       --accent: #E8A317;
-      --shadow: 0 1px 2px rgba(14,27,44,.06), 0 6px 14px rgba(14,27,44,.08);
+      --shadow: 0 1px 2px rgba(12,23,40,.05), 0 5px 12px rgba(12,23,40,.09);
     }
     * { box-sizing: border-box; }
     body {
@@ -33,18 +35,15 @@
       line-height: 1.5;
     }
     header {
-      background: var(--navy);
+      background: linear-gradient(180deg, var(--header-top), var(--navy));
+      border-bottom: 1px solid #1A3560;
       color: #fff;
-      padding: 26px 32px;
+      padding: 30px 32px;
     }
     header .inner { max-width: 920px; margin: 0 auto; }
-    header .brandrow { display: flex; align-items: center; gap: 12px; }
-    header .mark {
-      width: 11px; height: 26px; border-radius: 5px;
-      background: var(--accent); flex: none;
-    }
+    header .brandrow { display: flex; align-items: center; gap: 14px; }
     header h1 { margin: 0; font-size: 32px; letter-spacing: -.01em; }
-    header p { margin: 6px 0 0; font-size: 18px; color: var(--navy-muted); }
+    header p { margin: 8px 0 0; font-size: 18px; color: var(--navy-muted); }
     main { max-width: 920px; margin: 0 auto; padding: 28px 24px 72px; }
     .banner {
       display: flex;
@@ -64,6 +63,7 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
+      box-shadow: var(--shadow);
       padding: 22px 24px;
       margin: 0 0 22px;
     }
@@ -108,7 +108,7 @@
   <header>
     <div class="inner">
       <div class="brandrow">
-        <span class="mark" aria-hidden="true"></span>
+        <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="1" y="1" width="32" height="32" rx="8" fill="#E8A317"/><circle cx="17" cy="17" r="10.2" fill="#071426"/><circle cx="17" cy="17" r="3.4" fill="#E8A317"/></svg>
         <h1>Beamo Wipe</h1>
       </div>
       <p>Boot helper. Not a wipe program.</p>
@@ -116,7 +116,7 @@
   </header>
   <main>
     <p class="banner">
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B42318" stroke="#B42318" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B3261E" stroke="#B3261E" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
       <span>This page does not erase disks. Restart the PC and open the boot menu.</span>
     </p>
     <div class="card">

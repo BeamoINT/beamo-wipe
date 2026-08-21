@@ -129,19 +129,21 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <title>Beamo Wipe — screen preview</title>
 <style>
   :root {
-    --bg: #E9EDF4; --surface: #FFFFFF; --surface-alt: #F2F5FA;
-    --ink: #0E1B2C; --muted: #43506A;
-    --border: #D6DDE7; --border-strong: #7A89A1;
-    --navy: #0A1C36; --navy-soft: #16315C; --navy-muted: #C9D6E8; --navy-text: #D9E2F0;
-    --primary: #2456C7; --primary-dark: #1C44A3; --primary-press: #16357E; --primary-tint: #E8EEFB;
-    --danger: #B42318; --danger-dark: #8F1B12; --danger-press: #6F140D; --danger-tint: #FBEBE8; --danger-border: #E5A89E;
-    --ok: #166E43; --ok-tint: #E6F2EA;
-    --warn: #7A5200; --warn-bg: #FBF0D3; --warn-border: #E3CE93;
-    --usb-bg: #F3EEE2; --usb-border: #D8CDB4;
-    --focus: #1C44A3; --accent: #E8A317;
-    --disabled-bg: #E2E6EC; --disabled-fg: #7A8494; --track: #DCE2EB;
-    --shadow: 0 1px 2px rgba(14,27,44,.06), 0 6px 14px rgba(14,27,44,.08);
-    --shadow-btn: 0 2px 4px rgba(14,27,44,.25);
+    --bg: #E8ECF4; --surface: #FFFFFF; --surface-alt: #F3F6FB;
+    --ink: #0C1728; --muted: #44506A;
+    --border: #D7DEE9; --border-strong: #74839F;
+    --navy: #0A1B34; --navy-soft: #16315C; --navy-muted: #C9D6E8; --navy-text: #DAE3F1;
+    --navy-deep: #071426; --navy-glow: #1C3A6E; --header-top: #10264A;
+    --primary: #2050C8; --primary-dark: #1A3FA0; --primary-press: #142F7A; --primary-tint: #E8EEFB;
+    --danger: #B3261E; --danger-dark: #8E1D16; --danger-press: #6E1510; --danger-tint: #FBEBE9; --danger-border: #E6A79E;
+    --ok: #17703F; --ok-tint: #E7F2EB;
+    --warn: #7A5200; --warn-bg: #FBF1D5; --warn-border: #E3CE96;
+    --usb-bg: #F4EFE3; --usb-border: #D9CEB5;
+    --focus: #1A3FA0; --accent: #E8A317;
+    --disabled-bg: #E3E7EE; --disabled-fg: #717C8E; --track: #DDE3ED;
+    --shadow: 0 1px 2px rgba(12,23,40,.05), 0 5px 12px rgba(12,23,40,.09);
+    --shadow-btn: 0 1px 2px rgba(12,23,40,.18), 0 3px 6px rgba(12,23,40,.16);
+    --halo: 0 0 0 3px rgba(32,80,200,.16), 0 0 0 6px rgba(32,80,200,.07);
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: #D5DBE4; color: var(--ink); }
@@ -153,16 +155,16 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .scenarios button { font-size: 15px; font-weight: 600; margin: 0 8px 8px 0; padding: 10px 18px; background: var(--navy); color: #fff; border: 0; border-radius: 10px; cursor: pointer; }
   .scenarios button:hover { background: var(--navy-soft); }
   .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .shell { background: var(--bg); min-height: 740px; box-shadow: 0 12px 40px rgba(10,28,54,.25); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
-  .preview-stripe { background: var(--accent); color: var(--navy); padding: 10px 24px; font-size: 16px; font-weight: 700; }
-  .hdr { background: var(--navy); color: #fff; height: 64px; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; }
-  .brandrow { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700; }
-  .mark { width: 11px; height: 26px; border-radius: 5px; background: var(--accent); flex: none; }
-  .hdr span.step { font-size: 16px; font-weight: 400; color: var(--navy-muted); }
+  .shell { background: var(--bg); min-height: 740px; box-shadow: 0 12px 40px rgba(10,27,52,.25); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  .preview-stripe { background: var(--accent); color: var(--navy); padding: 10px 28px; font-size: 16px; font-weight: 700; }
+  .hdr { background: linear-gradient(180deg, var(--header-top), var(--navy)); border-bottom: 1px solid #1A3560; color: #fff; height: 66px; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; }
+  .brandrow { display: flex; align-items: center; gap: 14px; font-size: 21px; font-weight: 700; }
+  .brandrow svg { flex: none; display: block; }
+  .steppill { font-size: 14px; font-weight: 700; color: var(--navy-muted); background: var(--navy-soft); border: 1px solid #2A4A7E; border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
   .strip { height: 6px; background: var(--track); }
   .strip .sfill { height: 100%; background: var(--primary); width: 0; transition: width .25s ease; border-radius: 0 3px 3px 0; }
   .body { flex: 1; padding: 26px 24px 12px; }
-  .body.navy { background: var(--navy); }
+  .body.navy { background: radial-gradient(ellipse 72% 82% at 50% 40%, var(--navy-glow), var(--navy-deep)); }
   .col { max-width: 940px; margin: 0 auto; }
   h1 { font-size: 34px; margin: 0 0 14px; color: var(--ink); letter-spacing: -.01em; }
   .lead { font-size: 20px; line-height: 1.45; margin: 0 0 12px; }
@@ -171,11 +173,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .mono { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
   .kbd { display: inline-block; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px; padding: 2px 9px; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.3; }
   .kbd.dark { background: var(--navy-soft); border-color: #33517F; color: var(--navy-text); }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin: 0 0 10px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin: 0 4px 10px; }
+  .card.hero { box-shadow: var(--shadow); margin-left: 0; margin-right: 0; }
   .card.pickable { cursor: pointer; }
   .card.pickable:hover { background: var(--surface-alt); }
   .card.pickable:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 15px 17px; }
+  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 15px 17px; box-shadow: var(--halo); }
   .card.sel:hover { background: var(--primary-tint); }
   .card.boot { background: var(--usb-bg); border-color: var(--usb-border); cursor: not-allowed; }
   .card .row { display: flex; align-items: flex-start; gap: 16px; }
@@ -200,12 +203,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .hint { max-width: 940px; margin: 0 auto; padding: 12px 24px 0; color: var(--muted); font-size: 16px; border-top: 1px solid var(--border); line-height: 2; }
   .hint .kbd { margin: 0 1px; }
   .btnrow { max-width: 940px; margin: 0 auto; padding: 12px 24px 20px; display: flex; justify-content: space-between; gap: 12px; }
-  button.btn { font-size: 20px; font-weight: 700; padding: 13px 26px; border: 0; border-radius: 12px; cursor: pointer; }
+  button.btn { font-size: 20px; font-weight: 700; padding: 13px 26px; border: 0; border-radius: 12px; cursor: pointer; min-width: 124px; }
   button.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-btn); }
+  .primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-btn); min-width: 172px; }
   .primary:hover:not(:disabled) { background: var(--primary-dark); }
   .primary:active:not(:disabled) { background: var(--primary-press); }
-  .danger { background: var(--danger); color: #fff; box-shadow: var(--shadow-btn); }
+  .danger { background: var(--danger); color: #fff; box-shadow: var(--shadow-btn); min-width: 172px; }
   .danger:hover:not(:disabled) { background: var(--danger-dark); }
   .danger:active:not(:disabled) { background: var(--danger-press); }
   .secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border-strong); }
@@ -215,28 +218,34 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .linkbtn { background: none; border: 0; color: var(--primary); font-size: 16px; font-weight: 700; cursor: pointer; padding: 8px 12px; text-align: left; border-radius: 10px; margin-left: -12px; }
   .linkbtn:hover { background: var(--primary-tint); }
   .linkbtn:focus-visible { outline: 3px solid var(--focus); }
-  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px 16px; }
+  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px 16px; box-shadow: var(--shadow); }
   .entryshell:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
   input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 30px; font-weight: 700; width: 100%; padding: 6px 0; border: 0; outline: none; background: transparent; color: var(--ink); }
   .match { display: flex; align-items: center; gap: 12px; font-size: 18px; margin-top: 14px; color: var(--muted); }
   .match.ok { color: var(--ok); font-weight: 600; }
-  .bigstat { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; }
-  .bar { height: 20px; background: var(--track); border-radius: 10px; overflow: hidden; margin-top: 10px; }
-  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 10px; transition: width .2s ease; }
+  .bigstat { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; min-height: 70px; }
+  .bar { height: 22px; background: var(--track); border-radius: 11px; overflow: hidden; margin-top: 10px; }
+  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 11px; transition: width .2s ease; }
+  .fill.indet { width: 30%; animation: slide 1.7s ease-in-out infinite alternate; }
+  @keyframes slide { from { margin-left: 0; } to { margin-left: 70%; } }
   .status { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
   .status.ok { background: var(--ok-tint); }
   .status.bad { background: var(--danger-tint); }
   .status .core { width: 78px; height: 78px; border-radius: 50%; color: #fff; font-size: 44px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .status.ok .core { background: var(--ok); }
   .status.bad .core { background: var(--danger); }
+  .badgehalo { width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+  .badgehalo.warn { background: var(--warn-bg); }
+  .badgehalo.danger { background: var(--danger-tint); }
+  .badgehalo.info { background: var(--surface-alt); }
   .ok { color: var(--ok); } .bad { color: var(--danger); }
-  ul.bullets { list-style: none; margin: 0; padding: 20px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+  ul.bullets { list-style: none; margin: 0; padding: 20px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
   ul.bullets li { font-size: 20px; line-height: 1.45; padding: 7px 0; display: flex; }
   ul.bullets li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin: 11px 14px 0 2px; flex: none; }
   .ownercard { display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 20px; cursor: pointer; font-size: 20px; line-height: 1.45; }
   .ownercard:hover { background: var(--surface-alt); }
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 19px; }
+  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 19px; box-shadow: var(--halo); }
   .ownercard.checked:hover { background: var(--primary-tint); }
   .cbox { flex: none; width: 32px; height: 32px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: #fff; font-size: 22px; font-weight: 700; line-height: 28px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
@@ -249,11 +258,17 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .centerstage { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .centerstage h1 { margin: 24px 0 12px; }
   .centerstage .lead { max-width: 720px; }
-  .splashwrap { min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .wordmark { font-size: 54px; font-weight: 700; color: #fff; letter-spacing: -.01em; margin-top: 26px; }
-  .anykey { margin-top: 36px; font-size: 18px; color: var(--navy-text); display: flex; align-items: center; gap: 8px; }
+  .splashwrap { min-height: 560px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .emblemwrap { position: relative; width: 176px; height: 176px; display: flex; align-items: center; justify-content: center; }
+  .emblemwrap::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(232,163,23,.20), rgba(232,163,23,.07) 55%, transparent 72%); }
+  .wordmark { font-size: 54px; font-weight: 700; color: #fff; letter-spacing: -.01em; margin-top: 40px; }
+  .anykey { margin-top: 46px; font-size: 18px; color: var(--navy-text); display: flex; align-items: center; gap: 8px; }
   .body.navy h1, .body.navy .lead { color: #fff; }
   .body.navy .muted { color: var(--navy-muted); }
+  .disklist { max-height: 372px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #A3AEC2 transparent; }
+  .disklist::-webkit-scrollbar { width: 12px; }
+  .disklist::-webkit-scrollbar-thumb { background: #A3AEC2; border-radius: 6px; border: 3px solid var(--bg); }
+  .disklist::-webkit-scrollbar-track { background: transparent; }
 </style>
 </head>
 <body>
@@ -271,7 +286,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
   <div class="shell">
     <div class="preview-stripe" id="stripe"></div>
-    <div class="hdr"><div class="brandrow"><span class="mark"></span><div id="brand"></div></div><span class="step" id="step"></span></div>
+    <div class="hdr"><div class="brandrow"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="7" fill="#E8A317"/><circle cx="15" cy="15" r="9" fill="#071426"/><circle cx="15" cy="15" r="3" fill="#E8A317"/></svg><div id="brand"></div></div><span class="steppill" id="step"></span></div>
     <div class="strip"><div class="sfill" id="sfill"></div></div>
     <div class="body" id="body"><div class="col" id="main"></div></div>
     <div class="hint" id="hint"></div>
@@ -298,26 +313,26 @@ document.getElementById("brand").textContent = P.app;
 function badge(kind, size) {
   const s = size;
   if (kind === "info") {
-    const c = "#43506A";
+    const c = "#2050C8";
     return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
       `<circle cx="${s/2}" cy="${s/2}" r="${s/2-2}" fill="${c}"/>` +
       `<circle cx="${s/2}" cy="${s*0.26}" r="${s*0.075}" fill="#fff"/>` +
       `<line x1="${s/2}" y1="${s*0.46}" x2="${s/2}" y2="${s*0.74}" stroke="#fff" stroke-width="${s*0.09}" stroke-linecap="round"/></svg>`;
   }
-  const c = kind === "warn" ? "#7A5200" : "#B42318";
+  const c = kind === "warn" ? "#7A5200" : "#B3261E";
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
     `<path d="M ${s/2} ${2} L ${s-2} ${s-3} L 2 ${s-3} Z" fill="${c}" stroke="${c}" stroke-width="${s*0.18}" stroke-linejoin="round"/>` +
     `<line x1="${s/2}" y1="${s*0.36}" x2="${s/2}" y2="${s*0.62}" stroke="#fff" stroke-width="${s*0.09}" stroke-linecap="round"/>` +
     `<circle cx="${s/2}" cy="${s*0.75}" r="${s*0.06}" fill="#fff"/></svg>`;
 }
-const ICON_NO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#B42318" stroke-width="2.6"/><line x1="6" y1="18" x2="18" y2="6" stroke="#B42318" stroke-width="2.6" stroke-linecap="round"/></svg>';
-const MATCH_WAIT = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#7A89A1" stroke-width="2"/></svg>';
-const MATCH_OK = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#166E43"/><path d="M7 13.5 11 17.5 19 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const EMBLEM = '<svg width="96" height="96" viewBox="0 0 96 96"><rect x="2" y="2" width="92" height="92" rx="22" fill="#E8A317"/><circle cx="48" cy="48" r="28.8" fill="#0A1C36"/><circle cx="48" cy="48" r="9.6" fill="#E8A317"/></svg>';
+const ICON_NO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#B3261E" stroke-width="2.6"/><line x1="6" y1="18" x2="18" y2="6" stroke="#B3261E" stroke-width="2.6" stroke-linecap="round"/></svg>';
+const MATCH_WAIT = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#74839F" stroke-width="2"/></svg>';
+const MATCH_OK = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#17703F"/><path d="M7 13.5 11 17.5 19 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const EMBLEM = '<svg width="108" height="108" viewBox="0 0 108 108"><rect x="2" y="2" width="104" height="104" rx="25" fill="#E8A317"/><circle cx="54" cy="54" r="32.4" fill="#071426"/><circle cx="54" cy="54" r="10.8" fill="#E8A317"/></svg>';
 
 // Key names inside hint copy render as key-caps, mirroring _hint_bar.
 const KEY_RE = /(Up\/Down|1, 2, or 3|any key|Enter|Esc|Space)/g;
-const KEY_MAP = {"Up/Down": ["\u2191", "\u2193"], "1, 2, or 3": ["1", "2", "3"]};
+const KEY_MAP = {"Up/Down": ["↑", "↓"], "1, 2, or 3": ["1", "2", "3"]};
 function renderHint(text) {
   const el = document.getElementById("hint");
   el.innerHTML = "";
@@ -389,7 +404,7 @@ function metaLine(d) {
   return `<div class="meta"><span>${d.bus}</span><span class="dot">·</span><span>Serial <span class="mono">${d.serial}</span></span><span class="dot">·</span><span>Device <span class="mono dev">${d.path}</span></span></div>`;
 }
 function summaryCard(d) {
-  return `<div class="card" style="padding:18px 20px"><div class="row" style="align-items:center">
+  return `<div class="card hero" style="padding:18px 20px"><div class="row" style="align-items:center">
     <div class="title grow">${d.name} &nbsp;<span class="chip">${d.kind}</span></div>
     <div class="size">${d.size}</div></div>
     ${metaLine(d)}
@@ -414,7 +429,9 @@ function diskCard(d) {
 }
 function draw() {
   const info = stepInfo();
-  document.getElementById("step").textContent = info[2] && info[1] !== info[2] ? info[1] + " · " + info[2] : info[1];
+  const stepEl = document.getElementById("step");
+  stepEl.textContent = info[2] && info[1] !== info[2] ? info[1] + " · " + info[2] : info[1];
+  stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
   document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
   document.getElementById("body").className = screen === "splash" ? "body navy" : "body";
   const main = document.getElementById("main");
@@ -423,8 +440,8 @@ function draw() {
   btns.innerHTML = "";
   renderHint(P.hints.default);
   if (screen === "splash") {
-    main.innerHTML = `<div class="splashwrap">${EMBLEM}<div class="wordmark">${P.app}</div>
-      <p class="lead" style="color:var(--navy-text);max-width:720px;margin-top:20px">${P.splash}</p>
+    main.innerHTML = `<div class="splashwrap"><div class="emblemwrap">${EMBLEM}</div><div class="wordmark">${P.app}</div>
+      <p class="lead" style="color:var(--navy-text);max-width:720px;margin-top:22px">${P.splash}</p>
       <div class="anykey"><span class="kbd dark">any key</span><span>to continue.</span></div></div>`;
     renderHint(P.hints.splash);
     btns.append(btn("Continue", () => { screen = "what"; draw(); }, "primary"));
@@ -447,12 +464,12 @@ function draw() {
     renderHint(P.hints.owner);
     btns.append(btn("Continue", () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
-    main.innerHTML = `<div class="centerstage">${badge("warn", 88)}
+    main.innerHTML = `<div class="centerstage"><div class="badgehalo warn">${badge("warn", 56)}</div>
       <h1>Stop</h1><p class="lead">${P.identify}</p></div>`;
     btns.append(btn("Back", () => { screen = "owner"; draw(); }));
     btns.append(btn("Close preview", closePreview, "primary"));
   } else if (screen === "empty") {
-    main.innerHTML = `<div class="centerstage">${badge("info", 88)}
+    main.innerHTML = `<div class="centerstage"><div class="badgehalo info">${badge("info", 56)}</div>
       <h1>No disk to erase</h1><p class="lead">${P.empty}</p></div>`;
     btns.append(btn("Back", () => { screen = "owner"; draw(); }));
     btns.append(btn("Close preview", closePreview, "primary"));
@@ -460,7 +477,9 @@ function draw() {
     let html = `<h1 style="margin-bottom:6px">Pick a disk</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.pickSubtitle}</p>`;
     if (P.sameSizeConflict && mode === "happy") html += panel("warn", P.sameSize);
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += panel("info", P.ssd);
+    html += `<div class="disklist">`;
     disks().forEach(d => { html += diskCard(d); });
+    html += `</div>`;
     main.innerHTML = html;
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => { selected = disks().find(d => d.path === el.dataset.path); draw(); };
@@ -525,7 +544,7 @@ function draw() {
     btns.append(btn("Back", () => { screen = "confirm"; draw(); }));
     btns.append(btn("Continue", () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
   } else if (screen === "advanced") {
-    let html = `<h1 style="margin-bottom:6px">Advanced</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.advancedLead}</p><div class="card" style="padding:14px 20px">`;
+    let html = `<h1 style="margin-bottom:6px">Advanced</h1><p class="muted" style="font-size:18px;margin:0 0 14px">${P.advancedLead}</p><div class="card hero" style="padding:14px 20px">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       html += `<p class="mono" style="font-size:15px;margin:6px 0">${id}: nwipe --method=${m.nwipe} &nbsp;(${m.docs})</p>`;
@@ -556,11 +575,12 @@ function draw() {
   } else if (screen === "working") {
     if (!selected) { screen = "pick"; draw(); return; }
     const m = P.methods[method];
-    const pct = demoPct === null ? 0 : demoPct;
+    const known = demoPct !== null;
+    const pct = known ? demoPct : 0;
     main.innerHTML = `<h1>Working</h1>
       ${summaryCard(selected)}
-      <div class="bigstat" id="pct" style="margin:30px 0 12px">${pct}%</div>
-      <div class="bar" style="margin-top:0"><div class="fill" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
+      <div class="bigstat" id="pct" style="margin:30px 0 12px">${known ? pct + "%" : ""}</div>
+      <div class="bar" style="margin-top:0"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
       <p class="muted" style="font-size:18px;margin-top:18px" id="pulse">${m.title}. &nbsp;${P.working}</p>`;
     renderHint(P.hints.working);
   } else if (screen === "done") {
@@ -590,10 +610,11 @@ function startWork() {
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
     p += 8;
+    demoPct = Math.min(p, 100);
     const pctEl = document.getElementById("pct");
     const fill = document.getElementById("fill");
-    if (pctEl) pctEl.textContent = Math.min(p,100) + "%";
-    if (fill) fill.style.width = Math.min(p,100) + "%";
+    if (pctEl) pctEl.textContent = demoPct + "%";
+    if (fill) { fill.classList.remove("indet"); fill.style.width = demoPct + "%"; }
     if (p >= 100) { clearInterval(timer); screen = "done"; draw(); }
   }, 280);
 }
