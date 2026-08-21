@@ -289,7 +289,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
         stdscr.refresh()
         ch = stdscr.getch()
         if ch == -1:
-            if wizard.screen == Screen.DONE:
+            if wizard.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
                 wizard.arm_done_keyboard()
             time.sleep(0.08)
             continue
@@ -319,10 +319,7 @@ def _handle(wizard: Wizard, ch: int) -> None:
         elif wizard.screen == Screen.LAST_CHANCE and wizard.erase_enabled:
             wizard.confirm_erase()
         elif wizard.screen in (Screen.DONE, Screen.PICK_BLOCKED, Screen.PICK_EMPTY):
-            if wizard.screen == Screen.DONE:
-                wizard.accept_done_keyboard()
-            else:
-                wizard.shutdown()
+            wizard.accept_done_keyboard()
         return
     if wizard.preview and wizard.screen == Screen.DONE and ch in (ord("c"), ord("C")):
         wizard.shutdown()

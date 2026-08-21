@@ -480,6 +480,36 @@ def test_confirm_erase_unidentified_rediscover_is_not_usb_unplug_copy(
     assert wiz.error != IDENTIFY_ERROR
 
 
+def test_pick_empty_keyboard_ignored_until_armed():
+    empty = make_demo_wizard(scenario="empty")
+    empty.preview = False
+    empty.skip_splash()
+    empty.accept_what()
+    empty.set_owner(True)
+    empty.continue_owner()
+    assert empty.screen == Screen.PICK_EMPTY
+    empty.accept_done_keyboard()
+    assert not empty.wants_shutdown
+    empty.arm_done_keyboard()
+    empty.accept_done_keyboard()
+    assert empty.wants_shutdown
+
+
+def test_pick_blocked_keyboard_ignored_until_armed():
+    blocked = make_demo_wizard(scenario="blocked")
+    blocked.preview = False
+    blocked.skip_splash()
+    blocked.accept_what()
+    blocked.set_owner(True)
+    blocked.continue_owner()
+    assert blocked.screen == Screen.PICK_BLOCKED
+    blocked.accept_done_keyboard()
+    assert not blocked.wants_shutdown
+    blocked.arm_done_keyboard()
+    blocked.accept_done_keyboard()
+    assert blocked.wants_shutdown
+
+
 def test_done_keyboard_ignored_until_armed(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, _clock = _wiz(fail=True)

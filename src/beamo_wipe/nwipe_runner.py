@@ -42,8 +42,13 @@ NWIPE_BUSY_RE = re.compile(
     r"(?:is reported as IN USE|is IN USE but --force is not set, not wiping it)"
 )
 NWIPE_ABORT_RE = re.compile(r"Nwipe was aborted by the user")
-NWIPE_OPEN_FAIL_RE = re.compile(r"Unable to open device")
-NWIPE_FAILURE_RE = re.compile(r"(?:>>> FAILURE! <<<|-FAILED-|UABORTED|INSANITY)")
+# Wipe-time open (nwipe.c). device.c also logs
+# "Unable to open device %s to obtain serial number" and continues.
+NWIPE_OPEN_FAIL_RE = re.compile(r"Unable to open device '[^']+'\.")
+# Drive Status column is exactly 8 chars between pipes (logging.c).
+NWIPE_FAILURE_RE = re.compile(
+    r"(?:>>> FAILURE! <<<|\|-FAILED-\||\|UABORTED\||\|INSANITY\|)"
+)
 NWIPE_GEOMETRY_RE = re.compile(r"No sane device geometry")
 # Logged by nwipe_options_log() after pthread_sigmask(SIGUSR1) and the
 # signal-handler thread exist. Until then SIGUSR1 uses the default action

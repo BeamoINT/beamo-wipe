@@ -1,4 +1,18 @@
 # Beamo Wipe live session — kiosk. Never drop to a shell with nwipe.
+beamo_after_startx() {
+  # Xorg creates /tmp/.X11-unix/X0 before InitOutput. If startx then dies,
+  # a leftover socket would skip console and make the next startx fail with
+  # "display already active".
+  wait "$1"
+  rc=$?
+  rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock 2>/dev/null || true
+  if [ "$rc" -ne 0 ]; then
+    /usr/local/bin/beamo-wipe --console
+    return $?
+  fi
+  return 0
+}
+
 beamo_wipe_ui() {
   if command -v startx >/dev/null 2>&1; then
     # Wait up to 90s for X to listen. Do not timeout a running wizard or wipe.
@@ -8,14 +22,12 @@ beamo_wipe_ui() {
     while [ "$n" -lt 90 ]; do
       if ! kill -0 "$spid" 2>/dev/null; then
         wait "$spid" || true
-        # A leftover socket after startx died would skip console forever
-        # and make the next startx fail with "display already active".
         rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock 2>/dev/null || true
         /usr/local/bin/beamo-wipe --console
         return $?
       fi
       if [ -S /tmp/.X11-unix/X0 ]; then
-        wait "$spid"
+        beamo_after_startx "$spid"
         return $?
       fi
       n=$((n + 1))
@@ -33,7 +45,7 @@ beamo_wipe_ui() {
       /usr/local/bin/beamo-wipe --console
       return $?
     fi
-    wait "$spid"
+    beamo_after_startx "$spid"
     return $?
   fi
   /usr/local/bin/beamo-wipe --console

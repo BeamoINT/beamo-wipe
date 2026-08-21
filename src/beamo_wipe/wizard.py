@@ -159,15 +159,17 @@ class Wizard:
         self.wants_shutdown = True
 
     def arm_done_keyboard(self) -> None:
-        """Allow Enter on Done after the confirming key has been released."""
-        if self.screen == Screen.DONE:
+        """Allow Enter on Done / empty / blocked after the confirming key is up."""
+        if self.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             self._done_keyboard_armed = True
 
     def accept_done_keyboard(self) -> None:
-        """Enter on Done. Ignored while Return is still held from Erase."""
-        if self.screen != Screen.DONE or not self._done_keyboard_armed:
+        """Enter on Done, empty, or blocked. Ignored while Return is still held."""
+        if self.screen not in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             return
-        if self.preview:
+        if not self._done_keyboard_armed:
+            return
+        if self.screen == Screen.DONE and self.preview:
             self.reset_for_preview()
         else:
             self.shutdown()
@@ -186,6 +188,7 @@ class Wizard:
         self._enter_pick()
 
     def _enter_pick(self) -> None:
+        self._done_keyboard_armed = False
         if not self.discovery.boot_identified or self.discovery.error:
             self.screen = Screen.PICK_BLOCKED
             self.error = self.discovery.error

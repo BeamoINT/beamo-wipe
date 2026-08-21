@@ -93,6 +93,23 @@ def test_curses_pick_shows_serial_and_same_size_hint():
     assert "no serial" in text
 
 
+def test_curses_pick_empty_enter_ignored_until_idle():
+    from beamo_wipe.ui.console_wizard import _handle
+
+    wiz = make_demo_wizard(scenario="empty")
+    wiz.preview = False
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    assert wiz.screen == Screen.PICK_EMPTY
+    _handle(wiz, 10)
+    assert not wiz.wants_shutdown
+    wiz.arm_done_keyboard()
+    _handle(wiz, 10)
+    assert wiz.wants_shutdown
+
+
 def test_curses_done_enter_ignored_until_idle():
     from beamo_wipe.models import WipeResult
     from beamo_wipe.ui.console_wizard import _handle

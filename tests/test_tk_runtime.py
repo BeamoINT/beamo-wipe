@@ -235,6 +235,35 @@ def test_keyboard_only_flow_reaches_working(ui):
     assert wiz.screen == Screen.WORKING
 
 
+def test_held_enter_does_not_shutdown_pick_empty(ui):
+    """Auto-repeat Return from Owner must not power off the empty-disk copy."""
+    wiz, app = ui(scenario="empty")
+    wiz.preview = False
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    app._draw()
+    app.root.update()
+    root = app.root
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    assert wiz.screen == Screen.PICK_EMPTY
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    try:
+        root.update()
+    except tk.TclError:
+        pytest.fail("Pick-empty Return tore down the window before the key was released")
+    assert not wiz.wants_shutdown
+    (root.focus_get() or root).event_generate("<KeyRelease>", keysym="Return")
+    root.update()
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    try:
+        root.update()
+    except tk.TclError:
+        pass
+    assert wiz.wants_shutdown
+
+
 def test_held_enter_does_not_shutdown_failed_done(ui):
     """Auto-repeat Return after a fast fail must not power off before Done is read."""
     wiz, app = ui(fail=True)

@@ -207,6 +207,25 @@ def test_kiosk_lock_runs_before_profile_d_xinit():
     assert "TSTP" in text
 
 
+def test_live_profile_console_if_x_dies_after_socket():
+    """Xorg creates X0 before InitOutput. If startx then dies, wait+return
+    would skip --console and leave a socket that poisons the next startx."""
+    text = PROFILE.read_text(encoding="utf-8")
+    start = text.find("beamo_after_startx()")
+    assert start != -1
+    helper = text[start : text.find("\nbeamo_wipe_ui()")]
+    assert "wait" in helper
+    assert "rm -f /tmp/.X11-unix/X0" in helper
+    assert "beamo-wipe --console" in helper
+    idx = text.find('if [ -S /tmp/.X11-unix/X0 ]; then')
+    assert idx != -1
+    rest = text[idx:]
+    end = rest.find("\n      fi")
+    assert end != -1
+    block = rest[:end]
+    assert "beamo_after_startx" in block
+
+
 def test_kiosk_profile_disables_job_control_suspend():
     text = PROFILE.read_text(encoding="utf-8")
     assert "set +m" in text

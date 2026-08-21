@@ -380,6 +380,33 @@ def test_evaluate_nwipe_unable_to_open_is_not_finished():
     assert "open" in summary.lower()
 
 
+def test_evaluate_nwipe_serial_probe_warning_is_not_open_failure():
+    """device.c logs this when HDIO_GET_IDENTITY open() fails, then continues."""
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+    log = (
+        "Unable to open device /dev/vda to obtain serial number\n"
+        "      vda | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
+        "Nwipe successfully completed. See summary table for details.\n"
+    )
+    ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
+    assert ok is True
+    assert summary == "finished"
+
+
+def test_evaluate_nwipe_model_insanity_is_not_drive_status_failure():
+    """Drive Status tokens are 8 chars between pipes; model/serial may contain them."""
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+    log = (
+        "      vda | Erased |  120MB/s | 01:25:04 | QEMU/INSANITYBOX\n"
+        "Nwipe successfully completed. See summary table for details.\n"
+    )
+    ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
+    assert ok is True
+    assert summary == "finished"
+
+
 def test_evaluate_nwipe_one_hundred_percent_on_target_is_finished():
     from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
 

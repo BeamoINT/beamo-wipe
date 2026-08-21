@@ -1016,9 +1016,16 @@ class TkWizard:
             if self.w.wants_shutdown:
                 self._teardown()
                 return
+            self._arm_shutdown_enter_if_idle()
             self._draw()
 
         return wrapped
+
+    def _arm_shutdown_enter_if_idle(self) -> None:
+        if self._return_held:
+            return
+        if self.w.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
+            self.w.arm_done_keyboard()
 
     def _teardown(self) -> None:
         if self._after_id is not None:
@@ -1036,9 +1043,8 @@ class TkWizard:
         try:
             prev = self.w.screen
             self.w.tick()
-            if self.w.screen == Screen.DONE and prev != Screen.DONE:
-                if not self._return_held:
-                    self.w.arm_done_keyboard()
+            if self.w.screen != prev:
+                self._arm_shutdown_enter_if_idle()
             if self.w.wants_shutdown:
                 self._teardown()
                 return
@@ -2096,7 +2102,7 @@ class TkWizard:
         elif screen == Screen.ADVANCED:
             self.w.close_advanced()
         elif screen in (Screen.PICK_BLOCKED, Screen.PICK_EMPTY):
-            self.w.shutdown()
+            self.w.accept_done_keyboard()
         if self.w.wants_shutdown:
             self._teardown()
             return "break"
