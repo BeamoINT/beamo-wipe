@@ -10,6 +10,9 @@ SPLASH_TAGLINE = (
     "It will not run from Windows."
 )
 
+# Small quiet line at the foot of the splash. Factual: the pinned engine.
+SPLASH_META = "Guided front-end for nwipe v0.42"
+
 WHAT_BULLETS = (
     "This is a guided front-end for nwipe, free open-source disk erasure software.",
     "You are about to erase a disk forever. Files cannot be undone.",
@@ -140,7 +143,7 @@ HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
 HINT_BLOCKED = "Enter shuts down.  Esc goes back."
 HINT_DONE = "Enter shuts down."
 HINT_WORKING = "Leave this USB plugged in until the finished screen."
-HINT_SPLASH = "Press any key, or click Continue."
+HINT_SPLASH = "Press any key to continue."
 
 
 def confirm_warning(disk: Disk) -> str:

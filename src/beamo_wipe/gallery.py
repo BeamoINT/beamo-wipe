@@ -82,6 +82,7 @@ def gallery_html() -> str:
         "app": C.APP_NAME,
         "previewBanner": C.PREVIEW_BANNER,
         "splash": C.SPLASH_TAGLINE,
+        "splashMeta": C.SPLASH_META,
         "what": list(C.WHAT_BULLETS),
         "engine": C.ENGINE_LINE,
         "secureBoot": C.SECURE_BOOT_HINT,
@@ -182,6 +183,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     --warn: #7A5200; --warn-bg: #FBF1D5; --warn-border: #E3CE96;
     --usb-bg: #F4EFE3; --usb-border: #D9CEB5;
     --focus: #1A3FA0; --accent: #E8A317;
+    --accent-hover: #F2B435; --accent-press: #C07F0E; --focus-on-navy: #FFFFFF;
     --disabled-bg: #E4E8EF; --disabled-fg: #6E7989; --track: #DFE5EF;
     /* One quiet shadow layer, mirroring the single offset rect in _Box. */
     --shadow: 0 4px 0 0 #D7DEEB;
@@ -203,13 +205,20 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .hdr { background: var(--navy); border-bottom: 1px solid var(--navy-soft); color: #fff; height: 66px; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; }
   .brandrow { display: flex; align-items: center; gap: 14px; font-size: 21px; font-weight: 700; }
   .brandrow svg { flex: none; display: block; }
-  .steppill { font-size: 14px; font-weight: 700; color: var(--navy-muted); background: var(--navy-soft); border: 1px solid #2A4A7E; border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
+  .steppill { font-size: 14px; font-weight: 700; color: var(--accent); background: var(--navy-soft); border: 1px solid #2A4A7E; border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
   .strip { height: 6px; background: var(--track); }
-  .strip .sfill { height: 100%; background: var(--primary); width: 0; transition: width .25s ease; border-radius: 0 3px 3px 0; }
+  .strip.splash { background: var(--navy-deep); }
+  .strip .sfill { height: 100%; background: var(--accent); width: 0; transition: width .25s ease; border-radius: 0 3px 3px 0; }
   .body { flex: 1; padding: 26px 24px 12px; }
-  .body.navy { background: radial-gradient(ellipse 72% 82% at 50% 40%, var(--navy-glow), var(--navy-deep)); }
+  /* Near-flat navy field: a faint blue lift high center, mirroring the Tk
+     splash, so the amber beam is the one glowing element. */
+  .body.navy { background: radial-gradient(ellipse 85% 85% at 50% 38%, #102444, var(--navy-deep)); }
   .col { max-width: 940px; margin: 0 auto; }
-  h1 { font-size: 34px; margin: 0 0 14px; color: var(--ink); letter-spacing: -.01em; }
+  h1 { font-size: 38px; margin: 0 0 14px; color: var(--ink); letter-spacing: -.01em; position: relative; padding-left: 26px; }
+  /* The amber tick on every left-aligned screen title, mirroring _title_block. */
+  h1::before { content: ""; position: absolute; left: 0; top: 7px; width: 8px; height: 34px; border-radius: 4px; background: var(--accent); }
+  .centerstage h1, .body.navy h1 { padding-left: 0; }
+  .centerstage h1::before, .body.navy h1::before { display: none; }
   .lead { font-size: 20px; line-height: 1.45; margin: 0 0 12px; }
   .muted { color: var(--muted); }
   .small { font-size: 16px; }
@@ -285,7 +294,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .ok { color: var(--ok); } .bad { color: var(--danger); }
   ul.bullets { list-style: none; margin: 0; padding: 20px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
   ul.bullets li { font-size: 20px; line-height: 1.45; padding: 8px 0; display: flex; }
-  ul.bullets li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin: 11px 14px 0 2px; flex: none; }
+  ul.bullets li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin: 11px 14px 0 2px; flex: none; }
   .ownercard { display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 22px; cursor: pointer; font-size: 20px; line-height: 1.45; }
   .ownercard:hover { background: var(--surface-alt); }
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -305,11 +314,23 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .centerstage { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .centerstage h1 { margin: 26px 0 12px; }
   .centerstage .lead { max-width: 760px; }
-  .splashwrap { min-height: 560px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .emblemwrap { position: relative; width: 176px; height: 176px; display: flex; align-items: center; justify-content: center; }
-  .emblemwrap::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(232,163,23,.20), rgba(232,163,23,.07) 55%, transparent 72%); }
-  .wordmark { font-size: 54px; font-weight: 700; color: #fff; letter-spacing: -.01em; margin-top: 40px; }
-  .anykey { margin-top: 46px; font-size: 18px; color: var(--navy-text); display: flex; align-items: center; gap: 8px; }
+  /* Splash: one navy field, the beam through the brand mark, huge type,
+     and a single amber action — mirroring TkWizard._splash. */
+  .splashwrap { min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
+  .beamrow { display: flex; align-items: center; width: min(760px, 88%); }
+  .beamrow .beam { flex: 1; height: 3px; border-radius: 2px; box-shadow: 0 0 26px 3px rgba(232,163,23,.38); }
+  .beamrow .beam.l { background: linear-gradient(90deg, transparent, var(--accent) 82%); }
+  .beamrow .beam.r { background: linear-gradient(90deg, var(--accent) 18%, transparent); }
+  .beamrow .emblemonbeam { flex: none; display: flex; }
+  .beamrow .emblemonbeam svg { display: block; }
+  .wordmark { font-size: clamp(54px, 8vw, 92px); font-weight: 700; color: #fff; letter-spacing: -.01em; margin-top: 34px; line-height: 1.05; }
+  .splashlead { font-size: 20px; line-height: 1.45; color: var(--navy-text); max-width: 720px; margin: 20px 0 0; }
+  .anykeycap { margin-top: 14px; font-size: 16px; color: var(--navy-muted); }
+  .splashmeta { position: absolute; bottom: 16px; left: 0; right: 0; font-size: 14px; color: #8F9CAE; }
+  button.btn.hero { background: var(--accent); color: var(--navy); min-width: 260px; padding: 19px 40px; margin-top: 42px; }
+  button.btn.hero:hover:not(:disabled) { background: var(--accent-hover); }
+  button.btn.hero:active:not(:disabled) { background: var(--accent-press); }
+  button.btn.hero:focus-visible { outline: 3px solid var(--focus-on-navy); outline-offset: 2px; }
   .body.navy h1, .body.navy .lead { color: #fff; }
   .body.navy .muted { color: var(--navy-muted); }
   .disklist { max-height: 372px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #A3AEC2 transparent; }
@@ -481,17 +502,26 @@ function draw() {
   stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
   document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
   document.getElementById("body").className = screen === "splash" ? "body navy" : "body";
+  document.querySelector(".strip").className = screen === "splash" ? "strip splash" : "strip";
   const main = document.getElementById("main");
   const btns = document.getElementById("btns");
+  const hint = document.getElementById("hint");
   main.innerHTML = "";
   btns.innerHTML = "";
+  // The splash keeps the field clean: its one action lives on the navy
+  // canvas, so the hint bar and button row fold away entirely.
+  hint.style.display = screen === "splash" ? "none" : "";
+  btns.style.display = screen === "splash" ? "none" : "";
   renderHint(P.hints.default);
   if (screen === "splash") {
-    main.innerHTML = `<div class="splashwrap"><div class="emblemwrap">${EMBLEM}</div><div class="wordmark">${P.app}</div>
-      <p class="lead" style="color:var(--navy-text);max-width:760px;margin-top:22px">${P.splash}</p>
-      <div class="anykey"><span class="kbd dark">any key</span><span>to continue.</span></div></div>`;
-    renderHint(P.hints.splash);
-    btns.append(btn("Continue", () => { screen = "what"; draw(); }, "primary"));
+    main.innerHTML = `<div class="splashwrap">
+      <div class="beamrow"><span class="beam l"></span><span class="emblemonbeam">${EMBLEM}</span><span class="beam r"></span></div>
+      <div class="wordmark">${P.app}</div>
+      <p class="splashlead">${P.splash}</p>
+      <button class="btn hero" id="herogo">Continue</button>
+      <div class="anykeycap">${P.hints.splash}</div>
+      <div class="splashmeta">${P.splashMeta}</div></div>`;
+    main.querySelector("#herogo").onclick = () => { screen = "what"; draw(); };
   } else if (screen === "what") {
     main.innerHTML = `<h1>What this is</h1><ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
       <div class="panel info" style="margin-top:16px">${badge("info", 26)}<div>
