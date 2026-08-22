@@ -30,7 +30,7 @@ Do not write any of these:
 
 ## Honesty lines you may add
 
-- This is a front-end for nwipe. Beamo did not write the erasure engine.
-- There is no warranty. GPL-3.0-or-later for the wrapper; nwipe is GPL-2.0.
+- This uses nwipe (open source). GPL-3.0-or-later for the wrapper; nwipe is GPL-2.0.
+- There is no warranty.
 - If the USB does not appear, you may need to allow USB boot in firmware settings.
 - Secure Boot: this image may be unsigned. We do not ship circumvention tools.

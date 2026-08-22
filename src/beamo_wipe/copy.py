@@ -26,40 +26,30 @@ SPLASH_TAGLINE = (
     "You already started from this USB. Next you will pick a disk to erase."
 )
 
-# Small quiet line at the foot of the splash. Factual: the pinned engine.
-SPLASH_META = "Uses nwipe v0.42, free software Beamo did not write"
-
-WHAT_LEAD = "Read this, then continue."
+WHAT_LEAD = "Nothing starts until you say so."
 
 WHAT_BULLETS = (
-    "You will pick a disk. Everything on that disk will be erased. "
-    "Files cannot be brought back.",
-    "This uses nwipe, free disk-erase software. Beamo did not write it. "
-    "There is no warranty.",
-    "This is for Windows PCs that start from USB. "
+    "You will pick a disk. Everything on it will be erased. "
+    "You cannot get the files back.",
+    "This is for regular Windows PCs that start from this USB. "
     "Not Apple Silicon Macs. Not Chromebooks.",
 )
 
-ENGINE_LINE = (
-    "The erase program is nwipe v0.42. Beamo did not write that program. "
-    "There is no warranty."
-)
-
+# Closed-by-default Show more. Help first; nwipe by name only for honesty.
 SECURE_BOOT_HINT = (
     "If this USB does not show up on another computer, you may need to allow "
     "USB start in that computer's settings."
 )
 
-WHAT_MORE = ENGINE_LINE + " " + SECURE_BOOT_HINT
+ENGINE_LINE = "This uses nwipe, free software that erases disks."
+
+WHAT_MORE = SECURE_BOOT_HINT + " " + ENGINE_LINE
 
 OWNER_CHECKBOX = (
     "I own this computer and these disks, or I have written permission to erase them."
 )
 
-OWNER_LEAD = (
-    "Check the box only if this computer is yours, or you have written permission "
-    "to erase it. Then continue."
-)
+OWNER_LEAD = "Check the box, then continue."
 
 BOOT_USB_BANNER = "This is the Beamo USB — do not erase"
 BOOT_DISC_BANNER = "This is the Beamo boot disc — do not erase"
@@ -75,10 +65,7 @@ EMPTY_DISKS = (
     "and start from this USB again."
 )
 
-SSD_FOOTER = (
-    "On an SSD, leftover data can depend on the drive. "
-    "This is not a lab certificate."
-)
+SSD_FOOTER = "On an SSD, leftover data can depend on the drive."
 
 WORKING_PULSE = "Leave the USB in. Do not turn the PC off."
 
@@ -107,7 +94,7 @@ SAME_SIZE_HINT = (
 
 RECOMMENDED_TAG = "Recommended"
 
-CONFIRM_LEAD = "Type what we ask for so we know it is the right disk. Then continue."
+CONFIRM_LEAD = "Type what we ask for, then continue."
 
 CONFIRM_MATCH_WAIT = "Type it exactly, then you can continue."
 CONFIRM_MATCH_OK = "That matches. You can continue."
@@ -115,7 +102,7 @@ CONFIRM_MATCH_OK = "That matches. You can continue."
 COUNTDOWN_CAPTION = "seconds until you can press Erase"
 COUNTDOWN_READY = "You can press Erase now."
 
-METHOD_LEAD = "Everyday is usually right. Pick one, then continue."
+METHOD_LEAD = "Everyday is usually right."
 
 LAST_LEAD = "If this is the wrong disk, go back."
 
@@ -123,22 +110,22 @@ METHOD_CARDS = {
     MethodId.EVERYDAY: {
         "title": "Everyday",
         "blurb": "Good for selling or recycling a home PC. Usually the right choice.",
-        "pace": "Often one to a few hours on a large hard disk. Leave it until Finished.",
+        "pace": "Often a few hours. Leave it until Finished.",
         "key": "1",
     },
     MethodId.EXTRA: {
         "title": "Extra thorough",
         "blurb": (
-            "Writes over the disk more times. Much slower. Use if a workplace "
+            "Does the erase more times. Much slower. Use if a workplace "
             "asked for more than a normal erase."
         ),
-        "pace": "Several hours is common. Can take much longer. Leave it until Finished.",
+        "pace": "Several hours, sometimes longer. Leave it until Finished.",
         "key": "2",
     },
     MethodId.QUICK_ZERO: {
         "title": "Quick zero",
-        "blurb": "The fastest option. Weaker on some SSDs.",
-        "pace": "Faster than Everyday. Still wait for the Finished screen.",
+        "blurb": "The fastest option. Not as thorough on some SSDs.",
+        "pace": "Faster. Still wait for Finished.",
         "key": "3",
     },
 }
@@ -217,7 +204,4 @@ def erase_now_label(disk: Disk) -> str:
 
 
 def pick_subtitle() -> str:
-    return (
-        "Click the disk that matches this PC. Look at the name and the size. "
-        "Nothing is chosen until you click."
-    )
+    return "Click the name and size that match this PC."

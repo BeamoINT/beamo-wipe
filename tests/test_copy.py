@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from beamo_wipe import copy
+from beamo_wipe.gallery import gallery_html
 
 FORBIDDEN = (
     "plug and play",
@@ -74,7 +75,7 @@ def _happy_blob() -> str:
 
 def test_copy_module_has_no_forbidden_claims():
     blob = _happy_blob()
-    blob += " " + copy.ENGINE_LINE.lower() + " " + copy.SPLASH_META.lower()
+    blob += " " + copy.ENGINE_LINE.lower() + " " + copy.WHAT_MORE.lower()
     for phrase in FORBIDDEN:
         if phrase == "apple silicon":
             continue
@@ -86,6 +87,44 @@ def test_happy_path_copy_hides_jargon():
     blob = _happy_blob()
     for phrase in HAPPY_PATH_JARGON:
         assert phrase not in blob, phrase
+
+
+def test_customer_copy_does_not_say_beamo_did_not_write():
+    """Jack: drop the credit-deflecting sentence from every customer surface."""
+    banned = ("did not write", "beamo did not", "not written by", "erasure engine")
+    blob = " ".join(
+        [
+            _happy_blob(),
+            copy.ENGINE_LINE.lower(),
+            copy.WHAT_MORE.lower(),
+            copy.SECURE_BOOT_HINT.lower(),
+            " ".join(copy.WHAT_BULLETS).lower(),
+        ]
+    )
+    for phrase in banned:
+        assert phrase not in blob, phrase
+    html = _read("helper/index.html") + " " + gallery_html().lower()
+    for phrase in banned:
+        assert phrase not in html, phrase
+
+
+def test_what_screen_is_two_plain_bullets():
+    assert len(copy.WHAT_BULLETS) == 2
+    blob = " ".join(copy.WHAT_BULLETS).lower()
+    assert "pick a disk" in blob
+    assert "cannot get the files back" in blob
+    assert "not apple silicon" in blob
+    assert "nwipe" not in blob
+    assert "warranty" not in blob
+    assert "did not write" not in blob
+
+
+def test_show_more_may_name_nwipe_but_not_deflect():
+    assert "nwipe" in copy.ENGINE_LINE.lower()
+    assert "did not write" not in copy.ENGINE_LINE.lower()
+    assert "warranty" not in copy.ENGINE_LINE.lower()
+    assert copy.SECURE_BOOT_HINT in copy.WHAT_MORE
+    assert copy.ENGINE_LINE in copy.WHAT_MORE
 
 
 def test_confirm_prompts_talk_like_a_person():

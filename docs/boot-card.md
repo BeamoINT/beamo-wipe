@@ -1,8 +1,7 @@
 # Beamo Wipe — boot card (print one side)
 
 **Beamo Wipe** — this USB erases a disk with **nwipe** (open source).
-Beamo did not write the erasure engine. **No warranty.** You must own
-this PC and disk, or have written permission.
+You must own this PC and disk, or have written permission.
 
 This does **not** run from Windows. Restart and boot from this USB.
 

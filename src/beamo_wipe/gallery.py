@@ -83,7 +83,6 @@ def gallery_html() -> str:
         "app": C.APP_NAME,
         "previewBanner": C.PREVIEW_BANNER,
         "splash": C.SPLASH_TAGLINE,
-        "splashMeta": C.SPLASH_META,
         "titles": {
             "what": C.TITLE_WHAT,
             "owner": C.TITLE_OWNER,
@@ -367,7 +366,6 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .splashlead { font-size: 18px; line-height: 1.45; color: var(--muted); max-width: 620px; margin: 12px 0 0; }
   .splashwrap .btn.primary { min-width: 240px; padding: 14px 34px; margin-top: 34px; }
   .anykeycap { margin-top: 14px; font-size: 12px; color: var(--muted); }
-  .splashmeta { position: absolute; bottom: 20px; left: 0; right: 0; font-size: 12px; color: var(--muted); }
   .disklist { flex: 1; min-height: 160px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #A3AEC2 transparent; }
   .disklist::-webkit-scrollbar { width: 12px; }
   .disklist::-webkit-scrollbar-thumb { background: #A3AEC2; border-radius: 6px; border: 3px solid var(--bg); }
@@ -571,15 +569,14 @@ function draw() {
       <div class="wordmark">${P.app}</div>
       <p class="splashlead">${P.splash}</p>
       <button class="btn primary" id="herogo">${P.buttons.continue}</button>
-      <div class="anykeycap">${P.hints.splash}</div>
-      <div class="splashmeta">${P.splashMeta}</div></div>`;
+      <div class="anykeycap">${P.hints.splash}</div></div>`;
     main.querySelector("#herogo").onclick = () => { screen = "what"; draw(); };
   } else if (screen === "what") {
     main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
       ${moreLink()}
       ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      <div>${P.engine}</div><div class="extra">${P.secureBoot}</div></div></div>` : ""}</div></div>`;
+      <div>${P.secureBoot}</div><div class="extra">${P.engine}</div></div></div>` : ""}</div></div>`;
     bindMore();
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsR.append(btn(P.buttons.understand, () => { screen = "owner"; draw(); }, "primary"));
@@ -667,7 +664,6 @@ function draw() {
         </div>
       </div>`;
     });
-    html += `<div style="margin:2px 0">${panel("info", P.ssd)}</div>`;
     html += `<button class="linkbtn" id="adv">${P.buttons.advanced}</button></div></div>`;
     main.innerHTML = html;
     main.querySelectorAll(".card.pickable").forEach(el => {

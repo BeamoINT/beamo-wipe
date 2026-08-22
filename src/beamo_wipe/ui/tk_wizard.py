@@ -1476,7 +1476,6 @@ class TkWizard:
         self._primary_cmd = self.w.skip_splash
         tk.Label(col, text=C.HINT_SPLASH, font=self.font_meta, fg=MUTED, bg=BG).pack(pady=(14, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
-        tk.Label(col, text=C.SPLASH_META, font=self.font_meta, fg=MUTED, bg=BG).pack(pady=(0, 20))
         hero.focus_set()
 
     def _what(self) -> None:
@@ -1500,7 +1499,7 @@ class TkWizard:
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
         if self._more_link(zone):
             self._panel(
-                zone, kind="info", text=C.ENGINE_LINE, extra=C.SECURE_BOOT_HINT
+                zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE
             ).pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self.w.shutdown)
@@ -1962,7 +1961,6 @@ class TkWizard:
         zone = self._center_zone(col)
         for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
             self._method_card(zone, method)
-        self._panel(zone, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(2, 2))
         adv = _Button(
             zone,
             text=C.BTN_ADVANCED,

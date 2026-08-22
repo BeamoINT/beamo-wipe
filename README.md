@@ -1,6 +1,6 @@
 # Beamo Wipe
 
-A guided front-end for **nwipe**. Beamo did not write the erasure engine.
+A guided USB for **nwipe**.
 
 Beamo Wipe is a bootable x86_64 live USB UI that walks a first-time BIOS user
 through erasing a disk they own. You pay for a flashed stick, a boot-key card,

@@ -135,7 +135,9 @@ def test_gallery_and_tk_share_plain_titles_and_more_detail():
     assert "_more_link" in source
     assert "TITLE_WHAT" in source
     assert "BTN_MORE" in source
-    assert C.kind_label.__name__ in inspect.getsource(tkui) or "kind_label" in source
+    assert "SECURE_BOOT_HINT" in source
+    assert "SPLASH_META" not in source
+    assert "kind_label" in inspect.getsource(tkui)
 
 
 def test_gallery_step_order_matches_tk():
@@ -156,6 +158,9 @@ def test_no_forbidden_claims_in_any_surface():
         "we invented",
         "works on any computer",
         "works on any mac",
+        "did not write",
+        "beamo did not",
+        "erasure engine",
     )
     surfaces = [
         gallery_html().lower(),
