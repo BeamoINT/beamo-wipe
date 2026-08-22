@@ -21,12 +21,28 @@ python3 -m pytest
 ./scripts/test-all.sh
 ./preview                # Tk window, fake disks, nothing erased
 ./preview --web          # browser click-through
-./scripts/build-iso.sh   # amd64 live image: run this on GCP/AWS, not this Mac
+./scripts/build-iso.sh   # amd64 live image: Mac → GCP/AWS; Cloud Agent → local Docker
 ```
 
 The real gate for Python is local pytest. GitHub Actions may be billing-blocked on this org; do not treat a red Actions badge as a product defect.
 
-**ISO build and QEMU wipe tests:** this Mac is Apple silicon (Docker amd64 and `qemu-system-x86_64` are TCG). Do not wait on local emulation. Use the `gcloud` or `aws` CLI to run `./scripts/build-iso.sh` and the `docs/vm-test.md` QEMU wipe on an **x86_64 Linux VM** (KVM), copy the ISO out, and tear the VM down. See `.ai/memory/iso-builds-on-cloud.md`.
+**ISO build and QEMU wipe tests:** on the Apple silicon Mac, Docker `linux/amd64` and `qemu-system-x86_64` are TCG. Do not wait on local emulation. Use the `gcloud` or `aws` CLI to run `./scripts/build-iso.sh` and the `docs/vm-test.md` QEMU wipe on an **x86_64 Linux VM** (KVM), copy the ISO out, and tear the VM down. See `.ai/memory/iso-builds-on-cloud.md`.
+
+## Cursor Cloud specific instructions
+
+Cursor Cloud Agent VMs for this repo are **x86_64 Ubuntu**, not the Apple silicon Mac.
+
+Python gate on Cloud Agents: Tk layout tests scale with X DPI. The VNC desktop is `DISPLAY=:1` at 96 DPI and fails clipping tests. Use 72 DPI:
+
+```bash
+xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest
+```
+
+The environment start script also launches Xvfb on `:99` at 72 DPI, so `DISPLAY=:99 python3 -m pytest` works. Do not replace `:1` (computer-use / VNC).
+
+`packaging/live/config/{bootstrap,binary}` are gitignored live-build outputs. Two tests in `tests/test_live_image.py` fail until `lb config` has been run inside `./scripts/build-iso.sh`. That is expected on a fresh checkout.
+
+ISO on Cloud Agents: Docker Engine is nested, so `/etc/docker/daemon.json` must use `fuse-overlayfs` (plain overlay fails). `/dev/kvm` is present. `./scripts/build-iso.sh` and KVM QEMU are native here. Prefer `sudo docker` unless this user is already in the `docker` group. `gcloud` and `aws` are installed for throwaway VMs you will tear down; they are not logged in unless secrets exist.
 
 ## Safety boundaries
 

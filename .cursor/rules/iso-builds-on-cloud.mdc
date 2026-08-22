@@ -5,10 +5,13 @@ alwaysApply: true
 
 # Cloud for ISO / nested VM work
 
-This machine is Apple silicon. Do not use local Docker `linux/amd64` or
+On the Apple silicon Mac: do not use local Docker `linux/amd64` or
 `qemu-system-x86_64` (TCG) as the gate for building the live ISO or wiping a
-throwaway disk.
+throwaway disk. Use the `gcloud` or `aws` CLI on an x86_64 Linux VM (KVM).
 
-Use the `gcloud` or `aws` CLI on an x86_64 Linux VM (KVM), run
-`./scripts/build-iso.sh` and `docs/vm-test.md` there, copy the ISO out, and
-tear the VM down. Local pytest and `python3 -m beamo_wipe --demo` are fine.
+On Cursor Cloud Agent VMs (`uname -m` is `x86_64` and `/dev/kvm` exists):
+local `./scripts/build-iso.sh` and KVM QEMU are native. Nested Docker needs
+`fuse-overlayfs` in `/etc/docker/daemon.json`. Prefer `sudo docker` unless
+this user is already in the `docker` group.
+
+Local pytest and `python3 -m beamo_wipe --demo` are always fine.

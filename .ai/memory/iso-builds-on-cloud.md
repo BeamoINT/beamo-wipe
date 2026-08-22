@@ -1,8 +1,12 @@
 # Heavy x86_64 image builds: use GCP or AWS, not this Mac
 
-This Mac is Apple silicon. Docker `linux/amd64` is QEMU user emulation, and
-`qemu-system-x86_64` here is TCG (no KVM). Live-ISO builds and “boot the ISO
+On the Apple silicon Mac, Docker `linux/amd64` is QEMU user emulation, and
+`qemu-system-x86_64` is TCG (no KVM). Live-ISO builds and “boot the ISO
 and wipe a throwaway disk” tests are too slow and too flaky to be the gate.
+
+Cursor Cloud Agent VMs are x86_64 Ubuntu with `/dev/kvm`. There, local
+`./scripts/build-iso.sh` and KVM QEMU are native. Nested Docker needs
+`fuse-overlayfs`.
 
 **For Beamo Wipe ISO builds, and any similar amd64 live image / nested-VM
 work: use the Google Cloud or AWS CLIs (`gcloud`, `aws`) and run the build
