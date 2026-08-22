@@ -175,7 +175,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     --ink: #0C1728; --muted: #47536B;
     --border: #DCE2EC; --border-strong: #74839F;
     --navy: #0A1B34; --navy-soft: #16315C; --navy-muted: #C9D6E8; --navy-text: #DAE3F1;
-    --navy-deep: #071426; --navy-glow: #1C3A6E; --header-top: #10264A;
+    --navy-deep: #071426; --navy-glow: #1C3A6E;
     --primary: #1D4ED8; --primary-dark: #1A41B8; --primary-press: #16337F; --primary-tint: #E9EFFC;
     --danger: #B3261E; --danger-dark: #8E1D16; --danger-press: #6E1510; --danger-tint: #FBEBE9; --danger-border: #E6A79E;
     --ok: #17703F; --ok-tint: #E7F2EB;
@@ -183,9 +183,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
     --usb-bg: #F4EFE3; --usb-border: #D9CEB5;
     --focus: #1A3FA0; --accent: #E8A317;
     --disabled-bg: #E4E8EF; --disabled-fg: #6E7989; --track: #DFE5EF;
-  --shadow: 0 1px 2px rgba(12,23,40,.04), 0 3px 6px rgba(12,23,40,.05), 0 12px 26px rgba(12,23,40,.07);
-  --shadow-btn: 0 1px 2px rgba(12,23,40,.14), 0 2px 5px rgba(12,23,40,.12), 0 7px 15px rgba(12,23,40,.10);
-    --halo: 0 0 0 3px rgba(29,78,216,.16), 0 0 0 6px rgba(29,78,216,.07);
+    /* One quiet shadow layer, mirroring the single offset rect in _Box. */
+    --shadow: 0 4px 0 0 #D7DEEB;
+    /* Single-ring selection halo, mirroring _Box(halo=True). */
+    --halo: 0 0 0 3px rgba(29,78,216,.18);
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: #D5DBE4; color: var(--ink); }
@@ -199,7 +200,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .shell { background: var(--bg); min-height: 740px; box-shadow: 0 12px 40px rgba(10,27,52,.25); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
   .preview-stripe { background: var(--accent); color: var(--navy); padding: 10px 28px; font-size: 16px; font-weight: 700; }
-  .hdr { background: radial-gradient(110px 62px at 43px 50%, rgba(28,58,110,.85), rgba(28,58,110,0) 72%), linear-gradient(180deg, var(--header-top), var(--navy)); border-bottom: 1px solid #1A3560; color: #fff; height: 66px; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; }
+  .hdr { background: var(--navy); border-bottom: 1px solid var(--navy-soft); color: #fff; height: 66px; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; }
   .brandrow { display: flex; align-items: center; gap: 14px; font-size: 21px; font-weight: 700; }
   .brandrow svg { flex: none; display: block; }
   .steppill { font-size: 14px; font-weight: 700; color: var(--navy-muted); background: var(--navy-soft); border: 1px solid #2A4A7E; border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
@@ -237,7 +238,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .sel .radio::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--primary); }
   .chip { display: inline-block; font-size: 14px; font-weight: 700; padding: 3px 12px; background: var(--surface-alt); color: var(--muted); border-radius: 999px; vertical-align: 2px; }
   .chip.ok { color: var(--ok); background: var(--ok-tint); }
-  .bootbanner { margin-top: 10px; margin-left: 42px; color: var(--danger); font-weight: 700; font-size: 16px; }
+  .bootbanner { display: inline-block; margin-top: 10px; margin-left: 42px; color: var(--danger); font-weight: 700; font-size: 16px; background: var(--danger-tint); border: 1px solid var(--danger-border); border-radius: 999px; padding: 4px 12px; }
   .panel { display: flex; gap: 16px; align-items: flex-start; border: 1px solid; border-radius: 14px; padding: 16px 18px; margin: 12px 0; font-size: 18px; line-height: 1.4; }
   .panel svg { flex: none; margin-top: 2px; }
   .panel.warn { background: var(--warn-bg); border-color: var(--warn-border); }
@@ -248,10 +249,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .btnrow { max-width: 940px; margin: 0 auto; padding: 14px 24px 22px; display: flex; justify-content: space-between; gap: 12px; }
   button.btn { font-size: 20px; font-weight: 700; padding: 15px 28px; border: 0; border-radius: 999px; cursor: pointer; min-width: 124px; }
   button.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-btn); min-width: 172px; }
+  .primary { background: var(--primary); color: #fff; min-width: 172px; }
   .primary:hover:not(:disabled) { background: var(--primary-dark); }
   .primary:active:not(:disabled) { background: var(--primary-press); }
-  .danger { background: var(--danger); color: #fff; box-shadow: var(--shadow-btn); min-width: 172px; }
+  .danger { background: var(--danger); color: #fff; min-width: 172px; }
   .danger:hover:not(:disabled) { background: var(--danger-dark); }
   .danger:active:not(:disabled) { background: var(--danger-press); }
   .secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border-strong); }
@@ -264,10 +265,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 12px 18px; box-shadow: var(--shadow); }
   .entryshell:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
   input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 30px; font-weight: 700; width: 100%; padding: 6px 0; border: 0; outline: none; background: transparent; color: var(--ink); }
-  .match { display: flex; align-items: center; gap: 12px; font-size: 20px; margin-top: 16px; color: var(--muted); }
-  .match.ok { color: var(--ok); font-weight: 600; }
+  .match { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; margin: 16px 0 0; color: var(--muted); background: var(--surface-alt); border: 1px solid var(--border-strong); border-radius: 999px; padding: 8px 14px; }
+  .match.ok { color: var(--ok); background: var(--ok-tint); border-color: var(--ok); }
   .bigstat { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; min-height: 70px; }
-  .bar { height: 26px; background: var(--track); border-radius: 13px; overflow: hidden; margin-top: 10px; box-shadow: inset 0 1px 3px rgba(12,23,40,.10); }
+  .bar { height: 26px; background: var(--track); border-radius: 13px; overflow: hidden; margin-top: 10px; }
   .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 13px; transition: width .2s ease; }
   .fill.indet { width: 30%; animation: slide 1.7s ease-in-out infinite alternate; }
   @keyframes slide { from { margin-left: 0; } to { margin-left: 70%; } }
@@ -372,8 +373,8 @@ function badge(kind, size) {
     `<circle cx="${s/2}" cy="${s*0.75}" r="${s*0.06}" fill="#fff"/></svg>`;
 }
 const ICON_NO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#B3261E" stroke-width="2.6"/><line x1="6" y1="18" x2="18" y2="6" stroke="#B3261E" stroke-width="2.6" stroke-linecap="round"/></svg>';
-const MATCH_WAIT = '<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="none" stroke="#74839F" stroke-width="2"/></svg>';
-const MATCH_OK = '<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#17703F"/><path d="M8 15.5 12.5 20 22 9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const MATCH_WAIT = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#74839F" stroke-width="2"/></svg>';
+const MATCH_OK = '<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#17703F"/><path d="M7 13.5 11 17.5 19 8.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const EMBLEM = '__LOGO_SPLASH__';
 
 // Key names inside hint copy render as key-caps, mirroring _hint_bar.

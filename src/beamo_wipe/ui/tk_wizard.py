@@ -2,23 +2,29 @@
 """Fullscreen Tk wizard. Huge type, one primary button, keyboard-first.
 
 This module is a small design system on plain Tk (no themes): tokens,
-canvas-drawn rounded components (buttons, cards, chips, panels, progress
-bars, key-caps, a countdown ring), gradient chrome, and canvas icons.
+canvas-drawn rounded components (buttons, cards, chips, pills, panels,
+progress bars, key-caps, a countdown ring), flat chrome, and canvas icons.
 The one image asset is the Beamo brand mark (assets/logo-*.png), since Tk
 cannot draw the SVG source; if the files are missing the drawn fallback
 emblem is used instead. Every screen is built from the same components so
 the wizard looks and behaves consistently on the live USB (Linux Tk +
 DejaVu) and in ./preview.
 
+The visual language is deliberately calm and flat: old laptop panels in
+bright rooms wash out heavy shadows and gradients, and a first-time user
+needs hierarchy from spacing and type, not ornament.
+
 Design rules:
-- One card pattern: white, rounded, hairline border, flat. Elevation is
-  reserved for the hero surface on a screen (the bullet card, the owner
-  checkbox, the confirm entry, the disk summary) and for pressable
-  actions; stacked list rows stay calm so lists scan cleanly.
+- One card pattern: white, rounded, hairline border, flat. A single soft
+  shadow is reserved for the hero surface on a screen (the bullet card,
+  the owner checkbox, the confirm entry, the disk summary); stacked list
+  rows stay calm so lists scan cleanly.
 - One selectable pattern: radio/checkbox card; selected = primary tint +
   primary ring + a soft primary halo; hover = alt surface; keyboard
   focus = focus ring.
 - One alert pattern: filled badge icon + text (warn / danger / info).
+- One pill pattern: rounded chip for statuses that must scan at a glance
+  (disk kind, the boot-device warning, the token-match state).
 - One status pattern: tinted halo badge, title, message (blocked/empty/
   done).
 - One screen-header pattern: bold title at a standard rhythm, optional
@@ -61,9 +67,8 @@ NAVY = "#0A1B34"
 NAVY_SOFT = "#16315C"
 NAVY_MUTED = "#C9D6E8"
 NAVY_TEXT = "#DAE3F1"
-NAVY_DEEP = "#071426"  # splash gradient edge / emblem platter
+NAVY_DEEP = "#071426"  # splash background edge / emblem platter
 NAVY_GLOW = "#1C3A6E"  # splash spotlight center (decorative)
-HEADER_TOP = "#10264A"  # header gradient top
 PRIMARY = "#1D4ED8"
 PRIMARY_DARK = "#1A41B8"
 PRIMARY_PRESS = "#16337F"
@@ -85,11 +90,9 @@ ACCENT = "#E8A317"
 DISABLED_BG = "#E4E8EF"
 DISABLED_FG = "#6E7989"
 TRACK = "#DFE5EF"
-# Three-layer diffuse shadow: nearest/darkest to widest/lightest. Tk has no
-# blur, so softness is faked with stacked, increasingly inset rounded rects.
-SHADOW_A = "#D6DDEB"
-SHADOW_B = "#E2E8F2"
-SHADOW_C = "#EBF0F8"
+# One soft shadow layer. Tk has no blur, so the single rounded rect is
+# offset down a few pixels in a cool gray that stays quiet on BG.
+SHADOW = "#D7DEEB"
 PREVIEW_BG = "#E8A317"
 PREVIEW_FG = "#0A1B34"
 
@@ -97,7 +100,7 @@ CONTENT_W = 940
 WRAP = CONTENT_W - 72
 RADIUS = 16
 PILL = 999  # _rr_points clamps to half the shape: fully rounded ends
-SHADOW_H = 9
+SHADOW_H = 7
 HALO_INSET = 5  # canvas margin a haloed _Box reserves for its glow
 
 # Countdown ring on the last-chance screen.
@@ -143,7 +146,7 @@ def _mono_family(root: tk.Tk) -> str:
     return "TkFixedFont"
 
 
-# --- Color and gradient helpers --------------------------------------------
+# --- Color and spotlight helpers -------------------------------------------
 
 
 def _mix(a: str, b: str, t: float) -> str:
@@ -151,24 +154,6 @@ def _mix(a: str, b: str, t: float) -> str:
     ca = [int(a[i : i + 2], 16) for i in (1, 3, 5)]
     cb = [int(b[i : i + 2], 16) for i in (1, 3, 5)]
     return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
-
-
-def _vgradient(
-    canvas: tk.Canvas,
-    width: float,
-    height: float,
-    top: str,
-    bottom: str,
-    *,
-    bands: int = 40,
-    tags: str = "grad",
-) -> None:
-    """Vertical gradient drawn as stacked bands (Tk has no native gradient)."""
-    for i in range(bands):
-        color = _mix(top, bottom, i / max(1, bands - 1))
-        y0 = height * i / bands
-        y1 = height * (i + 1) / bands + 1
-        canvas.create_rectangle(-2, y0, width + 2, y1, fill=color, outline="", tags=tags)
 
 
 def _radial(
@@ -393,7 +378,7 @@ class _Box(tk.Canvas):
 
     The canvas background shows through at the rounded corners, so it always
     matches the parent surface. Content lives in ``self.inner``. With
-    ``shadow=True`` the card gets a soft two-layer drop shadow (the canvas
+    ``shadow=True`` the card gets a single soft drop shadow (the canvas
     reserves SHADOW_H pixels at the bottom for it). With ``halo=True`` the
     card gets a soft primary glow — the selected state for cards.
     """
@@ -475,26 +460,14 @@ class _Box(tk.Canvas):
         bottom = height - inset - self._shadow_h
         if self._shadow:
             _round_rect(
-                self, inset + 6, inset + 8, width - inset - 6, bottom + 8,
-                self._radius, fill=SHADOW_C, outline="", tags="rr",
-            )
-            _round_rect(
-                self, inset + 3, inset + 5, width - inset - 3, bottom + 5,
-                self._radius, fill=SHADOW_B, outline="", tags="rr",
-            )
-            _round_rect(
-                self, inset + 1, inset + 2, width - inset - 1, bottom + 2,
-                self._radius, fill=SHADOW_A, outline="", tags="rr",
+                self, inset + 1, inset + 4, width - inset - 1, bottom + 4,
+                self._radius, fill=SHADOW, outline="", tags="rr",
             )
         if self._halo:
             base = self.cget("bg")
             _round_rect(
-                self, inset - 3, inset - 3, width - inset + 3, bottom + 3,
-                self._radius + 3, fill=_mix(PRIMARY, base, 0.14), outline="", tags="rr",
-            )
-            _round_rect(
-                self, inset - 1.5, inset - 1.5, width - inset + 1.5, bottom + 1.5,
-                self._radius + 2, fill=_mix(PRIMARY, base, 0.30), outline="", tags="rr",
+                self, inset - 2, inset - 2, width - inset + 2, bottom + 2,
+                self._radius + 2, fill=_mix(PRIMARY, base, 0.22), outline="", tags="rr",
             )
         if self._ring and self._focused:
             _round_rect(
@@ -566,10 +539,10 @@ class _Box(tk.Canvas):
 class _Button(tk.Canvas):
     """Canvas button: identical rendering on Linux Tk and macOS preview.
 
-    Primary and danger buttons carry a soft two-layer shadow; secondary is a
-    bordered white button; ghost is a quiet text button. All enabled buttons
-    show a focus ring on keyboard focus, a hover shade under the pointer, and
-    a darker press shade while held, so the control always answers the user.
+    Buttons are flat pills: filled primary/danger, bordered white secondary,
+    quiet ghost. All enabled buttons show a focus ring on keyboard focus, a
+    hover shade under the pointer, and a darker press shade while held, so
+    the control always answers the user.
     """
 
     _VARIANTS = {
@@ -579,8 +552,7 @@ class _Button(tk.Canvas):
         "ghost": (None, PRIMARY, PRIMARY_TINT, "#D9E5F8", None),
     }
 
-    _SHADOWED = ("primary", "danger")
-    _SHADOW_GAP = 5
+    _RING_GAP = 4  # canvas room below the pill so the focus ring never clips
 
     def __init__(
         self,
@@ -601,9 +573,9 @@ class _Button(tk.Canvas):
         self._hovering = False
         self._held = False  # mouse button is down on this control
         self._pressed = False  # drawn in the pressed shade (held and inside)
-        pad_x, pad_y = (20, 8) if compact else (28, 15)
+        pad_x, pad_y = (20, 8) if compact else (28, 13)
         width = max(min_width, font.measure(text) + 2 * pad_x + 6)
-        height = font.metrics("linespace") + 2 * pad_y + 6 + self._SHADOW_GAP
+        height = font.metrics("linespace") + 2 * pad_y + 6 + self._RING_GAP
         super().__init__(
             parent,
             width=width,
@@ -617,7 +589,7 @@ class _Button(tk.Canvas):
         self._bw = width
         self._bh = height
         self._label = self.create_text(
-            width / 2, (height - self._SHADOW_GAP) / 2, text=text, font=font, anchor="center"
+            width / 2, (height - self._RING_GAP) / 2, text=text, font=font, anchor="center"
         )
         self.bind("<ButtonPress-1>", self._press)
         self.bind("<ButtonRelease-1>", self._release)
@@ -644,21 +616,7 @@ class _Button(tk.Canvas):
     def _draw(self) -> None:
         self.delete("rr")
         fill, fg, outline = self._state_colors()
-        gap = self._SHADOW_GAP
-        body_bottom = self._bh - 1 - gap
-        if self._enabled and self._variant in self._SHADOWED:
-            _round_rect(
-                self, 6, 8, self._bw - 6, body_bottom + gap, PILL,
-                fill=SHADOW_C, outline="", tags="rr",
-            )
-            _round_rect(
-                self, 4, 5, self._bw - 4, body_bottom + gap - 1, PILL,
-                fill=SHADOW_B, outline="", tags="rr",
-            )
-            _round_rect(
-                self, 3, 4, self._bw - 3, body_bottom + 1.5, PILL,
-                fill=SHADOW_A, outline="", tags="rr",
-            )
+        body_bottom = self._bh - 1 - self._RING_GAP
         if self._focused and self._enabled:
             _round_rect(
                 self, 1, 1, self._bw - 1, body_bottom + 2, PILL,
@@ -819,6 +777,13 @@ class TkWizard:
     def __init__(self, wizard: Wizard, fullscreen: bool = False) -> None:
         self.w = wizard
         self.root = tk.Tk()
+        # Pin 1pt = 1px. The layout geometry below is fixed pixels (content
+        # column, minimum window, countdown ring), so point-sized fonts must
+        # not float with the X server's reported DPI — on a 100+ DPI panel
+        # every screen would render ~1.4x larger than designed and clip.
+        # The kiosk window owns the whole display; deterministic type beats
+        # DPI fidelity. (macOS Tk already renders at scaling 1.0.)
+        self.root.tk.call("tk", "scaling", 1.0)
         title = C.APP_NAME
         if wizard.preview:
             title = f"{C.APP_NAME} — PREVIEW (nothing is erased)"
@@ -873,6 +838,7 @@ class TkWizard:
         self._indet = 0.0
         self._match_label: Optional[tk.Label] = None
         self._match_icon: Optional[tk.Canvas] = None
+        self._match_pill: Optional[_Box] = None
         self._shown: Optional[Screen] = None
         self._primary_cmd: Optional[Callable[[], None]] = None
         self._after_id: Optional[str] = None
@@ -883,6 +849,8 @@ class TkWizard:
         self._pick_cards: dict = {}
         self._pick_scroll = 0.0
         self._pick_ensure_visible = False
+        self._pick_restore_pending = False
+        self._pick_settle_h = -1.0
         self._return_held = False
         self._build_chrome()
         self._confirm_var.trace_add("write", self._confirm_var_written)
@@ -900,16 +868,17 @@ class TkWizard:
 
     def _build_chrome(self) -> None:
         if self.w.preview:
-            stripe = tk.Frame(self.root, bg=PREVIEW_BG, height=42)
+            # Content-sized stripe: a fixed height clipped the label on
+            # Linux Tk, where DejaVu metrics run taller than macOS.
+            stripe = tk.Frame(self.root, bg=PREVIEW_BG)
             stripe.pack(fill=tk.X)
-            stripe.pack_propagate(False)
             tk.Label(
                 stripe,
                 text=C.PREVIEW_BANNER,
                 fg=PREVIEW_FG,
                 bg=PREVIEW_BG,
                 font=self.font_s_bold,
-            ).pack(side=tk.LEFT, padx=28, pady=8)
+            ).pack(side=tk.LEFT, padx=28, pady=9)
         self._header = tk.Canvas(
             self.root, height=66, bg=NAVY, highlightthickness=0, bd=0
         )
@@ -948,16 +917,12 @@ class TkWizard:
         if width <= 1 or height <= 1:
             return
         cv.delete("all")
-        _vgradient(cv, width, height, HEADER_TOP, NAVY, bands=36)
-        cv.create_rectangle(0, height - 1, width, height, fill=_mix(NAVY_SOFT, NAVY, 0.4))
+        # Flat navy chrome: gradients and glows read as noise on old panels.
+        cv.create_rectangle(-2, -2, width + 2, height + 2, fill=NAVY, outline="")
+        cv.create_rectangle(0, height - 1, width, height, fill=NAVY_SOFT)
         mid = height / 2.0
         logo = self._logo_header
         if logo is not None:
-            # Soft glow behind the mark so it lifts off the chrome.
-            _radial(
-                cv, 28 + logo.width() / 2.0, mid - 1, 58,
-                NAVY_GLOW, _mix(HEADER_TOP, NAVY, 0.5), steps=26,
-            )
             cv.create_image(28, mid - 1, anchor="w", image=logo)
             text_x = 28 + logo.width() + 14
         else:
@@ -1067,6 +1032,7 @@ class TkWizard:
                 pass
             self._pick_canvas = None
             self._pick_cards = {}
+            self._pick_restore_pending = False
         self._clear(self._body)
         self._clear(self._footer)
         self._primary = None
@@ -1079,6 +1045,7 @@ class TkWizard:
         self._progress_bar = None
         self._match_label = None
         self._match_icon = None
+        self._match_pill = None
         screen = self.w.screen
         self._body.configure(bg=NAVY_DEEP if screen == Screen.SPLASH else BG)
         dispatch = {
@@ -1386,13 +1353,11 @@ class TkWizard:
         # Spotlight: a soft blue glow high center, fading to deep navy.
         _radial(cv, cx, height * 0.40, max(width, height) * 0.72, NAVY_GLOW, NAVY_DEEP)
         emblem_cy = height * 0.5 - 132
-        # Warm halo behind the brand mark: amber barely lifted out of the
-        # blue, echoing the bolt.
-        for r, t in ((88, 0.90), (74, 0.82), (62, 0.74)):
-            cv.create_oval(
-                cx - r, emblem_cy - r, cx + r, emblem_cy + r,
-                fill=_mix(ACCENT, NAVY_GLOW, t), outline="",
-            )
+        # One soft warm halo behind the brand mark, echoing the bolt.
+        _radial(
+            cv, cx, emblem_cy, 128,
+            _mix(ACCENT, NAVY_GLOW, 0.42), NAVY_GLOW, steps=26, squash=1.0,
+        )
         logo = self._logo_splash
         if logo is not None:
             cv.create_image(cx, emblem_cy, image=logo)
@@ -1542,9 +1507,15 @@ class TkWizard:
         self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(6, 0))
         if disk.is_boot:
             banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
+            pill = _Box(
+                inner, radius=PILL, fill=DANGER_TINT, outline=DANGER_BORDER,
+                ow=1, padx=12, pady=4,
+            )
             tk.Label(
-                inner, text=banner, font=self.font_s_bold, fg=DANGER, bg=fill, anchor="w"
-            ).pack(fill=tk.X, pady=(10, 0), padx=(42, 0))
+                pill.inner, text=banner, font=self.font_s_bold, fg=DANGER, bg=DANGER_TINT
+            ).pack()
+            pill.fit_now()
+            pill.pack(anchor="w", pady=(10, 0), padx=(42, 0))
             return card
 
         def _click(_e, p=disk.path):
@@ -1579,16 +1550,10 @@ class TkWizard:
         def _stretch(_event=None) -> None:
             canvas.itemconfigure(window_id, width=max(1, canvas.winfo_width()))
             canvas.configure(scrollregion=canvas.bbox("all"))
-
-        def _on_canvas_configure(_event=None) -> None:
-            _stretch()
-            # The canvas settles through several Configure events during a
-            # rebuild; restoring on each one is idempotent and the last one
-            # runs with final geometry.
             self._pick_restore_scroll()
 
         cards.bind("<Configure>", _stretch)
-        canvas.bind("<Configure>", _on_canvas_configure)
+        canvas.bind("<Configure>", _stretch)
         canvas.configure(yscrollcommand=scroll.set)
 
         def _wheel(event) -> Optional[str]:
@@ -1614,6 +1579,13 @@ class TkWizard:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
             self._pick_cards[disk.path] = self._disk_row(cards, disk, selected)
         self._pick_canvas = canvas
+        # Restore only inside a short post-rebuild window. Row boxes resolve
+        # their heights over several Configure/idle passes, so the window
+        # stays open until the content height stops changing; after that the
+        # user owns the scroll position and Configure events must not snap it.
+        self._pick_restore_pending = True
+        self._pick_settle_h = -1.0
+        canvas.after_idle(self._pick_restore_scroll)
         row = self._footer_shell(C.HINT_PICK)
         back = self._back_btn(row)
         can = self.w.selected is not None and not self.w.selected.is_boot
@@ -1627,11 +1599,12 @@ class TkWizard:
 
         Redraws destroy and rebuild the list canvas; without this the list
         snapped back to the top on every selection change. After keyboard
-        navigation, scroll the selected card into view instead. Runs on the
-        list canvas's <Configure> so it always measures final geometry.
+        navigation, scroll the selected card into view instead. Runs only
+        while a post-rebuild restore is pending (see _pick), and repeats as
+        the row boxes settle so the last pass uses final geometry.
         """
         canvas = self._pick_canvas
-        if canvas is None:
+        if canvas is None or not self._pick_restore_pending:
             return
         try:
             bbox = canvas.bbox("all")
@@ -1655,6 +1628,13 @@ class TkWizard:
                     canvas.yview_moveto(max(0.0, min(1.0, (y1 - view_h) / content_h)))
             else:
                 canvas.yview_moveto(self._pick_scroll)
+            # The content height settles over several Configure passes; once
+            # it stops changing the restore has final geometry and the window
+            # closes. Until then, stay armed for the next pass.
+            if content_h == self._pick_settle_h:
+                self._pick_restore_pending = False
+            else:
+                self._pick_settle_h = content_h
         except tk.TclError:
             pass
 
@@ -1726,19 +1706,27 @@ class TkWizard:
         entry.bind("<FocusOut>", lambda _e: shell.set_focused(False))
         shell.set_focused(True)
         entry.focus_set()
-        match_row = tk.Frame(col, bg=BG)
-        match_row.pack(fill=tk.X, pady=(16, 0))
-        self._match_icon = tk.Canvas(match_row, width=30, height=30, highlightthickness=0, bg=BG)
+        # Token-match state is a pill: calm while waiting, green when it
+        # matches, so the gate's answer scans at a glance.
+        pill = _Box(
+            col, radius=PILL, fill=SURFACE_ALT, outline=BORDER_STRONG, ow=1,
+            padx=14, pady=8,
+        )
+        pill.pack(anchor="w", pady=(16, 0))
+        self._match_pill = pill
+        self._match_icon = tk.Canvas(
+            pill.inner, width=26, height=26, highlightthickness=0, bg=SURFACE_ALT
+        )
         self._match_icon.pack(side=tk.LEFT)
         self._match_label = tk.Label(
-            match_row,
+            pill.inner,
             text="",
-            font=self.font_lead,
+            font=self.font_s_bold,
             fg=MUTED,
-            bg=BG,
+            bg=SURFACE_ALT,
             anchor="w",
         )
-        self._match_label.pack(side=tk.LEFT, padx=(12, 0))
+        self._match_label.pack(side=tk.LEFT, padx=(10, 0))
         self._paint_match()
         row = self._footer_shell(C.HINT_CONFIRM)
         self._back_btn(row)
@@ -1750,15 +1738,21 @@ class TkWizard:
         cv = self._match_icon
         cv.delete("all")
         if self.w.token_ok:
-            cv.create_oval(1, 1, 29, 29, fill=OK, outline="")
+            if self._match_pill is not None:
+                self._match_pill.set_style(fill=OK_TINT, outline=OK)
+            cv.configure(bg=OK_TINT)
+            cv.create_oval(1, 1, 25, 25, fill=OK, outline="")
             cv.create_line(
-                8, 15.5, 12.5, 20, 22, 9,
+                7, 13.5, 11, 17.5, 19, 8.5,
                 fill="#FFFFFF", width=3, capstyle="round", joinstyle="round",
             )
-            self._match_label.configure(text=C.CONFIRM_MATCH_OK, fg=OK)
+            self._match_label.configure(text=C.CONFIRM_MATCH_OK, fg=OK, bg=OK_TINT)
         else:
-            cv.create_oval(2, 2, 28, 28, outline=BORDER_STRONG, width=2)
-            self._match_label.configure(text=C.CONFIRM_MATCH_WAIT, fg=MUTED)
+            if self._match_pill is not None:
+                self._match_pill.set_style(fill=SURFACE_ALT, outline=BORDER_STRONG)
+            cv.configure(bg=SURFACE_ALT)
+            cv.create_oval(2, 2, 24, 24, outline=BORDER_STRONG, width=2)
+            self._match_label.configure(text=C.CONFIRM_MATCH_WAIT, fg=MUTED, bg=SURFACE_ALT)
 
     def _confirm_var_written(self, *_a) -> None:
         if self.w.screen != Screen.CONFIRM:
@@ -1978,11 +1972,6 @@ class TkWizard:
         bar.delete("all")
         width = max(bar.winfo_width(), 1)
         _round_rect(bar, 0, 0, width, 26, 13, fill=TRACK, outline="")
-        # Inset shade: the track reads as a channel the fill sits in.
-        _round_rect(
-            bar, 1, 1, width - 1, 25, 12,
-            outline=_mix(TRACK, INK, 0.08), width=2,
-        )
         if frac is None:
             seg = width * 0.30
             x1 = seg + (width - seg) * indet_pos
@@ -2026,7 +2015,9 @@ class TkWizard:
 
     def _advanced(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, "Advanced", C.ADVANCED_LEAD)
+        # Compact header: this is the second-tightest screen after method,
+        # and it must fit the 1024x740 minimum window with the footer whole.
+        self._title_block(col, "Advanced", C.ADVANCED_LEAD, compact=True)
         from beamo_wipe.methods import METHODS
 
         card = _Box(
@@ -2044,10 +2035,13 @@ class TkWizard:
                 fg=INK,
                 bg=SURFACE,
                 anchor="w",
-            ).pack(fill=tk.X, pady=(10, 10))
+                # Long method names must wrap inside the card, never clip.
+                wraplength=WRAP - 60,
+                justify=tk.LEFT,
+            ).pack(fill=tk.X, pady=(8, 8))
         log = self.w._wipe_request.logfile if self.w._wipe_request else "(no wipe yet)"
         log_row = tk.Frame(col, bg=BG)
-        log_row.pack(fill=tk.X, pady=(18, 6))
+        log_row.pack(fill=tk.X, pady=(14, 4))
         tk.Label(
             log_row, text="Log file (never on the target disk): ", font=self.font_s,
             fg=MUTED, bg=BG, anchor="w",
