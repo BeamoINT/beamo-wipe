@@ -304,6 +304,93 @@ def test_held_enter_does_not_shutdown_failed_done(ui):
     assert wiz.wants_shutdown
 
 
+def test_held_space_does_not_shutdown_pick_empty(ui):
+    """Auto-repeat Space from Owner Continue must not power off the empty-disk copy."""
+    wiz, app = ui(scenario="empty")
+    wiz.preview = False
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    app._draw()
+    app.root.update()
+    continue_btn = app._primary
+    assert continue_btn is not None
+    continue_btn.focus_set()
+    continue_btn.event_generate("<KeyPress>", keysym="space")
+    app.root.update()
+    assert wiz.screen == Screen.PICK_EMPTY
+    shut = app._primary
+    assert shut is not None
+    shut.focus_set()
+    shut.event_generate("<KeyPress>", keysym="space")
+    try:
+        app.root.update()
+    except tk.TclError:
+        pytest.fail("Pick-empty Space tore down the window before the key was released")
+    assert not wiz.wants_shutdown
+    shut = app._primary
+    assert shut is not None
+    shut.event_generate("<KeyRelease>", keysym="space")
+    app.root.update()
+    shut = app._primary
+    assert shut is not None
+    shut.focus_set()
+    shut.event_generate("<KeyPress>", keysym="space")
+    try:
+        app.root.update()
+    except tk.TclError:
+        pass
+    assert wiz.wants_shutdown
+
+
+def test_held_space_does_not_shutdown_failed_done(ui):
+    """Auto-repeat Space after a fast fail must not power off before Done is read."""
+    wiz, app = ui(fail=True)
+    wiz.preview = False
+    wiz.runner.duration_s = 0.05
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    wiz._erase_until = 0.0
+    wiz.tick()
+    app._draw()
+    app.root.update()
+    erase = app._primary
+    assert erase is not None
+    erase.focus_set()
+    erase.event_generate("<KeyPress>", keysym="space")
+    app.root.update()
+    deadline = time.monotonic() + 3
+    while wiz.screen != Screen.DONE and time.monotonic() < deadline:
+        try:
+            app.root.update()
+        except tk.TclError:
+            break
+        time.sleep(0.02)
+    assert wiz.screen == Screen.DONE
+    assert not wiz.done_ok
+    shut = app._primary
+    assert shut is not None
+    shut.focus_set()
+    shut.event_generate("<KeyPress>", keysym="space")
+    try:
+        app.root.update()
+    except tk.TclError:
+        pytest.fail("Done Space tore down the window before the key was released")
+    assert not wiz.wants_shutdown
+    shut = app._primary
+    assert shut is not None
+    shut.event_generate("<KeyRelease>", keysym="space")
+    app.root.update()
+    shut = app._primary
+    assert shut is not None
+    shut.focus_set()
+    shut.event_generate("<KeyPress>", keysym="space")
+    try:
+        app.root.update()
+    except tk.TclError:
+        pass
+    assert wiz.wants_shutdown
+
+
 def test_escape_goes_back(ui):
     wiz, app = ui()
     _drive_to(wiz, app, Screen.PICK)

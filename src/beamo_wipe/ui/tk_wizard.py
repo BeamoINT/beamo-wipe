@@ -57,7 +57,7 @@ from beamo_wipe import copy as C
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
-from beamo_wipe.wizard import COUNTDOWN_S, Wizard
+from beamo_wipe.wizard import COUNTDOWN_S, Wizard, format_progress_percent
 
 # --- Design tokens ---------------------------------------------------------
 #
@@ -665,6 +665,9 @@ class _Button(tk.Canvas):
         return "break"
 
     def _key(self, _event=None) -> str:
+        app = getattr(self.winfo_toplevel(), "_tk_wizard", None)
+        if app is not None:
+            app._space_held = True
         if self._enabled and self._command is not None:
             self._command()
         return "break"
@@ -787,6 +790,7 @@ class TkWizard:
     def __init__(self, wizard: Wizard, fullscreen: bool = False) -> None:
         self.w = wizard
         self.root = tk.Tk()
+        self.root._tk_wizard = self  # type: ignore[attr-defined]
         # Pin 1pt = 1px. The layout geometry below is fixed pixels (content
         # column, minimum window, countdown ring), so point-sized fonts must
         # not float with the X server's reported DPI — on a 100+ DPI panel
@@ -870,6 +874,7 @@ class TkWizard:
         self._pick_applied: Optional[float] = None
         self._pick_gen = 0
         self._return_held = False
+        self._space_held = False
         # Optional extra detail (device path, bus) on existing screens.
         # One flag for the session; not a new wizard step.
         self._show_more = False
@@ -880,6 +885,7 @@ class TkWizard:
         self.root.bind("<Return>", self._on_return)
         self.root.bind("<KeyRelease-Return>", self._on_return_release)
         self.root.bind("<KeyRelease-KP_Enter>", self._on_return_release)
+        self.root.bind("<KeyRelease-space>", self._on_space_release)
         self.root.bind("<Key>", self._on_key)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
         self._draw()
@@ -1015,7 +1021,7 @@ class TkWizard:
         return wrapped
 
     def _arm_shutdown_enter_if_idle(self) -> None:
-        if self._return_held:
+        if self._return_held or self._space_held:
             return
         if self.w.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             self.w.arm_done_keyboard()
@@ -1483,7 +1489,7 @@ class TkWizard:
                 zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE
             ).pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
-        self._secondary_btn(row, self._close_label(), self.w.shutdown)
+        self._secondary_btn(row, self._close_label(), self._click_shutdown)
         self._primary_btn(row, C.BTN_UNDERSTAND, self.w.accept_what)
         if self._primary is not None:
             self._primary.focus_set()
@@ -1763,7 +1769,7 @@ class TkWizard:
         self._status_screen("warn", C.TITLE_BLOCKED, self.w.error or C.IDENTIFY_ERROR)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
-        self._primary_btn(row, self._close_label(), self.w.shutdown)
+        self._primary_btn(row, self._close_label(), self._click_shutdown)
         if self._primary is not None:
             self._primary.focus_set()
 
@@ -1771,7 +1777,7 @@ class TkWizard:
         self._status_screen("info", C.TITLE_EMPTY, C.EMPTY_DISKS)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
-        self._primary_btn(row, self._close_label(), self.w.shutdown)
+        self._primary_btn(row, self._close_label(), self._click_shutdown)
         if self._primary is not None:
             self._primary.focus_set()
 
@@ -2069,7 +2075,7 @@ class TkWizard:
             self._paint_bar(None, pos)
         else:
             if self._progress_pct is not None:
-                self._progress_pct.configure(text=f"{pct:.0f}%")
+                self._progress_pct.configure(text=format_progress_percent(pct))
             self._progress_label.configure(text=pulse)
             self._paint_bar(max(0.02, pct / 100.0))
 
@@ -2115,10 +2121,10 @@ class TkWizard:
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         row = self._footer_shell(C.HINT_DEFAULT if self.w.preview else C.HINT_DONE)
         if self.w.preview:
-            self._secondary_btn(row, C.BTN_CLOSE_PREVIEW, self.w.shutdown)
+            self._secondary_btn(row, C.BTN_CLOSE_PREVIEW, self._click_shutdown)
             self._primary_btn(row, C.BTN_RUN_AGAIN, self.w.reset_for_preview)
         else:
-            self._primary_btn(row, C.BTN_SHUTDOWN, self.w.shutdown)
+            self._primary_btn(row, C.BTN_SHUTDOWN, self._click_shutdown)
         if self._primary is not None:
             self._primary.focus_set()
 
@@ -2183,6 +2189,18 @@ class TkWizard:
         self.w.arm_done_keyboard()
         return "break"
 
+    def _on_space_release(self, _event=None) -> str:
+        self._space_held = False
+        self.w.arm_done_keyboard()
+        return "break"
+
+    def _click_shutdown(self) -> None:
+        """Button Space/click on Shut down. Ignore until the arriving key is up."""
+        if self.w.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
+            if not self.w._done_keyboard_armed:
+                return
+        self.w.shutdown()
+
     def _on_return(self, _event=None) -> str:
         self._return_held = True
         screen = self.w.screen
@@ -2217,6 +2235,8 @@ class TkWizard:
     def _on_key(self, event) -> Optional[str]:
         if event.keysym in ("Return", "KP_Enter", "Escape", "Tab"):
             return None
+        if event.keysym == "space":
+            self._space_held = True
         if self.w.screen == Screen.SPLASH:
             self.w.skip_splash()
             self._draw()

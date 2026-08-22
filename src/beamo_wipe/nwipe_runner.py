@@ -36,7 +36,11 @@ from beamo_wipe.safety import (
 
 PERCENT_RE = re.compile(r"(?<!\d)(\d{1,3}(?:\.\d+)?)\s*%")
 # nwipe 0.42 SIGUSR1: "/dev/vda: 045.23%, round 1 of 1, pass 1 of 1, eta …"
-NWIPE_PROGRESS_RE = re.compile(r":\s*(\d{1,3}(?:\.\d+)?)\s*%,\s*round\b")
+# Groups: percent, round i, round n, optional pass i, optional pass n.
+NWIPE_PROGRESS_RE = re.compile(
+    r":\s*(\d{1,3}(?:\.\d+)?)\s*%,\s*round\s+(\d+)\s+of\s+(\d+)"
+    r"(?:,\s*pass\s+(\d+)\s+of\s+(\d+))?"
+)
 # nwipe 0.42 (device.c / nwipe.c) when the target is mounted and --force is unset.
 NWIPE_BUSY_RE = re.compile(
     r"(?:is reported as IN USE|is IN USE but --force is not set, not wiping it)"
@@ -342,14 +346,8 @@ def _target_reported_failure(log_text: str, device: str) -> bool:
     return False
 
 
-def _target_last_percent(log_text: str, device: str) -> Optional[float]:
-    """Last SIGUSR1 progress percent for this device.
-
-    The Erasure Summary table also prints ``0.00%`` / ``100.00%`` on a
-    device line. That is not live progress and must not replace a SIGUSR1
-    reading (WORKING would jump to 0% just before Done).
-    """
-    last = None
+def _iter_target_progress(log_text: str, device: str):
+    """Yield SIGUSR1 progress matches for this device, in log order."""
     for line in (log_text or "").splitlines():
         if not _line_mentions_device(line, device):
             continue
@@ -358,8 +356,43 @@ def _target_last_percent(log_text: str, device: str) -> Optional[float]:
             continue
         value = float(match.group(1))
         if 0.0 <= value <= 100.0:
-            last = value
+            yield match, value
+
+
+def _target_last_percent(log_text: str, device: str) -> Optional[float]:
+    """Last SIGUSR1 progress percent for this device.
+
+    The Erasure Summary table also prints ``0.00%`` / ``100.00%`` on a
+    device line. That is not live progress and must not replace a SIGUSR1
+    reading (WORKING would jump to 0% just before Done).
+    """
+    last = None
+    for _match, value in _iter_target_progress(log_text, device):
+        last = value
     return last
+
+
+def _progress_is_final_pass(match: re.Match) -> bool:
+    """True if this SIGUSR1 line is the last pass of the last round."""
+    round_i, round_n = int(match.group(2)), int(match.group(3))
+    if round_i != round_n:
+        return False
+    pass_i, pass_n = match.group(4), match.group(5)
+    if pass_i is None or pass_n is None:
+        return True
+    return int(pass_i) == int(pass_n)
+
+
+def _target_reached_last_pass(log_text: str, device: str) -> bool:
+    """True if the last SIGUSR1 line is 100% of the last pass of the last round.
+
+    Extra thorough (dodshort) reports 100% at the end of each of 3 passes.
+    That is not Finished unless the last logged pass is the last pass.
+    """
+    last = None
+    for match, value in _iter_target_progress(log_text, device):
+        last = value >= 100.0 and _progress_is_final_pass(match)
+    return bool(last)
 
 
 def _target_reported_success(log_text: str, device: str) -> bool:
@@ -385,7 +418,8 @@ def evaluate_nwipe_completion(
     nwipe 0.42 returns 0 and logs "Nwipe successfully completed" when no wipe
     thread ran (busy skip, open failure, insane geometry) and also after a
     user abort that already logged a percent. SIGUSR1 may log
-    ``/dev/X: Success`` before pthread_create. Those must not become Finished.
+    ``/dev/X: Success`` before pthread_create. 100% of pass 1 of 3 (dodshort)
+    is not Finished. Those must not become Finished.
     """
     if target_skipped_busy(log_text, device):
         return False, "nwipe skipped the disk because it is in use"
@@ -401,8 +435,7 @@ def evaluate_nwipe_completion(
         return False, f"nwipe exited {exit_code}"
     if _target_reported_success(log_text, device):
         return True, "finished"
-    last = _target_last_percent(log_text, device)
-    if last is not None and last >= 100.0:
+    if _target_reached_last_pass(log_text, device):
         return True, "finished"
     return False, "nwipe exited without wiping"
 

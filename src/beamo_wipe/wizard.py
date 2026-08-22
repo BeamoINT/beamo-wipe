@@ -45,6 +45,19 @@ COUNTDOWN_S = 5.0
 SPLASH_S = 3.0
 
 
+def format_progress_percent(pct: float) -> str:
+    """Integer percent that never shows 100% before the engine reports 100.
+
+    ``f"{99.5:.0f}"`` is ``100`` (round half away from zero). That would
+    tell the owner the wipe is done while nwipe is still writing.
+    """
+    if pct >= 100.0:
+        return "100%"
+    if pct <= 0.0:
+        return "0%"
+    return f"{int(pct)}%"
+
+
 class Wizard:
     def __init__(
         self,

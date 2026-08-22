@@ -159,6 +159,7 @@ def test_tk_enter_is_always_the_gated_screen_action():
     assert 'bind("<KP_Enter>", self._on_return)' in init_src
     assert 'bind("<KeyRelease-Return>", self._on_return_release)' in init_src
     assert 'bind("<KeyRelease-KP_Enter>", self._on_return_release)' in init_src
+    assert 'bind("<KeyRelease-space>", self._on_space_release)' in init_src
 
 
 def test_advanced_button_redraws_via_nav():

@@ -9,7 +9,7 @@ import time
 from beamo_wipe import copy as C
 from beamo_wipe.models import MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
-from beamo_wipe.wizard import Wizard
+from beamo_wipe.wizard import Wizard, format_progress_percent
 
 
 def run_console(wizard: Wizard) -> int:
@@ -260,7 +260,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.progress is None:
                 _add(stdscr, y + 2, 0, "—")
             else:
-                _add(stdscr, y + 2, 0, f"{wizard.progress:.0f}%")
+                _add(stdscr, y + 2, 0, format_progress_percent(wizard.progress))
             if wizard.selected:
                 _add(stdscr, y + 4, 0, f"{wizard.selected.display_name} {wizard.selected.size_phrase}")
                 _add(

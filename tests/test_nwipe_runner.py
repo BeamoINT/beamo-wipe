@@ -419,6 +419,45 @@ def test_evaluate_nwipe_one_hundred_percent_on_target_is_finished():
     assert summary == "finished"
 
 
+def test_evaluate_nwipe_one_hundred_percent_mid_method_is_not_finished():
+    """dodshort (Extra thorough) is 3 passes in one round. 100% of pass 1 of 3
+    plus nwipe's exit-0 success banner is not a completed wipe."""
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+    log = (
+        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 3, eta 00:10:00, [writing]\n"
+        "Nwipe successfully completed. See summary table for details.\n"
+    )
+    ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
+    assert ok is False
+    assert "without wiping" in summary
+
+
+def test_evaluate_nwipe_one_hundred_percent_mid_rounds_is_not_finished():
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+    log = (
+        "/dev/vda: 100.00%, round 1 of 2, pass 1 of 1, eta 00:10:00, [writing]\n"
+        "Nwipe successfully completed. See summary table for details.\n"
+    )
+    ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
+    assert ok is False
+    assert "without wiping" in summary
+
+
+def test_evaluate_nwipe_one_hundred_percent_last_pass_is_finished():
+    """100% of pass 3 of 3 (last pass) is the same fallback as pass 1 of 1."""
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+    log = (
+        "/dev/vda: 100.00%, round 1 of 1, pass 3 of 3, eta 00:00:00, [verifying]\n"
+        "Nwipe successfully completed. See summary table for details.\n"
+    )
+    ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
+    assert ok is True
+    assert summary == "finished"
+
+
 def test_evaluate_nwipe_erased_table_is_finished():
     from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
 

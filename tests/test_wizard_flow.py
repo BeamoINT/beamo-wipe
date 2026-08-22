@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from beamo_wipe.models import Screen, WipeResult
 from beamo_wipe.nwipe_runner import DryRunRunner
-from beamo_wipe.wizard import Wizard, make_demo_wizard
+from beamo_wipe.wizard import Wizard, make_demo_wizard, format_progress_percent
 
 
 class Clock:
@@ -523,4 +523,28 @@ def test_done_keyboard_ignored_until_armed(monkeypatch, tmp_path):
     wiz.arm_done_keyboard()
     wiz.accept_done_keyboard()
     assert wiz.wants_shutdown
+
+
+def test_format_progress_percent_does_not_round_up_to_one_hundred():
+    """Working must not display 100% while nwipe is still at 99.5–99.99."""
+    assert format_progress_percent(99.4) == "99%"
+    assert format_progress_percent(99.5) == "99%"
+    assert format_progress_percent(99.99) == "99%"
+    assert format_progress_percent(100.0) == "100%"
+    assert format_progress_percent(0.0) == "0%"
+    assert format_progress_percent(45.7) == "45%"
+
+
+def test_working_uis_never_round_percent_with_point_zero_f():
+    import inspect
+
+    from beamo_wipe.ui.console_wizard import _loop
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    tk_src = inspect.getsource(TkWizard._refresh_working)
+    assert "format_progress_percent" in tk_src
+    assert ":.0f" not in tk_src
+    console_src = inspect.getsource(_loop)
+    assert "format_progress_percent" in console_src
+    assert ":.0f" not in console_src
 
