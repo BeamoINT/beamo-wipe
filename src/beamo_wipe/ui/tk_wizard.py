@@ -30,15 +30,17 @@ Design rules:
 - One screen-header pattern: a bold ink title at a standard rhythm,
   optional muted subtitle, no ornament. Identifiers (serials, paths)
   render in readable mono.
-- Chrome is white and quiet: a slim header (brand chip + wordmark left,
-  step label right), a hairline progress strip, and a single-row footer
-  (secondary actions left, key-hints centered, primary action right).
+- Chrome is white and quiet: a slim header (transparent brand mark +
+  wordmark left, step label right), a hairline progress strip, and a
+  single-row footer (secondary actions left, key-hints centered, primary
+  action right).
 - Content is vertically centered in the body so no screen reads as an
   unfinished white field; scrolling lists keep their own expansion.
 - The splash is the quiet product open: a plain white field with no
-  chrome, the brand mark on a small navy tile, large simple type, and
-  exactly one action (the primary Continue pill). The any-key shortcut
-  is a caption, not a second competing affordance.
+  chrome, the navy-on-transparent brand mark sitting directly on the
+  field, large simple type, and exactly one action (the primary
+  Continue pill). The any-key shortcut is a caption, not a second
+  competing affordance.
 - Keyboard affordances are drawn as quiet key-caps, not buried in prose.
 """
 
@@ -833,11 +835,6 @@ class TkWizard:
         # process, and an unbound PhotoImage dies with the first root.
         self._logo_header = self._load_image("logo-header.png")
         self._logo_splash = self._load_image("logo-splash.png")
-        # Half-size mark for the splash tile: the native PNG is sized for
-        # the old hero tile; the quiet tile wants a smaller mark.
-        self._logo_splash_sm = (
-            self._logo_splash.subsample(2, 2) if self._logo_splash is not None else None
-        )
         self._confirm_var = tk.StringVar()
         self._owner_var = tk.IntVar(value=0)
         self._body: Optional[tk.Frame] = None
@@ -941,24 +938,21 @@ class TkWizard:
         if width <= 1 or height <= 1:
             return
         cv.delete("all")
-        # Quiet white chrome: the brand chip carries the navy, a hairline
-        # separates header from body. No fills, no pill, no shout.
+        # Quiet white chrome: the navy-on-transparent mark sits on the
+        # field, a hairline separates header from body. No navy chip.
         cv.create_rectangle(-2, -2, width + 2, height + 2, fill=BG, outline="")
         cv.create_rectangle(0, height - 1, width, height, fill=BORDER, outline="")
         mid = height / 2.0 - 1
         logo = self._logo_header
-        chip_w, chip_h = 46, 38
-        chip_x, chip_y = 24.0, mid - chip_h / 2.0
-        _round_rect(
-            cv, chip_x, chip_y, chip_x + chip_w, chip_y + chip_h, 10,
-            fill=NAVY, outline="",
-        )
+        x = 24.0
         if logo is not None:
-            cv.create_image(chip_x + chip_w / 2.0, mid, image=logo)
+            cv.create_image(x, mid, image=logo, anchor="w")
+            text_x = x + logo.width() + 12
         else:
-            _draw_emblem(cv, chip_x + chip_w / 2.0, mid, 26)
+            _draw_emblem(cv, x + 13, mid, 26)
+            text_x = x + 26 + 12
         cv.create_text(
-            chip_x + chip_w + 12, mid, anchor="w",
+            text_x, mid, anchor="w",
             text=C.APP_NAME, font=self.font_brand, fill=INK,
         )
         # The screen title below names the step; the header only carries
@@ -1425,38 +1419,25 @@ class TkWizard:
 
     # -- screens ---------------------------------------------------------------
 
-    # Brand tile on the splash: the mark (white glyph, amber bolt) needs a
-    # dark tile to read on the white field. Small and crisp, like an app
-    # icon — a big dark slab reads as a billboard, not a product.
-    _TILE_PAD_X = 16
-    _TILE_PAD_Y = 15
-    _TILE_RADIUS = 24
-
     def _splash(self) -> None:
         """The product open: a plain white field, the mark, one action.
 
         No chrome, no footer, no key-caps, no ornament — the single
         obvious next step is the Continue pill, and the any-key shortcut
         is a quiet caption under it (the global key handlers still skip
-        the splash on any key, Enter, or Esc).
+        the splash on any key, Enter, or Esc). The navy-on-transparent
+        mark sits directly on the field; no navy tile.
         """
         col = self._column(self._body, fill_height=True)
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
-        logo = self._logo_splash_sm
-        mark_w = float(logo.width()) if logo is not None else 54.0
-        mark_h = float(logo.height()) if logo is not None else 54.0
-        tile_w = mark_w + 2 * self._TILE_PAD_X
-        tile_h = mark_h + 2 * self._TILE_PAD_Y
-        tile = tk.Canvas(
-            col, width=int(tile_w), height=int(tile_h),
-            bg=BG, highlightthickness=0, bd=0,
-        )
-        _round_rect(tile, 1, 1, tile_w - 1, tile_h - 1, self._TILE_RADIUS, fill=NAVY, outline="")
+        logo = self._logo_splash
         if logo is not None:
-            tile.create_image(tile_w / 2.0, tile_h / 2.0, image=logo)
+            mark = tk.Label(col, image=logo, bg=BG, bd=0, highlightthickness=0)
+            mark.pack()
         else:
-            _draw_emblem(tile, tile_w / 2.0, tile_h / 2.0, 54)
-        tile.pack()
+            mark = tk.Canvas(col, width=70, height=58, bg=BG, highlightthickness=0, bd=0)
+            _draw_emblem(mark, 35.0, 29.0, 54)
+            mark.pack()
         tk.Label(col, text=C.APP_NAME, font=self.font_hero, fg=INK, bg=BG).pack(pady=(26, 0))
         self._p(
             col, C.SPLASH_TAGLINE, fg=MUTED, font=self.font_lead,

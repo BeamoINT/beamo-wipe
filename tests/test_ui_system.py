@@ -232,3 +232,37 @@ def test_non_text_contrast_meets_wcag_aa():
     for fg, bg in NON_TEXT_PAIRS:
         ratio = _contrast(getattr(tkui, fg), getattr(tkui, bg))
         assert ratio >= 3.0, f"{fg} on {bg} is {ratio:.2f}:1 (< 3:1)"
+
+
+
+def test_light_surfaces_do_not_wrap_the_logo_in_a_navy_tile():
+    """The mark is navy-on-transparent on white chrome. Favicon may tile."""
+    header = inspect.getsource(tkui.TkWizard._draw_header)
+    splash = inspect.getsource(tkui.TkWizard._splash)
+    assert "fill=NAVY" not in header
+    assert "fill=NAVY" not in splash
+    assert "_TILE_" not in inspect.getsource(tkui.TkWizard)
+    html = gallery_html()
+    brandchip = re.search(r"\.brandchip\s*\{[^}]+\}", html)
+    marktile = re.search(r"\.marktile\s*\{[^}]+\}", html)
+    assert brandchip and "background: var(--navy)" not in brandchip.group(0)
+    assert marktile and "background: var(--navy)" not in marktile.group(0)
+    # Inline splash/header marks use navy B; the favicon keeps a navy tile.
+    from beamo_wipe import gallery as G
+    assert 'fill="#0A1B34"' in html
+    assert 'rx="14" fill="#0A1B34"' in inspect.getsource(G._favicon_uri)
+    helper = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
+    chip = re.search(r"header \.brandchip\s*\{[^}]+\}", helper)
+    assert chip and "background: var(--navy)" not in chip.group(0)
+
+
+def test_logo_pngs_are_rgba_with_alpha():
+    import struct
+
+    for name, min_w, min_h in (("logo-header.png", 32, 24), ("logo-splash.png", 64, 48)):
+        data = (ROOT / "src" / "beamo_wipe" / "assets" / name).read_bytes()
+        assert data[:8] == b"\x89PNG\r\n\x1a\n"
+        assert data[12:16] == b"IHDR"
+        width, height, _bit, color = struct.unpack(">IIBB", data[16:26])
+        assert width >= min_w and height >= min_h
+        assert color == 6  # RGBA — not an opaque black rectangle

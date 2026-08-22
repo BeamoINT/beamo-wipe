@@ -31,10 +31,15 @@ def _mark_body() -> str:
 
 
 def _logo_svg(width: int, height: int) -> str:
-    """The real Beamo mark as a one-line inline SVG sized for the template."""
+    """The real Beamo mark as a one-line inline SVG sized for the template.
+
+    Recolors the B to navy so the mark reads on the white wizard chrome.
+    The favicon keeps the dark-surface (white B on a navy tile) treatment.
+    """
+    body = _mark_body().replace('fill="#FFFFFF"', 'fill="#0A1B34"')
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="128 162 264 221" aria-hidden="true">{_mark_body()}</svg>'
+        f'viewBox="128 162 264 221" aria-hidden="true">{body}</svg>'
     )
 
 
@@ -234,11 +239,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .shell { background: var(--bg); min-height: 740px; box-shadow: 0 12px 40px rgba(10,27,52,.25); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
   .preview-stripe { background: var(--accent); color: var(--navy); padding: 7px 24px; font-size: 14px; font-weight: 700; }
-  /* Quiet white chrome: a navy brand chip carries the color, a hairline
-     separates header from body. No fills, no pill — mirroring _draw_header. */
+  /* Quiet white chrome: the navy-on-transparent mark sits on the field,
+     a hairline separates header from body — mirroring _draw_header. */
   .hdr { background: var(--bg); border-bottom: 1px solid var(--border); color: var(--ink); height: 56px; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
   .brandrow { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; }
-  .brandchip { width: 46px; height: 38px; background: var(--navy); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .brandchip { display: flex; align-items: center; justify-content: center; flex: none; }
   .brandchip svg { display: block; }
   .steptext { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
   .strip { height: 3px; background: var(--track); }
@@ -357,10 +362,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .centerstage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .centerstage h1 { margin: 22px 0 8px; }
   .statustext { font-size: 16px; color: var(--muted); max-width: 700px; margin: 0 auto; line-height: 1.45; }
-  /* Splash: a plain white field, the brand mark on its navy tile, huge
-     simple type, and one primary action — mirroring TkWizard._splash. */
+  /* Splash: a plain white field, the navy-on-transparent brand mark,
+     huge simple type, and one primary action — mirroring TkWizard._splash. */
   .splashwrap { min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
-  .marktile { background: var(--navy); border-radius: 24px; padding: 15px 16px; display: flex; }
+  .marktile { display: flex; }
   .marktile svg { display: block; }
   .wordmark { font-size: 64px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; margin-top: 26px; line-height: 1.05; }
   .splashlead { font-size: 18px; line-height: 1.45; color: var(--muted); max-width: 620px; margin: 12px 0 0; }
