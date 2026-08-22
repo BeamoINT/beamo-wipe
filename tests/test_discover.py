@@ -58,7 +58,7 @@ def test_cannot_identify_boot_refuses_list():
     assert not result.boot_identified
     assert result.error
     assert result.selectable == ()
-    assert "Cannot tell which disk is this USB" in result.error
+    assert "cannot tell which disk is this usb" in result.error.lower()
 
 
 def test_empty_target_disks():

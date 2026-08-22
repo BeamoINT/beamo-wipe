@@ -9,6 +9,7 @@ import re
 import subprocess
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from beamo_wipe.copy import IDENTIFY_ERROR as CANNOT_IDENTIFY
 from beamo_wipe.models import Disk, DiskKind, DiscoveryResult
 
 HIDDEN_TYPES = frozenset({"loop", "ram", "rom"})
@@ -52,10 +53,6 @@ LIVE_MOUNTS = (
     "/live/image",
     "/run/live/fromiso",
     "/lib/live/mount/fromiso",
-)
-
-CANNOT_IDENTIFY = (
-    "Cannot tell which disk is this USB. Unplug extra USB drives and reboot."
 )
 
 # Kernel cmdline keys that name the live medium. Matched as whole tokens so

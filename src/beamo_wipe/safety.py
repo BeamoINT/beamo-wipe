@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple
 
+from beamo_wipe.copy import IDENTIFY_ERROR, confirm_type_chars, confirm_type_four, confirm_type_size
 from beamo_wipe.models import ConfirmSpec, Disk, DiscoveryResult, WipeRequest
 
 # Whole-disk nodes only. Partitions (sda1, nvme0n1p1) are never wipe targets.
@@ -229,7 +230,7 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
             if token and len(same_token) == 1 and token.casefold() not in peer_names:
                 return _nonzero_token(
                     token,
-                    "Type the last four characters of the serial shown above.",
+                    confirm_type_four(token),
                     disk,
                 )
         serial_token = _safe_token(serial)
@@ -242,7 +243,7 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
             if len(same_serial) == 1 and serial_token.casefold() not in peer_names:
                 return _nonzero_token(
                     serial_token,
-                    "Type the serial number shown above.",
+                    confirm_type_chars(serial_token),
                     disk,
                 )
         token = _safe_token((disk.name or "").strip()) or _safe_token(
@@ -250,13 +251,13 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
         )
         return _nonzero_token(
             token,
-            f"Type the device name shown above ({token or disk.name}).",
+            confirm_type_chars(token or disk.name),
             disk,
         )
     token = _safe_token((disk.size_gb_label or "").strip())
     return _nonzero_token(
         token,
-        f"Type the size number shown above ({token or disk.name}).",
+        confirm_type_size(token or disk.name),
         disk,
     )
 
@@ -306,9 +307,7 @@ def token_matches(typed: str, spec: ConfirmSpec) -> bool:
 
 def assert_boot_excluded(discovery: DiscoveryResult) -> None:
     if not discovery.boot_identified or discovery.boot is None:
-        raise SafetyError(
-            "Cannot tell which disk is this USB. Unplug extra USB drives and reboot."
-        )
+        raise SafetyError(IDENTIFY_ERROR)
     if boot_device_in_selectable(discovery):
         raise SafetyError("Boot USB appeared as a selectable disk. Refusing to continue.")
     selectable_paths = {os.path.realpath(s.path) for s in discovery.selectable}

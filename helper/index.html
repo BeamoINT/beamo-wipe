@@ -154,17 +154,17 @@
   <main>
     <p class="banner">
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B3261E" stroke="#B3261E" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
-      <span>This page does not erase disks. Restart the PC and open the boot menu.</span>
+      <span>This page does not erase anything. Restart the computer and press the key for your PC.</span>
     </p>
     <div class="card">
-      <p>This USB is a <strong>bootable</strong> tool. Windows and macOS will not wipe a drive from here. You restart the computer and tell it to start from this USB.</p>
+      <p>Windows will not erase a disk from this page. Restart the computer and start from this USB.</p>
     </div>
 
     <div class="card">
-      <h2>Typical boot-menu keys</h2>
+      <h2>Press this key as the computer starts</h2>
       <table>
         <thead>
-          <tr><th scope="col">PC</th><th scope="col">Boot menu key (typical)</th></tr>
+          <tr><th scope="col">PC</th><th scope="col">Key</th></tr>
         </thead>
         <tbody>
           <tr><td>Dell</td><td class="key"><span class="kbd">F12</span></td></tr>
@@ -180,18 +180,19 @@
     </div>
 
     <div class="card">
-      <h2>Windows 10 / 11 fallback</h2>
+      <h2>If the key does not work on Windows 10 or 11</h2>
       <ol>
-        <li>Settings → System → Recovery</li>
-        <li>Advanced startup → Restart now</li>
-        <li>Use a device → pick this USB</li>
+        <li>Open Settings, then System, then Recovery</li>
+        <li>Advanced startup, then Restart now</li>
+        <li>Use a device, then pick this USB</li>
       </ol>
     </div>
 
     <div class="card">
-      <h2>What this USB is</h2>
-      <p>A guided front-end for <strong>nwipe</strong>, free open-source disk erasure software. Beamo did not write that engine. There is no warranty.</p>
-      <p>For x86_64 PCs that can boot from USB. <strong>Apple Silicon Macs are not supported.</strong> Some Intel Macs may show this USB; many will not. Not for Chromebooks.</p>
+      <h2>What this USB does</h2>
+      <p>You pick a disk. Everything on that disk is erased. Files cannot be brought back.</p>
+      <p>This uses <strong>nwipe</strong>, free disk-erase software. Beamo did not write it. There is no warranty.</p>
+      <p>For Windows PCs that start from USB. <strong>Not Apple Silicon Macs. Not Chromebooks.</strong> Some Intel Macs may show this USB; many will not.</p>
       <p class="small">Source: <a href="https://github.com/BeamoINT/beamo-wipe">github.com/BeamoINT/beamo-wipe</a></p>
     </div>
   </main>

@@ -1,94 +1,123 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """User-facing strings. 8th-grade English. No forbidden claims."""
 
-from beamo_wipe.models import Disk, MethodId
+from beamo_wipe.models import Disk, DiskKind, MethodId
 
 APP_NAME = "Beamo Wipe"
 
+# --- Screen titles (happy path talks like a person) ------------------------
+
+TITLE_WHAT = "Here's what happens"
+TITLE_OWNER = "Is this your computer?"
+TITLE_PICK = "Which disk should we erase?"
+TITLE_CONFIRM = "Make sure this is the right disk"
+TITLE_METHOD = "How thorough"
+TITLE_ADVANCED = "Advanced"
+TITLE_LAST = "Last chance to stop"
+TITLE_WORKING = "Erasing now"
+TITLE_DONE_OK = "Finished"
+TITLE_DONE_FAIL = "The erase did not finish"
+TITLE_BLOCKED = "Stop"
+TITLE_EMPTY = "No disk to erase"
+
+# --- Splash: they already booted. Do not lecture. --------------------------
+
 SPLASH_TAGLINE = (
-    "This USB will restart your computer into a wipe tool. "
-    "It will not run from Windows."
+    "You already started from this USB. Next you will pick a disk to erase."
 )
 
 # Small quiet line at the foot of the splash. Factual: the pinned engine.
-SPLASH_META = "Guided front-end for nwipe v0.42"
+SPLASH_META = "Uses nwipe v0.42, free software Beamo did not write"
+
+WHAT_LEAD = "Read this, then continue."
 
 WHAT_BULLETS = (
-    "This is a guided front-end for nwipe, free open-source disk erasure software.",
-    "You are about to erase a disk forever. Files cannot be undone.",
-    "This PC must be an x86_64 machine that can boot from USB. "
+    "You will pick a disk. Everything on that disk will be erased. "
+    "Files cannot be brought back.",
+    "This uses nwipe, free disk-erase software. Beamo did not write it. "
+    "There is no warranty.",
+    "This is for Windows PCs that start from USB. "
     "Not Apple Silicon Macs. Not Chromebooks.",
 )
 
 ENGINE_LINE = (
-    "The erasure engine is nwipe. Beamo did not write that engine. "
+    "The erase program is nwipe v0.42. Beamo did not write that program. "
     "There is no warranty."
 )
 
 SECURE_BOOT_HINT = (
-    "If the USB does not appear, you may need to allow USB boot in this "
-    "PC’s firmware settings."
+    "If this USB does not show up on another computer, you may need to allow "
+    "USB start in that computer's settings."
 )
+
+WHAT_MORE = ENGINE_LINE + " " + SECURE_BOOT_HINT
 
 OWNER_CHECKBOX = (
     "I own this computer and these disks, or I have written permission to erase them."
 )
 
 OWNER_LEAD = (
-    "Check the box only if this is your computer, or you have written permission."
+    "Check the box only if this computer is yours, or you have written permission "
+    "to erase it. Then continue."
 )
 
 BOOT_USB_BANNER = "This is the Beamo USB — do not erase"
 BOOT_DISC_BANNER = "This is the Beamo boot disc — do not erase"
 
 IDENTIFY_ERROR = (
-    "Cannot tell which disk is this USB. Unplug extra USB drives and reboot."
+    "We cannot tell which disk is this USB. Unplug extra USB sticks and start again."
 )
 
-REDISCOVER_ERROR = "Could not re-read disks. Erase did not start."
+REDISCOVER_ERROR = "Could not check the disks again. Erase did not start."
 
 EMPTY_DISKS = (
-    "No other disks found. Power off, connect the drive you want to wipe "
-    "(SATA/NVMe), and boot this USB again."
+    "We cannot find another disk. Shut down, plug in the drive you want to erase, "
+    "and start from this USB again."
 )
 
 SSD_FOOTER = (
-    "On SSDs, the drive’s own controller decides what is left. "
+    "On an SSD, leftover data can depend on the drive. "
     "This is not a lab certificate."
 )
 
-WORKING_PULSE = "Still working — do not unplug."
+WORKING_PULSE = "Leave the USB in. Do not turn the PC off."
 
-DONE_OK = "Finished. You can shut down and remove the USB."
+DONE_OK = "Done. You can shut down and take out the USB."
 
 DONE_FAIL = (
-    "The wipe did not finish. The disk may still have data. "
-    "Try again or use another machine."
+    "The erase did not finish. Files may still be on the disk. "
+    "You can try again, or use another computer."
 )
 
 NOT_LIVE_ERROR = (
-    "Beamo Wipe only erases disks from the bootable USB environment. "
-    "It will not wipe a disk from inside a running operating system. "
-    "Run ./preview to see the screens on this computer, or boot the live USB."
+    "Beamo Wipe only erases disks after you start the computer from this USB. "
+    "It will not erase a disk from Windows. "
+    "Run ./preview to see the screens on this computer, or start from the USB."
 )
 
 DONE_OK_PREVIEW = "Preview finished. Nothing on this computer was erased."
 DONE_FAIL_PREVIEW = (
-    "Preview of a failed wipe. Nothing on this computer was erased."
+    "Preview of a failed erase. Nothing on this computer was erased."
 )
 
 SAME_SIZE_HINT = (
-    "Two disks have the same size. Read the serial number. "
-    "Do not pick by size alone."
+    "Two disks are the same size. Look at the characters under the name "
+    "so you pick the right one."
 )
 
 RECOMMENDED_TAG = "Recommended"
 
-CONFIRM_MATCH_WAIT = "This must match exactly before you can continue."
-CONFIRM_MATCH_OK = "Matches. You can continue."
+CONFIRM_LEAD = "Type what we ask for so we know it is the right disk. Then continue."
 
-COUNTDOWN_CAPTION = "seconds until the Erase button unlocks"
-COUNTDOWN_READY = "The Erase button is ready."
+CONFIRM_MATCH_WAIT = "Type it exactly, then you can continue."
+CONFIRM_MATCH_OK = "That matches. You can continue."
+
+COUNTDOWN_CAPTION = "seconds until you can press Erase"
+COUNTDOWN_READY = "You can press Erase now."
+
+METHOD_LEAD = "Everyday is usually right. Pick one, then continue."
+
+LAST_LEAD = "If this is the wrong disk, go back."
 
 METHOD_CARDS = {
     MethodId.EVERYDAY: {
@@ -100,28 +129,30 @@ METHOD_CARDS = {
     MethodId.EXTRA: {
         "title": "Extra thorough",
         "blurb": (
-            "More passes. Much slower. Use if a workplace asked for more "
-            "than a normal wipe."
+            "Writes over the disk more times. Much slower. Use if a workplace "
+            "asked for more than a normal erase."
         ),
         "pace": "Several hours is common. Can take much longer. Leave it until Finished.",
         "key": "2",
     },
     MethodId.QUICK_ZERO: {
         "title": "Quick zero",
-        "blurb": "Fills the disk with zeros. Fastest. Weaker on some SSDs.",
+        "blurb": "The fastest option. Weaker on some SSDs.",
         "pace": "Faster than Everyday. Still wait for the Finished screen.",
         "key": "3",
     },
 }
 
 ADVANCED_LEAD = (
-    "Raw nwipe method names. Technicians only. The happy-path screens stay simple."
+    "These are the nwipe names. For technicians. The other screens stay simple."
 )
 
 ADVANCED_LOG_NOTE = (
-    "To save a log, plug in a second USB that is not the target disk "
+    "To save a log, plug in a second USB that is not the disk you erased "
     "and copy the log file there."
 )
+
+ADVANCED_LOG_LABEL = "Log file (never on the disk you erase): "
 
 BTN_UNDERSTAND = "I understand"
 BTN_SHUTDOWN = "Shut down"
@@ -131,6 +162,8 @@ BTN_CONTINUE = "Continue"
 BTN_BACK = "Back"
 BTN_ERASE = "Erase now"
 BTN_ADVANCED = "Advanced (technicians)"
+BTN_MORE = "Show more"
+BTN_LESS = "Show less"
 
 PREVIEW_BANNER = "PREVIEW on this computer — fake disks — nothing is erased"
 
@@ -138,28 +171,53 @@ HINT_DEFAULT = "Enter continues.  Esc goes back."
 HINT_PICK = "Click a disk, or use Up/Down.  Enter continues.  Esc goes back."
 HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
 HINT_METHOD = "Press 1, 2, or 3 to choose.  Enter continues."
-HINT_CONFIRM = "Type exactly what the prompt asks for, then Enter."
+HINT_CONFIRM = "Type exactly what we ask for, then Enter."
 HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
 HINT_BLOCKED = "Enter shuts down.  Esc goes back."
 HINT_DONE = "Enter shuts down."
-HINT_WORKING = "Leave this USB plugged in until the finished screen."
+HINT_WORKING = "Leave this USB in until you see Finished."
 HINT_SPLASH = "Press any key to continue."
+
+NO_CODE = "no serial"
+
+
+def kind_label(kind: DiskKind) -> str:
+    """Happy-path chip: name people know. NVMe is a kind of SSD."""
+    if kind == DiskKind.HDD:
+        return "Hard disk"
+    if kind in (DiskKind.SSD, DiskKind.NVME):
+        return "SSD"
+    return ""
+
+
+def confirm_type_size(token: str) -> str:
+    return f"Type these numbers so we know it is the right disk: {token}"
+
+
+def confirm_type_four(token: str) -> str:
+    return f"Type these 4 characters so we know it is the right disk: {token}"
+
+
+def confirm_type_chars(token: str) -> str:
+    return f"Type these characters so we know it is the right disk: {token}"
 
 
 def confirm_warning(disk: Disk) -> str:
     return (
-        f"This will erase every file on {disk.display_name}, {disk.size_phrase}. "
-        "This cannot be undone."
+        f"Every file on {disk.display_name}, {disk.size_phrase}, will be erased. "
+        "You cannot get them back."
     )
 
 
 def erase_now_label(disk: Disk) -> str:
-    serial = disk.serial or "no serial"
-    return f"Erase {disk.display_name} {disk.size_phrase} ({serial}) now."
+    return (
+        f"This will erase {disk.display_name}, {disk.size_phrase}. "
+        "You cannot get the files back."
+    )
 
 
 def pick_subtitle() -> str:
     return (
-        "Click the disk you want to erase. Look at size and serial. "
+        "Click the disk that matches this PC. Look at the name and the size. "
         "Nothing is chosen until you click."
     )

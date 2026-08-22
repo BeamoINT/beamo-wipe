@@ -12,7 +12,9 @@ def main(argv: list[str] | None = None) -> int:
     del argv
     result = discover()
     if not result.boot_identified or result.boot is None:
-        print(result.error or "Cannot tell which disk is this USB.", file=sys.stderr)
+        from beamo_wipe.copy import IDENTIFY_ERROR
+
+        print(result.error or IDENTIFY_ERROR, file=sys.stderr)
         return 2
     print(result.boot.path)
     return 0

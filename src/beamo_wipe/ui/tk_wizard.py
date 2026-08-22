@@ -119,17 +119,17 @@ RING_PAD = 14
 RING_W = 11
 
 _STEP_ORDER = {
-    Screen.WHAT: (1, "Step 1 of 8", "What this is"),
+    Screen.WHAT: (1, "Step 1 of 8", C.TITLE_WHAT),
     Screen.OWNER: (2, "Step 2 of 8", "Ownership"),
-    Screen.PICK: (3, "Step 3 of 8", "Pick a disk"),
-    Screen.PICK_EMPTY: (3, "Step 3 of 8", "Pick a disk"),
-    Screen.PICK_BLOCKED: (3, "Step 3 of 8", "Pick a disk"),
-    Screen.CONFIRM: (4, "Step 4 of 8", "Confirm the disk"),
-    Screen.METHOD: (5, "Step 5 of 8", "How thorough"),
-    Screen.ADVANCED: (5, "Advanced", "Advanced"),
-    Screen.LAST_CHANCE: (6, "Step 6 of 8", "Last chance"),
-    Screen.WORKING: (7, "Step 7 of 8", "Erasing"),
-    Screen.DONE: (8, "Step 8 of 8", "Finished"),
+    Screen.PICK: (3, "Step 3 of 8", C.TITLE_PICK),
+    Screen.PICK_EMPTY: (3, "Step 3 of 8", C.TITLE_PICK),
+    Screen.PICK_BLOCKED: (3, "Step 3 of 8", C.TITLE_PICK),
+    Screen.CONFIRM: (4, "Step 4 of 8", C.TITLE_CONFIRM),
+    Screen.METHOD: (5, "Step 5 of 8", C.TITLE_METHOD),
+    Screen.ADVANCED: (5, C.TITLE_ADVANCED, C.TITLE_ADVANCED),
+    Screen.LAST_CHANCE: (6, "Step 6 of 8", C.TITLE_LAST),
+    Screen.WORKING: (7, "Step 7 of 8", C.TITLE_WORKING),
+    Screen.DONE: (8, "Step 8 of 8", C.TITLE_DONE_OK),
 }
 
 # Spans of hint copy that render as key-caps instead of plain text.
@@ -873,6 +873,9 @@ class TkWizard:
         self._pick_applied: Optional[float] = None
         self._pick_gen = 0
         self._return_held = False
+        # Optional extra detail (device path, bus) on existing screens.
+        # One flag for the session; not a new wizard step.
+        self._show_more = False
         self._build_chrome()
         self._confirm_var.trace_add("write", self._confirm_var_written)
         self.root.bind("<Escape>", self._on_escape)
@@ -1273,28 +1276,56 @@ class TkWizard:
             w.bind("<Enter>", enter)
             w.bind("<Leave>", leave)
 
-    def _meta_line(self, parent: tk.Widget, disk: Disk, bg: str) -> tk.Frame:
-        """Bus · serial · path. The serial is the disambiguator the confirm
-        token and the same-size warning point at, so it gets full-size ink
-        mono instead of being buried with the path."""
-        meta = tk.Frame(parent, bg=bg)
+    def _kind_chip(self, parent: tk.Widget, disk: Disk) -> None:
+        label = C.kind_label(disk.kind)
+        if not label:
+            return
+        self._chip(parent, label, fg=MUTED, bg=SURFACE_ALT).pack(
+            side=tk.LEFT, padx=(10, 0)
+        )
 
-        def dot() -> None:
+    def _more_link(self, parent: tk.Widget, *, bg: str = BG) -> bool:
+        """Optional extra detail on this screen. Not a new step."""
+        open_ = self._show_more
+        link = tk.Label(
+            parent,
+            text=C.BTN_LESS if open_ else C.BTN_MORE,
+            font=self.font_s_bold,
+            fg=PRIMARY,
+            bg=bg,
+            cursor="hand2",
+            anchor="w",
+        )
+        link.pack(anchor="w", pady=(8, 0))
+
+        def toggle(_event=None) -> str:
+            self._show_more = not self._show_more
+            self._draw()
+            return "break"
+
+        link.bind("<Button-1>", toggle)
+        return open_
+
+    def _meta_line(self, parent: tk.Widget, disk: Disk, bg: str) -> tk.Frame:
+        """Characters they may type, then optional bus · path behind Show more."""
+        meta = tk.Frame(parent, bg=bg)
+        serial = disk.serial or C.NO_CODE
+        tk.Label(meta, text=serial, font=self.font_mono_bold, fg=INK, bg=bg).pack(
+            side=tk.LEFT
+        )
+        if self._show_more:
             tk.Label(meta, text="·", font=self.font_s, fg=BORDER_STRONG, bg=bg).pack(
                 side=tk.LEFT, padx=6
             )
-
-        tk.Label(meta, text=disk.bus, font=self.font_s, fg=MUTED, bg=bg).pack(side=tk.LEFT)
-        dot()
-        tk.Label(meta, text="Serial ", font=self.font_s, fg=MUTED, bg=bg).pack(side=tk.LEFT)
-        tk.Label(
-            meta, text=disk.serial or "no serial", font=self.font_mono_bold, fg=INK, bg=bg
-        ).pack(side=tk.LEFT)
-        dot()
-        tk.Label(meta, text="Device ", font=self.font_s, fg=MUTED, bg=bg).pack(side=tk.LEFT)
-        tk.Label(meta, text=disk.path, font=self.font_mono_sm, fg=MUTED, bg=bg).pack(
-            side=tk.LEFT
-        )
+            tk.Label(meta, text=disk.bus, font=self.font_s, fg=MUTED, bg=bg).pack(
+                side=tk.LEFT
+            )
+            tk.Label(meta, text="·", font=self.font_s, fg=BORDER_STRONG, bg=bg).pack(
+                side=tk.LEFT, padx=6
+            )
+            tk.Label(
+                meta, text=disk.path, font=self.font_mono_sm, fg=MUTED, bg=bg
+            ).pack(side=tk.LEFT)
         return meta
 
     def _disk_summary(self, parent: tk.Widget, disk: Disk) -> _Box:
@@ -1309,9 +1340,7 @@ class TkWizard:
         tk.Label(
             top, text=disk.display_name, font=self.font_bold, fg=INK, bg=SURFACE, anchor="w"
         ).pack(side=tk.LEFT)
-        self._chip(top, disk.kind.value, fg=MUTED, bg=SURFACE_ALT).pack(
-            side=tk.LEFT, padx=(10, 0)
-        )
+        self._kind_chip(top, disk)
         tk.Label(
             top, text=disk.size_phrase, font=self.font_size_big, fg=INK, bg=SURFACE, anchor="e"
         ).pack(side=tk.RIGHT)
@@ -1452,7 +1481,7 @@ class TkWizard:
 
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, "What this is")
+        self._title_block(col, C.TITLE_WHAT, C.WHAT_LEAD)
         zone = self._center_zone(col)
         card = _Box(
             zone, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
@@ -1469,9 +1498,10 @@ class TkWizard:
                 line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
                 wraplength=WRAP - 120, justify=tk.LEFT, anchor="w",
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
-        self._panel(
-            zone, kind="info", text=C.ENGINE_LINE, extra=C.SECURE_BOOT_HINT
-        ).pack(fill=tk.X, pady=(16, 0))
+        if self._more_link(zone):
+            self._panel(
+                zone, kind="info", text=C.ENGINE_LINE, extra=C.SECURE_BOOT_HINT
+            ).pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self.w.shutdown)
         self._primary_btn(row, C.BTN_UNDERSTAND, self.w.accept_what)
@@ -1481,7 +1511,7 @@ class TkWizard:
     def _owner(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._owner_var.set(1 if self.w.owner_ok else 0)
-        self._title_block(col, "You must be the owner", C.OWNER_LEAD)
+        self._title_block(col, C.TITLE_OWNER, C.OWNER_LEAD)
         zone = self._center_zone(col)
         checked = bool(self.w.owner_ok)
         card = _Box(
@@ -1557,9 +1587,7 @@ class TkWizard:
         tk.Label(
             title_row, text=disk.display_name, font=self.font_bold, fg=INK, bg=fill, anchor="w"
         ).pack(side=tk.LEFT)
-        self._chip(title_row, disk.kind.value, fg=MUTED, bg=SURFACE_ALT).pack(
-            side=tk.LEFT, padx=(10, 0)
-        )
+        self._kind_chip(title_row, disk)
         tk.Label(
             title_row, text=disk.size_phrase, font=self.font_size_big, fg=INK, bg=fill, anchor="e"
         ).pack(side=tk.RIGHT)
@@ -1594,11 +1622,12 @@ class TkWizard:
 
     def _pick(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, "Pick a disk", C.pick_subtitle())
+        self._title_block(col, C.TITLE_PICK, C.pick_subtitle())
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
             self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(0, 12))
+        self._more_link(col)
         list_wrap = tk.Frame(col, bg=BG)
         list_wrap.pack(fill=tk.BOTH, expand=True, pady=(2, 4))
         canvas = tk.Canvas(list_wrap, bg=BG, highlightthickness=0)
@@ -1751,7 +1780,7 @@ class TkWizard:
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
 
     def _blocked(self) -> None:
-        self._status_screen("warn", "Stop", self.w.error or C.IDENTIFY_ERROR)
+        self._status_screen("warn", C.TITLE_BLOCKED, self.w.error or C.IDENTIFY_ERROR)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self.w.shutdown)
@@ -1759,7 +1788,7 @@ class TkWizard:
             self._primary.focus_set()
 
     def _empty(self) -> None:
-        self._status_screen("info", "No disk to erase", C.EMPTY_DISKS)
+        self._status_screen("info", C.TITLE_EMPTY, C.EMPTY_DISKS)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self.w.shutdown)
@@ -1772,9 +1801,10 @@ class TkWizard:
         spec = self.w.confirm
         assert spec is not None
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, "Confirm the disk")
+        self._title_block(col, C.TITLE_CONFIRM)
         zone = self._center_zone(col)
         self._disk_summary(zone, disk).pack(fill=tk.X)
+        self._more_link(zone)
         self._panel(zone, kind="warn", text=self.w.warning_text()).pack(fill=tk.X, pady=(12, 0))
         self._p(zone, spec.prompt, font=self.font_b).pack(fill=tk.X, pady=(14, 8))
         shell = _Box(
@@ -1928,7 +1958,7 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         # Tightest screen in the wizard: keep the whole column inside the
         # 1024x740 minimum window with the footer fully visible.
-        self._title_block(col, "How thorough", compact=True)
+        self._title_block(col, C.TITLE_METHOD, C.METHOD_LEAD, compact=True)
         zone = self._center_zone(col)
         for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
             self._method_card(zone, method)
@@ -1954,7 +1984,7 @@ class TkWizard:
 
     def _last(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, "Last chance")
+        self._title_block(col, C.TITLE_LAST, C.LAST_LEAD)
         self._panel(col, kind="danger", text=self.w.erase_label()).pack(fill=tk.X)
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
@@ -2023,9 +2053,10 @@ class TkWizard:
     def _working(self) -> None:
         col = self._column(self._body, fill_height=True)
         disk = self.w.selected
-        self._title_block(col, "Working")
+        self._title_block(col, C.TITLE_WORKING)
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
+            self._more_link(col)
         card_copy = C.METHOD_CARDS[self.w.method]
         zone = self._center_zone(col)
         self._progress_pct = tk.Label(
@@ -2083,7 +2114,7 @@ class TkWizard:
     def _done(self) -> None:
         col = self._column(self._body, fill_height=True)
         ok = self.w.done_ok
-        title = "Finished" if ok else "The wipe did not finish"
+        title = C.TITLE_DONE_OK if ok else C.TITLE_DONE_FAIL
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         icon = _icon_status(col, ok, 96)
         icon.configure(bg=BG)
@@ -2101,6 +2132,7 @@ class TkWizard:
         ).pack(fill=tk.X)
         if self.w.selected is not None:
             self._disk_summary(col, self.w.selected).pack(fill=tk.X, pady=(24, 0))
+            self._more_link(col)
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         row = self._footer_shell(C.HINT_DEFAULT if self.w.preview else C.HINT_DONE)
         if self.w.preview:
@@ -2115,7 +2147,7 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         # Compact header: this is the second-tightest screen after method,
         # and it must fit the 1024x740 minimum window with the footer whole.
-        self._title_block(col, "Advanced", C.ADVANCED_LEAD, compact=True)
+        self._title_block(col, C.TITLE_ADVANCED, C.ADVANCED_LEAD, compact=True)
         from beamo_wipe.methods import METHODS
 
         zone = self._center_zone(col)
@@ -2142,7 +2174,7 @@ class TkWizard:
         log_row = tk.Frame(zone, bg=BG)
         log_row.pack(fill=tk.X, pady=(14, 4))
         tk.Label(
-            log_row, text="Log file (never on the target disk): ", font=self.font_s,
+            log_row, text=C.ADVANCED_LOG_LABEL, font=self.font_s,
             fg=MUTED, bg=BG, anchor="w",
         ).pack(side=tk.LEFT)
         tk.Label(

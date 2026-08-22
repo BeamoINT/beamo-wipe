@@ -102,7 +102,7 @@ def test_helper_page_does_not_wipe():
     text = (root / "helper" / "index.html").read_text(encoding="utf-8")
     blob = text.lower()
     assert "does not erase" in blob
-    assert "apple silicon macs are not supported" in blob
+    assert "not apple silicon macs" in blob
     assert "intel mac" in blob
     for phrase in FORBIDDEN:
         assert phrase not in blob

@@ -41,7 +41,7 @@ def test_boot_never_selectable():
 
 def test_unidentified_boot_raises():
     d = _disc("lsblk_no_boot.json", None)
-    with pytest.raises(SafetyError, match="Cannot tell which disk"):
+    with pytest.raises(SafetyError, match="cannot tell which disk"):
         assert_boot_excluded(d)
 
 

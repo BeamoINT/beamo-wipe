@@ -121,8 +121,21 @@ def test_gallery_mirrors_wizard_components():
         "countdownReady",
         "applyHash",  # deep links for screenshot verification
         "bootUsb",
+        "moreLink",  # optional extra detail, not a new screen
     ):
         assert marker in html
+
+
+def test_gallery_and_tk_share_plain_titles_and_more_detail():
+    html = gallery_html()
+    source = inspect.getsource(tkui.TkWizard)
+    for text in (C.TITLE_WHAT, C.TITLE_OWNER, C.TITLE_PICK, C.TITLE_CONFIRM,
+                 C.BTN_MORE, C.BTN_LESS, C.WHAT_LEAD, C.CONFIRM_LEAD):
+        assert text in html, text
+    assert "_more_link" in source
+    assert "TITLE_WHAT" in source
+    assert "BTN_MORE" in source
+    assert C.kind_label.__name__ in inspect.getsource(tkui) or "kind_label" in source
 
 
 def test_gallery_step_order_matches_tk():

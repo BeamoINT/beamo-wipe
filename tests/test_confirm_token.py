@@ -26,6 +26,9 @@ def test_unique_size_uses_gb_label():
     assert token_matches(spec.token, spec)
     assert token_matches(" " + spec.token + " ", spec)
     assert not token_matches("999", spec)
+    assert spec.token in spec.prompt
+    assert "numbers" in spec.prompt
+    assert "serial number" not in spec.prompt.lower()
 
 
 def test_duplicate_size_uses_serial_suffix():
@@ -37,6 +40,9 @@ def test_duplicate_size_uses_serial_suffix():
     assert spec0.token == disks[0].serial[-4:]
     assert spec1.token == disks[1].serial[-4:]
     assert spec0.token != spec1.token
+    assert "4 characters" in spec0.prompt
+    assert spec0.token in spec0.prompt
+    assert "serial number" not in spec0.prompt.lower()
     assert token_matches(spec0.token.lower(), spec0)
     assert not token_matches(spec0.token, spec1)
     assert not token_matches(disks[0].size_gb_label, spec0)

@@ -64,6 +64,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "name": disk.display_name,
                 "size": disk.size_phrase,
                 "kind": disk.kind.value,
+                "kindLabel": C.kind_label(disk.kind),
                 "bus": disk.bus,
                 "serial": disk.serial or "no serial",
                 "isBoot": disk.is_boot,
@@ -83,7 +84,23 @@ def gallery_html() -> str:
         "previewBanner": C.PREVIEW_BANNER,
         "splash": C.SPLASH_TAGLINE,
         "splashMeta": C.SPLASH_META,
+        "titles": {
+            "what": C.TITLE_WHAT,
+            "owner": C.TITLE_OWNER,
+            "pick": C.TITLE_PICK,
+            "confirm": C.TITLE_CONFIRM,
+            "method": C.TITLE_METHOD,
+            "advanced": C.TITLE_ADVANCED,
+            "last": C.TITLE_LAST,
+            "working": C.TITLE_WORKING,
+            "doneOk": C.TITLE_DONE_OK,
+            "doneFail": C.TITLE_DONE_FAIL,
+            "blocked": C.TITLE_BLOCKED,
+            "empty": C.TITLE_EMPTY,
+        },
+        "whatLead": C.WHAT_LEAD,
         "what": list(C.WHAT_BULLETS),
+        "whatMore": C.WHAT_MORE,
         "engine": C.ENGINE_LINE,
         "secureBoot": C.SECURE_BOOT_HINT,
         "owner": C.OWNER_CHECKBOX,
@@ -98,6 +115,9 @@ def gallery_html() -> str:
         "doneOk": C.DONE_OK_PREVIEW,
         "doneFail": C.DONE_FAIL_PREVIEW,
         "pickSubtitle": C.pick_subtitle(),
+        "confirmLead": C.CONFIRM_LEAD,
+        "methodLead": C.METHOD_LEAD,
+        "lastLead": C.LAST_LEAD,
         "recommended": C.RECOMMENDED_TAG,
         "matchWait": C.CONFIRM_MATCH_WAIT,
         "matchOk": C.CONFIRM_MATCH_OK,
@@ -105,6 +125,19 @@ def gallery_html() -> str:
         "countdownReady": C.COUNTDOWN_READY,
         "advancedLead": C.ADVANCED_LEAD,
         "advancedNote": C.ADVANCED_LOG_NOTE,
+        "advancedLogLabel": C.ADVANCED_LOG_LABEL,
+        "buttons": {
+            "understand": C.BTN_UNDERSTAND,
+            "shutdown": C.BTN_SHUTDOWN,
+            "closePreview": C.BTN_CLOSE_PREVIEW,
+            "runAgain": C.BTN_RUN_AGAIN,
+            "continue": C.BTN_CONTINUE,
+            "back": C.BTN_BACK,
+            "erase": C.BTN_ERASE,
+            "advanced": C.BTN_ADVANCED,
+            "more": C.BTN_MORE,
+            "less": C.BTN_LESS,
+        },
         "hints": {
             "default": C.HINT_DEFAULT,
             "pick": C.HINT_PICK,
@@ -280,6 +313,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .linkbtn { background: none; border: 0; color: var(--primary); font-size: 14px; font-weight: 700; cursor: pointer; padding: 6px 10px; text-align: left; border-radius: 8px; margin-left: -10px; }
   .linkbtn:hover { background: var(--primary-tint); }
   .linkbtn:focus-visible { outline: 3px solid var(--focus); }
+  .morelink { display: inline-block; margin: 8px 0 0; }
   .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px 16px; box-shadow: var(--shadow); }
   .entryshell:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
   input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 26px; font-weight: 700; width: 100%; padding: 4px 0; border: 0; outline: none; background: transparent; color: var(--ink); }
@@ -373,6 +407,7 @@ let timer = null;
 let fail = false;
 let mode = "happy";
 let demoPct = null;
+let showMore = false;
 
 document.getElementById("stripe").textContent = P.previewBanner;
 document.getElementById("brand").textContent = P.app;
@@ -431,6 +466,7 @@ function boot(m) {
   method = "everyday";
   tLeft = 5;
   demoPct = null;
+  showMore = false;
   if (timer) clearInterval(timer);
   draw();
 }
@@ -444,11 +480,11 @@ function disks() {
 }
 function selectable() { return disks().filter(d => !d.isBoot); }
 function stepInfo() {
-  const map = {splash:[0,"",""], what:[1,"Step 1 of 8","What this is"], owner:[2,"Step 2 of 8","Ownership"],
-    pick:[3,"Step 3 of 8","Pick a disk"], blocked:[3,"Step 3 of 8","Pick a disk"], empty:[3,"Step 3 of 8","Pick a disk"],
-    confirm:[4,"Step 4 of 8","Confirm the disk"], method:[5,"Step 5 of 8","How thorough"],
-    advanced:[5,"Advanced","Advanced"], last:[6,"Step 6 of 8","Last chance"],
-    working:[7,"Step 7 of 8","Erasing"], done:[8,"Step 8 of 8","Finished"]};
+  const map = {splash:[0,"",""], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
+    pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
+    confirm:[4,"Step 4 of 8",P.titles.confirm], method:[5,"Step 5 of 8",P.titles.method],
+    advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
+    working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk]};
   return map[screen] || [0,"",""];
 }
 function btn(label, fn, cls, disabled) {
@@ -468,12 +504,25 @@ function tokenOk() {
 function panel(kind, text) {
   return `<div class="panel ${kind}">${badge(kind, 28)}<div>${text}</div></div>`;
 }
+function moreLink() {
+  return `<button type="button" class="linkbtn morelink" id="more">${showMore ? P.buttons.less : P.buttons.more}</button>`;
+}
+function bindMore() {
+  const el = document.getElementById("more");
+  if (el) el.onclick = () => { showMore = !showMore; draw(); };
+}
 function metaLine(d) {
-  return `<div class="meta"><span>${d.bus}</span><span class="dot">·</span><span>Serial <span class="mono ser">${d.serial}</span></span><span class="dot">·</span><span>Device <span class="mono dev">${d.path}</span></span></div>`;
+  let html = `<div class="meta"><span class="mono ser">${d.serial}</span>`;
+  if (showMore) {
+    html += `<span class="dot">·</span><span>${d.bus}</span><span class="dot">·</span><span class="mono dev">${d.path}</span>`;
+  }
+  html += `</div>`;
+  return html;
 }
 function summaryCard(d) {
+  const chip = d.kindLabel ? `<span class="chip">${d.kindLabel}</span>` : "";
   return `<div class="card hero"><div class="row" style="align-items:center">
-    <div class="title grow">${d.name}<span class="chip">${d.kind}</span></div>
+    <div class="title grow">${d.name}${chip}</div>
     <div class="size">${d.size}</div></div>
     ${metaLine(d)}
   </div>`;
@@ -482,11 +531,12 @@ function diskCard(d) {
   const sel = selected && selected.path === d.path;
   const cls = d.isBoot ? "card boot" : ("card pickable" + (sel ? " sel" : ""));
   const icon = d.isBoot ? `<span class="radio" style="border:0;background:none">${ICON_NO}</span>` : `<span class="radio"></span>`;
+  const chip = d.kindLabel ? `<span class="chip">${d.kindLabel}</span>` : "";
   return `<div class="${cls}" data-path="${d.path}" ${d.isBoot ? "" : 'tabindex="0" role="button"'}>
     <div class="row">${icon}
       <div class="grow">
         <div class="row" style="align-items:center">
-          <div class="title grow">${d.name}<span class="chip">${d.kind}</span></div>
+          <div class="title grow">${d.name}${chip}</div>
           <div class="size">${d.size}</div>
         </div>
         ${metaLine(d)}
@@ -520,19 +570,21 @@ function draw() {
       <div class="marktile">${EMBLEM}</div>
       <div class="wordmark">${P.app}</div>
       <p class="splashlead">${P.splash}</p>
-      <button class="btn primary" id="herogo">Continue</button>
+      <button class="btn primary" id="herogo">${P.buttons.continue}</button>
       <div class="anykeycap">${P.hints.splash}</div>
       <div class="splashmeta">${P.splashMeta}</div></div>`;
     main.querySelector("#herogo").onclick = () => { screen = "what"; draw(); };
   } else if (screen === "what") {
-    main.innerHTML = `<h1>What this is</h1><div class="cz"><div class="czc">
+    main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
-      <div class="panel info" style="margin-top:16px">${badge("info", 28)}<div>
-      <div>${P.engine}</div><div class="extra">${P.secureBoot}</div></div></div></div></div>`;
-    btnsL.append(btn("Close preview", closePreview, "secondary"));
-    btnsR.append(btn("I understand", () => { screen = "owner"; draw(); }, "primary"));
+      ${moreLink()}
+      ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
+      <div>${P.engine}</div><div class="extra">${P.secureBoot}</div></div></div>` : ""}</div></div>`;
+    bindMore();
+    btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
+    btnsR.append(btn(P.buttons.understand, () => { screen = "owner"; draw(); }, "primary"));
   } else if (screen === "owner") {
-    main.innerHTML = `<h1 class="sub">You must be the owner</h1>
+    main.innerHTML = `<h1 class="sub">${P.titles.owner}</h1>
       <p class="subtitle">${P.ownerLead}</p>
       <div class="cz"><div class="czc"><div class="ownercard${owner ? " checked" : ""}" id="own" tabindex="0" role="checkbox" aria-checked="${owner}">
         <span class="cbox">${owner ? "✓" : ""}</span><span>${P.owner}</span></div></div></div>`;
@@ -540,43 +592,47 @@ function draw() {
     const toggle = () => { owner = !owner; draw(); };
     card.onclick = toggle;
     card.onkeydown = (e) => { if (e.key === " ") { e.preventDefault(); toggle(); } };
-    btnsL.append(btn("Back", () => { screen = "what"; draw(); }));
+    btnsL.append(btn(P.buttons.back, () => { screen = "what"; draw(); }));
     renderHint(P.hints.owner);
-    btnsR.append(btn("Continue", () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
+    btnsR.append(btn(P.buttons.continue, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
     main.innerHTML = `<div class="centerstage"><div class="badgehalo warn">${badge("warn", 51)}</div>
-      <h1>Stop</h1><p class="statustext">${P.identify}</p></div>`;
-    btnsL.append(btn("Back", () => { screen = "owner"; draw(); }));
-    btnsR.append(btn("Close preview", closePreview, "primary"));
+      <h1>${P.titles.blocked}</h1><p class="statustext">${P.identify}</p></div>`;
+    btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
+    btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "empty") {
     main.innerHTML = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
-      <h1>No disk to erase</h1><p class="statustext">${P.empty}</p></div>`;
-    btnsL.append(btn("Back", () => { screen = "owner"; draw(); }));
-    btnsR.append(btn("Close preview", closePreview, "primary"));
+      <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p></div>`;
+    btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
+    btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "pick") {
-    let html = `<h1 class="sub">Pick a disk</h1><p class="subtitle">${P.pickSubtitle}</p>`;
+    let html = `<h1 class="sub">${P.titles.pick}</h1><p class="subtitle">${P.pickSubtitle}</p>`;
     if (P.sameSizeConflict && mode === "happy") html += `<div style="margin-bottom:12px">${panel("warn", P.sameSize)}</div>`;
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd)}</div>`;
+    html += moreLink();
     html += `<div class="disklist">`;
     disks().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
+    bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => { selected = disks().find(d => d.path === el.dataset.path); draw(); };
       el.onclick = pick;
       el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
     });
     renderHint(P.hints.pick);
-    btnsL.append(btn("Back", () => { screen = "owner"; draw(); }));
-    btnsR.append(btn("Continue", () => { if (selected && !selected.isBoot) { screen = "confirm"; token=""; draw(); } }, "primary", !(selected && !selected.isBoot)));
+    btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
+    btnsR.append(btn(P.buttons.continue, () => { if (selected && !selected.isBoot) { screen = "confirm"; token=""; draw(); } }, "primary", !(selected && !selected.isBoot)));
   } else if (screen === "confirm") {
     const d = selected;
-    main.innerHTML = `<h1>Confirm the disk</h1><div class="cz"><div class="czc">
+    main.innerHTML = `<h1>${P.titles.confirm}</h1><div class="cz"><div class="czc">
       ${summaryCard(d)}
+      ${moreLink()}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
       <p style="font-size:16px;margin:14px 0 8px">${d.prompt}</p>
       <div class="entryshell"><input class="token" id="tok" autocomplete="off" spellcheck="false"></div>
       <p class="match" id="match"></p></div></div>`;
+    bindMore();
     const inp = main.querySelector("#tok");
     const matchEl = main.querySelector("#match");
     inp.value = token;
@@ -592,12 +648,12 @@ function draw() {
     sync();
     setTimeout(() => { inp.focus(); inp.setSelectionRange(token.length, token.length); }, 0);
     renderHint(P.hints.confirm);
-    btnsL.append(btn("Back", () => { screen = "pick"; draw(); }));
-    const cont = btn("Continue", () => { if (tokenOk()) { screen = "method"; draw(); } }, "primary", !tokenOk());
+    btnsL.append(btn(P.buttons.back, () => { screen = "pick"; draw(); }));
+    const cont = btn(P.buttons.continue, () => { if (tokenOk()) { screen = "method"; draw(); } }, "primary", !tokenOk());
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact">How thorough</h1><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
@@ -612,7 +668,7 @@ function draw() {
       </div>`;
     });
     html += `<div style="margin:2px 0">${panel("info", P.ssd)}</div>`;
-    html += `<button class="linkbtn" id="adv">Advanced (technicians)</button></div></div>`;
+    html += `<button class="linkbtn" id="adv">${P.buttons.advanced}</button></div></div>`;
     main.innerHTML = html;
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => { method = el.dataset.id; draw(); };
@@ -621,26 +677,26 @@ function draw() {
     });
     main.querySelector("#adv").onclick = () => { screen = "advanced"; draw(); };
     renderHint(P.hints.method);
-    btnsL.append(btn("Back", () => { screen = "confirm"; draw(); }));
-    btnsR.append(btn("Continue", () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
+    btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
+    btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
   } else if (screen === "advanced") {
-    let html = `<h1 class="compact sub">Advanced</h1><p class="subtitle" style="margin-bottom:6px">${P.advancedLead}</p><div class="cz"><div class="czc"><div class="card hero" style="padding:12px 20px">`;
+    let html = `<h1 class="compact sub">${P.titles.advanced}</h1><p class="subtitle" style="margin-bottom:6px">${P.advancedLead}</p><div class="cz"><div class="czc"><div class="card hero" style="padding:12px 20px">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       html += `<p class="mono advrow">${id}: nwipe --method=${m.nwipe} &nbsp;(${m.docs})</p>`;
     });
-    html += `</div><p class="muted small" style="margin:14px 0 4px">Log file (never on the target disk): <span class="mono" style="color:var(--ink)">(no wipe yet)</span></p>
+    html += `</div><p class="muted small" style="margin:14px 0 4px">${P.advancedLogLabel}<span class="mono" style="color:var(--ink)">(no wipe yet)</span></p>
       <p class="muted small">${P.advancedNote}</p></div></div>`;
     main.innerHTML = html;
-    btnsL.append(btn("Back", () => { screen = "method"; draw(); }));
-    btnsR.append(btn("Continue", () => { screen = "method"; draw(); }, "primary"));
+    btnsL.append(btn(P.buttons.back, () => { screen = "method"; draw(); }));
+    btnsR.append(btn(P.buttons.continue, () => { screen = "method"; draw(); }, "primary"));
   } else if (screen === "last") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ready = tLeft <= 0;
     const CIRC = 2 * Math.PI * 81;
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = ready ? "var(--ok)" : "var(--primary)";
-    main.innerHTML = `<h1>Last chance</h1>${panel("danger", selected.eraseLabel)}
+    main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>${panel("danger", selected.eraseLabel)}
       <div class="cz"><div class="czc"><div class="ringwrap"><div style="position:relative;width:190px;height:190px">
         <svg width="190" height="190" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
@@ -650,30 +706,34 @@ function draw() {
         </svg>
         <div class="ringnum" style="${ready ? "color:var(--ok)" : ""}">${ready ? "✓" : tLeft}</div></div>
       <div class="countcap${ready ? " ready" : ""}">${ready ? P.countdownReady : P.countdownCaption}</div></div></div></div>`;
-    btnsL.append(btn("Back", () => { if (timer) clearInterval(timer); screen = "method"; draw(); }));
-    btnsR.append(btn("Erase now", () => { if (tLeft<=0) startWork(); }, "danger", tLeft>0));
+    btnsL.append(btn(P.buttons.back, () => { if (timer) clearInterval(timer); screen = "method"; draw(); }));
+    btnsR.append(btn(P.buttons.erase, () => { if (tLeft<=0) startWork(); }, "danger", tLeft>0));
     renderHint(P.hints.lastChance);
   } else if (screen === "working") {
     if (!selected) { screen = "pick"; draw(); return; }
     const m = P.methods[method];
     const known = demoPct !== null;
     const pct = known ? demoPct : 0;
-    main.innerHTML = `<h1>Working</h1>
+    main.innerHTML = `<h1>${P.titles.working}</h1>
       ${summaryCard(selected)}
+      ${moreLink()}
       <div class="cz"><div class="czc">
       <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
       <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p></div></div>`;
+    bindMore();
     renderHint(P.hints.working);
   } else if (screen === "done") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
     main.innerHTML = `<div class="centerstage"><div class="status ${ok ? "ok" : "bad"}"><div class="core">${ok ? "✓" : "✕"}</div></div>
-      <h1>${ok?"Finished":"The wipe did not finish"}</h1>
+      <h1>${ok?P.titles.doneOk:P.titles.doneFail}</h1>
       <p class="statustext" style="color:var(--ink)">${ok?P.doneOk:P.doneFail}</p>
-      <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div></div>`;
-    btnsL.append(btn("Close preview", closePreview, "secondary"));
-    btnsR.append(btn("Run again", () => boot(fail ? "fail" : mode), "primary"));
+      <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div>
+      ${moreLink()}</div>`;
+    bindMore();
+    btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
+    btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
   }
 }
 function startCount() {
