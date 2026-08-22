@@ -172,18 +172,17 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <title>Beamo Wipe — screen preview</title>
 <style>
   :root {
-    --bg: #EDF0F7; --surface: #FFFFFF; --surface-alt: #F4F6FB;
+    /* Shared palette, pinned against ui/tk_wizard.py by tests/test_ui_system.py. */
+    --bg: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F4F6FB;
     --ink: #0C1728; --muted: #47536B;
     --border: #DCE2EC; --border-strong: #74839F;
-    --navy: #0A1B34; --navy-soft: #16315C; --navy-muted: #C9D6E8; --navy-text: #DAE3F1;
-    --navy-deep: #071426; --navy-glow: #1C3A6E;
+    --navy: #0A1B34; --navy-soft: #16315C; --navy-muted: #C9D6E8;
     --primary: #1D4ED8; --primary-dark: #1A41B8; --primary-press: #16337F; --primary-tint: #E9EFFC;
     --danger: #B3261E; --danger-dark: #8E1D16; --danger-press: #6E1510; --danger-tint: #FBEBE9; --danger-border: #E6A79E;
     --ok: #17703F; --ok-tint: #E7F2EB;
     --warn: #7A5200; --warn-bg: #FBF1D5; --warn-border: #E3CE96;
     --usb-bg: #F4EFE3; --usb-border: #D9CEB5;
     --focus: #1A3FA0; --accent: #E8A317;
-    --accent-hover: #F2B435; --accent-press: #C07F0E; --focus-on-navy: #FFFFFF;
     --disabled-bg: #E4E8EF; --disabled-fg: #6E7989; --track: #DFE5EF;
     /* One quiet shadow layer, mirroring the single offset rect in _Box. */
     --shadow: 0 4px 0 0 #D7DEEB;
@@ -207,24 +206,19 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .brandrow svg { flex: none; display: block; }
   .steppill { font-size: 14px; font-weight: 700; color: var(--accent); background: var(--navy-soft); border: 1px solid #2A4A7E; border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
   .strip { height: 6px; background: var(--track); }
-  .strip.splash { background: var(--navy-deep); }
   .strip .sfill { height: 100%; background: var(--accent); width: 0; transition: width .25s ease; border-radius: 0 3px 3px 0; }
-  .body { flex: 1; padding: 26px 24px 12px; }
-  /* Near-flat navy field: a faint blue lift high center, mirroring the Tk
-     splash, so the amber beam is the one glowing element. */
-  .body.navy { background: radial-gradient(ellipse 85% 85% at 50% 38%, #102444, var(--navy-deep)); }
+  .body { flex: 1; padding: 26px 24px 12px; background: var(--bg); }
   .col { max-width: 940px; margin: 0 auto; }
   h1 { font-size: 38px; margin: 0 0 14px; color: var(--ink); letter-spacing: -.01em; position: relative; padding-left: 26px; }
   /* The amber tick on every left-aligned screen title, mirroring _title_block. */
   h1::before { content: ""; position: absolute; left: 0; top: 7px; width: 8px; height: 34px; border-radius: 4px; background: var(--accent); }
-  .centerstage h1, .body.navy h1 { padding-left: 0; }
-  .centerstage h1::before, .body.navy h1::before { display: none; }
+  .centerstage h1 { padding-left: 0; }
+  .centerstage h1::before { display: none; }
   .lead { font-size: 20px; line-height: 1.45; margin: 0 0 12px; }
   .muted { color: var(--muted); }
   .small { font-size: 16px; }
   .mono { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
   .kbd { display: inline-block; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px; padding: 2px 9px; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.3; }
-  .kbd.dark { background: var(--navy-soft); border-color: #33517F; color: var(--navy-text); }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin: 0 4px 12px; }
   .card.hero { box-shadow: var(--shadow); margin-left: 0; margin-right: 0; }
   .card.pickable { cursor: pointer; }
@@ -314,25 +308,16 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .centerstage { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .centerstage h1 { margin: 26px 0 12px; }
   .centerstage .lead { max-width: 760px; }
-  /* Splash: one navy field, the beam through the brand mark, huge type,
-     and a single amber action — mirroring TkWizard._splash. */
+  /* Splash: a plain white field, the brand mark on its navy tile, huge
+     simple type, and one primary action — mirroring TkWizard._splash. */
   .splashwrap { min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
-  .beamrow { display: flex; align-items: center; width: min(760px, 88%); }
-  .beamrow .beam { flex: 1; height: 3px; border-radius: 2px; box-shadow: 0 0 26px 3px rgba(232,163,23,.38); }
-  .beamrow .beam.l { background: linear-gradient(90deg, transparent, var(--accent) 82%); }
-  .beamrow .beam.r { background: linear-gradient(90deg, var(--accent) 18%, transparent); }
-  .beamrow .emblemonbeam { flex: none; display: flex; }
-  .beamrow .emblemonbeam svg { display: block; }
-  .wordmark { font-size: clamp(54px, 8vw, 92px); font-weight: 700; color: #fff; letter-spacing: -.01em; margin-top: 34px; line-height: 1.05; }
-  .splashlead { font-size: 20px; line-height: 1.45; color: var(--navy-text); max-width: 720px; margin: 20px 0 0; }
-  .anykeycap { margin-top: 14px; font-size: 16px; color: var(--navy-muted); }
-  .splashmeta { position: absolute; bottom: 16px; left: 0; right: 0; font-size: 14px; color: #8F9CAE; }
-  button.btn.hero { background: var(--accent); color: var(--navy); min-width: 260px; padding: 19px 40px; margin-top: 42px; }
-  button.btn.hero:hover:not(:disabled) { background: var(--accent-hover); }
-  button.btn.hero:active:not(:disabled) { background: var(--accent-press); }
-  button.btn.hero:focus-visible { outline: 3px solid var(--focus-on-navy); outline-offset: 2px; }
-  .body.navy h1, .body.navy .lead { color: #fff; }
-  .body.navy .muted { color: var(--navy-muted); }
+  .marktile { background: var(--navy); border-radius: 40px; padding: 24px 27px; display: flex; }
+  .marktile svg { display: block; }
+  .wordmark { font-size: clamp(54px, 8vw, 92px); font-weight: 700; color: var(--ink); letter-spacing: -.01em; margin-top: 34px; line-height: 1.05; }
+  .splashlead { font-size: 20px; line-height: 1.45; color: var(--muted); max-width: 720px; margin: 20px 0 0; }
+  .splashwrap .btn.primary { min-width: 260px; padding: 19px 40px; margin-top: 42px; }
+  .anykeycap { margin-top: 14px; font-size: 16px; color: var(--muted); }
+  .splashmeta { position: absolute; bottom: 16px; left: 0; right: 0; font-size: 14px; color: var(--muted); }
   .disklist { max-height: 372px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #A3AEC2 transparent; }
   .disklist::-webkit-scrollbar { width: 12px; }
   .disklist::-webkit-scrollbar-thumb { background: #A3AEC2; border-radius: 6px; border: 3px solid var(--bg); }
@@ -501,24 +486,25 @@ function draw() {
   stepEl.textContent = info[1];
   stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
   document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
-  document.getElementById("body").className = screen === "splash" ? "body navy" : "body";
-  document.querySelector(".strip").className = screen === "splash" ? "strip splash" : "strip";
   const main = document.getElementById("main");
   const btns = document.getElementById("btns");
   const hint = document.getElementById("hint");
   main.innerHTML = "";
   btns.innerHTML = "";
-  // The splash keeps the field clean: its one action lives on the navy
-  // canvas, so the hint bar and button row fold away entirely.
-  hint.style.display = screen === "splash" ? "none" : "";
-  btns.style.display = screen === "splash" ? "none" : "";
+  // The splash keeps the white field clean: no header, no progress strip,
+  // no hint bar, no button row — just the mark, the type, and one action.
+  const splash = screen === "splash";
+  document.querySelector(".hdr").style.display = splash ? "none" : "";
+  document.querySelector(".strip").style.display = splash ? "none" : "";
+  hint.style.display = splash ? "none" : "";
+  btns.style.display = splash ? "none" : "";
   renderHint(P.hints.default);
   if (screen === "splash") {
     main.innerHTML = `<div class="splashwrap">
-      <div class="beamrow"><span class="beam l"></span><span class="emblemonbeam">${EMBLEM}</span><span class="beam r"></span></div>
+      <div class="marktile">${EMBLEM}</div>
       <div class="wordmark">${P.app}</div>
       <p class="splashlead">${P.splash}</p>
-      <button class="btn hero" id="herogo">Continue</button>
+      <button class="btn primary" id="herogo">Continue</button>
       <div class="anykeycap">${P.hints.splash}</div>
       <div class="splashmeta">${P.splashMeta}</div></div>`;
     main.querySelector("#herogo").onclick = () => { screen = "what"; draw(); };

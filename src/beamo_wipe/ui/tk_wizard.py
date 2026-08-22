@@ -30,10 +30,10 @@ Design rules:
 - One screen-header pattern: amber tick, bold title at a standard rhythm,
   optional muted subtitle. Identifiers (serials, paths) render in readable
   mono.
-- The splash is the brand moment: a near-flat navy field, the amber beam
-  behind the mark, the largest type in the system, and exactly one action
-  (the amber Continue pill). The any-key shortcut is a caption, not a
-  second competing affordance.
+- The splash is the quiet product open: a plain white field with no
+  chrome, the brand mark on its navy tile, the largest type in the
+  system, and exactly one action (the primary Continue pill). The
+  any-key shortcut is a caption, not a second competing affordance.
 - Keyboard affordances are drawn as key-caps, not buried in prose.
 """
 
@@ -59,7 +59,9 @@ from beamo_wipe.wizard import COUNTDOWN_S, Wizard
 # same values — tests/test_ui_system.py pins the sync and the WCAG contrast
 # floor, so tune here and mirror there, never in one place only.
 
-BG = "#EDF0F7"
+# The field is plain white on every screen, splash included: hierarchy
+# comes from spacing, type, and the navy/amber brand accents, not tint.
+BG = "#FFFFFF"
 SURFACE = "#FFFFFF"
 SURFACE_ALT = "#F4F6FB"
 INK = "#0C1728"
@@ -71,9 +73,7 @@ BORDER_STRONG = "#74839F"
 NAVY = "#0A1B34"
 NAVY_SOFT = "#16315C"
 NAVY_MUTED = "#C9D6E8"
-NAVY_TEXT = "#DAE3F1"
-NAVY_DEEP = "#071426"  # splash background edge / emblem platter
-NAVY_GLOW = "#1C3A6E"  # splash spotlight center (decorative)
+NAVY_DEEP = "#071426"  # fallback emblem platter
 PRIMARY = "#1D4ED8"
 PRIMARY_DARK = "#1A41B8"
 PRIMARY_PRESS = "#16337F"
@@ -92,10 +92,6 @@ USB_BG = "#F4EFE3"
 USB_BORDER = "#D9CEB5"
 FOCUS = "#1A3FA0"
 ACCENT = "#E8A317"
-ACCENT_HOVER = "#F2B435"  # lighter amber: hero button hover
-ACCENT_PRESS = "#C07F0E"  # deeper amber: hero button press
-# Focus ring on the navy splash, where the blue FOCUS ring would disappear.
-FOCUS_ON_NAVY = "#FFFFFF"
 DISABLED_BG = "#E4E8EF"
 DISABLED_FG = "#6E7989"
 TRACK = "#DFE5EF"
@@ -155,7 +151,7 @@ def _mono_family(root: tk.Tk) -> str:
     return "TkFixedFont"
 
 
-# --- Color and spotlight helpers -------------------------------------------
+# --- Color helpers ---------------------------------------------------------
 
 
 def _mix(a: str, b: str, t: float) -> str:
@@ -163,28 +159,6 @@ def _mix(a: str, b: str, t: float) -> str:
     ca = [int(a[i : i + 2], 16) for i in (1, 3, 5)]
     cb = [int(b[i : i + 2], 16) for i in (1, 3, 5)]
     return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
-
-
-def _radial(
-    canvas: tk.Canvas,
-    cx: float,
-    cy: float,
-    radius: float,
-    inner: str,
-    outer: str,
-    *,
-    steps: int = 34,
-    squash: float = 0.82,
-    tags: str = "glow",
-) -> None:
-    """Soft elliptical spotlight: concentric ovals, inner color at the core."""
-    for i in range(steps, 0, -1):
-        r = radius * i / steps
-        color = _mix(inner, outer, i / steps)
-        canvas.create_oval(
-            cx - r, cy - r * squash, cx + r, cy + r * squash,
-            fill=color, outline="", tags=tags,
-        )
 
 
 # --- Rounded rectangles ----------------------------------------------------
@@ -554,15 +528,12 @@ class _Button(tk.Canvas):
     the control always answers the user.
     """
 
-    # bg, fg, hover, press, outline, focus-ring. The hero variant is the
-    # splash's one big action: amber on navy, with a light ring that stays
-    # visible on the dark field.
+    # bg, fg, hover, press, outline, focus-ring.
     _VARIANTS = {
         "primary": (PRIMARY, "#FFFFFF", PRIMARY_DARK, PRIMARY_PRESS, None, FOCUS),
         "danger": (DANGER, "#FFFFFF", DANGER_DARK, DANGER_PRESS, None, FOCUS),
         "secondary": (SURFACE, INK, SURFACE_ALT, "#E6EAF0", BORDER_STRONG, FOCUS),
         "ghost": (None, PRIMARY, PRIMARY_TINT, "#D9E5F8", None, FOCUS),
-        "hero": (ACCENT, NAVY, ACCENT_HOVER, ACCENT_PRESS, None, FOCUS_ON_NAVY),
     }
 
     _RING_GAP = 4  # canvas room below the pill so the focus ring never clips
@@ -851,8 +822,9 @@ class TkWizard:
         self._strip: Optional[tk.Canvas] = None
         self._hint: Optional[tk.Frame] = None
         self._primary: Optional[_Button] = None
-        self._splash_hero: Optional[_Button] = None
-        self._splash_hero_item: Optional[int] = None
+        # The splash hides the header/strip so the white field runs clean;
+        # every other screen shows them. Tracked so re-packing stays ordered.
+        self._chrome_shown = True
         self._countdown_ring: Optional[tk.Canvas] = None
         self._countdown_num: Optional[tk.Label] = None
         self._countdown_label: Optional[tk.Label] = None
@@ -985,15 +957,26 @@ class TkWizard:
         width = cv.winfo_width()
         if width <= 1:
             return
-        if self.w.screen == Screen.SPLASH:
-            # No track line on the splash: the navy field runs edge to edge.
-            cv.create_rectangle(-2, -2, width + 2, 8, fill=NAVY_DEEP, outline="")
-            return
         step = _STEP_ORDER.get(self.w.screen, (0, "", ""))[0]
         frac = step / 8.0
         if frac > 0:
             # The progress fill is the brand beam, not the action color.
             _round_rect(cv, 0, 0, max(6.0, width * frac), 6, 3, fill=ACCENT, outline="")
+
+    def _sync_chrome(self, splash: bool) -> None:
+        """The splash drops the header and progress strip so the first
+        screen is one plain white field; every other screen shows them.
+        Re-pack before the body so the chrome keeps its place on top."""
+        if self._header is None or self._strip is None or self._body is None:
+            return
+        if splash and self._chrome_shown:
+            self._header.pack_forget()
+            self._strip.pack_forget()
+            self._chrome_shown = False
+        elif not splash and not self._chrome_shown:
+            self._header.pack(fill=tk.X, before=self._body)
+            self._strip.pack(fill=tk.X, before=self._body)
+            self._chrome_shown = True
 
     def _column(self, parent: tk.Widget, *, fill_height: bool, bg: str = BG) -> tk.Frame:
         col = tk.Frame(parent, bg=bg)
@@ -1066,8 +1049,6 @@ class TkWizard:
         self._clear(self._footer)
         self._primary = None
         self._primary_cmd = None
-        self._splash_hero = None
-        self._splash_hero_item = None
         self._countdown_ring = None
         self._countdown_num = None
         self._countdown_label = None
@@ -1078,7 +1059,8 @@ class TkWizard:
         self._match_icon = None
         self._match_pill = None
         screen = self.w.screen
-        self._body.configure(bg=NAVY_DEEP if screen == Screen.SPLASH else BG)
+        self._sync_chrome(screen == Screen.SPLASH)
+        self._body.configure(bg=BG)
         dispatch = {
             Screen.SPLASH: self._splash,
             Screen.WHAT: self._what,
@@ -1135,7 +1117,7 @@ class TkWizard:
         top = 12 if compact else 30
         bottom = 8 if compact else 18
         # Every left-aligned screen title carries the same small amber tick:
-        # one quiet brand beat per screen, echoing the splash beam.
+        # one quiet brand beat per screen.
         row = tk.Frame(col, bg=BG)
         row.pack(fill=tk.X, pady=(top, 6 if subtitle else bottom))
         tick_h = self.font_h.metrics("linespace")
@@ -1163,37 +1145,32 @@ class TkWizard:
         chip.fit_now()
         return chip
 
-    def _kbd(self, parent: tk.Widget, text: str, *, dark: bool = False) -> _Box:
+    def _kbd(self, parent: tk.Widget, text: str) -> _Box:
         """A keyboard key-cap. Makes keyboard affordances scannable."""
-        fill = NAVY_SOFT if dark else SURFACE
-        outline = "#33517F" if dark else BORDER_STRONG
-        fg = NAVY_TEXT if dark else INK
-        cap = _Box(parent, radius=7, fill=fill, outline=outline, ow=1, padx=9, pady=2)
-        tk.Label(cap.inner, text=text, font=self.font_tiny, fg=fg, bg=fill).pack()
+        cap = _Box(parent, radius=7, fill=SURFACE, outline=BORDER_STRONG, ow=1, padx=9, pady=2)
+        tk.Label(cap.inner, text=text, font=self.font_tiny, fg=INK, bg=SURFACE).pack()
         cap.fit_now()
         return cap
 
-    def _hint_bar(self, parent: tk.Widget, hint: str, *, dark: bool = False) -> tk.Frame:
+    def _hint_bar(self, parent: tk.Widget, hint: str) -> tk.Frame:
         """Hint copy with known key names rendered as key-caps."""
-        bar = tk.Frame(parent, bg=NAVY_DEEP if dark else BG)
-        fg = NAVY_MUTED if dark else MUTED
+        bar = tk.Frame(parent, bg=BG)
         pos = 0
         for match in _KEY_TOKEN_RE.finditer(hint):
             if match.start() > pos:
-                self._hint_text(bar, hint[pos:match.start()], fg, dark)
+                self._hint_text(bar, hint[pos:match.start()])
             for key in _KEY_TOKEN_KEYS.get(match.group(0), (match.group(0),)):
-                self._kbd(bar, key, dark=dark).pack(side=tk.LEFT, padx=(0, 5))
+                self._kbd(bar, key).pack(side=tk.LEFT, padx=(0, 5))
             pos = match.end()
         if pos < len(hint):
-            self._hint_text(bar, hint[pos:], fg, dark)
+            self._hint_text(bar, hint[pos:])
         return bar
 
-    def _hint_text(self, parent: tk.Widget, text: str, fg: str, dark: bool) -> None:
+    def _hint_text(self, parent: tk.Widget, text: str) -> None:
         if not text:
             return
         tk.Label(
-            parent, text=text, font=self.font_s, fg=fg,
-            bg=NAVY_DEEP if dark else BG, anchor="w",
+            parent, text=text, font=self.font_s, fg=MUTED, bg=BG, anchor="w",
         ).pack(side=tk.LEFT)
 
     def _panel(
@@ -1380,129 +1357,58 @@ class TkWizard:
 
     # -- screens ---------------------------------------------------------------
 
-    def _splash(self) -> None:
-        """The product open: one navy field, the beam, one amber action.
+    # Brand tile on the splash: the mark (white glyph, amber bolt) needs a
+    # dark tile to read on the white field. Sized like the favicon.
+    _TILE_PAD_X = 27
+    _TILE_PAD_Y = 24
+    _TILE_RADIUS = 40
 
-        No light footer bar and no key-cap next to the button — the single
-        obvious next step is the amber Continue pill on the field, and the
-        any-key shortcut is a quiet caption under it (the global key
-        handlers still skip the splash on any key, Enter, or Esc).
+    def _splash(self) -> None:
+        """The product open: a plain white field, the mark, one action.
+
+        No chrome, no footer, no key-caps, no ornament — the single
+        obvious next step is the Continue pill, and the any-key shortcut
+        is a quiet caption under it (the global key handlers still skip
+        the splash on any key, Enter, or Esc).
         """
-        cv = tk.Canvas(self._body, bg=NAVY_DEEP, highlightthickness=0, bd=0)
-        cv.grid(row=0, column=0, columnspan=3, sticky="nsew")
+        col = self._column(self._body, fill_height=True)
+        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
+        logo = self._logo_splash
+        mark_w = float(logo.width()) if logo is not None else 108.0
+        mark_h = float(logo.height()) if logo is not None else 108.0
+        tile_w = mark_w + 2 * self._TILE_PAD_X
+        tile_h = mark_h + 2 * self._TILE_PAD_Y
+        tile = tk.Canvas(
+            col, width=int(tile_w), height=int(tile_h),
+            bg=BG, highlightthickness=0, bd=0,
+        )
+        _round_rect(tile, 1, 1, tile_w - 1, tile_h - 1, self._TILE_RADIUS, fill=NAVY, outline="")
+        if logo is not None:
+            tile.create_image(tile_w / 2.0, tile_h / 2.0, image=logo)
+        else:
+            _draw_emblem(tile, tile_w / 2.0, tile_h / 2.0, 108)
+        tile.pack()
+        tk.Label(col, text=C.APP_NAME, font=self.font_hero, fg=INK, bg=BG).pack(pady=(34, 0))
+        self._p(
+            col, C.SPLASH_TAGLINE, fg=MUTED,
+            wraplength=660, justify=tk.CENTER, anchor="center",
+        ).pack(fill=tk.X, pady=(18, 0))
         hero = _Button(
-            cv,
+            col,
             text=C.BTN_CONTINUE,
             command=self._nav(self.w.skip_splash),
             font=self.font_btn,
-            variant="hero",
+            variant="primary",
             large=True,
             min_width=260,
         )
+        hero.pack(pady=(42, 0))
         self._primary = hero
         self._primary_cmd = self.w.skip_splash
-        self._splash_hero = hero
-        self._splash_hero_item: Optional[int] = None
-        cv.bind("<Configure>", lambda _e: self._splash_redraw(cv))
+        tk.Label(col, text=C.HINT_SPLASH, font=self.font_s, fg=MUTED, bg=BG).pack(pady=(16, 0))
+        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
+        tk.Label(col, text=C.SPLASH_META, font=self.font_meta, fg=MUTED, bg=BG).pack(pady=(0, 24))
         hero.focus_set()
-
-    def _splash_redraw(self, cv: tk.Canvas) -> None:
-        if self._splash_hero is None:
-            return  # the splash canvas is being torn down
-        width = cv.winfo_width()
-        height = cv.winfo_height()
-        if width <= 1 or height <= 1:
-            return
-        cv.delete("art")
-        cx = width / 2.0
-        spot_cy = height * 0.38
-        spot_r = max(width, height) * 0.85
-        # The field stays near-flat deep navy: only a faint blue lift high
-        # center, so the amber beam is the one glowing element. A strong
-        # spotlight reads as a 2014 admin console on old panels.
-        field_lift = _mix(NAVY_GLOW, NAVY_DEEP, 0.58)
-        _radial(cv, cx, spot_cy, spot_r, field_lift, NAVY_DEEP, steps=64, tags="art")
-
-        # Vertical stack: emblem on the beam, wordmark, tagline, the one
-        # action, its caption. Measured up front so the group sits slightly
-        # above the optical center.
-        logo = self._logo_splash
-        emblem_h = float(logo.height()) if logo is not None else 108.0
-        word_h = float(self.font_hero.metrics("linespace"))
-        tag_h = float(self.font_lead.metrics("linespace")) * 2
-        hero_h = float(self._splash_hero.winfo_reqheight())
-        cap_h = float(self.font_s.metrics("linespace"))
-        gap_emblem_word, gap_word_tag = 34.0, 20.0
-        gap_tag_cta, gap_cta_cap = 42.0, 14.0
-        total = (
-            emblem_h + gap_emblem_word + word_h + gap_word_tag + tag_h
-            + gap_tag_cta + hero_h + gap_cta_cap + cap_h
-        )
-        top = max(24.0, (height - total) * 0.40)
-        beam_y = top + emblem_h / 2.0
-
-        # The beam: a thin amber horizon line behind the brand mark, with a
-        # soft warm haze. The haze's outer color matches the spotlight at
-        # this height so the ellipse edge never shows.
-        local = _mix(
-            field_lift, NAVY_DEEP, min(1.0, abs(beam_y - spot_cy) / spot_r)
-        )
-        beam_half = min(430.0, width * 0.36)
-        _radial(
-            cv, cx, beam_y, beam_half * 1.08,
-            _mix(ACCENT, local, 0.42), local, steps=32, squash=0.085, tags="art",
-        )
-        self._beam(cv, cx, beam_y, beam_half, local)
-        if logo is not None:
-            cv.create_image(cx, beam_y, image=logo, tags="art")
-        else:
-            _draw_emblem(cv, cx, beam_y, 108, tags="art")
-
-        y = beam_y + emblem_h / 2.0 + gap_emblem_word
-        cv.create_text(
-            cx, y, anchor="n", text=C.APP_NAME, font=self.font_hero,
-            fill="#FFFFFF", tags="art",
-        )
-        y += word_h + gap_word_tag
-        cv.create_text(
-            cx, y, anchor="n", text=C.SPLASH_TAGLINE, font=self.font_lead,
-            fill=NAVY_TEXT, width=720, justify="center", tags="art",
-        )
-        y += tag_h + gap_tag_cta
-        hero = self._splash_hero
-        if self._splash_hero_item is None:
-            self._splash_hero_item = cv.create_window(
-                cx, y + hero_h / 2.0, window=hero
-            )
-        else:
-            cv.coords(self._splash_hero_item, cx, y + hero_h / 2.0)
-        # Art is redrawn after the window item exists; keep the button on top.
-        cv.tag_raise(self._splash_hero_item, "art")
-        y += hero_h + gap_cta_cap
-        cv.create_text(
-            cx, y, anchor="n", text=C.HINT_SPLASH, font=self.font_s,
-            fill=NAVY_MUTED, tags="art",
-        )
-        cv.create_text(
-            cx, height - 26, anchor="s", text=C.SPLASH_META, font=self.font_meta,
-            fill=_mix(NAVY_MUTED, NAVY_DEEP, 0.30), tags="art",
-        )
-
-    @staticmethod
-    def _beam(cv: tk.Canvas, cx: float, y: float, half: float, base: str) -> None:
-        """Amber horizon line: solid core, tips fading into the field."""
-        segments = 56
-        seg_w = 2.0 * half / segments
-        for i in range(segments):
-            t = (i + 0.5) / segments  # 0..1 left to right
-            edge = abs(t - 0.5) * 2.0  # 0 at center, 1 at tips
-            fade = min(1.0, max(0.0, (edge - 0.55) / 0.45))
-            color = _mix(ACCENT, base, fade * fade)
-            x0 = cx - half + i * seg_w
-            cv.create_rectangle(
-                x0, y - 1.5, x0 + seg_w + 0.6, y + 1.5,
-                fill=color, outline="", tags="art",
-            )
 
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
