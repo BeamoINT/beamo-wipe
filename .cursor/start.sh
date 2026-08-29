@@ -62,6 +62,7 @@ if [ -e /dev/kvm ] && [ ! -w /dev/kvm ]; then
   sudo chmod a+rw /dev/kvm || true
 fi
 
-start_dockerd
+# Nested Docker/ISO is optional. Xvfb :99 is required for Tk pytest.
+start_dockerd || true
 start_xvfb
-echo "Beamo Wipe Cloud start complete (dockerd + Xvfb :99 @ 72 DPI)."
+echo "Beamo Wipe Cloud start complete (Xvfb :99 @ 72 DPI; dockerd optional)."
