@@ -137,5 +137,7 @@ Tests use fake `lsblk` JSON. They never run nwipe on a real disk.
 python3 -m beamo_wipe --demo   # same as ./preview
 ```
 
+Cursor Cloud Agents boot from `.cursor/environment.json` (`install.sh` / `start.sh`); `.cursor/check.sh` is the smoke.
+
 Default everyday method is nwipe `prng`, one round, verify last, no blank pass.
 Details: [docs/ADVANCED.md](docs/ADVANCED.md).

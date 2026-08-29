@@ -30,7 +30,7 @@ The real gate for Python is local pytest. GitHub Actions may be billing-blocked 
 
 ## Cursor Cloud specific instructions
 
-Cursor Cloud Agent VMs for this repo are **x86_64 Ubuntu**, not the Apple silicon Mac.
+Cursor Cloud Agent VMs for this repo are **x86_64 Ubuntu**, not the Apple silicon Mac. Committed boot is `.cursor/environment.json` → `.cursor/install.sh` then `.cursor/start.sh` (dockerd + Xvfb `:99` at 72 DPI). `.cursor/check.sh` is the fast smoke.
 
 Python gate on Cloud Agents: Tk layout tests scale with X DPI. The VNC desktop is `DISPLAY=:1` at 96 DPI and fails clipping tests. Use 72 DPI:
 
@@ -38,7 +38,7 @@ Python gate on Cloud Agents: Tk layout tests scale with X DPI. The VNC desktop i
 xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest
 ```
 
-The environment start script also launches Xvfb on `:99` at 72 DPI, so `DISPLAY=:99 python3 -m pytest` works. Do not replace `:1` (computer-use / VNC).
+`.cursor/start.sh` launches Xvfb on `:99` at 72 DPI, so `DISPLAY=:99 python3 -m pytest` works. Do not replace `:1` (computer-use / VNC).
 
 `packaging/live/config/{bootstrap,binary}` are gitignored live-build outputs. Two tests in `tests/test_live_image.py` fail until `lb config` has been run inside `./scripts/build-iso.sh`. That is expected on a fresh checkout.
 
