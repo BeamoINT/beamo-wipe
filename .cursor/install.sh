@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Idempotent Linux x86_64 bootstrap for Cursor Cloud Agent VMs.
-# Prepares pytest, Tk/Xvfb preview, and Docker/QEMU ISO tooling.
-# Does not build the live ISO, does not start daemons, and never runs nwipe
-# on a disk. Apple Silicon / macOS paths are out of scope.
+# Prepares pytest, Tk/Xvfb preview, and QEMU packages.
+# Nested Docker / fuse-overlayfs / ISO tooling is optional: a fuse3 conffile
+# prompt (Cursor's agent-store-fuse already writes /etc/fuse.conf) must not
+# abort the snapshot rebuild. Does not build the live ISO, does not start
+# daemons, and never runs nwipe on a disk. Apple Silicon / macOS are out of scope.
 set -euo pipefail
 
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
@@ -19,8 +21,44 @@ if ! command -v sudo >/dev/null 2>&1; then
 fi
 
 export DEBIAN_FRONTEND=noninteractive
+export DEBCONF_NONINTERACTIVE_SEEN=true
+export NEEDRESTART_MODE=l
 
-PKGS=(
+# Keep existing conffiles (Cursor install-agent-store-fuse ships /etc/fuse.conf).
+# Without this, dpkg hits "end of file on stdin at conffile prompt" and exits 100.
+APT_DPKG_OPTS=(
+  -o Dpkg::Options::=--force-confdef
+  -o Dpkg::Options::=--force-confold
+)
+
+pkg_installed() {
+  dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'
+}
+
+apt_install_required() {
+  sudo apt-get install -y --no-install-recommends "${APT_DPKG_OPTS[@]}" "$@"
+}
+
+# Nested Docker packages. Never abort the snapshot: warn and continue.
+apt_install_optional() {
+  local pkg="$1"
+  local why="$2"
+  if pkg_installed "$pkg"; then
+    return 0
+  fi
+  if sudo apt-get install -y --no-install-recommends "${APT_DPKG_OPTS[@]}" "$pkg"; then
+    return 0
+  fi
+  echo "WARN: $pkg did not configure ($why). Nested Docker/ISO is optional; continuing." >&2
+  sudo DEBIAN_FRONTEND=noninteractive dpkg --force-confdef --force-confold --configure -a \
+    >/dev/null 2>&1 || true
+  if pkg_installed "$pkg"; then
+    echo "WARN: $pkg configured on retry." >&2
+  fi
+  return 0
+}
+
+REQUIRED_PKGS=(
   ca-certificates
   curl
   git
@@ -32,7 +70,6 @@ PKGS=(
   xvfb
   xauth
   fonts-dejavu-core
-  fuse-overlayfs
   iptables
   qemu-system-x86
   qemu-utils
@@ -40,26 +77,41 @@ PKGS=(
 )
 
 need_apt=0
-for pkg in "${PKGS[@]}"; do
-  if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+for pkg in "${REQUIRED_PKGS[@]}"; do
+  if ! pkg_installed "$pkg"; then
     need_apt=1
     break
   fi
 done
 
+need_optional=0
+if ! pkg_installed fuse-overlayfs; then
+  need_optional=1
+fi
 if ! command -v docker >/dev/null 2>&1; then
-  need_apt=1
-  PKGS+=(docker.io)
+  need_optional=1
+fi
+
+if [ "$need_apt" -eq 1 ] || [ "$need_optional" -eq 1 ]; then
+  sudo apt-get update
 fi
 
 if [ "$need_apt" -eq 1 ]; then
-  sudo apt-get update
-  sudo apt-get install -y --no-install-recommends "${PKGS[@]}"
+  apt_install_required "${REQUIRED_PKGS[@]}"
 fi
 
-# Nested Docker: overlayfs often fails; fuse-overlayfs is the documented driver.
-# Merge into any existing daemon.json so we do not drop other keys.
-sudo python3 - <<'PY'
+# Separate transaction from python/tk/qemu. Snapshot-builder VMs often already
+# have /etc/fuse.conf; fuse3 then prompts and used to fail the whole install.
+apt_install_optional fuse-overlayfs "fuse3 conffile prompt or missing /dev/fuse"
+
+if ! command -v docker >/dev/null 2>&1; then
+  apt_install_optional docker.io "nested Docker is optional for ISO builds"
+fi
+
+# Only pin fuse-overlayfs when the package actually configured. Writing this
+# driver while fuse3 is half-installed makes dockerd refuse to start.
+if pkg_installed fuse-overlayfs; then
+  sudo python3 - <<'PY'
 import json
 from pathlib import Path
 
@@ -80,6 +132,9 @@ data["features"] = features
 path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 PY
+else
+  echo "WARN: fuse-overlayfs not installed; leaving /etc/docker/daemon.json unchanged." >&2
+fi
 
 if [ -x /usr/sbin/iptables-legacy ]; then
   sudo update-alternatives --set iptables /usr/sbin/iptables-legacy >/dev/null 2>&1 || true
@@ -104,6 +159,6 @@ else
 fi
 
 echo "Beamo Wipe Cloud install complete."
-echo "Daemons are started by .cursor/start.sh (dockerd + Xvfb :99 at 72 DPI)."
+echo "Daemons are started by .cursor/start.sh (dockerd optional + Xvfb :99 at 72 DPI)."
 echo "ISO build is optional and not run here: ./scripts/build-iso.sh after Docker is up."
 echo "Smoke: bash .cursor/check.sh"
