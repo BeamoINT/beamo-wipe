@@ -23,14 +23,14 @@ if [ "$(uname -s)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then
   bad "expected Linux x86_64"
 fi
 
-if python3 --version; then
-  ok "python3 $(python3 --version | awk '{print $2}')"
+if command -v python3 >/dev/null 2>&1; then
+  ok "$(python3 --version 2>&1)"
 else
   bad "python3 missing"
 fi
 
-if python3 -c "import tkinter; print(tkinter.TkVersion)"; then
-  ok "tkinter"
+if tkver="$(python3 -c 'import tkinter; print(tkinter.TkVersion)' 2>/dev/null)"; then
+  ok "tkinter $tkver"
 else
   bad "python3-tk / tkinter missing"
 fi

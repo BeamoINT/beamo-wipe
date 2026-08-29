@@ -97,7 +97,7 @@ if getent group rdma >/dev/null 2>&1; then
 fi
 
 # Match GitHub Actions / pyproject optional extra: pytest only. No nwipe install.
-if python3 -m pip install --user 'pytest>=8' >/dev/null 2>&1; then
+if python3 -c 'import pytest' >/dev/null 2>&1; then
   :
 else
   python3 -m pip install --user --break-system-packages 'pytest>=8'

@@ -56,6 +56,12 @@ start_xvfb() {
   return 1
 }
 
+# Nested Cloud VMs often own /dev/kvm as root:rdma. Group membership from
+# install.sh only applies on a new session; chmod lets QEMU -enable-kvm work now.
+if [ -e /dev/kvm ] && [ ! -w /dev/kvm ]; then
+  sudo chmod a+rw /dev/kvm || true
+fi
+
 start_dockerd
 start_xvfb
 echo "Beamo Wipe Cloud start complete (dockerd + Xvfb :99 @ 72 DPI)."
