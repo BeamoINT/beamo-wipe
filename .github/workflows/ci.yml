@@ -1,9 +1,11 @@
 name: CI
 
+# GitHub Actions is billing-blocked on this org and never gates merges.
+# The hosted gate is Google Cloud Build in project beamo-wipe
+# (cloudbuild.yaml / ./scripts/ci-cloud.sh). See docs/ci.md.
+
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:

@@ -119,6 +119,11 @@ make test
 
 Tests use fake `lsblk` JSON. They never run nwipe on a real disk.
 
+Hosted x86_64 pytest **and** the amd64 ISO build run on Google Cloud Build
+(`./scripts/ci-cloud.sh`, project `beamo-wipe`). That is the gate GitHub
+Actions cannot be: the org's Actions account is billing-blocked. Details:
+[docs/ci.md](docs/ci.md).
+
 ## How it works
 
 1. Boot the live USB (UEFI or legacy BIOS, x86_64).

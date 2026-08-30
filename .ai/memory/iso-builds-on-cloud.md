@@ -9,22 +9,20 @@ Cursor Cloud Agent VMs are x86_64 Ubuntu with `/dev/kvm`. There, local
 `fuse-overlayfs`.
 
 **For Beamo Wipe ISO builds, and any similar amd64 live image / nested-VM
-work: use the Google Cloud or AWS CLIs (`gcloud`, `aws`) and run the build
-and QEMU tests on an x86_64 Linux VM (or Cloud Build / CodeBuild).** Do not
-spend a session waiting on local TCG.
+work: use Google Cloud Build (`./scripts/ci-cloud.sh`, project `beamo-wipe`)
+or a throwaway x86_64 VM.** Do not spend a session waiting on local TCG.
 
 ## How
 
-- Spin an **amd64** Debian/Ubuntu VM (GCE `n2-standard-4` / EC2 `t3.large` or
-  similar; nested virtualization / KVM on if you will boot the ISO with QEMU).
-- Clone `beamo-wipe`, install Docker, run `./scripts/build-iso.sh`, then the
-  QEMU steps in `docs/vm-test.md` against a disposable 10G qcow2.
-- Copy the ISO out (GCS/S3 or `gcloud compute scp` / `aws s3 cp`). Persist
-  hashes and a URL, not duplicate archives on the laptop.
-- **Tear the VM down** when the test is done. Do not leave compute running.
+- **Default:** `./scripts/ci-cloud.sh` (or `gcloud builds submit --project=beamo-wipe`).
+  Cloud Build runs pytest under Xvfb and `./scripts/build-iso.sh` on amd64.
+  GitHub Actions is not the gate. See `docs/ci.md`.
+- Interactive QEMU wipe (`docs/vm-test.md`): spin an **amd64** Debian/Ubuntu
+  VM (GCE `n2-standard-4` / EC2 `t3.large` or similar; nested virt / KVM on),
+  boot the ISO against a disposable 10G qcow2, then **tear the VM down**.
+- Persist hashes and a Cloud Build log URL, not duplicate ISOs on the laptop.
 - `gcloud` on this machine may be pinned by `CLOUDSDK_*` env vars to
-  `beamo-support-deployer`; unset those per command if you need the user
-  account (see workspace `cloudflare-pages-sites.md`).
+  `beamo-support-deployer`; `scripts/ci-cloud.sh` unsets those.
 
 Local `python3 -m pytest` and `./preview` stay on the Mac.
 The ISO/KVM path does not.

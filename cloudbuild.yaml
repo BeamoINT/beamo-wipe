@@ -1,0 +1,48 @@
+# Beamo Wipe hosted CI — Google Cloud project beamo-wipe only.
+#
+#   gcloud builds submit --project=beamo-wipe
+#   ./scripts/ci-cloud.sh
+#
+# GitHub App triggers (same project):
+#   - Pull requests targeting main (beamo-wipe-pr-gate)
+#   - Pushes to main (beamo-wipe-main-gate)
+#
+# Secret-free. Does not deploy. Tests use fake lsblk JSON and never exec
+# nwipe on a real disk. ISO build runs in privileged Docker on amd64.
+
+timeout: 7200s
+options:
+  machineType: E2_HIGHCPU_8
+  diskSizeGb: 200
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _SKIP_ISO: "false"
+
+steps:
+  - id: python-tests
+    name: mirror.gcr.io/library/python:3.11-bookworm
+    waitFor: ['-']
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        chmod +x scripts/ci-hosted.sh scripts/test-all.sh scripts/build-iso.sh
+        ./scripts/ci-hosted.sh tests
+
+  - id: iso-build
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['-']
+    entrypoint: bash
+    env:
+      - SKIP_ISO=${_SKIP_ISO}
+      - BEAMO_WIPE_VERSION=0.1.0
+    args:
+      - -ceu
+      - |
+        if [ "$${SKIP_ISO}" = "true" ]; then
+          echo "ISO step skipped via _SKIP_ISO=true"
+          exit 0
+        fi
+        chmod +x scripts/ci-hosted.sh scripts/build-iso.sh
+        ./scripts/ci-hosted.sh iso

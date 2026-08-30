@@ -14,6 +14,8 @@ This is a safety-critical wrapper around nwipe. Prefer obvious code over clever 
 
 ```bash
 python3 -m pytest
+./scripts/ci-cloud.sh    # Google Cloud Build: pytest + ISO (required hosted gate)
 ```
 
-Open PRs into `main`.
+Open PRs into `main`. The GitHub Actions workflow is manual-only; Cloud Build
+in project `beamo-wipe` is the hosted check (`docs/ci.md`).

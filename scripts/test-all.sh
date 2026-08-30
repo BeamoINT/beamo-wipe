@@ -1,4 +1,6 @@
 #!/bin/sh
+# Local Python gate (fake lsblk; never nwipe a real disk).
+# Hosted x86_64 pytest + ISO build: ./scripts/ci-cloud.sh  (Google Cloud Build).
 set -eu
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

@@ -7,7 +7,14 @@ alwaysApply: true
 
 On the Apple silicon Mac: do not use local Docker `linux/amd64` or
 `qemu-system-x86_64` (TCG) as the gate for building the live ISO or wiping a
-throwaway disk. Use the `gcloud` or `aws` CLI on an x86_64 Linux VM (KVM).
+throwaway disk. The hosted gate is Google Cloud Build:
+
+```bash
+./scripts/ci-cloud.sh
+```
+
+project `beamo-wipe`. Interactive QEMU wipe still uses a disposable x86_64
+KVM VM via `gcloud`/`aws`, then tear it down.
 
 On Cursor Cloud Agent VMs (`uname -m` is `x86_64` and `/dev/kvm` exists):
 local `./scripts/build-iso.sh` and KVM QEMU are native. Nested Docker needs

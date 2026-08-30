@@ -3,10 +3,10 @@
 Use **throwaway virtual disks only**.
 
 Do not treat this Apple silicon Mac as the ISO/QEMU gate. Docker `linux/amd64`
-and `qemu-system-x86_64` here are TCG. Run `./scripts/build-iso.sh` and the
-QEMU wipe below on an **x86_64 Linux VM** via the `gcloud` or `aws` CLI
-(KVM/nested virt), copy the ISO out, and delete the VM. Pytest and
-`./preview` stay local.
+and `qemu-system-x86_64` here are TCG. The hosted ISO build is Google Cloud
+Build: `./scripts/ci-cloud.sh` (project `beamo-wipe`). Interactive QEMU wipe
+below still needs an **x86_64 Linux VM** with KVM via `gcloud`/`aws`; copy
+hashes out and delete the VM. Pytest and `./preview` stay local.
 
 ## Demo (no ISO)
 
