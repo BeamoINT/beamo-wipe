@@ -55,7 +55,7 @@ You need Docker (amd64 image; on Apple silicon Docker emulates it).
 ./scripts/build-iso.sh
 ```
 
-The ISO lands in `dist/beamo-wipe-0.1.0-amd64.iso`. If Docker or live-build
+The ISO lands in `dist/beamo-wipe-0.1.1-amd64.iso`. If Docker or live-build
 packages are missing, the script prints the missing pieces and exits non-zero.
 
 `make iso` is the same command.
@@ -74,7 +74,7 @@ packages are missing, the script prints the missing pieces and exits non-zero.
 ```bash
 qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
 qemu-system-x86_64 -m 2048 -enable-kvm \
-  -cdrom dist/beamo-wipe-0.1.0-amd64.iso \
+  -cdrom dist/beamo-wipe-0.1.1-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 \
   -boot d
 ```
@@ -86,7 +86,7 @@ UEFI:
 ```bash
 qemu-system-x86_64 -m 2048 \
   -bios /usr/share/OVMF/OVMF_CODE.fd \
-  -cdrom dist/beamo-wipe-0.1.0-amd64.iso \
+  -cdrom dist/beamo-wipe-0.1.1-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
 ```
 
@@ -99,7 +99,7 @@ real Windows disk.
 
 ```bash
 # Linux (double-check the device name)
-sudo dd if=dist/beamo-wipe-0.1.0-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=dist/beamo-wipe-0.1.1-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
 
 # Or Raspberry Pi Imager / balenaEtcher: pick the ISO, pick the USB, flash.
 ```

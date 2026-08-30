@@ -15,8 +15,11 @@ gcloud builds submit --project=beamo-wipe
 2. **iso-build** — `./scripts/build-iso.sh` in privileged Docker, then ISO 9660
    / size / SHA-256 checks
 
-Neither step execs nwipe on a host disk. Neither deploys. Pass `_SKIP_ISO=true`
-only for a pytest-only debug build (`./scripts/ci-cloud.sh --skip-iso`).
+Neither step execs nwipe on a host disk. A successful ISO is copied to
+`gs://beamo-wipe_cloudbuild/releases/<commit>/`. The manufacturing image
+customers get is the GitHub Release asset, not that bucket. Pass
+`_SKIP_ISO=true` only for a pytest-only debug build
+(`./scripts/ci-cloud.sh --skip-iso`).
 
 Intended GitHub App triggers in `beamo-wipe` (connect the repo once in
 [Cloud Build GitHub](https://console.cloud.google.com/cloud-build/triggers;add=github?project=beamo-wipe),

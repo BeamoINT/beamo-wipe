@@ -40,7 +40,7 @@ run_pytest() {
 
 inspect_iso() {
   local iso version size magic
-  version="${BEAMO_WIPE_VERSION:-0.1.0}"
+  version="${BEAMO_WIPE_VERSION:-0.1.1}"
   iso="$ROOT/dist/beamo-wipe-${version}-amd64.iso"
   [ -f "$iso" ] || {
     printf 'ISO missing: %s\n' "$iso" >&2
