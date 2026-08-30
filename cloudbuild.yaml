@@ -49,6 +49,6 @@ steps:
 
 artifacts:
   objects:
-    location: gs://beamo-wipe_cloudbuild/releases/${COMMIT_SHA}
+    location: gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}
     paths:
       - dist/beamo-wipe-*.iso
