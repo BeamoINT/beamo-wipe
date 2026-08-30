@@ -2202,6 +2202,10 @@ class TkWizard:
         self.w.shutdown()
 
     def _on_return(self, _event=None) -> str:
+        # X11 auto-repeat is extra KeyPress events with no KeyRelease. The
+        # same physical Enter would skip Confirm → Method → Last chance.
+        if self._return_held:
+            return "break"
         self._return_held = True
         screen = self.w.screen
         before = screen

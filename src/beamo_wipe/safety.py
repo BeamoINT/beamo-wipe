@@ -61,6 +61,30 @@ FORBIDDEN_LOG_ROOTS = (
 
 DEFAULT_LOG_DIR = Path("/tmp/beamo-wipe")
 
+# Inherited env is never passed to lsblk/findmnt/nwipe. LD_PRELOAD in the
+# kiosk profile is unset; this is the second line if that ever regresses.
+CLEAN_SUBPROCESS_ENV = {
+    "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "HOME": "/root",
+    "TERM": "linux",
+}
+
+# lsblk TRAN / Disk.bus tokens for storage that is not a local disk.
+# nbd is also excluded by WHOLE_DISK_RE; iscsi/fc still appear as /dev/sdX.
+REMOTE_BUS_TOKENS = frozenset(
+    {
+        "iscsi",
+        "fc",
+        "fcoe",
+        "nbd",
+        "nvmeof",
+        "nvme-of",
+        "nvmf",
+    }
+)
+
 
 class SafetyError(Exception):
     """Abort. Do not wipe."""
@@ -87,6 +111,23 @@ def is_protected_mountpoint(mountpoint: str) -> bool:
 
 def has_protected_mount(disk: Disk) -> bool:
     return any(is_protected_mountpoint(mp) for mp in disk.mountpoints)
+
+
+def has_any_mount(disk: Disk) -> bool:
+    """True if any filesystem is mounted from this disk (or a partition)."""
+    return any((mp or "").strip() for mp in disk.mountpoints)
+
+
+def is_remote_disk(disk: Disk) -> bool:
+    """True for iSCSI / FC / NBD (and similar) that can point at remote storage."""
+    bus = (disk.bus or "").casefold()
+    if bus in REMOTE_BUS_TOKENS:
+        return True
+    name = (disk.name or "").casefold()
+    if name.startswith("nbd"):
+        return True
+    path = (disk.path or "").casefold()
+    return "/nbd" in path
 
 
 def is_live_environment(
@@ -164,7 +205,9 @@ def require_real_live_for_nwipe(env: Optional[dict] = None) -> None:
 
 def is_wipeable_disk(disk: Disk) -> bool:
     """True if this node is a whole-disk wipe target (same gate as nwipe argv)."""
-    if disk.is_boot or disk.size_bytes <= 0 or has_protected_mount(disk):
+    if disk.is_boot or disk.size_bytes <= 0:
+        return False
+    if has_any_mount(disk) or is_remote_disk(disk):
         return False
     try:
         normalize_whole_disk(disk.path)
@@ -174,7 +217,7 @@ def is_wipeable_disk(disk: Disk) -> bool:
 
 
 def selectable_disks(discovery: DiscoveryResult) -> Tuple[Disk, ...]:
-    if not discovery.boot_identified or discovery.error:
+    if not discovery.boot_identified or discovery.error or discovery.boot is None:
         return tuple()
     return tuple(d for d in discovery.selectable if is_wipeable_disk(d))
 
@@ -396,8 +439,8 @@ def assert_disk_identity(disk: Disk, discovery: DiscoveryResult) -> None:
     if len(listed) != 1:
         raise SafetyError("Selected disk is not in the safe list.")
     fresh = listed[0]
-    if fresh.is_boot or has_protected_mount(fresh):
-        raise SafetyError("Selected disk is the boot device.")
+    if not is_wipeable_disk(fresh):
+        raise SafetyError("Selected disk is not in the safe list.")
     if disk_identity(fresh) != disk_identity(disk):
         raise SafetyError("Disk identity changed. Refusing to erase.")
 
@@ -407,6 +450,8 @@ def assert_not_system_mounted(disk: Disk) -> None:
         raise SafetyError(
             "Refusing to erase a disk that is mounted as the live system."
         )
+    if has_any_mount(disk):
+        raise SafetyError("Refusing to erase a mounted disk.")
 
 
 def assert_existing_is_block_device(path: str, *, required: bool = False) -> None:
@@ -459,10 +504,15 @@ def block_size_bytes(path: str) -> Optional[int]:
 def assert_size_unchanged(path: str, expected_bytes: int) -> None:
     """Refuse if sysfs size disagrees with the size we showed the owner."""
     if expected_bytes <= 0:
+        raise SafetyError("Refusing to erase a zero-size disk.")
+    # Preview / --lsblk-json / --dry-run use fake lsblk JSON with real-looking
+    # /dev names. Host sysfs for that name is a different disk (or absent).
+    # Comparing them is a false "size changed" and blocks a fake erase.
+    if is_preview_env():
         return
     sysfs = block_size_bytes(path)
     if sysfs is None:
-        return
+        raise SafetyError("Cannot read disk size.")
     if sysfs != expected_bytes:
         raise SafetyError("Disk size changed. Refusing to erase.")
 
@@ -534,20 +584,24 @@ def assert_log_not_on_target(
 
 
 def _log_filesystem_is_target(log: Path, target: str) -> bool:
-    """True if mountinfo says `log` lives on `target` (or a partition of it)."""
+    """True if mountinfo says `log` lives on `target` (or a partition of it).
+
+    Unreadable mountinfo is fail-closed on the live USB (treat as on-target)
+    and fail-open in preview, where /proc may not describe the fake disks.
+    """
     if not target:
         return False
     try:
         target_real = os.path.realpath(target)
     except OSError:
-        return False
+        return not is_preview_env()
     from beamo_wipe.discover import MOUNTINFO_PATH, parse_mountinfo
 
     try:
         with open(MOUNTINFO_PATH, encoding="utf-8") as fh:
             pairs = parse_mountinfo(fh.read())
     except OSError:
-        return False
+        return not is_preview_env()
     log_text = str(log)
     best_source = ""
     best_len = -1
@@ -574,7 +628,7 @@ def _log_filesystem_is_target(log: Path, target: str) -> bool:
         tst = os.lstat(target_real)
         sst = os.lstat(src_real)
     except OSError:
-        return False
+        return not is_preview_env()
     return (
         stat.S_ISBLK(tst.st_mode)
         and stat.S_ISBLK(sst.st_mode)
@@ -682,7 +736,7 @@ def assert_ready_to_wipe(
     if not owner_ok:
         raise SafetyError("Owner checkbox is required.")
     assert_boot_excluded(discovery)
-    if disk is None or disk.is_boot or has_protected_mount(disk):
+    if disk is None or disk.is_boot or not is_wipeable_disk(disk):
         raise SafetyError("No target disk selected.")
     if disk.size_bytes <= 0:
         raise SafetyError("Refusing to erase a zero-size disk.")

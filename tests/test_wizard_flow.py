@@ -384,6 +384,28 @@ def test_confirm_erase_refuses_real_runner_in_dry_run(monkeypatch, tmp_path):
     assert "nwipe" in (wiz.error or "").lower()
 
 
+def test_preview_confirm_erase_ignores_host_sysfs_size(monkeypatch, tmp_path):
+    """Demo disks use /dev/sda etc. Host sysfs must not block the fake erase."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    monkeypatch.setattr("beamo_wipe.safety.block_size_bytes", lambda _path: 1)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    target = next(d for d in wiz.selectable if d.path == "/dev/sda")
+    wiz.select_disk(target.path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.WORKING
+    assert getattr(wiz.runner, "started", False)
+    assert not wiz.error
+
+
 def test_set_method_ignored_off_method_screen():
     from beamo_wipe.methods import DEFAULT_METHOD
     from beamo_wipe.models import MethodId

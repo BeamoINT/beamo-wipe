@@ -163,6 +163,37 @@ def test_owner_and_token_required_before_wipe(monkeypatch, tmp_path):
     assert str(tmp_path) in req.logfile
 
 
+def test_preview_size_check_ignores_host_sysfs(monkeypatch, tmp_path):
+    """Fake lsblk JSON reuses /dev names. Host sysfs for that name is another disk."""
+    from beamo_wipe.safety import assert_size_unchanged
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    monkeypatch.setattr("beamo_wipe.safety.block_size_bytes", lambda _path: 99)
+    d = _disc("lsblk_same_size.json", "/dev/sdb")
+    disk = selectable_disks(d)[0]
+    spec = confirm_spec(disk, selectable_disks(d))
+    assert_size_unchanged(disk.path, disk.size_bytes)
+    req = assert_ready_to_wipe(
+        owner_ok=True,
+        disk=disk,
+        discovery=d,
+        typed_token=spec.token,
+        countdown_complete=True,
+        method=MethodId.EVERYDAY,
+    )
+    assert req.device == disk.path
+
+
+def test_live_size_check_still_refuses_sysfs_mismatch(monkeypatch):
+    from beamo_wipe.safety import assert_size_unchanged
+
+    monkeypatch.setattr("beamo_wipe.safety.is_preview_env", lambda env=None: False)
+    monkeypatch.setattr("beamo_wipe.safety.block_size_bytes", lambda _path: 99)
+    with pytest.raises(SafetyError, match="size changed"):
+        assert_size_unchanged("/dev/vda", 10_000_000_000)
+
+
 def test_empty_confirm_token_never_matches():
     from beamo_wipe.models import ConfirmSpec
     from beamo_wipe.safety import token_matches

@@ -139,6 +139,34 @@ def test_confirm_prompts_talk_like_a_person():
     assert "256" in size
 
 
+def test_last_chance_copy_includes_serial():
+    from beamo_wipe.models import Disk, DiskKind
+
+    disk = Disk(
+        path="/dev/sda",
+        name="sda",
+        model="Samsung SSD 970 EVO",
+        serial="S4EVNX0N123456",
+        size_bytes=256_000_000_000,
+        size_gb_label="256",
+        kind=DiskKind.SSD,
+        bus="SATA",
+        label="",
+    )
+    text = copy.erase_now_label(disk)
+    assert "Samsung SSD 970 EVO" in text
+    assert "256 GB" in text
+    assert "S4EVNX0N123456" in text
+
+
+def test_failed_wipe_copy_does_not_promise_in_session_retry():
+    """Production Done only offers Shut down. 'Try again' would be a lie."""
+    text = copy.DONE_FAIL.lower()
+    assert "try again" not in text
+    assert "shut down" in text
+    assert "files may still be on the disk" in text
+
+
 def test_splash_says_they_already_booted():
     text = copy.SPLASH_TAGLINE.lower()
     assert "already" in text

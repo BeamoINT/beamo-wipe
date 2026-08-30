@@ -592,6 +592,7 @@ def test_popen_inherits_wipe_lock_fd(tmp_path, monkeypatch):
     assert captured["kwargs"]["pass_fds"]
     assert captured["kwargs"]["cwd"] == "/"
     assert captured["kwargs"]["shell"] is False
+    assert captured["kwargs"]["start_new_session"] is True
     runner.cancel()
 
 
@@ -687,3 +688,246 @@ def test_missing_block_device_required_for_real_wipe(monkeypatch):
     with pytest.raises(SafetyError, match="missing"):
         assert_existing_is_block_device("/dev/definitely-not-a-disk-beamo", required=True)
     assert_existing_is_block_device("/dev/definitely-not-a-disk-beamo", required=False)
+
+
+def _disk(**kwargs):
+    from beamo_wipe.models import Disk, DiskKind
+
+    fields = dict(
+        path="/dev/sda",
+        name="sda",
+        model="ST500",
+        serial="Z9A",
+        size_bytes=500_000_000_000,
+        size_gb_label="500",
+        kind=DiskKind.HDD,
+        bus="SATA",
+        label="",
+    )
+    fields.update(kwargs)
+    return Disk(**fields)
+
+
+def test_ready_to_wipe_refuses_iscsi_and_mounted(monkeypatch, tmp_path):
+    from beamo_wipe.discover import parse_lsblk_json
+    from beamo_wipe.models import MethodId
+    from beamo_wipe.safety import assert_ready_to_wipe
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    payload = {
+        "blockdevices": [
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "model": "Beamo",
+                "serial": "BOOT1",
+            },
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "iscsi",
+                "model": "SAN LUN",
+                "serial": "IQN1",
+            },
+        ]
+    }
+    result = parse_lsblk_json(payload, boot_path="/dev/sdb")
+    lun = next(d for d in result.disks if d.path == "/dev/sda")
+    with pytest.raises(SafetyError, match="No target disk"):
+        assert_ready_to_wipe(
+            owner_ok=True,
+            disk=lun,
+            discovery=result,
+            typed_token="500",
+            countdown_complete=True,
+            method=MethodId.EVERYDAY,
+        )
+
+
+def test_iscsi_disk_is_not_selectable():
+    from beamo_wipe.discover import parse_lsblk_json
+    from beamo_wipe.safety import is_remote_disk, selectable_disks
+
+    payload = {
+        "blockdevices": [
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "model": "Beamo",
+                "serial": "BOOT1",
+            },
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "iscsi",
+                "model": "SAN LUN",
+                "serial": "IQN1",
+            },
+        ]
+    }
+    result = parse_lsblk_json(payload, boot_path="/dev/sdb")
+    assert result.boot_identified
+    assert selectable_disks(result) == ()
+    lun = next(d for d in result.disks if d.path == "/dev/sda")
+    assert lun.bus == "ISCSI"
+    assert is_remote_disk(lun)
+
+
+def test_fc_disk_is_not_selectable():
+    from beamo_wipe.discover import parse_lsblk_json
+    from beamo_wipe.safety import selectable_disks
+
+    payload = {
+        "blockdevices": [
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "model": "Beamo",
+                "serial": "BOOT1",
+            },
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "fc",
+                "model": "SAN",
+                "serial": "FC1",
+            },
+        ]
+    }
+    result = parse_lsblk_json(payload, boot_path="/dev/sdb")
+    assert selectable_disks(result) == ()
+
+
+def test_mounted_media_disk_is_not_selectable():
+    """A disk mounted at /media is in use. nwipe without --force would skip it."""
+    from beamo_wipe.discover import parse_lsblk_json
+    from beamo_wipe.safety import selectable_disks
+
+    payload = {
+        "blockdevices": [
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "model": "Beamo",
+                "serial": "BOOT1",
+            },
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "sata",
+                "model": "ST500",
+                "serial": "Z9A",
+                "children": [
+                    {
+                        "name": "sda1",
+                        "path": "/dev/sda1",
+                        "type": "part",
+                        "mountpoint": "/media/data",
+                    }
+                ],
+            },
+        ]
+    }
+    result = parse_lsblk_json(payload, boot_path="/dev/sdb")
+    assert "/dev/sda" not in {d.path for d in selectable_disks(result)}
+    sda = next(d for d in result.disks if d.path == "/dev/sda")
+    assert not sda.is_boot
+
+
+def test_selectable_requires_identified_boot_object():
+    from beamo_wipe.models import DiscoveryResult
+    from beamo_wipe.safety import selectable_disks
+
+    disk = _disk()
+    bogus = DiscoveryResult(
+        disks=(disk,),
+        selectable=(disk,),
+        boot=None,
+        error=None,
+        boot_identified=True,
+    )
+    assert selectable_disks(bogus) == ()
+
+
+def test_live_size_check_refuses_missing_sysfs(monkeypatch):
+    from beamo_wipe.safety import assert_size_unchanged
+
+    monkeypatch.setattr("beamo_wipe.safety.is_preview_env", lambda env=None: False)
+    monkeypatch.setattr("beamo_wipe.safety.block_size_bytes", lambda _path: None)
+    with pytest.raises(SafetyError, match="Cannot read disk size"):
+        assert_size_unchanged("/dev/vda", 10_000_000_000)
+
+
+def test_zero_expected_size_is_not_a_skip(monkeypatch):
+    from beamo_wipe.safety import assert_size_unchanged
+
+    monkeypatch.setattr("beamo_wipe.safety.is_preview_env", lambda env=None: False)
+    with pytest.raises(SafetyError, match="zero-size"):
+        assert_size_unchanged("/dev/vda", 0)
+
+
+def test_log_mountinfo_unreadable_is_fail_closed_on_live(tmp_path, monkeypatch):
+    from beamo_wipe.safety import _log_filesystem_is_target
+
+    log = tmp_path / "nwipe-sda.log"
+    log.write_text("x", encoding="utf-8")
+    monkeypatch.setattr("beamo_wipe.safety.is_preview_env", lambda env=None: False)
+    monkeypatch.setattr(
+        "beamo_wipe.discover.MOUNTINFO_PATH", str(tmp_path / "missing-mountinfo")
+    )
+    assert _log_filesystem_is_target(log, "/dev/sda") is True
+
+
+def test_log_mountinfo_unreadable_is_ignored_in_preview(tmp_path, monkeypatch):
+    from beamo_wipe.safety import _log_filesystem_is_target
+
+    log = tmp_path / "nwipe-sda.log"
+    log.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr(
+        "beamo_wipe.discover.MOUNTINFO_PATH", str(tmp_path / "missing-mountinfo")
+    )
+    assert _log_filesystem_is_target(log, "/dev/sda") is False
+
+
+def test_lsblk_and_findmnt_are_absolute_paths():
+    from beamo_wipe.discover import FINDMNT_BINARIES, LSBLK_BINARIES
+
+    assert LSBLK_BINARIES == ("/usr/bin/lsblk",)
+    assert FINDMNT_BINARIES == ("/usr/bin/findmnt",)
+    for binary in LSBLK_BINARIES + FINDMNT_BINARIES:
+        assert binary.startswith("/")
+
+
+def test_lsblk_and_nwipe_version_use_clean_env():
+    import inspect
+
+    from beamo_wipe.discover import _run_findmnt, run_lsblk
+    from beamo_wipe.nwipe_runner import _verify_pinned_nwipe
+
+    assert "CLEAN_SUBPROCESS_ENV" in inspect.getsource(run_lsblk)
+    assert "CLEAN_SUBPROCESS_ENV" in inspect.getsource(_run_findmnt)
+    src = inspect.getsource(_verify_pinned_nwipe)
+    assert "env=NWIPE_CLEAN_ENV" in src
+    assert "LD_PRELOAD" not in src

@@ -500,6 +500,37 @@ def test_evaluate_nwipe_geometry_fail_with_sigusr1_success_is_not_finished():
     assert ok is False
 
 
+def test_nwipe_version_line_is_not_a_substring_match():
+    from beamo_wipe.nwipe_runner import nwipe_version_is_pinned
+
+    assert nwipe_version_is_pinned("nwipe version 0.42\n")
+    assert nwipe_version_is_pinned("nwipe version 0.42")
+    assert not nwipe_version_is_pinned("0.42")
+    assert not nwipe_version_is_pinned("nwipe version 0.37\n")
+    assert not nwipe_version_is_pinned("nwipe version 0.420\n")
+    assert not nwipe_version_is_pinned("nwipe version 10.42\n")
+    assert not nwipe_version_is_pinned("compiled with 0.42\n")
+    assert not nwipe_version_is_pinned("nwipe version 0.42.1\n")
+
+
+def test_job_percent_does_not_wrap_between_dodshort_passes():
+    from beamo_wipe.nwipe_runner import _target_job_percent, _target_last_percent
+
+    pass1 = "/dev/vda: 100.00%, round 1 of 1, pass 1 of 3, eta 00:10:00, [writing]\n"
+    assert _target_last_percent(pass1, "/dev/vda") == 100.0
+    mid = _target_job_percent(pass1, "/dev/vda")
+    assert mid is not None
+    assert 33.0 <= mid <= 34.0
+    both = pass1 + "/dev/vda: 0.40%, round 1 of 1, pass 2 of 3, eta 00:10:00, [writing]\n"
+    job = _target_job_percent(both, "/dev/vda")
+    assert job is not None
+    assert 33.0 <= job <= 35.0
+    last = (
+        both + "/dev/vda: 100.00%, round 1 of 1, pass 3 of 3, eta 00:00:00, [verifying]\n"
+    )
+    assert _target_job_percent(last, "/dev/vda") == 100.0
+
+
 def test_target_last_percent_ignores_erasure_summary_zero():
     """nwipe 0.42 writes Erasure Summary 0.00% after SIGUSR1 progress lines."""
     from beamo_wipe.nwipe_runner import _target_last_percent

@@ -76,6 +76,62 @@ def test_plain_console_eof_does_not_crash(monkeypatch):
     assert not getattr(wiz.runner, "started", False)
 
 
+def test_plain_console_empty_method_keeps_extra(monkeypatch):
+    """Enter on Choice [1] must not overwrite Extra thorough after backing up."""
+    from beamo_wipe.models import MethodId
+
+    wiz = make_demo_wizard()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.set_method(MethodId.EXTRA)
+    wiz.continue_method()
+    assert wiz.screen == Screen.LAST_CHANCE
+    steps = []
+
+    def fake_input(_prompt=""):
+        steps.append(wiz.screen)
+        if wiz.screen == Screen.LAST_CHANCE:
+            if steps.count(Screen.LAST_CHANCE) == 1:
+                return "nope"
+            wiz.shutdown()
+            return "x"
+        if wiz.screen == Screen.METHOD:
+            return ""
+        wiz.shutdown()
+        return "x"
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    _plain_loop(wiz)
+    assert wiz.method == MethodId.EXTRA
+    assert Screen.METHOD in steps
+
+
+def test_curses_enter_repeat_helper_ignores_second_enter():
+    from beamo_wipe.ui.console_wizard import _is_enter_repeat
+
+    assert not _is_enter_repeat(False, 10)
+    assert _is_enter_repeat(True, 10)
+    assert _is_enter_repeat(True, 13)
+    assert not _is_enter_repeat(True, ord("x"))
+
+
+def test_curses_confirm_enter_sets_held_so_method_is_not_skipped():
+    """Confirm uses its own getch and `continue`s; that path must set enter_held."""
+    import inspect
+
+    from beamo_wipe.ui.console_wizard import _loop
+
+    src = inspect.getsource(_loop)
+    assert "wizard.continue_confirm()" in src
+    assert "enter_held = True" in src
+
+
 def test_curses_pick_shows_serial_and_same_size_hint():
     text = (
         Path(__file__)

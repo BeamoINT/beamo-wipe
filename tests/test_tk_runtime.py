@@ -192,6 +192,9 @@ def test_keyboard_only_flow_reaches_working(ui):
     def key(keysym):
         (root.focus_get() or root).event_generate("<KeyPress>", keysym=keysym)
         root.update()
+        # Release on the root: KeyPress may have rebuilt the focused widget.
+        root.event_generate("<KeyRelease>", keysym=keysym)
+        root.update()
 
     key("a")
     assert wiz.screen == Screen.WHAT
@@ -233,6 +236,53 @@ def test_keyboard_only_flow_reaches_working(ui):
     assert wiz.erase_enabled
     key("Return")
     assert wiz.screen == Screen.WORKING
+
+
+def test_held_enter_does_not_erase_when_countdown_completes(ui, tmp_path, monkeypatch):
+    """Same physical Enter that left Method must not fire Erase after 5s."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.METHOD)
+    root = app.root
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not wiz.erase_enabled
+    wiz._erase_until = 0.0
+    wiz.tick()
+    app._refresh_last_chance()
+    root.update()
+    assert wiz.erase_enabled
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not getattr(wiz.runner, "started", False)
+    (root.focus_get() or root).event_generate("<KeyRelease>", keysym="Return")
+    root.update()
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    assert wiz.screen == Screen.WORKING
+
+
+def test_held_enter_does_not_skip_method_after_confirm(ui):
+    """X11 auto-repeat Return after a matching token must not skip Method."""
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.CONFIRM)
+    app._confirm_var.set(wiz.confirm.token)
+    app.root.update()
+    assert wiz.token_ok
+    root = app.root
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    assert wiz.screen == Screen.METHOD
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    assert wiz.screen == Screen.METHOD
+    (root.focus_get() or root).event_generate("<KeyRelease>", keysym="Return")
+    root.update()
+    (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+    root.update()
+    assert wiz.screen == Screen.LAST_CHANCE
 
 
 def test_held_enter_does_not_shutdown_pick_empty(ui):

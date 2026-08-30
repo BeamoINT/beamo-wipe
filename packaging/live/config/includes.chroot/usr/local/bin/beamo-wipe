@@ -3,6 +3,7 @@
 export PYTHONPATH=/usr/lib/python3/dist-packages
 export PYTHONNOUSERSITE=1
 export BEAMO_WIPE_LIVE=1
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 unset BEAMO_WIPE_DRY_RUN
 unset BEAMO_WIPE_DEMO
 unset BEAMO_WIPE_BOOT_DEVICE

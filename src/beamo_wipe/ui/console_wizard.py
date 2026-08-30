@@ -110,8 +110,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen == Screen.METHOD:
             print("1 Everyday  2 Extra thorough  3 Quick zero")
             print(C.SSD_FOOTER)
-            choice = input("Choice [1]: ").strip() or "1"
+            choice = input("Choice [1]: ").strip()
             mapping = {"1": MethodId.EVERYDAY, "2": MethodId.EXTRA, "3": MethodId.QUICK_ZERO}
+            if not choice:
+                wizard.continue_method()
+                continue
             if choice not in mapping:
                 continue
             wizard.set_method(mapping[choice])
@@ -168,6 +171,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
     stdscr.keypad(True)
     stdscr.nodelay(True)
     curses.use_default_colors()
+    enter_held = False
     while not wizard.wants_shutdown:
         wizard.tick()
         stdscr.erase()
@@ -236,6 +240,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             stdscr.nodelay(True)
             if ch in (curses.KEY_ENTER, 10, 13) and wizard.token_ok:
                 wizard.continue_confirm()
+                # Same physical Enter must not also fire Method → Last chance.
+                enter_held = True
             elif ch in (27,):
                 wizard.back()
             elif ch in (curses.KEY_BACKSPACE, 127, 8):
@@ -287,12 +293,21 @@ def _loop(stdscr, wizard: Wizard) -> int:
         stdscr.refresh()
         ch = stdscr.getch()
         if ch == -1:
+            enter_held = False
             if wizard.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
                 wizard.arm_done_keyboard()
             time.sleep(0.08)
             continue
+        if _is_enter_repeat(enter_held, ch):
+            continue
+        enter_held = ch in (curses.KEY_ENTER, 10, 13)
         _handle(wizard, ch)
     return 0
+
+
+def _is_enter_repeat(held: bool, ch: int) -> bool:
+    """True for X/TTY auto-repeat Enter (extra KEY_ENTER with no gap)."""
+    return held and ch in (curses.KEY_ENTER, 10, 13)
 
 
 def _handle(wizard: Wizard, ch: int) -> None:

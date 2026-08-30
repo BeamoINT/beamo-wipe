@@ -23,6 +23,7 @@ from beamo_wipe.methods import (
 )
 from beamo_wipe.models import WipeRequest, WipeResult
 from beamo_wipe.safety import (
+    CLEAN_SUBPROCESS_ENV,
     SafetyError,
     assert_existing_is_block_device,
     assert_log_not_on_target,
@@ -67,13 +68,12 @@ NWIPE_VERSION_TIMEOUT_S = 5
 # Drive Status is written before create_system_multi_disc_pdf()/smartctl.
 # 64KiB from EOF can be only that tail, hiding | Erased |.
 NWIPE_COMPLETION_LOG_BYTES = 1024 * 1024
-NWIPE_CLEAN_ENV = {
-    "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
-    "LANG": "C.UTF-8",
-    "LC_ALL": "C.UTF-8",
-    "HOME": "/root",
-    "TERM": "linux",
-}
+NWIPE_CLEAN_ENV = dict(CLEAN_SUBPROCESS_ENV)
+# nwipe 0.42 `nwipe -V` prints this line (src/nwipe.c). Substring "0.42"
+# would also match 0.420 / 10.42 / a binary that mentions the pin in help.
+NWIPE_VERSION_LINE_RE = re.compile(
+    rf"(?im)^nwipe version {re.escape(NWIPE_PINNED_VERSION)}(?:\s|$)"
+)
 
 
 def resolve_nwipe_binary(binary: str) -> str:
@@ -90,6 +90,11 @@ def resolve_nwipe_binary(binary: str) -> str:
     raise SafetyError("nwipe is not at the pinned path.")
 
 
+def nwipe_version_is_pinned(text: str) -> bool:
+    """True only for the pinned `nwipe version X.Y` line, not a substring."""
+    return bool(NWIPE_VERSION_LINE_RE.search(text or ""))
+
+
 def _verify_pinned_nwipe(binary: str) -> None:
     if os.path.basename(binary) != "nwipe":
         return
@@ -102,11 +107,12 @@ def _verify_pinned_nwipe(binary: str) -> None:
             text=True,
             timeout=NWIPE_VERSION_TIMEOUT_S,
             shell=False,
+            env=NWIPE_CLEAN_ENV,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise SafetyError("Cannot verify the nwipe binary.") from exc
     blob = f"{proc.stdout or ''}{proc.stderr or ''}"
-    if NWIPE_PINNED_VERSION not in blob:
+    if not nwipe_version_is_pinned(blob):
         raise SafetyError(
             f"Refusing to exec nwipe; pinned version is {NWIPE_PINNED_VERSION}."
         )
@@ -372,6 +378,35 @@ def _target_last_percent(log_text: str, device: str) -> Optional[float]:
     return last
 
 
+def _job_percent_from_match(match: re.Match, value: float) -> float:
+    """Map a pass-local SIGUSR1 percent onto the whole job.
+
+    dodshort reports 100% at the end of each of 3 passes. Showing that as
+    the only progress number makes WORKING flash 100% then wrap to 0%.
+    """
+    round_i, round_n = int(match.group(2)), int(match.group(3))
+    if round_n <= 0:
+        return value
+    pass_i, pass_n = match.group(4), match.group(5)
+    if pass_i is None or pass_n is None:
+        total = round_n
+        done = max(0, round_i - 1)
+        return min(100.0, (done + value / 100.0) / total * 100.0)
+    pass_i_n, pass_n_n = int(pass_i), int(pass_n)
+    if pass_n_n <= 0:
+        return value
+    total = round_n * pass_n_n
+    done = (round_i - 1) * pass_n_n + (pass_i_n - 1)
+    return min(100.0, (done + value / 100.0) / total * 100.0)
+
+
+def _target_job_percent(log_text: str, device: str) -> Optional[float]:
+    last = None
+    for match, value in _iter_target_progress(log_text, device):
+        last = _job_percent_from_match(match, value)
+    return last
+
+
 def _progress_is_final_pass(match: re.Match) -> bool:
     """True if this SIGUSR1 line is the last pass of the last round."""
     round_i, round_n = int(match.group(2)), int(match.group(3))
@@ -496,6 +531,9 @@ class NwipeRunner:
                 "close_fds": True,
                 "cwd": "/",
                 "env": popen_env,
+                # New session: the wizard ignores SIGINT, but nwipe is in the
+                # same TTY group and would abort on Ctrl-C / leftover INTR.
+                "start_new_session": True,
             }
             # Python os.open uses O_CLOEXEC. pass_fds keeps the flock in the
             # child so a crashed wizard cannot start a second nwipe.
@@ -575,7 +613,7 @@ class NwipeRunner:
         if not text:
             return
         self._log_tail = text
-        percent = _target_last_percent(text, device)
+        percent = _target_job_percent(text, device)
         if percent is not None:
             self.progress = percent
 

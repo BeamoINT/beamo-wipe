@@ -73,7 +73,7 @@ DONE_OK = "Done. You can shut down and take out the USB."
 
 DONE_FAIL = (
     "The erase did not finish. Files may still be on the disk. "
-    "You can try again, or use another computer."
+    "Shut down and start from this USB again, or use another computer."
 )
 
 NOT_LIVE_ERROR = (
@@ -197,8 +197,9 @@ def confirm_warning(disk: Disk) -> str:
 
 
 def erase_now_label(disk: Disk) -> str:
+    serial = disk.serial or NO_CODE
     return (
-        f"This will erase {disk.display_name}, {disk.size_phrase}. "
+        f"This will erase {disk.display_name}, {disk.size_phrase}, {serial}. "
         "You cannot get the files back."
     )
 

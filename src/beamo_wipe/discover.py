@@ -72,8 +72,9 @@ KERNEL_NAME_RE = re.compile(
 )
 LSBLK_TIMEOUT_S = 15
 FINDMNT_TIMEOUT_S = 8
-LSBLK_BINARIES = ("/usr/bin/lsblk", "lsblk")
-FINDMNT_BINARIES = ("/usr/bin/findmnt", "findmnt")
+# Absolute paths only. A PATH stub named `lsblk` must not feed fake JSON.
+LSBLK_BINARIES = ("/usr/bin/lsblk",)
+FINDMNT_BINARIES = ("/usr/bin/findmnt",)
 MOUNTINFO_PATH = "/proc/self/mountinfo"
 LSBLK_COLUMNS = (
     "NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,RM,HOTPLUG,"
@@ -648,6 +649,8 @@ def load_lsblk_json_text(text: str) -> Dict[str, Any]:
 
 
 def run_lsblk() -> Dict[str, Any]:
+    from beamo_wipe.safety import CLEAN_SUBPROCESS_ENV
+
     args = ["-J", "-b", "-o", LSBLK_COLUMNS]
     proc = None
     last_exc: Optional[BaseException] = None
@@ -660,6 +663,7 @@ def run_lsblk() -> Dict[str, Any]:
                 text=True,
                 timeout=LSBLK_TIMEOUT_S,
                 shell=False,
+                env=CLEAN_SUBPROCESS_ENV,
             )
             break
         except FileNotFoundError as exc:
@@ -703,6 +707,8 @@ def read_mount_sources(paths: Sequence[str] = LIVE_MOUNTS) -> List[str]:
 
 
 def _run_findmnt(mountpoint: str):
+    from beamo_wipe.safety import CLEAN_SUBPROCESS_ENV
+
     last_exc: Optional[BaseException] = None
     for binary in FINDMNT_BINARIES:
         try:
@@ -713,6 +719,7 @@ def _run_findmnt(mountpoint: str):
                 check=False,
                 timeout=FINDMNT_TIMEOUT_S,
                 shell=False,
+                env=CLEAN_SUBPROCESS_ENV,
             )
         except FileNotFoundError as exc:
             last_exc = exc

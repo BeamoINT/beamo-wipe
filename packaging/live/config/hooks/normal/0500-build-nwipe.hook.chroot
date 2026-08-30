@@ -19,6 +19,10 @@ apt-get install -y --no-install-recommends \
   ca-certificates
 
 mkdir -p /usr/share/doc/beamo-wipe
+# Ignore chroot/host gitconfig so url.insteadOf cannot redirect this clone.
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_SYSTEM=/dev/null
 # QEMU user-mode amd64 git+GnuTLS often drops the pack once; retry.
 n=0
 while :; do

@@ -60,6 +60,9 @@ def test_nwipe_hook_fails_closed_instead_of_unpinned_fallback():
     assert "ERROR: gcc is still present" in text
     assert "ERROR: nwipe commit" in text
     assert "git clone nwipe failed after" in text
+    assert "GIT_CONFIG_NOSYSTEM=1" in text
+    assert "GIT_CONFIG_GLOBAL=/dev/null" in text
+    assert "GIT_CONFIG_SYSTEM=/dev/null" in text
 
 
 def test_live_launcher_isolates_sys_path_and_preview_env():
@@ -71,6 +74,7 @@ def test_live_launcher_isolates_sys_path_and_preview_env():
     assert "unset BEAMO_WIPE_BOOT_DEVICE" in text
     assert "unset LD_PRELOAD" in text
     assert "unset PYTHONSTARTUP" in text
+    assert "PATH=/usr/sbin:/usr/bin:/sbin:/bin" in text
     assert "umask 077" in text
     assert "cd /" in text
     assert "--demo" not in text
