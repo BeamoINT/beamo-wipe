@@ -1,0 +1,64 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": null,
+         "serial": "",
+         "wwn": "",
+         "vendor": "",
+         "children": [
+            {
+               "name": "sda1",
+               "path": "/dev/sda1",
+               "type": "part",
+               "label": "WINDOWS",
+               "size": 499000000000
+            }
+         ]
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "",
+         "serial": null,
+         "wwn": null,
+         "children": [
+            {
+               "name": "nvme0n1p1",
+               "path": "/dev/nvme0n1p1",
+               "type": "part",
+               "label": "DATA",
+               "serial": "CHILD_SERIAL_ABC123"
+            }
+         ]
+      }
+   ]
+}

@@ -1,0 +1,73 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung SSD 970 EVO",
+         "serial": "S4EVNX0N111111"
+      },
+      {
+         "name": "nvme1n1",
+         "path": "/dev/nvme1n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung SSD 980",
+         "serial": "S4EVNX0N222222"
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 1000204886016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "WDC WD10EZEX-00WN4A0",
+         "serial": "WD-WCC6Y1234567"
+      },
+      {
+         "name": "sdd",
+         "path": "/dev/sdd",
+         "size": 512110190592,
+         "type": "disk",
+         "tran": "sata",
+         "rota": false,
+         "model": "Crucial MX500",
+         "serial": "MX500AABBCC11"
+      },
+      {
+         "name": "sdc",
+         "path": "/dev/sdc",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Generic USB Stick",
+         "serial": "USBEXTRA001"
+      }
+   ]
+}

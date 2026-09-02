@@ -380,6 +380,9 @@ def test_live_session_strips_web_and_helper(monkeypatch):
     from beamo_wipe.app import apply_live_session_overrides, _parser
 
     monkeypatch.setattr("beamo_wipe.app.running_on_live_usb", lambda: True)
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setenv("BEAMO_WIPE_DEMO", "1")
+    monkeypatch.setenv("BEAMO_WIPE_BOOT_DEVICE", "/dev/sda")
     args = _parser().parse_args(
         ["--web", "--helper", "--demo", "--boot-device", "/dev/sda"]
     )

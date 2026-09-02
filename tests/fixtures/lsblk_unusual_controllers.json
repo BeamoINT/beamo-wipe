@@ -1,0 +1,143 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "mmcblk0",
+         "path": "/dev/mmcblk0",
+         "size": 31268536320,
+         "type": "disk",
+         "tran": "mmc",
+         "rota": false,
+         "model": "eMMC",
+         "serial": "MMC0"
+      },
+      {
+         "name": "mmcblk0boot0",
+         "path": "/dev/mmcblk0boot0",
+         "size": 4194304,
+         "type": "disk",
+         "tran": null,
+         "rota": false,
+         "model": "eMMC boot0",
+         "serial": "MMC0"
+      },
+      {
+         "name": "mmcblk0boot1",
+         "path": "/dev/mmcblk0boot1",
+         "size": 4194304,
+         "type": "disk",
+         "tran": null,
+         "rota": false,
+         "model": "eMMC boot1",
+         "serial": "MMC0"
+      },
+      {
+         "name": "mmcblk0rpmb",
+         "path": "/dev/mmcblk0rpmb",
+         "size": 4194304,
+         "type": "disk",
+         "tran": null,
+         "rota": false,
+         "model": "eMMC rpmb",
+         "serial": "MMC0"
+      },
+      {
+         "name": "ram0",
+         "path": "/dev/ram0",
+         "size": 67108864,
+         "type": "disk",
+         "tran": null,
+         "rota": false,
+         "model": "RAM disk",
+         "serial": null
+      },
+      {
+         "name": "zram0",
+         "path": "/dev/zram0",
+         "size": 268435456,
+         "type": "disk",
+         "tran": null,
+         "rota": false,
+         "model": "zram",
+         "serial": null
+      },
+      {
+         "name": "sr0",
+         "path": "/dev/sr0",
+         "size": 700000000,
+         "type": "rom",
+         "tran": "sata",
+         "rota": true,
+         "model": "QEMU DVD-ROM",
+         "serial": "QM00001"
+      },
+      {
+         "name": "loop0",
+         "path": "/dev/loop0",
+         "size": 412000000,
+         "type": "loop",
+         "tran": null,
+         "rota": false,
+         "model": null,
+         "serial": null
+      },
+      {
+         "name": "nbd0",
+         "path": "/dev/nbd0",
+         "size": 10737418240,
+         "type": "disk",
+         "tran": "nbd",
+         "rota": true,
+         "model": "Network Block",
+         "serial": "NBD0"
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "iscsi",
+         "rota": true,
+         "model": "SAN LUN iSCSI",
+         "serial": "IQN123"
+      },
+      {
+         "name": "sdc",
+         "path": "/dev/sdc",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sas",
+         "rota": true,
+         "model": "SAS Disk",
+         "serial": "SAS001"
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung SSD 970",
+         "serial": "NVMEAAAA1111"
+      }
+   ]
+}

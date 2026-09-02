@@ -1,0 +1,62 @@
+{
+   "blockdevices": [
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Leftover USB",
+         "serial": "OTHERUSB01",
+         "children": [
+            {
+               "name": "sda1",
+               "path": "/dev/sda1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "Beamo Wipe via SATA bridge",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "DEBIAN",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung SSD 970",
+         "serial": "NVMEAAAA1111"
+      },
+      {
+         "name": "vda",
+         "path": "/dev/vda",
+         "size": 10737418240,
+         "type": "disk",
+         "tran": "virtio",
+         "rota": true,
+         "model": "QEMU HARDDISK",
+         "serial": "disk10Gtest"
+      }
+   ]
+}
