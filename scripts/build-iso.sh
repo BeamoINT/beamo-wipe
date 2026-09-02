@@ -76,3 +76,11 @@ if [ ! -f "$OUT_DIR/$ISO_NAME" ]; then
 fi
 echo "Wrote $OUT_DIR/$ISO_NAME"
 ls -lh "$OUT_DIR/$ISO_NAME"
+# Generate provenance manifest (fails closed on dirty/placeholder/missing checksum)
+# In CI, git is clean; locally, allow dirty with ALLOW_DIRTY=1 but still verify.
+if [ "${SKIP_MANIFEST:-0}" != "1" ]; then
+  echo "Generating release manifest..."
+  BEAMO_WIPE_VERSION="$VERSION" ./scripts/generate-release-manifest.sh "dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+  echo "Manifest: dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+  ls -lh "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" 2>&1 | head -n 20
+fi

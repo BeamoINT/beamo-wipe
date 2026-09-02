@@ -41,4 +41,9 @@ def test_github_actions_gates_prs_and_main():
     # ISO must be built on x86_64 with artifact retention
     assert "build-iso.sh" in text
     assert "upload-artifact@ea165f8" in text
-    assert "retention-days: 14" in text
+    assert "retention-days:" in text
+    # 90 days for ISO+manifest, at least 14
+    import re
+
+    m = re.search(r"retention-days:\s*(\d+)", text)
+    assert m and int(m.group(1)) >= 14

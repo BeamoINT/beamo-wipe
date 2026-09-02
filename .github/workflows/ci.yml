@@ -183,12 +183,26 @@ jobs:
           echo "Docker did not bind-mount /dev/sd*:"
           docker run --rm --privileged --platform linux/amd64 -v "$PWD/dist":/out:ro debian:bookworm lsblk -d -o NAME,TYPE 2>&1 | head -n 20 || true
           echo "ISO build used --privileged --platform linux/amd64 with no --device and no host /dev bind"
-      - name: Upload ISO artifact (retention + checksum)
+      - name: Verify manifest and checksums (fails closed)
+        run: |
+          test -f dist/beamo-wipe-0.1.1-amd64.manifest.json
+          test -f dist/beamo-wipe-0.1.1-amd64.manifest.json.sha256
+          test -f dist/beamo-wipe-0.1.1-amd64.iso.sha256
+          sha256sum -c dist/beamo-wipe-0.1.1-amd64.manifest.json.sha256
+          sha256sum -c dist/beamo-wipe-0.1.1-amd64.iso.sha256
+          python3 -c "import pathlib, sys; sys.path.insert(0,'src'); from beamo_wipe.release_manifest import verify_manifest; verify_manifest(pathlib.Path('dist/beamo-wipe-0.1.1-amd64.manifest.json')); print('manifest OK')"
+          test -f dist/SHA256SUMS
+          sha256sum -c dist/SHA256SUMS
+          echo "Consumer: sha256sum -c beamo-wipe-0.1.1-amd64.iso.sha256"
+      - name: Upload ISO + manifest artifacts (retention + checksum, immutable)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: beamo-wipe-0.1.1-amd64-iso
           path: |
             dist/beamo-wipe-0.1.1-amd64.iso
+            dist/beamo-wipe-0.1.1-amd64.iso.sha256
+            dist/beamo-wipe-0.1.1-amd64.manifest.json
+            dist/beamo-wipe-0.1.1-amd64.manifest.json.sha256
             dist/SHA256SUMS
-          retention-days: 14
+          retention-days: 90
           if-no-files-found: error

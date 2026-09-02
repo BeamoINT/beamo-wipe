@@ -52,3 +52,7 @@ artifacts:
     location: gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}
     paths:
       - dist/beamo-wipe-*.iso
+      - dist/beamo-wipe-*.iso.sha256
+      - dist/beamo-wipe-*.manifest.json
+      - dist/beamo-wipe-*.manifest.json.sha256
+      - dist/SHA256SUMS
