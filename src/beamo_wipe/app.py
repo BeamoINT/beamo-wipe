@@ -112,7 +112,6 @@ def apply_live_session_overrides(args: argparse.Namespace) -> None:
     os.environ.pop("BEAMO_WIPE_BOOT_DEVICE", None)
     os.environ.pop("BEAMO_WIPE_DRY_RUN", None)
     os.environ.pop("BEAMO_WIPE_DEMO", None)
-    os.environ["BEAMO_WIPE_LIVE"] = "1"
 
 
 def _build_wizard(args: argparse.Namespace) -> Wizard:
