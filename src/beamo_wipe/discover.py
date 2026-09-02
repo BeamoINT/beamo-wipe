@@ -587,8 +587,23 @@ def should_hide(node: Dict[str, Any], boot_path: Optional[str]) -> bool:
     typ = (node.get("type") or "").lower()
     name = _clean(node.get("name"))
     path = _clean(node.get("path")) or f"/dev/{name}"
-    if boot_path and path == boot_path:
-        return False
+    if boot_path:
+        # Boot exception must be robust to realpath aliasing (e.g. /dev/disk/by-id/*).
+        # Path equality here is the fast path; the full alias check is in
+        # _node_is_boot. If realpath fails, we still hide the boot
+        # candidate safely (fail-closed) but emit a diagnostic for ops.
+        try:
+            if _path_aliases(path) & _path_aliases(boot_path):
+                return False
+        except Exception:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "should_hide_alias_failed", f"path={path[:32]}")
+            except Exception:
+                pass
+        if path == boot_path:
+            return False
     if typ in HIDDEN_TYPES:
         return True
     if HIDDEN_NAME_RE.match(name):
@@ -655,6 +670,23 @@ def parse_lsblk_json(
     from beamo_wipe.safety import is_wipeable_disk
 
     selectable = tuple(d for d in disks if is_wipeable_disk(d))
+    # Health reporting: empty selectable while boot is identified is fail-closed
+    # but opaque. Distinguish "no disks on bus" from "all nodes hidden".
+    if boot is not None and not selectable and blockdevices:
+        total_disk_nodes = sum(1 for _ in disk_nodes(blockdevices))
+        # If disks is empty but there were disk nodes, they were all hidden/filtered.
+        if total_disk_nodes and not disks:
+            all_hidden = all(
+                should_hide(n, boot_path) and not _node_is_boot(n, boot_path)
+                for n in disk_nodes(blockdevices)
+            )
+            if all_hidden:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("discover", "all_hidden", f"nodes={total_disk_nodes} boot={boot_path}")
+                except Exception:
+                    pass
     return DiscoveryResult(
         disks=tuple(disks),
         selectable=selectable,
