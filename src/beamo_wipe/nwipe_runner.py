@@ -132,6 +132,8 @@ def assert_nwipe_binary_safe(path: str) -> None:
         raise SafetyError("nwipe is not executable.")
     if stat.S_IMODE(st.st_mode) & 0o022:
         raise SafetyError("nwipe binary is writable by group or others.")
+    if st.st_mode & (stat.S_ISUID | stat.S_ISGID):
+        raise SafetyError("nwipe binary must not be setuid or setgid.")
     if os.geteuid() == 0 and st.st_uid != 0:
         raise SafetyError("nwipe binary must be owned by root.")
     try:
@@ -139,6 +141,20 @@ def assert_nwipe_binary_safe(path: str) -> None:
     except OSError as exc:
         raise SafetyError("Cannot open nwipe binary.") from exc
     try:
+        # Re-validate after open to close TOCTOU: the fd must still be the
+        # same regular file we just lstat'd, not a swapped inode.
+        try:
+            fst = os.fstat(fd)
+        except OSError as exc:
+            raise SafetyError("Cannot stat nwipe binary.") from exc
+        if stat.S_ISLNK(fst.st_mode) or not stat.S_ISREG(fst.st_mode):
+            raise SafetyError("nwipe is not a regular file.")
+        if fst.st_ino != st.st_ino or fst.st_dev != st.st_dev:
+            raise SafetyError("nwipe binary changed during check.")
+        if stat.S_IMODE(fst.st_mode) & 0o022:
+            raise SafetyError("nwipe binary is writable by group or others.")
+        if fst.st_mode & (stat.S_ISUID | stat.S_ISGID):
+            raise SafetyError("nwipe binary must not be setuid or setgid.")
         magic = os.read(fd, 4)
     finally:
         os.close(fd)
@@ -172,7 +188,10 @@ def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
 
 
 def build_nwipe_argv(request: WipeRequest) -> List[str]:
-    spec: NwipeMethodSpec = METHODS[request.method]
+    try:
+        spec: NwipeMethodSpec = METHODS[request.method]
+    except KeyError as exc:
+        raise SafetyError("Unknown wipe method.") from exc
     if spec.nwipe_method not in ALLOWED_NWIPE_METHODS:
         raise SafetyError("nwipe method is not in the allowlist.")
     if spec.verify not in ALLOWED_VERIFY:
@@ -569,7 +588,7 @@ class NwipeRunner:
         log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
         if log_text:
             self._log_tail = log_text
-            percent = _target_last_percent(log_text, request.device)
+            percent = _target_job_percent(log_text, request.device)
             if percent is not None:
                 self.progress = percent
         ok, summary = evaluate_nwipe_completion(code, log_text, request.device)

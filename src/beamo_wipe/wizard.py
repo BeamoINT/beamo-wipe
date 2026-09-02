@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import threading
 import time
 from typing import Callable, Optional, Protocol
 
@@ -101,6 +102,7 @@ class Wizard:
         self.evidence_path: Optional[str] = None
         self.evidence_error: Optional[str] = None
         self._evidence_written_for: Optional[str] = None  # deduplicate poll
+        self._lock = threading.RLock()
 
     @property
     def now(self) -> float:
@@ -149,10 +151,16 @@ class Wizard:
             and self.now >= self._splash_until
         ):
             self.screen = Screen.WHAT
-        if self.screen == Screen.WORKING and self._wipe_request is not None:
-            result = self.runner.poll(self._wipe_request)
-            if result is not None:
-                self._finish(result)
+        # Poll under lock to avoid races with cancel_wipe / confirm_erase
+        # that both touch _wipe_request / screen / evidence.
+        should_finish = None
+        with self._lock:
+            if self.screen == Screen.WORKING and self._wipe_request is not None:
+                result = self.runner.poll(self._wipe_request)
+                if result is not None:
+                    should_finish = result
+        if should_finish is not None:
+            self._finish(should_finish)
 
     def skip_splash(self) -> None:
         if self.screen == Screen.SPLASH:
@@ -298,86 +306,109 @@ class Wizard:
         self._erase_until = self.now + COUNTDOWN_S
 
     def confirm_erase(self) -> None:
-        if self.screen != Screen.LAST_CHANCE:
-            return
-        if not self.erase_enabled or self.selected is None:
-            return
-        if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
-            self.error = "Preview and dry-run cannot exec nwipe."
-            return
-        discovery = self.discovery
-        disk = self.selected
-        if not self.dry_run and not self.preview:
+        with self._lock:
+            if self.screen != Screen.LAST_CHANCE:
+                return
+            if not self.erase_enabled or self.selected is None:
+                return
+            if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
+                self.error = "Preview and dry-run cannot exec nwipe."
+                return
+            # Double-start guard: if a wipe is already in progress, refuse
+            # the second caller (TOCTOU between check and start). Keep
+            # error visible and stay on LAST_CHANCE.
+            if self._wipe_request is not None and self.screen == Screen.WORKING:
+                self.error = "A wipe is already running."
+                return
+            if self.screen != Screen.LAST_CHANCE:
+                return
+            # We already hold the lock; keep it for the whole start
+            # sequence to prevent a second thread from also passing the
+            # guard and double-starting the wipe. The rediscover I/O
+            # could be slow, but it is bounded (lsblk timeout) and the
+            # critical section is short; correctness wins.
+            discovery = self.discovery
+            disk = self.selected
+            if not self.dry_run and not self.preview:
+                try:
+                    discovery = (self._rediscover or discover)()
+                except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError, AttributeError) as exc:
+                    self.error = f"Could not re-read disks: {exc}"
+                    return
+                except Exception as exc:  # noqa: BLE001 — fail closed on any rediscover error
+                    self.error = f"Could not re-read disks: {exc}"
+                    return
+                if not discovery.boot_identified or discovery.boot is None:
+                    self.error = REDISCOVER_ERROR
+                    return
+                try:
+                    assert_boot_excluded(discovery)
+                    assert_disk_identity(disk, discovery)
+                except SafetyError as exc:
+                    self.error = str(exc)
+                    return
+                self.discovery = discovery
+                try:
+                    disk = next(
+                        d
+                        for d in selectable_disks(discovery)
+                        if os.path.realpath(d.path) == os.path.realpath(disk.path)
+                    )
+                except StopIteration:
+                    self.error = "Selected disk is not in the safe list."
+                    return
+                self.selected = disk
             try:
-                discovery = (self._rediscover or discover)()
-            except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError, AttributeError) as exc:
-                self.error = f"Could not re-read disks: {exc}"
-                return
-            except Exception as exc:  # noqa: BLE001 — fail closed on any rediscover error
-                self.error = f"Could not re-read disks: {exc}"
-                return
-            if not discovery.boot_identified or discovery.boot is None:
-                self.error = REDISCOVER_ERROR
-                return
-            try:
-                assert_boot_excluded(discovery)
-                assert_disk_identity(disk, discovery)
+                request = assert_ready_to_wipe(
+                    owner_ok=self.owner_ok,
+                    disk=disk,
+                    discovery=discovery,
+                    typed_token=self.confirm_input,
+                    countdown_complete=self.countdown_left <= 0.0,
+                    method=self.method,
+                )
+                build_nwipe_argv(request)
+                self.runner.start(request)
             except SafetyError as exc:
                 self.error = str(exc)
                 return
-            self.discovery = discovery
-            try:
-                disk = next(
-                    d
-                    for d in selectable_disks(discovery)
-                    if os.path.realpath(d.path) == os.path.realpath(disk.path)
-                )
-            except StopIteration:
-                self.error = "Selected disk is not in the safe list."
+            except OSError as exc:
+                self.error = f"Could not start nwipe: {exc}"
                 return
-            self.selected = disk
-        try:
-            request = assert_ready_to_wipe(
-                owner_ok=self.owner_ok,
-                disk=disk,
-                discovery=discovery,
-                typed_token=self.confirm_input,
-                countdown_complete=self.countdown_left <= 0.0,
-                method=self.method,
-            )
-            build_nwipe_argv(request)
-            self.runner.start(request)
-        except SafetyError as exc:
-            self.error = str(exc)
-            return
-        except OSError as exc:
-            self.error = f"Could not start nwipe: {exc}"
-            return
-        self.error = None
-        self._wipe_request = request
-        self.screen = Screen.WORKING
-        # Record evidence start (wall + monotonic) + redacted argv for later completion
-        try:
-            from beamo_wipe.evidence import _iso_now_wall
+            self.error = None
+            self._wipe_request = request
+            self.screen = Screen.WORKING
+            # Record evidence start (wall + monotonic) + redacted argv for later completion
+            try:
+                from beamo_wipe.evidence import _iso_now_wall
 
-            wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
-        except Exception:
-            wall = ""
-        self._evidence_start_wall = wall
-        self._evidence_start_mono = self.now
-        try:
-            # Build redacted argv now (never contains secrets; already sanitized)
-            self._evidence_argv = list(build_nwipe_argv(request))
-        except Exception:
-            self._evidence_argv = []
-        # Write initial started evidence (atomic, off-target)
+                wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
+            except Exception:
+                wall = ""
+            self._evidence_start_wall = wall
+            self._evidence_start_mono = self.now
+            try:
+                # Build redacted argv now (never contains secrets; already sanitized)
+                self._evidence_argv = list(build_nwipe_argv(request))
+            except Exception:
+                self._evidence_argv = []
+            # Write initial started evidence (atomic, off-target)
+            # Do not hold the lock during file I/O; copy needed state
+            # and release lock before writing.
+            pass
+        # Outside the lock: write evidence without holding _lock during I/O
+        # (prevents deadlock if evidence write calls back into wizard)
         self._write_evidence(result=None, cancelled=False, interrupted=False)
 
     def _finish(self, result: WipeResult) -> None:
-        self.wipe_result = result
-        self.screen = Screen.DONE
-        self._done_keyboard_armed = False
-        self.log_text = result.summary
+        # Guard against double-finish from concurrent tick/cancel
+        with self._lock:
+            if self.screen == Screen.DONE and self.wipe_result is not None:
+                return
+            self.wipe_result = result
+            self.screen = Screen.DONE
+            self._done_keyboard_armed = False
+            self.log_text = result.summary
         # Persist auditable evidence (atomic, off-target, truthful outcome)
         self._write_evidence(result=result, cancelled=False, interrupted=False)
 
@@ -387,14 +418,18 @@ class Wizard:
             self.runner.cancel()
         except Exception:
             pass
-        # If a wipe was running, synthesize an interrupted result
-        if self._wipe_request is not None and self.screen == Screen.WORKING:
+        # Hold lock while checking and transitioning to avoid race with
+        # tick()->_finish.
+        with self._lock:
+            if self._wipe_request is None or self.screen != Screen.WORKING:
+                return
             from beamo_wipe.models import WipeResult as _WR
 
             res = _WR(ok=False, exit_code=143, summary="interrupted", logfile=self._wipe_request.logfile)
-            # _finish will handle evidence; but ensure we capture interruption flag
-            self._write_evidence(result=res, cancelled=True, interrupted=True)
-            self._finish(res)
+            # _write_evidence and _finish outside lock to avoid I/O under lock
+            need_evidence = res
+        self._write_evidence(result=need_evidence, cancelled=True, interrupted=True)
+        self._finish(need_evidence)
 
     def _write_evidence(
         self, *, result: Optional[WipeResult], cancelled: bool, interrupted: bool
