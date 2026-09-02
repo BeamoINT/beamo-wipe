@@ -171,16 +171,47 @@ def assert_nwipe_binary_safe(path: str) -> None:
         raise SafetyError("nwipe binary is not an ELF executable.")
 
 
+def _try_log_diag(area: str, code: str, detail: str = "") -> None:
+    """Best-effort diagnostic emit that also falls back to stderr on failure.
+
+    Never raises, never logs secrets. Ensures swallowed log_diag failures
+    become visible to maintainers via stderr when the diagnostics file cannot
+    be written.
+    """
+    try:
+        from beamo_wipe.diagnostics import log_diag
+
+        log_diag(area, code, detail)
+    except Exception:
+        # Fallback to stderr for visibility when diagnostics itself fails.
+        try:
+            import sys
+
+            # sanitize detail already truncated; avoid leaking full device paths
+            safe = detail[:120].replace("\n", " ") if detail else code
+            print(f"beamo-wipe [{area}] {code}: {safe}", file=sys.stderr)
+        except Exception:
+            pass
+
+
 def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
-    """True if another process is already exec'ing the pinned engine."""
+    """True if another process is already exec'ing the pinned engine.
+
+    Fail-closed: any OSError reading /proc or resolving the pinned path is
+    treated as "possibly running" (True) to prevent concurrent wipe, and
+    emitted as a structured diagnostic with actionable next steps.
+    """
     try:
         pinned = os.path.realpath(NWIPE_PINNED_PATH)
-    except OSError:
-        return False
+    except OSError as exc:
+        _try_log_diag("nwipe", "already_running_realpath_failed", type(exc).__name__)
+        return True
     try:
         names = os.listdir("/proc")
-    except OSError:
-        return False
+    except OSError as exc:
+        _try_log_diag("nwipe", "proc_list_failed", type(exc).__name__)
+        return True
+    unreadable = 0
     for name in names:
         if not name.isdigit():
             continue
@@ -190,9 +221,15 @@ def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
         try:
             exe = os.path.realpath(os.readlink(f"/proc/{name}/exe"))
         except OSError:
+            unreadable += 1
             continue
         if exe == pinned:
             return True
+    if unreadable:
+        _try_log_diag("nwipe", "proc_exe_unreadable", f"count={unreadable}")
+        # If many entries unreadable we already fail-closed above for list
+        # failures; single unreadable entries are not treated as running
+        # but are now visible for triage.
     return False
 
 
@@ -573,11 +610,41 @@ class NwipeRunner:
                 self._release_wipe_lock()
                 raise
 
+    def _update_progress(self, percent: Optional[float]) -> None:
+        """Clamp 0-100, monotonic, never show 100 before success."""
+        if percent is None:
+            return
+        try:
+            v = float(percent)
+        except (TypeError, ValueError):
+            return
+        # Clamp and filter NaN/inf
+        if not (0.0 <= v <= 100.0):
+            # Clamp instead of ignoring, but log anomaly for diagnostics
+            _try_log_diag("nwipe", "progress_clamped", f"raw={percent!r}")
+            v = max(0.0, min(100.0, v))
+        # Monotonic: never go backwards (tail truncation, log rotation)
+        if self.progress is not None and v < self.progress:
+            # Small backward jitter is expected if log truncated; keep max
+            return
+        # Never opportunistically jump to 100 while still working; poll()
+        # gates 100 to verified success only. Cap working progress at 99.9.
+        if v >= 100.0 and self._proc is not None:
+            # If nwipe is still running, cap at 99.9 until verification
+            v = min(v, 99.9)
+        self.progress = v
+
     def poll(self, request: WipeRequest) -> Optional[WipeResult]:
-        proc = self._proc
+        # Read proc under lock to avoid race with cancel() clearing _proc.
+        with self._lock:
+            proc = self._proc
         if proc is None:
             return self.result
-        code = proc.poll()
+        try:
+            code = proc.poll()
+        except (OSError, AttributeError) as exc:
+            _try_log_diag("nwipe", "poll_failed", type(exc).__name__)
+            return self.result
         self._refresh_progress(request.logfile, request.device)
         if code is None:
             if not getattr(self, "_sigusr1_armed", False):
@@ -591,29 +658,36 @@ class NwipeRunner:
                 try:
                     proc.send_signal(signal.SIGUSR1)
                     self._last_sigusr1 = now
-                except (ProcessLookupError, OSError) as exc:
-                    try:
-                        from beamo_wipe.diagnostics import log_diag
-
-                        log_diag("nwipe", "sigusr1_failed", type(exc).__name__)
-                    except Exception:
-                        pass
+                except (ProcessLookupError, OSError, AttributeError) as exc:
+                    _try_log_diag("nwipe", "sigusr1_failed", type(exc).__name__)
             return None
         log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
         if log_text:
             self._log_tail = log_text
             percent = _target_job_percent(log_text, request.device)
             if percent is not None:
-                self.progress = percent
+                self._update_progress(percent)
+            # Structured diagnostic when completion log may hide failure tail
+            if not log_text.strip():
+                _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
+        else:
+            _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
         ok, summary = evaluate_nwipe_completion(code, log_text, request.device)
+        if not ok and code == 0 and log_text:
+            # Verification ambiguity: nwipe exit 0 without explicit success must
+            # not become success via fallback. Log for maintainer triage.
+            _try_log_diag("nwipe", "verification_ambiguous", f"device={request.device[:32]} summary={summary[:80]}")
         self.result = WipeResult(
             ok=ok,
             exit_code=code,
             summary=summary,
             logfile=request.logfile,
         )
-        self.progress = 100.0 if ok else self.progress
-        self._proc = None
+        # Only show 100 on verified success; keep monotonic cap otherwise.
+        if ok:
+            self.progress = 100.0
+        with self._lock:
+            self._proc = None
         self._release_wipe_lock()
         return self.result
 
@@ -622,24 +696,20 @@ class NwipeRunner:
             fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW)
         except OSError as exc:
             # Missing log is expected before nwipe creates it; permission/
-            # symlink errors are diagnostic for maintainer (log isolation)
+            # symlink errors are diagnostic for maintainer (log isolation).
+            # ENOENT (2) is normal early - no diagnostic. Other errors get
+            # structured logging with actionable code and fallback to stderr.
             if getattr(exc, "errno", None) not in (2,):  # not ENOENT
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("nwipe", "log_open_failed", type(exc).__name__)
-                except Exception:
-                    pass
+                _try_log_diag(
+                    "nwipe",
+                    "log_open_failed",
+                    f"{type(exc).__name__} log={logfile[:64]}",
+                )
             return ""
         try:
             st = os.fstat(fd)
             if not stat.S_ISREG(st.st_mode):
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("nwipe", "log_not_regular", f"mode={oct(st.st_mode)}")
-                except Exception:
-                    pass
+                _try_log_diag("nwipe", "log_not_regular", f"mode={oct(st.st_mode)} log={logfile[:48]}")
                 return ""
             with os.fdopen(fd, "rb") as fh:
                 fd = -1
@@ -648,19 +718,14 @@ class NwipeRunner:
                 fh.seek(max(0, size - nbytes))
                 return fh.read().decode("utf-8", errors="replace")
         except OSError as exc:
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("nwipe", "log_read_failed", type(exc).__name__)
-            except Exception:
-                pass
+            _try_log_diag("nwipe", "log_read_failed", f"{type(exc).__name__} log={logfile[:64]}")
             return ""
         finally:
             if fd >= 0:
                 try:
                     os.close(fd)
-                except OSError:
-                    pass
+                except OSError as exc:
+                    _try_log_diag("nwipe", "log_close_failed", type(exc).__name__)
 
     def _refresh_progress(self, logfile: str, device: str) -> None:
         text = self._read_log_tail(logfile, 8000)
@@ -669,7 +734,7 @@ class NwipeRunner:
         self._log_tail = text
         percent = _target_job_percent(text, device)
         if percent is not None:
-            self.progress = percent
+            self._update_progress(percent)
 
     def _acquire_wipe_lock(self, request: WipeRequest) -> None:
         directory = os.path.dirname(request.logfile)
@@ -702,21 +767,11 @@ class NwipeRunner:
         try:
             fcntl.flock(fd, fcntl.LOCK_UN)
         except OSError as exc:
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("nwipe", "unlock_failed", type(exc).__name__)
-            except Exception:
-                pass
+            _try_log_diag("nwipe", "unlock_failed", type(exc).__name__)
         try:
             os.close(fd)
         except OSError as exc:
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("nwipe", "lock_close_failed", type(exc).__name__)
-            except Exception:
-                pass
+            _try_log_diag("nwipe", "lock_close_failed", type(exc).__name__)
 
     def cancel(self) -> None:
         with self._lock:
@@ -726,34 +781,19 @@ class NwipeRunner:
             return
         try:
             proc.terminate()
-        except OSError as exc:
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("nwipe", "cancel_terminate_failed", type(exc).__name__)
-            except Exception:
-                pass
+        except (OSError, AttributeError) as exc:
+            _try_log_diag("nwipe", "cancel_terminate_failed", type(exc).__name__)
         try:
             proc.wait(timeout=8)
         except subprocess.TimeoutExpired:
             try:
                 proc.kill()
-            except OSError as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("nwipe", "cancel_kill_failed", type(exc).__name__)
-                except Exception:
-                    pass
+            except (OSError, AttributeError) as exc:
+                _try_log_diag("nwipe", "cancel_kill_failed", type(exc).__name__)
             try:
                 proc.wait(timeout=2)
             except subprocess.TimeoutExpired as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("nwipe", "cancel_kill_still_alive", type(exc).__name__)
-                except Exception:
-                    pass
+                _try_log_diag("nwipe", "cancel_kill_still_alive", type(exc).__name__)
         self.result = WipeResult(
             ok=False,
             exit_code=proc.returncode if proc.returncode is not None else 143,
@@ -801,13 +841,18 @@ class DryRunRunner:
                 summary="cancelled",
                 logfile=request.logfile,
             )
-            self.progress = self.progress
+            # Keep last progress, but never show 100 on cancelled/failed
+            if self.progress is not None and self.progress >= 100.0:
+                self.progress = 99.9
             self._started = None
             return self.result
         elapsed = self._clock() - self._started
         frac = min(1.0, elapsed / max(0.1, self.duration_s))
-        self.progress = round(frac * 100.0, 1)
         if frac < 1.0:
+            # Monotonic, clamped, never 100 while working
+            pct = round(frac * 100.0, 1)
+            if self.progress is None or pct > self.progress:
+                self.progress = min(99.9, pct)
             return None
         if self.fail:
             self.result = WipeResult(
@@ -816,6 +861,9 @@ class DryRunRunner:
                 summary="nwipe exited 1",
                 logfile=request.logfile,
             )
+            # Do not show 100 on failure - keep at 99.9 to indicate not finished
+            if self.progress is None or self.progress >= 100.0 or self.progress == round(frac * 100.0, 1):
+                self.progress = 99.9
         else:
             self.result = WipeResult(
                 ok=True,

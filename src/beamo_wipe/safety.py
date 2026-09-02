@@ -368,10 +368,25 @@ def assert_not_boot(device: str, boot_path: str) -> None:
     if _is_partition_of(dev, boot) or _is_partition_of(boot, dev):
         raise SafetyError("Refusing to erase the Beamo boot device.")
     # Same underlying block device under two names (by-id vs sdX, etc.).
+    # Informational rdev check: if lstat fails we cannot prove alias, but the
+    # realpath+partition checks above already passed. Log and return visible
+    # diagnostic instead of silently skipping.
     try:
         dst = os.lstat(dev)
         bst = os.lstat(boot)
-    except OSError:
+    except OSError as exc:
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("safety", "rdev_check_skipped", type(exc).__name__)
+        except Exception:
+            pass
+        try:
+            import sys
+
+            print(f"beamo-wipe [safety] rdev_check_skipped: {type(exc).__name__}", file=sys.stderr)
+        except Exception:
+            pass
         return
     if (
         stat.S_ISBLK(dst.st_mode)

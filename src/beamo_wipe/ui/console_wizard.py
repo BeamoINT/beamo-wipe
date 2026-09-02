@@ -136,7 +136,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.WORKING:
             pct = "—" if wizard.progress is None else format_progress_percent(wizard.progress)
-            print(C.WORKING_PULSE, pct)
+            print(C.WORKING_PULSE, pct, "  [Ctrl-C or type 'cancel' + Enter to interrupt]")
             if wizard.evidence_error:
                 print(f"Note: {wizard.evidence_error}")
             if wizard.selected:
@@ -146,6 +146,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     wizard.selected.path,
                     wizard.selected.serial or "no serial",
                 )
+            # Plain loop: allow typing cancel to interrupt visibly
+            # Non-blocking check: if user typed in previous input timeout, we already handle via input()
+            # Here we just continue; the next loop will show cancel hint. Real cancel via input() below.
             time.sleep(0.3)
             continue
         if screen == Screen.DONE:
@@ -277,6 +280,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     0,
                     f"{wizard.selected.path}  {wizard.selected.serial or 'no serial'}",
                 )
+            _add(stdscr, y + 7, 0, "Esc: cancel erase (interrupted)")
         elif wizard.screen == Screen.DONE:
             _wrap(
                 stdscr,
@@ -315,6 +319,18 @@ def _is_enter_repeat(held: bool, ch: int) -> bool:
 def _handle(wizard: Wizard, ch: int) -> None:
     if wizard.screen == Screen.SPLASH:
         wizard.skip_splash()
+        return
+    if wizard.screen == Screen.WORKING and ch == 27:
+        # Esc on WORKING now cancels visibly instead of being ignored
+        try:
+            wizard.cancel_wipe()
+        except Exception as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("ui", "console_cancel_failed", type(exc).__name__)
+            except Exception:
+                pass
         return
     if ch == 27:
         wizard.back()

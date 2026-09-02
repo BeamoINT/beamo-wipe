@@ -2056,7 +2056,12 @@ class TkWizard:
             zone, f"{card_copy['title']}.  {C.WORKING_PULSE}", fg=MUTED, font=self.font_b
         )
         self._progress_label.pack(fill=tk.X, pady=(14, 0))
-        self._footer_shell(C.HINT_WORKING)
+        # Cancel is a secondary action: visible but not primary to avoid
+        # accidental clicks. Always shown so interruption is reachable.
+        row = self._footer_shell(C.HINT_WORKING)
+        # Left side: Cancel; Right side empty (no primary while working)
+        # HINT_WORKING already says "Leave this USB in…" but we add explicit hint
+        self._secondary_btn(row, "Cancel erase", self._click_cancel)
         self._refresh_working()
 
     def _refresh_working(self) -> None:
@@ -2179,7 +2184,20 @@ class TkWizard:
             self.w.skip_splash()
             self._draw()
             return "break"
-        if self.w.screen not in (Screen.WHAT, Screen.WORKING, Screen.DONE):
+        if self.w.screen == Screen.WORKING:
+            # Working: Esc triggers visible cancel (fail-safe interruption)
+            try:
+                self.w.cancel_wipe()
+            except Exception as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("ui", "escape_cancel_failed", type(exc).__name__)
+                except Exception:
+                    pass
+            self._draw()
+            return "break"
+        if self.w.screen not in (Screen.WHAT, Screen.DONE):
             self.w.back()
             self._draw()
         return "break"
@@ -2193,6 +2211,19 @@ class TkWizard:
         self._space_held = False
         self.w.arm_done_keyboard()
         return "break"
+
+    def _click_cancel(self) -> None:
+        """Visible cancel on WORKING. Never silently ignored."""
+        try:
+            self.w.cancel_wipe()
+        except Exception as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("ui", "cancel_click_failed", type(exc).__name__)
+            except Exception:
+                pass
+        self._draw()
 
     def _click_shutdown(self) -> None:
         """Button Space/click on Shut down. Ignore until the arriving key is up."""
@@ -2275,6 +2306,18 @@ class TkWizard:
 
     def _close(self) -> None:
         if self.w.screen == Screen.WORKING and not self.w.preview:
+            # Window close on WORKING is now an explicit cancel (visible
+            # evidence with "interrupted" outcome) instead of silently blocked.
+            try:
+                self.w.cancel_wipe()
+            except Exception as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("ui", "close_cancel_failed", type(exc).__name__)
+                except Exception:
+                    pass
+            self._draw()
             return
         self.w.shutdown()
         self._teardown()

@@ -230,8 +230,20 @@ def _path_aliases(path: str) -> set:
     aliases = {path}
     try:
         aliases.add(os.path.realpath(path))
-    except OSError:
-        pass
+    except OSError as exc:
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("discover", "alias_realpath_failed", f"{type(exc).__name__}:{path[:32]}")
+        except Exception:
+            pass
+        # Fallback to stderr for visibility
+        try:
+            import sys
+
+            print(f"beamo-wipe [discover] alias_realpath_failed: {path[:32]}", file=sys.stderr)
+        except Exception:
+            pass
     return aliases
 
 
