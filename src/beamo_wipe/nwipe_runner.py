@@ -582,8 +582,13 @@ class NwipeRunner:
                 try:
                     proc.send_signal(signal.SIGUSR1)
                     self._last_sigusr1 = now
-                except (ProcessLookupError, OSError):
-                    pass
+                except (ProcessLookupError, OSError) as exc:
+                    try:
+                        from beamo_wipe.diagnostics import log_diag
+
+                        log_diag("nwipe", "sigusr1_failed", type(exc).__name__)
+                    except Exception:
+                        pass
             return None
         log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
         if log_text:
@@ -606,11 +611,26 @@ class NwipeRunner:
     def _read_log_tail(self, logfile: str, nbytes: int) -> str:
         try:
             fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW)
-        except OSError:
+        except OSError as exc:
+            # Missing log is expected before nwipe creates it; permission/
+            # symlink errors are diagnostic for maintainer (log isolation)
+            if getattr(exc, "errno", None) not in (2,):  # not ENOENT
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("nwipe", "log_open_failed", type(exc).__name__)
+                except Exception:
+                    pass
             return ""
         try:
             st = os.fstat(fd)
             if not stat.S_ISREG(st.st_mode):
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("nwipe", "log_not_regular", f"mode={oct(st.st_mode)}")
+                except Exception:
+                    pass
                 return ""
             with os.fdopen(fd, "rb") as fh:
                 fd = -1
@@ -618,7 +638,13 @@ class NwipeRunner:
                 size = fh.tell()
                 fh.seek(max(0, size - nbytes))
                 return fh.read().decode("utf-8", errors="replace")
-        except OSError:
+        except OSError as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("nwipe", "log_read_failed", type(exc).__name__)
+            except Exception:
+                pass
             return ""
         finally:
             if fd >= 0:
@@ -666,12 +692,22 @@ class NwipeRunner:
             return
         try:
             fcntl.flock(fd, fcntl.LOCK_UN)
-        except OSError:
-            pass
+        except OSError as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("nwipe", "unlock_failed", type(exc).__name__)
+            except Exception:
+                pass
         try:
             os.close(fd)
-        except OSError:
-            pass
+        except OSError as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("nwipe", "lock_close_failed", type(exc).__name__)
+            except Exception:
+                pass
 
     def cancel(self) -> None:
         with self._lock:
@@ -679,15 +715,36 @@ class NwipeRunner:
             self._proc = None
         if proc is None:
             return
-        proc.terminate()
+        try:
+            proc.terminate()
+        except OSError as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("nwipe", "cancel_terminate_failed", type(exc).__name__)
+            except Exception:
+                pass
         try:
             proc.wait(timeout=8)
         except subprocess.TimeoutExpired:
-            proc.kill()
+            try:
+                proc.kill()
+            except OSError as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("nwipe", "cancel_kill_failed", type(exc).__name__)
+                except Exception:
+                    pass
             try:
                 proc.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                pass
+            except subprocess.TimeoutExpired as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("nwipe", "cancel_kill_still_alive", type(exc).__name__)
+                except Exception:
+                    pass
         self.result = WipeResult(
             ok=False,
             exit_code=proc.returncode if proc.returncode is not None else 143,

@@ -94,3 +94,7 @@ class DiscoveryResult:
     boot: Optional[Disk] = None
     error: Optional[str] = None
     boot_identified: bool = False
+    # Safe, truncated diagnostic for maintainers (never contains secrets).
+    # UI shows `error` (generic, actionable); `diagnostic` is for advanced/
+    # support export and diagnostics.log.
+    diagnostic: Optional[str] = None

@@ -6,7 +6,7 @@ NWIPE_TAG=v0.42
 NWIPE_COMMIT=6082bde060091e66365d852a1877f2ee80c67105
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get update
+apt-get update -o Acquire::Retries=3 2>&1 | tee /tmp/apt-update.log || { echo "ERROR: apt-get update failed — see /tmp/apt-update.log" >&2; tail -n 30 /tmp/apt-update.log >&2; echo "Next: check mirror https://deb.debian.org, retry build." >&2; exit 1; }
 apt-get install -y --no-install-recommends \
   build-essential \
   automake \
@@ -16,7 +16,7 @@ apt-get install -y --no-install-recommends \
   libncurses-dev \
   libparted-dev \
   libconfig-dev \
-  ca-certificates
+  ca-certificates 2>&1 | tee /tmp/apt-install.log || { echo "ERROR: apt-get install failed — see /tmp/apt-install.log" >&2; tail -n 30 /tmp/apt-install.log >&2; echo "Next: check mirror, retry build." >&2; exit 1; }
 
 mkdir -p /usr/share/doc/beamo-wipe
 # Ignore chroot/host gitconfig so url.insteadOf cannot redirect this clone.
@@ -24,19 +24,27 @@ export GIT_CONFIG_NOSYSTEM=1
 export GIT_CONFIG_GLOBAL=/dev/null
 export GIT_CONFIG_SYSTEM=/dev/null
 # QEMU user-mode amd64 git+GnuTLS often drops the pack once; retry.
+# Log each attempt with timestamp, exit code, and tail for maintainer triage.
 n=0
+clone_log="/tmp/nwipe-clone.log"
+: > "$clone_log"
 while :; do
   rm -rf /tmp/nwipe
+  ts="$(date -u +%FT%TZ 2>/dev/null || date)"
   if git clone --depth 1 --branch "$NWIPE_TAG" \
-    https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe; then
+    https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe 2>&1 | tee -a "$clone_log"; then
+    echo "[$ts] git clone succeeded (attempt $((n+1))/5)" | tee -a "$clone_log" >&2
     break
   fi
+  rc=$?
   n=$((n + 1))
+  echo "[$ts] W: git clone nwipe failed rc=$rc, retry $n/5 (tag=$NWIPE_TAG commit=$NWIPE_COMMIT). Next: check github/gnutls EAGAIN, rerun hook." | tee -a "$clone_log" >&2
   if [ "$n" -ge 5 ]; then
-    echo "ERROR: git clone nwipe failed after $n attempts" >&2
+    echo "ERROR: git clone nwipe failed after $n attempts (tag=$NWIPE_TAG commit=$NWIPE_COMMIT rc=$rc). Last 40 lines:" >&2
+    tail -n 40 "$clone_log" >&2 || true
+    echo "Next: verify network, retry ./scripts/build-iso.sh, or check https://github.com/martijnvanbrummelen/nwipe" >&2
     exit 1
   fi
-  echo "W: git clone nwipe failed, retry $n/5" >&2
   sleep $((n * 8))
 done
 cd /tmp/nwipe
@@ -46,11 +54,11 @@ if [ "$got" != "$NWIPE_COMMIT" ]; then
   exit 1
 fi
 if [ -x ./autogen.sh ]; then
-  ./autogen.sh
+  ./autogen.sh 2>&1 | tee /tmp/nwipe-autogen.log || { echo "ERROR: autogen.sh failed (exit $?) — see /tmp/nwipe-autogen.log" >&2; tail -n 50 /tmp/nwipe-autogen.log >&2; exit 1; }
 fi
-./configure
-make -j"$(nproc || echo 2)"
-make install
+./configure 2>&1 | tee /tmp/nwipe-configure.log || { echo "ERROR: configure failed (exit $?) — see /tmp/nwipe-configure.log" >&2; tail -n 50 /tmp/nwipe-configure.log >&2; exit 1; }
+make -j"$(nproc || echo 2)" 2>&1 | tee /tmp/nwipe-make.log || { echo "ERROR: make failed (exit $?) — see /tmp/nwipe-make.log" >&2; tail -n 50 /tmp/nwipe-make.log >&2; exit 1; }
+make install 2>&1 | tee /tmp/nwipe-install.log || { echo "ERROR: make install failed (exit $?) — see /tmp/nwipe-install.log" >&2; tail -n 50 /tmp/nwipe-install.log >&2; exit 1; }
 cd /
 rm -rf /tmp/nwipe
 # Keep the engine off PATH so a second TTY cannot skip the wizard gates.

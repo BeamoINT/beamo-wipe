@@ -230,7 +230,18 @@ class Wizard:
         self._done_keyboard_armed = False
         if not self.discovery.boot_identified or self.discovery.error:
             self.screen = Screen.PICK_BLOCKED
-            self.error = self.discovery.error
+            # Surface diagnostic for maintainers while keeping UI generic and actionable
+            diag = getattr(self.discovery, "diagnostic", None)
+            if diag:
+                self.error = f"{self.discovery.error} ({diag})"
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("wizard", "pick_blocked", diag)
+                except Exception:
+                    pass
+            else:
+                self.error = self.discovery.error
             return
         try:
             assert_boot_excluded(self.discovery)
@@ -416,8 +427,13 @@ class Wizard:
         """User or system interruption. Produce interrupted evidence."""
         try:
             self.runner.cancel()
-        except Exception:
-            pass
+        except Exception as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("wizard", "cancel_runner_failed", type(exc).__name__)
+            except Exception:
+                pass
         # Hold lock while checking and transitioning to avoid race with
         # tick()->_finish.
         with self._lock:
@@ -459,11 +475,23 @@ class Wizard:
                             size = fh.tell()
                             fh.seek(max(0, size - 8192))
                             log_text = fh.read()
-                    except OSError:
+                    except OSError as exc:
+                        try:
+                            from beamo_wipe.diagnostics import log_diag
+
+                            log_diag("wizard", "evidence_log_tail_failed", type(exc).__name__)
+                        except Exception:
+                            pass
                         log_text = log_text or ""
                 if not log_text:
                     log_text = self.log_text or (result.summary if result else "")
-            except Exception:
+            except Exception as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("wizard", "evidence_log_gather_failed", type(exc).__name__)
+                except Exception:
+                    pass
                 log_text = ""
 
             # Wall clocks
@@ -471,7 +499,13 @@ class Wizard:
                 from beamo_wipe.evidence import _iso_now_wall
 
                 end_wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
-            except Exception:
+            except Exception as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("wizard", "wall_clock_failed", type(exc).__name__)
+                except Exception:
+                    pass
                 end_wall = ""
             start_wall = self._evidence_start_wall or ""
             start_mono = self._evidence_start_mono
@@ -488,7 +522,13 @@ class Wizard:
                     from beamo_wipe.nwipe_runner import build_nwipe_argv
 
                     argv = list(build_nwipe_argv(self._wipe_request))
-                except Exception:
+                except Exception as exc:
+                    try:
+                        from beamo_wipe.diagnostics import log_diag
+
+                        log_diag("wizard", "argv_rebuild_failed", type(exc).__name__)
+                    except Exception:
+                        pass
                     argv = []
 
             ev = build_evidence(
@@ -522,7 +562,13 @@ class Wizard:
                 with open(path, "r", encoding="utf-8") as _fh:
                     written = _json.load(_fh)
                 ev["provenance"] = written.get("provenance", ev["provenance"])
-            except Exception:
+            except Exception as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("wizard", "provenance_reload_failed", type(exc).__name__)
+                except Exception:
+                    pass
                 ev["provenance"]["evidence_file"] = str(path)
             self.evidence = ev
             self.evidence_path = str(path)
@@ -534,12 +580,29 @@ class Wizard:
                 from beamo_wipe.evidence import verify_evidence_checksum
 
                 ev["provenance"]["verified"] = verify_evidence_checksum(path)
-            except Exception:
-                pass
+            except Exception as exc:
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("wizard", "checksum_verify_failed", type(exc).__name__)
+                except Exception:
+                    pass
         except SafetyError as exc:
             self.evidence_error = str(exc)
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("wizard", "evidence_safety_error", str(exc)[:120])
+            except Exception:
+                pass
         except Exception as exc:
             self.evidence_error = f"Could not write evidence: {exc}"
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("wizard", "evidence_write_failed", f"{type(exc).__name__}: {str(exc)[:120]}")
+            except Exception:
+                pass
 
     def export_evidence(self, dest_dir: str) -> str:
         """Copy evidence JSON + sidecar to a second USB directory. Returns dest path or raises."""

@@ -158,6 +158,7 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
 def _shutdown() -> None:
     import subprocess
 
+    last_exc: Exception | None = None
     for cmd in (
         ["/usr/bin/systemctl", "poweroff"],
         ["/bin/systemctl", "poweroff"],
@@ -170,8 +171,18 @@ def _shutdown() -> None:
         try:
             subprocess.Popen(cmd, close_fds=True)
             return
-        except OSError:
+        except OSError as exc:
+            last_exc = exc
             continue
+    # All shutdown paths failed; surface to diagnostics and stderr (safe, no secrets)
+    try:
+        from beamo_wipe.diagnostics import log_diag
+
+        detail = type(last_exc).__name__ if last_exc else "unknown"
+        log_diag("app", "shutdown_failed", detail)
+    except Exception:
+        pass
+    print("Shutdown failed: could not power off. Hold the power button.", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -669,10 +669,44 @@ def run_lsblk() -> Dict[str, Any]:
         except FileNotFoundError as exc:
             last_exc = exc
             continue
+        except subprocess.CalledProcessError as exc:
+            # Preserve stderr snippet (sanitized, truncated) for diagnostics
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                detail = (exc.stderr or exc.stdout or "")[:300].replace("\n", " ").strip()
+                log_diag("discover", "lsblk_failed", f"exit={exc.returncode} {detail}")
+            except Exception:
+                pass
+            raise
+        except subprocess.TimeoutExpired as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "lsblk_timeout", f"timeout={LSBLK_TIMEOUT_S}s")
+            except Exception:
+                pass
+            raise
     if proc is None:
         if last_exc is not None:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "lsblk_missing", str(last_exc)[:200])
+            except Exception:
+                pass
             raise last_exc
         raise FileNotFoundError("lsblk")
+    # Even on success, log stderr if any (lsblk warnings like "failed to access")
+    if getattr(proc, "stderr", None):
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            detail = (proc.stderr or "")[:300].replace("\n", " ").strip()
+            if detail:
+                log_diag("discover", "lsblk_stderr", detail)
+        except Exception:
+            pass
     return load_lsblk_json_text(proc.stdout)
 
 
@@ -680,13 +714,20 @@ def read_cmdline(path: str = "/proc/cmdline") -> str:
     try:
         with open(path, encoding="utf-8") as fh:
             return fh.read()
-    except OSError:
+    except OSError as exc:
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("discover", "cmdline_unreadable", f"{path}: {type(exc).__name__}")
+        except Exception:
+            pass
         return ""
 
 
 def read_mount_sources(paths: Sequence[str] = LIVE_MOUNTS) -> List[str]:
     sources: List[str] = []
     seen = set()
+    failures: List[str] = []
 
     def _add(raw: str) -> None:
         src = normalize_mount_source(raw)
@@ -697,12 +738,29 @@ def read_mount_sources(paths: Sequence[str] = LIVE_MOUNTS) -> List[str]:
     for mountpoint in paths:
         try:
             proc = _run_findmnt(mountpoint)
-        except (OSError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            failures.append(f"{mountpoint}:{type(exc).__name__}")
             proc = None
-        if proc is not None and proc.returncode == 0:
-            _add((proc.stdout or "").strip())
+        if proc is not None:
+            if proc.returncode == 0:
+                _add((proc.stdout or "").strip())
+            elif proc.returncode != 0:
+                # Non-zero findmnt (not a mountpoint) is expected; only log if stderr present
+                detail = (getattr(proc, "stderr", "") or "")[:200].replace("\n", " ").strip()
+                if detail:
+                    failures.append(f"{mountpoint}:exit{proc.returncode}:{detail[:80]}")
+        elif proc is None and mountpoint in LIVE_MOUNTS:
+            # _run_findmnt returned None without exception -> OSError/Timeout already logged per-mountpoint
+            pass
     for src in read_mountinfo_sources(paths):
         _add(src)
+    if failures:
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("discover", "findmnt_failures", "; ".join(failures)[:300])
+        except Exception:
+            pass
     return sources
 
 
@@ -712,7 +770,7 @@ def _run_findmnt(mountpoint: str):
     last_exc: Optional[BaseException] = None
     for binary in FINDMNT_BINARIES:
         try:
-            return subprocess.run(
+            proc = subprocess.run(
                 [binary, "-n", "-o", "SOURCE", mountpoint],
                 capture_output=True,
                 text=True,
@@ -721,12 +779,35 @@ def _run_findmnt(mountpoint: str):
                 shell=False,
                 env=CLEAN_SUBPROCESS_ENV,
             )
+            # Log stderr on unexpected failure for maintainers (sanitized, truncated)
+            if proc.returncode != 0 and getattr(proc, "stderr", None):
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    detail = (proc.stderr or "")[:200].replace("\n", " ").strip()
+                    if detail:
+                        log_diag("discover", "findmnt_stderr", f"{mountpoint}: {detail[:120]}")
+                except Exception:
+                    pass
+            return proc
         except FileNotFoundError as exc:
             last_exc = exc
             continue
-        except (OSError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "findmnt_error", f"{mountpoint}:{type(exc).__name__}")
+            except Exception:
+                pass
             return None
     if last_exc is not None:
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("discover", "findmnt_missing", str(last_exc)[:200])
+        except Exception:
+            pass
         raise last_exc
     return None
 
@@ -768,7 +849,13 @@ def read_mountinfo_sources(
         try:
             with open(MOUNTINFO_PATH, encoding="utf-8") as fh:
                 text = fh.read()
-        except OSError:
+        except OSError as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "mountinfo_unreadable", type(exc).__name__)
+            except Exception:
+                pass
             return []
     wanted = set(paths)
     found: List[str] = []
@@ -793,7 +880,13 @@ def live_medium_is_mounted(
         try:
             with open(MOUNTINFO_PATH, encoding="utf-8") as fh:
                 text = fh.read()
-        except OSError:
+        except OSError as exc:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "mountinfo_unreadable", type(exc).__name__)
+            except Exception:
+                pass
             return False
     wanted = set(paths)
     for source, mountpoint in parse_mountinfo(text):
@@ -843,5 +936,27 @@ def discover(
         TypeError,
         AttributeError,
         json.JSONDecodeError,
-    ):
-        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
+    ) as exc:
+        # Visible diagnostic for maintainers; UI stays generic and fail-closed.
+        # Never log full lsblk payload (may contain serials), only type and truncated message.
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            # Sanitize: type + first 250 chars of message, no payload dump
+            detail = f"{type(exc).__name__}: {str(exc)[:200]}"
+            if isinstance(exc, subprocess.CalledProcessError) and getattr(exc, "stderr", None):
+                detail += f" stderr:{str(exc.stderr)[:120].replace(chr(10), ' ')}"
+            log_diag("discover", "failed", detail[:300])
+        except Exception:
+            pass
+        diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()
+        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic)
+    except Exception as exc:  # noqa: BLE001 — catch unexpected, still fail-closed
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("discover", "unexpected", f"{type(exc).__name__}: {str(exc)[:200]}")
+        except Exception:
+            pass
+        diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()
+        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic)

@@ -135,8 +135,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.back()
             continue
         if screen == Screen.WORKING:
-            pct = "—" if wizard.progress is None else wizard.progress
+            pct = "—" if wizard.progress is None else format_progress_percent(wizard.progress)
             print(C.WORKING_PULSE, pct)
+            if wizard.evidence_error:
+                print(f"Note: {wizard.evidence_error}")
             if wizard.selected:
                 print(
                     wizard.selected.display_name,
