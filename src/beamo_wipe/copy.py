@@ -65,7 +65,7 @@ EMPTY_DISKS = (
     "and start from this USB again."
 )
 
-SSD_FOOTER = "On an SSD, leftover data can depend on the drive."
+SSD_FOOTER = "On an SSD, the drive's controller decides what remains. Not a formal certificate."
 
 WORKING_PULSE = "Leave the USB in. Do not turn the PC off."
 

@@ -41,6 +41,8 @@ If `./preview` cannot open a window (no Tk), it falls back to `--console`.
 - Not plug-and-play. You will use the firmware boot menu (often F12, Esc, or F9).
 
 Listing language we are allowed to use: [docs/claims.md](docs/claims.md).
+Controller and erase limits: [docs/storage-and-controller-limits.md](docs/storage-and-controller-limits.md)
+(SSD wear-leveling, hidden areas, encryption, RAID, when vendor tools or destruction are required).
 
 ## License
 
@@ -132,7 +134,11 @@ Actions cannot be: the org's Actions account is billing-blocked. Details:
 4. The Beamo USB cannot be selected. If we cannot tell which disk is the USB,
    the app refuses to list disks.
 5. Type-to-confirm, five-second delay, then nwipe runs non-interactively.
-6. Success only if nwipe exits 0.
+6. `Done` means nwipe exited 0 and verified its last pass (when `verify=last`).
+   It is not a lab or vendor certificate — on SSDs the controller decides what
+   remains ([details](docs/storage-and-controller-limits.md#3-overwrite-limits--why-overwrite-alone-is-not-a-certificate)).
+   For drives that must be certified, use the vendor's secure-erase tool for that
+   model or physically destroy the drive.
 
 ## Development
 

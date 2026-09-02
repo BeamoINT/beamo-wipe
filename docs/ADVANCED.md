@@ -34,7 +34,10 @@ excluded. autonuke with no device is forbidden.
 ## SSD note
 
 On SSDs the controller decides what remains. Overwrite methods are not a
-lab certificate. Do not tell customers otherwise.
+formal certificate. Do not tell customers otherwise. For NVMe/SATA controller
+behavior, hidden areas, encryption, RAID, damaged media, and when to use
+vendor secure erase or physical destruction, see
+`docs/storage-and-controller-limits.md` §3–§6.
 
 ## Logs
 

@@ -196,7 +196,7 @@ Preview/dry-run cannot exec real `NwipeRunner`: `test_confirm_erase_refuses_real
 
 ### Degraded (works but with limits)
 
-- **SSDs:** Overwrite via `prng`/`dodshort`/`zero` is **not a lab certificate**; controller wear-leveling may retain data (SSD footer on method screens, `docs/ADVANCED.md`). Customers needing certified SSD erasure must use vendor tools per `docs/claims.md`.
+- **SSDs:** Overwrite via `prng`/`dodshort`/`zero` is **not a formal certificate**; controller wear-leveling may retain data (SSD footer on pick screen, `docs/storage-and-controller-limits.md` §3, evidence `warnings[]`). Customers needing certified SSD erasure must use vendor secure-erase tool per model or physical destruction per `docs/storage-and-controller-limits.md` §5.
 - **Missing/duplicate metadata:** Falls back to label → `Unknown model`, then token falls back to device name (`sda`); same-size disks force serial inspection — degraded but still safe.
 - **eMMC/mmcblk:** `mmcblk0boot0/1/rpmb` (4 MiB) are hidden — correct (they are not wipe targets) but a machine with only eMMC storage will show no other disk → `PICK_EMPTY`.
 - **USB hubs / keyboard hubs:** May hide the stick from firmware boot menu; degraded boot findability (try direct port, disable Fast Boot per `docs/boot-card.md`).
@@ -311,8 +311,8 @@ rm /tmp/beamo-wipe-target.qcow2
 
 ## 14. Remaining risks & unsupported hardware (honest)
 
-- **APFS / BitLocker / SED / OPAL** — wizard does not unlock encrypted volumes; they appear as raw block devices if unlocked at firmware, otherwise not listed via `mountpoint` protected checks. No BitLocker extraction.
-- **NVMe Secure Erase / ATA Secure Erase** — not implemented; wrapper only calls `nwipe`. Documented as not a sanitizer bypass.
+- **APFS / BitLocker / SED / OPAL** — wizard does not unlock encrypted volumes; they appear as raw block devices if unlocked at firmware, otherwise not listed via `mountpoint` protected checks. No BitLocker extraction. See `docs/storage-and-controller-limits.md` §4 for per-state guidance.
+- **NVMe Secure Erase / ATA Secure Erase** — not implemented; wrapper only calls `nwipe`. Documented as not a sanitizer bypass. For certified erasure use vendor tools per `docs/storage-and-controller-limits.md` §5.
 - **RAID / Intel RST / mdadm / LVM** — may expose `dm-0`/`md127` or hide members; not supported, not listed, not claimed.
 - **USB-C / Thunderbolt docks** — additional hubs not enumerated in `docs/boot-card.md`.
 - **Serial over non-standard encoding** — `udev` `\xHH` decoding covers typical, but exotic USB hub serials may still fall back to device name (still safe via `SAFE_TOKEN_RE`).
