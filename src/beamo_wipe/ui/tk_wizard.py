@@ -2263,6 +2263,14 @@ class TkWizard:
                 self.w.set_method(mapping[digit])
                 self._draw()
                 return "break"
+            if event.keysym in ("Up", "Down"):
+                order = (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO)
+                idx = order.index(self.w.method) if self.w.method in order else 0
+                delta = -1 if event.keysym == "Up" else 1
+                nxt = order[(idx + delta) % len(order)]
+                self.w.set_method(nxt)
+                self._draw()
+                return "break"
         return None
 
     def _close(self) -> None:
