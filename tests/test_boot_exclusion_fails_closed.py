@@ -21,9 +21,9 @@ from pathlib import Path
 import pytest
 
 from beamo_wipe.copy import IDENTIFY_ERROR, REDISCOVER_ERROR
-from beamo_wipe.discover import discover, load_lsblk_json_text, parse_lsblk_json
-from beamo_wipe.models import DiskKind, WipeRequest
-from beamo_wipe.safety import SafetyError, assert_boot_excluded, selectable_disks
+from beamo_wipe.discover import discover, load_lsblk_json_text
+from beamo_wipe.models import WipeRequest
+from beamo_wipe.safety import SafetyError, assert_boot_excluded
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -490,7 +490,7 @@ def test_udev_decode_in_typed_source():
     assert _udev_decode("MY\\x20LAB\\x20WIPE") == "MY LAB WIPE"
     assert _udev_decode("BEAMO\\x20WIPE") == "BEAMO WIPE"
     # Direct resolver test: /dev/disk/by-label with encoded space
-    payload = _load("lsblk_adversarial_udev_encoded.json")
+    _ = _load("lsblk_adversarial_udev_encoded.json")
     # The child label is "MY LAB\x20WIPE" after decode? Actually payload label is "MY LAB\\x20WIPE" literal string
     # Real lsblk would not encode child label; this tests the by-label path decode
     from beamo_wipe.discover import _dev_disk_typed_source
@@ -577,7 +577,7 @@ def test_e2e_missing_boot_no_targets_no_nwipe():
 
 
 def test_e2e_null_fields_no_targets_no_nwipe():
-    result = discover(lsblk_payload=_load("lsblk_adversarial_null_fields.json"), boot_path=None, mount_sources=[], cmdline="BEAMO_WIPE_DRY_RUN=1", env={"BEAMO_WIPE_DRY_RUN": "1"})
+    _ = discover(lsblk_payload=_load("lsblk_adversarial_null_fields.json"), boot_path=None, mount_sources=[], cmdline="BEAMO_WIPE_DRY_RUN=1", env={"BEAMO_WIPE_DRY_RUN": "1"})
     # This payload has boot sdb, so it is actually identified; test the opposite: payload with only nulls and no boot
     payload = _payload([{"name": None, "path": None, "size": None, "type": None}])
     empty = discover(lsblk_payload=payload, boot_path=None, mount_sources=[], cmdline="", env={"BEAMO_WIPE_DRY_RUN": "1"})
@@ -690,7 +690,6 @@ def test_e2e_no_nwipe_process_created_on_uncertainty(monkeypatch):
 def _make_wizard_ready_for_erase(tmp_path, monkeypatch):
     """Return a wizard at LAST_CHANCE ready to call confirm_erase."""
     from beamo_wipe.demo import make_demo_wizard
-    from beamo_wipe.nwipe_runner import DryRunRunner
     from beamo_wipe.wizard import Wizard
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)

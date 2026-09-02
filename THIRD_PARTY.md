@@ -13,9 +13,13 @@ engine is **nwipe**, invoked as a separate program.
 | License | GNU General Public License v2.0 (GPL-2.0) |
 | Authors | Martijn van Brummelen, Nick Law (@PartialVolume), and contributors |
 
-The live image builds nwipe from that tag. If the build cannot clone
-GitHub, it may fall back to the Debian `nwipe` package; the running
-image then records the actual version in `/usr/share/doc/beamo-wipe/NWIPE_VERSION`.
+The live image builds nwipe from that tag at the pinned commit
+`6082bde060091e66365d852a1877f2ee80c67105`. If the build cannot clone
+GitHub after 5 retries, it fails closed (`ERROR: git clone nwipe failed`)
+and no ISO is produced. There is no fallback to the Debian `nwipe`
+package (bookworm's nwipe is not 0.42). The running image records the
+actual version in `/usr/share/doc/beamo-wipe/NWIPE_VERSION` and the
+hook refuses to publish an ISO if that version is not `0.42`.
 
 Beamo Wipe talks to nwipe only by executing the `nwipe` binary with
 explicit device, method, and `--nogui --autonuke` flags. It does not

@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from beamo_wipe.discover import discover, load_lsblk_json_text, parse_lsblk_json
-from beamo_wipe.models import DiskKind, MethodId
+from beamo_wipe.models import DiskKind
 from beamo_wipe.safety import (
     SafetyError,
     assert_boot_excluded,
@@ -473,7 +473,6 @@ def test_matrix_duplicate_event_boot_excluded_still_holds():
 def test_matrix_wizard_no_auto_start_and_countdown(tmp_path, monkeypatch):
     from beamo_wipe.demo import make_demo_wizard
     from beamo_wipe.models import Screen
-    from beamo_wipe.safety import default_log_dir
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
 

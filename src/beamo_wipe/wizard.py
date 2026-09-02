@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import time
 from typing import Callable, Optional, Protocol
 
@@ -308,7 +310,10 @@ class Wizard:
         if not self.dry_run and not self.preview:
             try:
                 discovery = (self._rediscover or discover)()
-            except (OSError, ValueError) as exc:
+            except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError, AttributeError) as exc:
+                self.error = f"Could not re-read disks: {exc}"
+                return
+            except Exception as exc:  # noqa: BLE001 — fail closed on any rediscover error
                 self.error = f"Could not re-read disks: {exc}"
                 return
             if not discovery.boot_identified or discovery.boot is None:
