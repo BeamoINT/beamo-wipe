@@ -91,9 +91,15 @@ def size_gb_label(size_bytes: int) -> str:
 
 
 def classify_kind(name: str, tran: Optional[str], rota: Any) -> DiskKind:
-    tran_l = (tran or "").lower()
-    name_l = (name or "").lower()
-    if "nvme" in tran_l or name_l.startswith("nvme"):
+    tran_l = (tran or "").lower().strip()
+    # Harden: only exact tran tokens, not substring. Untrusted lsblk TRAN
+    # could be spoofed as "my-nvme-evil". Require allowlisted values.
+    if tran_l == "nvme":
+        return DiskKind.NVME
+    # name prefix is kernel name (e.g. nvme0n1), not model — still
+    # cross-check with tran to avoid USB firmware spoofing tran="nvme"
+    name_l = (name or "").lower().strip()
+    if name_l.startswith("nvme") and tran_l in ("", "nvme"):
         return DiskKind.NVME
     rotational = _as_bool(rota)
     if rotational is False:
@@ -139,19 +145,36 @@ def _as_int(value: Any) -> int:
     if isinstance(value, float):
         return int(value)
     text = str(value).strip()
+    if not text:
+        return 0
     try:
         return int(text)
     except ValueError:
         try:
             return int(float(text))
         except ValueError:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "size_parse_failed", str(value)[:64])
+            except Exception:
+                pass
             return 0
 
 
 def _clean(value: Any) -> str:
     if value is None:
         return ""
-    return str(value).strip()
+    # Untrusted lsblk metadata (model/serial/wwn/label) may contain control
+    # chars, ANSI, newlines, or HTML. Strip control codes (0x00-0x1F, 0x7F),
+    # truncate to 128 (display/evidence limit), and never pass raw to innerHTML.
+    s = str(value)
+    # Remove C0 controls and DEL, keep printable only
+    s = re.sub(r"[\x00-\x1f\x7f]", "", s)
+    s = s.strip()
+    if len(s) > 128:
+        s = s[:128]
+    return s
 
 
 def _node_mountpoints(node: Dict[str, Any]) -> List[str]:

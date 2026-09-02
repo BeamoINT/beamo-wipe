@@ -514,19 +514,22 @@ function bindMore() {
   const el = document.getElementById("more");
   if (el) el.onclick = () => { showMore = !showMore; draw(); };
 }
+function esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 function metaLine(d) {
-  let html = `<div class="meta"><span class="mono ser">${d.serial}</span>`;
+  let html = `<div class="meta"><span class="mono ser">${esc(d.serial)}</span>`;
   if (showMore) {
-    html += `<span class="dot">·</span><span>${d.bus}</span><span class="dot">·</span><span class="mono dev">${d.path}</span>`;
+    html += `<span class="dot">·</span><span>${esc(d.bus)}</span><span class="dot">·</span><span class="mono dev">${esc(d.path)}</span>`;
   }
   html += `</div>`;
   return html;
 }
 function summaryCard(d) {
-  const chip = d.kindLabel ? `<span class="chip">${d.kindLabel}</span>` : "";
+  const chip = d.kindLabel ? `<span class="chip">${esc(d.kindLabel)}</span>` : "";
   return `<div class="card hero"><div class="row" style="align-items:center">
-    <div class="title grow">${d.name}${chip}</div>
-    <div class="size">${d.size}</div></div>
+    <div class="title grow">${esc(d.name)}${chip}</div>
+    <div class="size">${esc(d.size)}</div></div>
     ${metaLine(d)}
   </div>`;
 }
@@ -534,16 +537,17 @@ function diskCard(d) {
   const sel = selected && selected.path === d.path;
   const cls = d.isBoot ? "card boot" : ("card pickable" + (sel ? " sel" : ""));
   const icon = d.isBoot ? `<span class="radio" style="border:0;background:none">${ICON_NO}</span>` : `<span class="radio"></span>`;
-  const chip = d.kindLabel ? `<span class="chip">${d.kindLabel}</span>` : "";
-  return `<div class="${cls}" data-path="${d.path}" ${d.isBoot ? "" : 'tabindex="0" role="button"'}>
+  const chip = d.kindLabel ? `<span class="chip">${esc(d.kindLabel)}</span>` : "";
+  // Use esc for attribute to prevent `"` breakout
+  return `<div class="${cls}" data-path="${esc(d.path)}" ${d.isBoot ? "" : 'tabindex="0" role="button"'}>
     <div class="row">${icon}
       <div class="grow">
         <div class="row" style="align-items:center">
-          <div class="title grow">${d.name}${chip}</div>
-          <div class="size">${d.size}</div>
+          <div class="title grow">${esc(d.name)}${chip}</div>
+          <div class="size">${esc(d.size)}</div>
         </div>
         ${metaLine(d)}
-        ${d.isBoot ? `<div class="bootbanner">${P.bootUsb}</div>` : ""}
+        ${d.isBoot ? `<div class="bootbanner">${esc(P.bootUsb)}</div>` : ""}
       </div>
     </div>
   </div>`;

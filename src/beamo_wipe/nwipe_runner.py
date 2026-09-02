@@ -82,11 +82,20 @@ def resolve_nwipe_binary(binary: str) -> str:
         raise SafetyError("nwipe binary path is missing.")
     base = os.path.basename(binary)
     if base != "nwipe":
-        if not os.path.isabs(binary):
-            raise SafetyError("Refusing to exec a relative non-nwipe binary.")
-        return binary
+        # Hardened: only the `nwipe` basename is ever exec'd in production
+        # (prevents /tmp/evil). For local pytest, allow any absolute fake
+        # when BEAMO_WIPE_DRY_RUN is set — never on the live USB where
+        # BEAMO_WIPE_LIVE=1 and BEAMO_WIPE_DRY_RUN is unset.
+        if os.environ.get("BEAMO_WIPE_DRY_RUN") == "1":
+            if not os.path.isabs(binary):
+                raise SafetyError("Refusing to exec a relative non-nwipe binary.")
+            return binary
+        raise SafetyError("Refusing to exec a non-nwipe binary.")
     if binary in {"nwipe", NWIPE_PINNED_PATH}:
         return NWIPE_PINNED_PATH
+    # Any other absolute path named `nwipe` is not the pinned path
+    # — fail-closed (prevents /usr/local/bin/nwipe shadow). Test fakes
+    # for nwipe must use the non-nwipe dry-run path above.
     raise SafetyError("nwipe is not at the pinned path.")
 
 

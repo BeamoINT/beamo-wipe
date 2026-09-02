@@ -169,7 +169,11 @@ def _shutdown() -> None:
         ["/sbin/halt", "-p"],
     ):
         try:
-            subprocess.Popen(cmd, close_fds=True)
+            # Harden: never inherit attacker-controlled env (LD_PRELOAD etc.)
+            # even for poweroff — use the same replacement env as nwipe.
+            from beamo_wipe.safety import CLEAN_SUBPROCESS_ENV
+
+            subprocess.Popen(cmd, close_fds=True, env=CLEAN_SUBPROCESS_ENV, shell=False)
             return
         except OSError as exc:
             last_exc = exc
