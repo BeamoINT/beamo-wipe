@@ -66,12 +66,14 @@ class Wizard:
         clock: Callable[[], float] | None = None,
         dry_run: bool = True,
         rediscover: Callable[[], DiscoveryResult] | None = None,
+        wall_clock: Callable[[], str] | None = None,
     ) -> None:
         self.discovery = discovery
         self.runner = runner
         self._clock = clock or time.monotonic
         self.dry_run = dry_run
         self._rediscover = rediscover
+        self._wall_clock = wall_clock  # for testing; default is evidence._iso_now_wall
         if dry_run:
             os.environ.setdefault("BEAMO_WIPE_DRY_RUN", "1")
         self.preview = False
@@ -89,6 +91,14 @@ class Wizard:
         self._advanced_from: Optional[Screen] = None
         self.log_text = ""
         self._done_keyboard_armed = False
+        # Evidence bookkeeping (auditable, off-target)
+        self._evidence_start_wall: Optional[str] = None
+        self._evidence_start_mono: Optional[float] = None
+        self._evidence_argv: Optional[list[str]] = None
+        self.evidence: Optional[dict] = None  # type: ignore[type-arg]
+        self.evidence_path: Optional[str] = None
+        self.evidence_error: Optional[str] = None
+        self._evidence_written_for: Optional[str] = None  # deduplicate poll
 
     @property
     def now(self) -> float:
@@ -167,6 +177,12 @@ class Wizard:
         self._advanced_from = None
         self.log_text = ""
         self._done_keyboard_armed = False
+        # Preserve evidence file on disk; clear in-memory start markers only
+        self._evidence_start_wall = None
+        self._evidence_start_mono = None
+        self._evidence_argv = None
+        self._evidence_written_for = None
+        # evidence / evidence_path / evidence_error are kept for audit
 
     def shutdown(self) -> None:
         self.wants_shutdown = True
@@ -335,12 +351,170 @@ class Wizard:
         self.error = None
         self._wipe_request = request
         self.screen = Screen.WORKING
+        # Record evidence start (wall + monotonic) + redacted argv for later completion
+        try:
+            from beamo_wipe.evidence import _iso_now_wall
+
+            wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
+        except Exception:
+            wall = ""
+        self._evidence_start_wall = wall
+        self._evidence_start_mono = self.now
+        try:
+            # Build redacted argv now (never contains secrets; already sanitized)
+            self._evidence_argv = list(build_nwipe_argv(request))
+        except Exception:
+            self._evidence_argv = []
+        # Write initial started evidence (atomic, off-target)
+        self._write_evidence(result=None, cancelled=False, interrupted=False)
 
     def _finish(self, result: WipeResult) -> None:
         self.wipe_result = result
         self.screen = Screen.DONE
         self._done_keyboard_armed = False
         self.log_text = result.summary
+        # Persist auditable evidence (atomic, off-target, truthful outcome)
+        self._write_evidence(result=result, cancelled=False, interrupted=False)
+
+    def cancel_wipe(self) -> None:
+        """User or system interruption. Produce interrupted evidence."""
+        try:
+            self.runner.cancel()
+        except Exception:
+            pass
+        # If a wipe was running, synthesize an interrupted result
+        if self._wipe_request is not None and self.screen == Screen.WORKING:
+            from beamo_wipe.models import WipeResult as _WR
+
+            res = _WR(ok=False, exit_code=143, summary="interrupted", logfile=self._wipe_request.logfile)
+            # _finish will handle evidence; but ensure we capture interruption flag
+            self._write_evidence(result=res, cancelled=True, interrupted=True)
+            self._finish(res)
+
+    def _write_evidence(
+        self, *, result: Optional[WipeResult], cancelled: bool, interrupted: bool
+    ) -> None:
+        """Build and atomically persist evidence. Never raises to caller."""
+        # Deduplicate: poll may deliver same result twice
+        key = None
+        try:
+            key = f"{(self._wipe_request.logfile if self._wipe_request else '')}:{(result.exit_code if result else 'start')}:{(result.summary if result else '')}"
+        except Exception:
+            key = None
+        if key is not None and self._evidence_written_for == key:
+            return
+        try:
+            from beamo_wipe.evidence import build_evidence, write_evidence_atomic
+
+            # Gather log tail for checksum (best effort, off-target)
+            log_text = ""
+            try:
+                # Prefer runner's _log_tail if available, else read file
+                log_text = getattr(self.runner, "_log_tail", "") or ""
+                if not log_text and self._wipe_request and self._wipe_request.logfile:
+                    try:
+                        with open(self._wipe_request.logfile, "r", encoding="utf-8", errors="replace") as fh:
+                            # Last 8 KiB is enough for checksum; full log stays in logfile
+                            fh.seek(0, 2)
+                            size = fh.tell()
+                            fh.seek(max(0, size - 8192))
+                            log_text = fh.read()
+                    except OSError:
+                        log_text = log_text or ""
+                if not log_text:
+                    log_text = self.log_text or (result.summary if result else "")
+            except Exception:
+                log_text = ""
+
+            # Wall clocks
+            try:
+                from beamo_wipe.evidence import _iso_now_wall
+
+                end_wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
+            except Exception:
+                end_wall = ""
+            start_wall = self._evidence_start_wall or ""
+            start_mono = self._evidence_start_mono
+            end_mono = self.now if result is not None else None
+            # If STARTED evidence has no start yet, use current as both
+            if start_wall == "" and result is None and self._wipe_request is not None:
+                start_wall = end_wall
+                start_mono = self.now
+
+            argv = self._evidence_argv
+            # Fallback: rebuild from request if argv missing (e.g., after restart)
+            if argv is None and self._wipe_request is not None:
+                try:
+                    from beamo_wipe.nwipe_runner import build_nwipe_argv
+
+                    argv = list(build_nwipe_argv(self._wipe_request))
+                except Exception:
+                    argv = []
+
+            ev = build_evidence(
+                disk=self.selected,
+                discovery=self.discovery,
+                method=self.method,
+                request=self._wipe_request,
+                result=result,
+                started_at_wall=start_wall,
+                ended_at_wall=end_wall if result is not None else "",
+                started_mono=start_mono,
+                ended_mono=end_mono,
+                argv=argv,
+                log_text=log_text or "",
+                interrupted=interrupted,
+                cancelled=cancelled,
+            )
+            target = self._wipe_request.device if self._wipe_request else ""
+            # Use the same log dir that produced the request (monkeypatched in tests)
+            try:
+                import beamo_wipe.safety as _safety
+
+                log_dir = _safety.default_log_dir()
+            except Exception:
+                log_dir = None
+            path = write_evidence_atomic(ev, log_dir=log_dir, device_path=target or (self.selected.path if self.selected else ""), target_device=target)
+            # Reload provenance from file to ensure evidence_file matches written file
+            try:
+                import json as _json
+
+                with open(path, "r", encoding="utf-8") as _fh:
+                    written = _json.load(_fh)
+                ev["provenance"] = written.get("provenance", ev["provenance"])
+            except Exception:
+                ev["provenance"]["evidence_file"] = str(path)
+            self.evidence = ev
+            self.evidence_path = str(path)
+            self.evidence_error = None
+            if key is not None:
+                self._evidence_written_for = key
+            # Also expose checksum for UI (already in evidence, but handy)
+            try:
+                from beamo_wipe.evidence import verify_evidence_checksum
+
+                ev["provenance"]["verified"] = verify_evidence_checksum(path)
+            except Exception:
+                pass
+        except SafetyError as exc:
+            self.evidence_error = str(exc)
+        except Exception as exc:
+            self.evidence_error = f"Could not write evidence: {exc}"
+
+    def export_evidence(self, dest_dir: str) -> str:
+        """Copy evidence JSON + sidecar to a second USB directory. Returns dest path or raises."""
+        if not self.evidence_path:
+            raise SafetyError("No evidence to export")
+        from pathlib import Path
+
+        from beamo_wipe.evidence import export_evidence as _export
+
+        src = Path(self.evidence_path)
+        dest = Path(dest_dir)
+        target = self._wipe_request.device if self._wipe_request else (self.selected.path if self.selected else "")
+        boot = self.discovery.boot.path if self.discovery.boot else ""
+        out = _export(src, dest, target_device=target, boot_device=boot)
+        return str(out)
 
     @property
     def done_ok(self) -> bool:
