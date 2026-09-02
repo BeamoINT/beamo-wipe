@@ -1,0 +1,92 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 1000204886016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "WDC",
+         "serial": "WD001",
+         "children": [
+            {
+               "name": "sda1",
+               "path": "/dev/sda1",
+               "type": "part",
+               "label": "EFI",
+               "size": 536870912
+            },
+            {
+               "name": "sda2",
+               "path": "/dev/sda2",
+               "type": "part",
+               "label": "DATA",
+               "size": 999667615744
+            }
+         ]
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung",
+         "serial": "NVME001",
+         "children": [
+            {
+               "name": "nvme0n1p1",
+               "path": "/dev/nvme0n1p1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 536870912
+            },
+            {
+               "name": "nvme0n1p2",
+               "path": "/dev/nvme0n1p2",
+               "type": "part",
+               "size": 255523643392
+            }
+         ]
+      },
+      {
+         "name": "mmcblk0",
+         "path": "/dev/mmcblk0",
+         "size": 31268536320,
+         "type": "disk",
+         "tran": "mmc",
+         "rota": false,
+         "model": "eMMC",
+         "serial": "MMC001",
+         "children": [
+            {
+               "name": "mmcblk0p1",
+               "path": "/dev/mmcblk0p1",
+               "type": "part",
+               "size": 31268536320
+            }
+         ]
+      }
+   ]
+}

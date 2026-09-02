@@ -1,0 +1,53 @@
+{
+   "blockdevices": [
+      {
+         "name": null,
+         "path": null,
+         "size": null,
+         "type": null,
+         "tran": null,
+         "rota": null,
+         "model": null,
+         "serial": null,
+         "label": null,
+         "uuid": null,
+         "wwn": null,
+         "vendor": null,
+         "pkname": null,
+         "mountpoint": null
+      },
+      {
+         "name": "sda",
+         "path": "",
+         "size": "",
+         "type": "disk",
+         "tran": "",
+         "rota": "",
+         "model": "",
+         "serial": "",
+         "label": "",
+         "uuid": "",
+         "wwn": "",
+         "vendor": "",
+         "mountpoint": ""
+      },
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 0,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE"
+            }
+         ]
+      }
+   ]
+}

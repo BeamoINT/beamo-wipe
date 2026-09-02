@@ -1,0 +1,33 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "MY LAB\\x20WIPE",
+               "uuid": "aaaa-bbbb-cccc-dddd"
+            }
+         ]
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "ST500",
+         "serial": "SATA001"
+      }
+   ]
+}

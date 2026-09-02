@@ -13,6 +13,8 @@ It does **not** weaken safety gates. Every *Fail Closed* row lists no disks and 
 
 ## 1. Safety boundary (applies to every case)
 
+> Full signal map: [`docs/boot-exclusion-signals.md`](boot-exclusion-signals.md) — every lsblk field, mount source, alias, partition, removable flag, and metadata-refresh path that can make boot identity uncertain.
+
 - **Never run nwipe against a real disk from the dev machine.** `./preview` and `pytest` use **fake lsblk JSON only** (`tests/fixtures/*.json`, `src/beamo_wipe/demo_*.json`). No host-disk enumeration.
 - **ISO builds and any destructive/QEMU run belong on an isolated x86_64 Linux runner/VM** with no host-disk passthrough and an explicitly created disposable `qcow2`. See `docs/vm-test.md` and `cloudbuild.yaml` → `scripts/ci-hosted.sh`.
 - **Fail closed:** missing/conflicting/stale/changed boot or target identity → expose **no destructive target** and invoke **nothing** (`DiscoveryResult.boot_identified == False`, `selectable == ()`, `SafetyError`).

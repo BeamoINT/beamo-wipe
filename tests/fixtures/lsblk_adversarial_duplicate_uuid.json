@@ -1,0 +1,52 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001"
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "ST500",
+         "serial": "AAA001",
+         "children": [
+            {
+               "name": "sda1",
+               "path": "/dev/sda1",
+               "type": "part",
+               "label": "DATA",
+               "uuid": "11111111-2222-3333-4444-555555555555"
+            }
+         ]
+      },
+      {
+         "name": "sdc",
+         "path": "/dev/sdc",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "ST500-B",
+         "serial": "BBB002",
+         "children": [
+            {
+               "name": "sdc1",
+               "path": "/dev/sdc1",
+               "type": "part",
+               "label": "DATA2",
+               "uuid": "11111111-2222-3333-4444-555555555555"
+            }
+         ]
+      }
+   ]
+}

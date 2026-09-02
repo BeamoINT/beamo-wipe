@@ -1,0 +1,46 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE"
+            }
+         ]
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "ST500",
+         "serial": "SERIAL_A_001",
+         "wwn": "0x5000CCA123456789",
+         "vendor": "SEAGATE"
+      },
+      {
+         "name": "sdc",
+         "path": "/dev/sdc",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "ST500",
+         "serial": "SERIAL_B_002",
+         "wwn": "0x5000CCA123456789",
+         "vendor": "SEAGATE"
+      }
+   ]
+}

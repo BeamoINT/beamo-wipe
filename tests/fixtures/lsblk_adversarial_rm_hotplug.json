@@ -1,0 +1,48 @@
+{
+   "blockdevices": [
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "Internal SATA",
+         "serial": "INT001",
+         "rm": 1,
+         "hotplug": 1
+      },
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "rm": 0,
+         "hotplug": 0,
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE"
+            }
+         ]
+      },
+      {
+         "name": "sdc",
+         "path": "/dev/sdc",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "External USB HDD",
+         "serial": "USBHDD001",
+         "rm": 1,
+         "hotplug": 1
+      }
+   ]
+}
