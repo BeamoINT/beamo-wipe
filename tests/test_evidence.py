@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import stat
-import time
 from pathlib import Path
 
 import pytest
@@ -59,11 +58,7 @@ class Clock:
 def _wiz(tmp_path: Path, clock=None, dry_run=True, wall=None):
     clock = clock or Clock()
     base = make_demo_wizard()
-    wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5), clock=clock, dry_run=dry_run, wall_clock=wall)
-    # Isolate log dir
-    import beamo_wipe.safety as s
-
-    s.default_log_dir = lambda: tmp_path  # type: ignore[assignment]
+    wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5, clock=clock), clock=clock, dry_run=dry_run, wall_clock=wall)
     return wiz, clock
 
 
@@ -163,8 +158,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
     # running -> poll not yet finished
     wiz.tick()
     assert wiz.screen == Screen.WORKING
-    # still started/running until finish; after tick with DryRunRunner duration 0.5, need monotonic time
-    time.sleep(0.55)
+    clock.add(0.6)
     wiz.tick()
     # After finish, should be verified (DEFAULT_METHOD prng verify last) and exit 0
     assert wiz.screen == Screen.DONE
@@ -378,7 +372,7 @@ def test_export_to_second_usb_with_checksum(tmp_path, monkeypatch):
     clock.add(5.0)
     wiz.tick()
     wiz.confirm_erase()
-    time.sleep(0.55)
+    clock.add(0.6)
     wiz.tick()
     assert wiz.screen == Screen.DONE
     # Export to second USB (another tmp dir acting as mount)
@@ -630,7 +624,7 @@ def test_duplicate_events_idempotent(tmp_path, monkeypatch):
     path1 = wiz.evidence_path
     assert path1
     # Tick with same WORKING state and poll returning same result twice
-    time.sleep(0.55)
+    clock.add(0.6)
     wiz.tick()
     path2 = wiz.evidence_path
     assert path1 == path2 or Path(path2).exists()  # type: ignore[arg-type]
@@ -677,7 +671,7 @@ def test_recovery_after_failed_write_then_success(tmp_path, monkeypatch):
         return p
 
     monkeypatch.setattr("beamo_wipe.evidence.write_evidence_atomic", fake_write)
-    time.sleep(0.55)
+    clock.add(0.6)
     wiz.tick()
     assert wiz.screen == Screen.DONE
     # Evidence should now exist despite earlier failure

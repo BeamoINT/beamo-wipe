@@ -18,7 +18,7 @@ class Clock:
 def _wiz(fail: bool = False) -> tuple[Wizard, Clock]:
     base = make_demo_wizard(fail=fail)
     clock = Clock()
-    runner = DryRunRunner(duration_s=1.0, fail=fail)
+    runner = DryRunRunner(duration_s=1.0, fail=fail, clock=clock)
     wiz = Wizard(base.discovery, runner, clock=clock, dry_run=True)
     return wiz, clock
 
@@ -74,10 +74,6 @@ def test_happy_path_dry_run(monkeypatch, tmp_path):
     assert wiz.screen == Screen.WORKING
     assert wiz.runner.started
     clock.add(2.0)
-    # DryRunRunner uses time.monotonic, not the wizard clock.
-    import time
-
-    time.sleep(1.05)
     wiz.tick()
     assert wiz.screen == Screen.DONE
     assert wiz.done_ok
@@ -118,9 +114,7 @@ def test_nonzero_exit_is_not_success(monkeypatch, tmp_path):
     wiz.continue_method()
     clock.add(5.0)
     wiz.confirm_erase()
-    import time
-
-    time.sleep(1.05)
+    clock.add(2.0)
     wiz.tick()
     assert wiz.screen == Screen.DONE
     assert not wiz.done_ok

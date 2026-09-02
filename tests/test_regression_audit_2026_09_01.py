@@ -133,7 +133,16 @@ def test_concurrent_confirm_erase_does_not_double_start(tmp_path, monkeypatch):
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     base = make_demo_wizard()
-    wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5), clock=lambda: time.monotonic(), dry_run=True)
+
+    class Clock:
+        def __init__(self):
+            self.t = time.monotonic()
+
+        def __call__(self):
+            return self.t
+
+    clock = Clock()
+    wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5, clock=clock), clock=clock, dry_run=True)
     wiz.skip_splash()
     wiz.accept_what()
     wiz.set_owner(True)
@@ -146,8 +155,11 @@ def test_concurrent_confirm_erase_does_not_double_start(tmp_path, monkeypatch):
     wiz.continue_method()
     wiz._erase_until = 0
 
+    barrier = threading.Barrier(2)
+
     def do_erase():
         try:
+            barrier.wait(timeout=2)
             wiz.confirm_erase()
         except Exception:
             pass
@@ -156,8 +168,8 @@ def test_concurrent_confirm_erase_does_not_double_start(tmp_path, monkeypatch):
     t2 = threading.Thread(target=do_erase)
     t1.start()
     t2.start()
-    t1.join()
-    t2.join()
+    t1.join(timeout=3)
+    t2.join(timeout=3)
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1
     assert wiz.screen.value == "working"
@@ -170,7 +182,16 @@ def test_concurrent_cancel_and_tick_is_not_lost(tmp_path, monkeypatch):
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     base = make_demo_wizard()
-    wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5), clock=lambda: time.monotonic(), dry_run=True)
+
+    class Clock:
+        def __init__(self):
+            self.t = time.monotonic()
+
+        def __call__(self):
+            return self.t
+
+    clock = Clock()
+    wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5, clock=clock), clock=clock, dry_run=True)
     wiz.skip_splash()
     wiz.accept_what()
     wiz.set_owner(True)
@@ -184,24 +205,32 @@ def test_concurrent_cancel_and_tick_is_not_lost(tmp_path, monkeypatch):
     wiz._erase_until = 0
     wiz.confirm_erase()
     assert wiz.screen.value == "working"
-    # Race tick that would finish vs cancel
-    wiz._lock = wiz._lock  # ensure lock exists
+
+    barrier = threading.Barrier(2)
 
     def tick_loop():
+        try:
+            barrier.wait(timeout=2)
+        except Exception:
+            pass
         for _ in range(5):
             wiz.tick()
-            time.sleep(0.02)
+            time.sleep(0.015)
 
     def cancel_loop():
-        time.sleep(0.03)
+        try:
+            barrier.wait(timeout=2)
+        except Exception:
+            pass
+        time.sleep(0.02)
         wiz.cancel_wipe()
 
     t_tick = threading.Thread(target=tick_loop)
     t_cancel = threading.Thread(target=cancel_loop)
     t_tick.start()
     t_cancel.start()
-    t_tick.join()
-    t_cancel.join()
+    t_tick.join(timeout=3)
+    t_cancel.join(timeout=3)
     # Must be DONE, interrupted, not a double-finish flicker
     assert wiz.screen.value == "done"
     assert wiz.evidence is not None

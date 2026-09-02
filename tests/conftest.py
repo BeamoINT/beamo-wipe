@@ -7,8 +7,10 @@ import os
 
 import pytest
 
-# Default dry-run so collecting tests on a live USB cannot start the engine.
-os.environ.setdefault("BEAMO_WIPE_DRY_RUN", "1")
+@pytest.fixture(autouse=True)
+def _isolate_beamo_env(monkeypatch):
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.delenv("BEAMO_WIPE_LIVE", raising=False)
 
 
 @pytest.fixture(autouse=True)

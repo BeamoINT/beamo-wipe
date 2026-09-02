@@ -766,9 +766,15 @@ class NwipeRunner:
 class DryRunRunner:
     """Pretend wipe. Never opens a real disk. Used by tests and --demo."""
 
-    def __init__(self, duration_s: float = 2.5, fail: bool = False) -> None:
+    def __init__(
+        self,
+        duration_s: float = 2.5,
+        fail: bool = False,
+        clock=None,
+    ) -> None:
         self.duration_s = duration_s
         self.fail = fail
+        self._clock = clock or time.monotonic
         self.progress: Optional[float] = None
         self.result: Optional[WipeResult] = None
         self._started: Optional[float] = None
@@ -779,7 +785,7 @@ class DryRunRunner:
     def start(self, request: WipeRequest) -> None:
         validate_argv(build_nwipe_argv(request), request)
         self._request = request
-        self._started = time.monotonic()
+        self._started = self._clock()
         self.started = True
         self.cancelled = False
         self.progress = None
@@ -798,7 +804,7 @@ class DryRunRunner:
             self.progress = self.progress
             self._started = None
             return self.result
-        elapsed = time.monotonic() - self._started
+        elapsed = self._clock() - self._started
         frac = min(1.0, elapsed / max(0.1, self.duration_s))
         self.progress = round(frac * 100.0, 1)
         if frac < 1.0:
