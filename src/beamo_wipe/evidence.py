@@ -13,14 +13,12 @@ import json
 import os
 import stat
 import time
-from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
 
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import Disk, MethodId, WipeRequest, WipeResult
-from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
 import beamo_wipe.safety as safety
 from beamo_wipe.safety import SafetyError, assert_log_not_on_target
 
