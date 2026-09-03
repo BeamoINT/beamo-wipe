@@ -386,8 +386,10 @@ def test_console_working_shows_cancel_hint():
 
 def test_build_iso_docker_info_not_swallowed():
     text = Path("scripts/build-iso.sh").read_text(encoding="utf-8")
-    assert "docker info >/tmp/beamo-docker-info.log" in text
-    assert "cat /tmp/beamo-docker-info.log" in text
+    assert "beamo-wipe-docker.XXXXXX" in text
+    assert 'docker info >"$DOCKER_INFO"' in text
+    assert 'tail -n 40 "$DOCKER_INFO"' in text
+    assert "/tmp/beamo-docker-info.log" not in text
     assert "docker info >/dev/null 2>&1" not in text
 
 
@@ -428,10 +430,11 @@ def test_manifest_verify_steps_propagate_mismatch():
 
 
 def test_qemu_wizard_exercise_reads_python_exit():
-    """The wizard gate's $? must be python's, not tee's."""
+    """The fake-disk wizard gate must redirect directly, not mask pytest."""
     text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
-    assert '>>"$EVIDENCE_DIR/wizard-exercise.txt" 2>&1' in text
-    assert '| tee -a "$EVIDENCE_DIR/wizard-exercise.txt"\nBEAMO_WIPE_DRY_RUN' not in text
+    assert '>"$EVIDENCE_DIR/fake-disk-e2e.txt" 2>&1' in text
+    assert "pytest -q" in text
+    assert "tests/test_confirmation_gates.py" in text
 
 
 def test_qemu_uefi_probes_4m_firmware():
@@ -450,12 +453,11 @@ def test_qemu_uefi_probes_4m_firmware():
 def test_qemu_nwipe_exit_codes_are_recorded_truthfully():
     """Evidence exit_code lines must carry nwipe's code, never a masked 0."""
     text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
-    assert "exit_code:${nwipe_code}" in text
-    assert "exit_code:${nwipe_cancel_code}" in text
-    assert "bad exit:${nwipe_bad_code}" in text
-    assert 'echo "exit_code:$?"' not in text
-    assert 'echo "bad exit:$?"' not in text
-    assert "qemu_bios_code" in text
+    assert "nwipe_code=0" in text
+    assert '[[ "$nwipe_code" == 0 ]]' in text
+    assert "bad_code=0" in text
+    assert '[[ "$bad_code" != 0 ]]' in text
+    assert "kill -0 \"$pid\"" in text
 
 
 # ---------------------------------------------------------------------------

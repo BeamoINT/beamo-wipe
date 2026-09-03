@@ -1,7 +1,7 @@
 # Beamo Wipe — Production support and incident runbook
 
 > **Version 1.0 — 2026-09-02 | Owner: Accountable senior engineer (this checkout) | Next review 2026-12-02**
-> Pinned wrapper `0.2.0` / `nwipe v0.42` commit `6082bde060091e66365d852a1877f2ee80c67105` at `/usr/lib/beamo-wipe/nwipe`
+> Pinned wrapper `0.2.1` / `nwipe v0.42` commit `6082bde060091e66365d852a1877f2ee80c67105` at `/usr/lib/beamo-wipe/nwipe`
 > Wrapper GPL-3.0-or-later; nwipe GPL-2.0. See `docs/storage-and-controller-limits.md`, `docs/compatibility-matrix.md`.
 
 This runbook is for the support operator who answers "the USB won't boot / it shows no disks / the erase failed." It separates **verified behavior** (code, tests, build) from **unknowns**, gives decision trees that never weaken a safety gate, and defines how to reproduce safely, collect evidence with redaction, communicate, and when to quarantine or stop-ship.
@@ -13,7 +13,7 @@ No step in this runbook allows disabling boot-media exclusion, skipping owner/ty
 ## 1. Safety boundary (read first, applies to every tree)
 
 - **Never run `nwipe` against a real disk from the development Mac.** Local repro uses fake `lsblk` JSON only (`tests/fixtures/*.json`, `src/beamo_wipe/demo_*.json`), `BEAMO_WIPE_DRY_RUN=1`, `DryRunRunner`. See `docs/vm-test.md` for the isolation rule.
-- **ISO builds and destructive-path/QEMU repro only on isolated x86_64** with a newly created disposable virtual disk (`qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G` + `...target.raw` + `/tmp/beamo-wipe-qemu-evidence/`), no host-disk passthrough, VM torn down after. The developer `MacBook-Air-7.local 25.5.0 arm64, Python 3.10.0, pytest 9.0.3` in this checkout is **not** the QEMU host.
+- **ISO builds and destructive-path/QEMU repro only on isolated x86_64** with `scripts/qemu-verify.sh`, which creates a private `mktemp` workspace plus fresh qcow2/raw files and re-proves loop backing before execution. No host-disk passthrough; tear the VM down after. The arm64 development Mac is **not** the QEMU host.
 - **Fail closed on uncertainty.** Missing/conflicting/stale/changed boot or target identity, state, or evidence → no selectable targets, `SafetyError`, no `nwipe` invoked (`docs/boot-exclusion-signals.md` signal map).
 - **Invariants never relaxed** for reproduction, debugging, or customer convenience: boot exclusion, exact whole-disk binding (`/dev/sda` not `sda1`, `/dev/nvme0n1` not `n1p1`, rejects `sr0`/`nbd*`), ownership checkbox, type-to-confirm (`SAFE_TOKEN_RE`, trimmed casefold), `COUNTDOWN_S=5.0`, no-auto-start, pinned `nwipe` `/usr/lib/beamo-wipe/nwipe` (ELF `7F 45 4C 46`, root-owned, `nwipe version 0.42` line), logs under `/tmp/beamo-wipe/` never on target (`FORBIDDEN_LOG_ROOTS`, `_log_filesystem_is_target`, `O_NOFOLLOW` `0o600`). Any change is a `safety:` commit with a test.
 - **Unsupported environments are out of scope.** Apple Silicon `M1/M2/M3`, Chromebooks, RAID controllers (`megaraid/aacraid/dm-raid`), Apple T2 internal, `nbd/iscsi/fc/nvmeof`, hardware RAID behind a single virtual disk — correctly listed-with-no-targets or fails closed. Do not claim or retarget.
@@ -51,7 +51,7 @@ Collect in order shown. Redaction is mandatory before leaving the support queue.
 | `nwipe` log (`/tmp/beamo-wipe/nwipe-*.log`) | Same dir, `verify=last` tail 8 KiB hashed | Keep whole log for `evaluate_nwipe_completion` markers: `is reported as IN USE`, `Nwipe was aborted`, `Unable to open device`, `No sane device geometry`, `>>> FAILURE! <<<`, `| Erased |`, `SIGUSR1` progress | Never copy to target disk; see `FORBIDDEN_LOG_ROOTS` |
 | `lsblk` JSON snapshot | Live: run `lsblk -J -b -o NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,WWN,RM,HOTPLUG,MOUNTPOINTS,LABEL,FSTYPE,VENDOR,PKNAME,UUID` into a file on the second USB | Contains serials — treat as PII, keep in ticket private field | For L1 to file a fake fixture that reproduces without hardware (see §8) |
 | Manifest + ISO hash | Customer reads `dist/*.manifest.json` + `dist/beamo-wipe-*.iso.sha256` or `gs://…` object, or wrapper `NWIPE_VERSION` on USB | No customer PII | Proves build input pin |
-| Environment | Wrapper version (`src/beamo_wipe/__init__.py 0.2.0`), live `NWIPE_VERSION` on USB, firmware mode (BIOS vs UEFI, Secure Boot on/off), machine vendor/model, bus of target (`TRAN`), kind (`ROTA`→HDD vs SSD per `classify_kind`) | Strip customer name | Needed for §3 wear/raid decision |
+| Environment | Wrapper version (`src/beamo_wipe/__init__.py 0.2.1`), live `NWIPE_VERSION` on USB, firmware mode (BIOS vs UEFI, Secure Boot on/off), machine vendor/model, bus of target (`TRAN`), kind (`ROTA`→HDD vs SSD per `classify_kind`) | Strip customer name | Needed for §3 wear/raid decision |
 
 **Privacy rule:** Support queue shows `device.serial` only to on-call and only when the customer consented. Public issues use `size_gb_label` + `kind` + sanitized `evidence.outcome`/`failure_reason` with serial replaced by `***`.
 
@@ -67,7 +67,7 @@ Each tree ends in exactly one of: **resolve with guidance**, **collect evidence 
 Symptom: stick never appears (Dell F12, HP F9/Esc, Lenovo F12 not listed)
   ├─ Ask: does live USB show on *another* x64 PC with Secure Boot **disabled**?
   │   ├─ No on any PC → suspect stick or flash. Check `scripts/build-iso.sh` ISO hash (`CD001` at 32769, ≥80 MiB, sha256)
-  │   │       Reflash on Linux: `sudo dd if=dist/beamo-wipe-0.2.0-amd64.iso ...` (verify `/dev/sdX` *is* USB via `lsblk`), or BalenaEtcher. Retry.
+  │   │       Reflash on Linux: `sudo dd if=dist/beamo-wipe-0.2.1-amd64.iso ...` (verify `/dev/sdX` *is* USB via `lsblk`), or BalenaEtcher. Retry.
   │   └─ Yes on at least one PC → firmware setting issue.
   ├─ Secure Boot enabled? → This image is unsigned (docs/claims.md). Do NOT ship a bypass.
   │        Guidance: allow USB boot / disable Secure Boot per vendor, or use a PC with Secure Boot off. Link helper/index.html.
@@ -235,34 +235,13 @@ On a throwaway x86_64 Linux VM with `/dev/kvm`, no host block passthrough, one n
 
 ```bash
 # On a throwaway x86_64 Linux VM with /dev/kvm (e.g., GCE n2-standard-4), ephemeral:
-BEAMO_WIPE_VERSION=0.1.1 ./scripts/qemu-verify.sh          # preferred harness (also see docs/vm-test.md)
-# Or step-by-step:
-qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
-qemu-img create -f raw   /tmp/beamo-wipe-target.raw   10G
-qemu-img info /tmp/beamo-wipe-target.qcow2             # check: disk size 10G, format qcow2
-sha256sum /tmp/beamo-wipe-target.qcow2 /tmp/beamo-wipe-target.raw
-findmnt; losetup -j /tmp/beamo-wipe-target.qcow2        # must show nothing host-backed before boot
-# BIOS:
-qemu-system-x86_64 -m 2048 -enable-kvm -cdrom dist/beamo-wipe-0.2.0-amd64.iso \
-  -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 -boot order=d
-# UEFI (when OVMF present; 4M firmware needs pflash, not -bios):
-cp /usr/share/OVMF/OVMF_VARS.fd /tmp/beamo-ovmf-vars.fd
-qemu-system-x86_64 -m 2048 -enable-kvm \
-  -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
-  -drive if=pflash,format=raw,file=/tmp/beamo-ovmf-vars.fd \
-  -cdrom dist/beamo-wipe-0.2.0-amd64.iso \
-  -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
-# No vars template (older OVMF_CODE.fd-only layout): -bios /usr/share/OVMF/OVMF_CODE.fd
-# Re-check immediately before destructive assertion:
-qemu-img info /tmp/beamo-wipe-target.qcow2; sha256sum /tmp/beamo-wipe-target.qcow2
-# Checklist per docs/vm-test.md (wizard first UI, vda 10G visible, s not selectable, token mismatch keeps Continue off, zero pass completes):
-ls -R /tmp/beamo-wipe-qemu-evidence | head -n 50
-# After evidence sidecars are under /tmp/beamo-wipe-qemu-evidence/*.sha256
-rm -v /tmp/beamo-wipe-target.qcow2 /tmp/beamo-wipe-target.raw
+BEAMO_WIPE_VERSION=0.2.1 ./scripts/qemu-verify.sh
+evidence_dir=$(cat qemu-evidence/PATH)
+find "$evidence_dir" -maxdepth 1 -type f -print
 # Tear down the VM (gcloud compute instances delete ... --quiet)
 ```
 
-`scripts/qemu-verify.sh` already does the `aborts if uname is not Linux x86_64, if /Users/HP exists, if /tmp/beamo-wipe-target.qcow2 already exists`, plus preflight `record_identity` checks `qemu-img info`, `findmnt`, `losetup -j`. Any extra, ambiguous, changed, mounted, or host-backed device aborts before `nwipe` is invoked (see `docs/qemu-verify.md`).
+`scripts/qemu-verify.sh` requires Linux x86_64 and an exact manifest-bound ISO. It creates unpredictable private paths, uses only image files, and rechecks `findmnt`, `lsblk TYPE=loop`, and `losetup -j` before the shipped `nwipe` binary is invoked. Any mismatch aborts (see `docs/qemu-verify.md`).
 
 Reference for controller limits that QEMU virtio does **not** model: `untested-physical.txt` in the qemu artifact (`real NVMe/SATA controllers beyond QEMU virtio, USB-SATA bridges, Secure Boot enrolled keys, Apple Silicon, RAID, SSD wear-leveling certificate`), per `docs/storage-and-controller-limits.md`.
 
@@ -314,7 +293,7 @@ A release is suspect if any of:
 - `result.json` shows a host disk (e.g. `boot_device` equals `device`, or `boot_device_in_selectable` regression) in QEMU evidence `wizard-exercise.txt` or `nwipe-boundary.txt`.
 - Evidence shows `certificate`/`compliant` fields (forbidden by `tests/test_storage_limits.py`).
 - ISO `sha256` mismatch between `dist/beamo-wipe-*.iso` and `dist/*.iso.sha256` + `manifest.json.sha256` and the published `SHA256SUMS` in `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/` and GitHub release sidecars.
-- Manifest `pinned nwipe commit 6082bde060091e66365d852a1877f2ee80c67105` or `__version__` drift from `src/beamo_wipe/__init__.py` (currently `0.2.0`; check `python -m pytest tests/test_live_image.py::test_staged_chroot_package_matches_src`).
+- Manifest `pinned nwipe commit 6082bde060091e66365d852a1877f2ee80c67105` or `__version__` drift from `src/beamo_wipe/__init__.py` (currently `0.2.1`; check `python -m pytest tests/test_live_image.py::test_staged_chroot_package_matches_src`).
 - QEMU preflight aborts on host-backed device.
 
 ### 8.b Immediate actions (page release manager)
@@ -378,7 +357,7 @@ All three spies prove no real nwipe on the support host: `NwipeRunner.start` rai
 
 ## 11. Change control for this runbook
 
-This doc is versioned with the wrapper (`1.0` for `0.2.0`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
+This doc is versioned with the wrapper (`1.0` for `0.2.1`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
 
 ---
 

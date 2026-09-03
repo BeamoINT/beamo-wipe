@@ -7,5 +7,5 @@
 #   ./preview --empty | --blocked | --fail
 #   ./preview --console
 set -eu
-ROOT="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")" && pwd)"
 exec "$ROOT/scripts/preview.sh" "$@"

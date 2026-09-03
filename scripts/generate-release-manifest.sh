@@ -1,17 +1,24 @@
 #!/bin/sh
 # Generate machine-readable release manifest. Fails closed on dirty/placeholder.
 set -eu
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${BEAMO_WIPE_VERSION:-0.2.0}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.1}"
 DEST="${1:-dist/beamo-wipe-${VERSION}-amd64.manifest.json}"
+EXPECTED_DEST="dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+case "$VERSION" in
+  ''|*[!0-9.]*|.*|*..*|*.) echo "ERROR: invalid BEAMO_WIPE_VERSION" >&2; exit 2 ;;
+esac
+if [ "$(printf '%s' "$VERSION" | awk -F. '{print NF}')" -ne 3 ] || [ "$DEST" != "$EXPECTED_DEST" ]; then
+  echo "ERROR: invalid version or out-of-tree manifest destination" >&2
+  exit 2
+fi
 
 # Fail on uncommitted state unless explicitly allowed for local dev
 if [ "${ALLOW_DIRTY:-0}" != "1" ]; then
   if [ -n "$(git status --porcelain)" ]; then
     echo "ERROR: uncommitted source state (git status --porcelain not empty)" >&2
-    git status --short >&2 | head -n 20
-    echo "Commit or stash, or set ALLOW_DIRTY=1 for local dev" >&2
+    echo "Commit the audited paths, or set ALLOW_DIRTY=1 for a local non-release build" >&2
     exit 2
   fi
 fi
@@ -33,14 +40,14 @@ out = write_manifest(manifest, dest)
 from beamo_wipe.release_manifest import verify_manifest
 verify_manifest(out, allow_dirty=not strict)
 print(f"Verified {out} (strict={strict})")
-print(f"Manifest SHA256: {out.read_text().split()}")
-import json, hashlib
+import hashlib
+print(f"Manifest SHA256: {hashlib.sha256(out.read_bytes()).hexdigest()}")
 sidecar = pathlib.Path(str(out) + ".sha256")
-print(f"Sidecar {sidecar}: {sidecar.read_text().strip()}")
+print(f"Sidecar written: {sidecar.name}")
 PY
 
 echo "Manifest written: $DEST (verifying checksums below)"
-ls -lh "$DEST" "${DEST}.sha256" 2>&1 | head -n 10
+ls -lh "$DEST" "${DEST}.sha256"
 # Verify checksum publication (from dist/ directory so sidecar's bare filename resolves).
 # No `| head` on verify lines: under set -eu without pipefail the pipeline's
 # status would be head's, and a mismatch would still print success and exit 0.

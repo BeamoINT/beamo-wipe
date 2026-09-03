@@ -13,6 +13,7 @@ import json
 import os
 import stat
 import time
+import unicodedata
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
 
@@ -58,7 +59,7 @@ def _sanitize_argv(argv: Sequence[str]) -> List[str]:
     for a in argv or []:
         if not isinstance(a, str):
             continue
-        if any(ch in a for ch in "\n\r\0"):
+        if any(unicodedata.category(ch).startswith("C") for ch in a):
             continue
         out.append(a)
     return out
@@ -325,36 +326,9 @@ def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     """Atomic write: temp + fsync + rename. No follow of symlinks."""
     path = Path(path)
     directory = path.parent
-    # Ensure directory is safe (use default_log_dir checks elsewhere; here just ensure it exists)
     directory.mkdir(parents=True, exist_ok=True)
-    # Validate not on target is done by caller via assert_log_not_on_target
-    tmp = directory / f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}"
     blob = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
-    # Write with O_NOFOLLOW, 0o600
-    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    try:
-        os.write(fd, blob.encode("utf-8"))
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    # Verify not a symlink before rename
-    try:
-        st = os.lstat(str(tmp))
-        if stat.S_ISLNK(st.st_mode):
-            os.unlink(str(tmp))
-            raise SafetyError("Refusing to write evidence through symlink")
-    except FileNotFoundError:
-        pass
-    os.rename(str(tmp), str(path))
-    # Fsync directory
-    try:
-        dir_fd = os.open(str(directory), os.O_DIRECTORY | os.O_RDONLY)
-        try:
-            os.fsync(dir_fd)
-        finally:
-            os.close(dir_fd)
-    except OSError:
-        pass
+    _atomic_write_bytes(path, blob.encode("utf-8"))
 
 
 def write_evidence_atomic(
@@ -388,29 +362,69 @@ def write_evidence_atomic(
     # We write, then compute checksum of file
     _atomic_write_json(path, evidence)
     # Sidecar checksum
-    try:
-        h = hashlib.sha256()
-        with open(path, "rb") as fh:
-            for chunk in iter(lambda: fh.read(8192), b""):
-                h.update(chunk)
-        sha = h.hexdigest()
-        sidecar = Path(str(path) + CHECKSUM_SUFFIX)
-        # Atomic write sidecar as well
-        tmp_sc = Path(str(sidecar) + f".tmp.{os.getpid()}")
-        with open(tmp_sc, "w", encoding="utf-8") as out:
-            out.write(f"{sha}  {path.name}\n")
-            out.flush()
-            os.fsync(out.fileno())
-        os.rename(str(tmp_sc), str(sidecar))
-    except Exception:
-        # Sidecar failure is non-fatal; evidence is primary
-        pass
+    h = hashlib.sha256(_read_regular_nofollow(path)).hexdigest()
+    sidecar = Path(str(path) + CHECKSUM_SUFFIX)
+    _atomic_write_bytes(sidecar, f"{h}  {path.name}\n".encode("ascii"))
     return path
 
 
 def load_evidence(path: Path) -> dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+    return json.loads(_read_regular_nofollow(Path(path)).decode("utf-8"))
+
+
+def _read_regular_nofollow(path: Path) -> bytes:
+    try:
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise SafetyError("Cannot safely read evidence file") from exc
+    try:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise SafetyError("Evidence path is not a regular file")
+        if opened.st_uid != os.getuid():
+            raise SafetyError("Evidence file has the wrong owner")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        os.close(fd)
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    directory = path.parent
+    dir_fd = os.open(str(directory), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    tmp_name = f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}"
+    fd = -1
+    try:
+        fd = os.open(
+            tmp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=dir_fd,
+        )
+        view = memoryview(data)
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError("short evidence write")
+            view = view[written:]
+        os.fsync(fd)
+        os.close(fd)
+        fd = -1
+        os.rename(tmp_name, path.name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        os.fsync(dir_fd)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(tmp_name, dir_fd=dir_fd)
+        except FileNotFoundError:
+            pass
+        os.close(dir_fd)
 
 
 def verify_evidence_checksum(path: Path) -> bool:
@@ -422,14 +436,10 @@ def verify_evidence_checksum(path: Path) -> bool:
     """
     sidecar = Path(str(path) + CHECKSUM_SUFFIX)
     try:
-        data = Path(path).read_bytes()
+        data = _read_regular_nofollow(Path(path))
         h = hashlib.sha256(data).hexdigest()
-        if not sidecar.exists():
-            return False
-        txt = sidecar.read_text(encoding="utf-8").strip()
-        # Format: "<sha>  <name>"
-        want = txt.split()[0] if txt else ""
-        return want.lower() == h.lower()
+        txt = _read_regular_nofollow(sidecar).decode("ascii")
+        return txt == f"{h}  {Path(path).name}\n"
     except Exception:
         return False
 
@@ -447,8 +457,8 @@ def export_evidence(
     """
     src = Path(evidence_path)
     dest_dir = Path(dest_dir)
-    if not src.exists():
-        raise SafetyError("Evidence file missing")
+    if not verify_evidence_checksum(src):
+        raise SafetyError("Evidence checksum is missing or invalid")
     if not dest_dir.exists():
         raise SafetyError("Export destination missing")
     # Ensure dest_dir itself is a directory and not a symlink
@@ -466,33 +476,20 @@ def export_evidence(
     # to dest_dir itself (default would wrongly require dest under /tmp/beamo-wipe
     # and every real export would fail).
     dest_file = dest_dir / src.name
+    if dest_file.exists() or Path(str(dest_file) + CHECKSUM_SUFFIX).exists():
+        raise SafetyError("Export destination already contains this evidence")
     assert_log_not_on_target(str(dest_file), target_device or "", log_dir=dest_dir)
     if boot_device:
         assert_log_not_on_target(str(dest_file), boot_device, log_dir=dest_dir)
     # Also check via mountinfo that dest_dir is not on target (best effort)
     # Atomic copy: read src, write tmp in dest_dir, fsync, rename
-    data = src.read_bytes()
-    tmp = dest_dir / f".{src.name}.tmp.{os.getpid()}"
-    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    try:
-        os.write(fd, data)
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    os.rename(str(tmp), str(dest_file))
-    # Copy sidecar if exists
-    sidecar = Path(str(src) + CHECKSUM_SUFFIX)
-    if sidecar.exists():
-        dest_sc = Path(str(dest_file) + CHECKSUM_SUFFIX)
-        sc_data = sidecar.read_bytes()
-        tmp_sc = dest_dir / f".{dest_sc.name}.tmp.{os.getpid()}"
-        fd2 = os.open(str(tmp_sc), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-        try:
-            os.write(fd2, sc_data)
-            os.fsync(fd2)
-        finally:
-            os.close(fd2)
-        os.rename(str(tmp_sc), str(dest_sc))
+    data = _read_regular_nofollow(src)
+    _atomic_write_bytes(dest_file, data)
+    dest_sc = Path(str(dest_file) + CHECKSUM_SUFFIX)
+    _atomic_write_bytes(
+        dest_sc,
+        f"{hashlib.sha256(data).hexdigest()}  {dest_file.name}\n".encode("ascii"),
+    )
     # Fsync dest_dir
     try:
         dfd = os.open(str(dest_dir), os.O_DIRECTORY | os.O_RDONLY)

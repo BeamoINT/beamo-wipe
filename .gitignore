@@ -19,6 +19,7 @@ htmlcov/
 *.raw
 *.squashfs
 dist/
+qemu-evidence/
 packaging/live/cache/
 packaging/live/chroot/
 packaging/live/.build/

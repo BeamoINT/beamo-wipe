@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+import unicodedata
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from beamo_wipe.copy import IDENTIFY_ERROR as CANNOT_IDENTIFY
@@ -164,10 +165,10 @@ def _as_int(value: Any) -> int:
         return 0
     try:
         return int(text)
-    except ValueError:
+    except (ValueError, OverflowError):
         try:
             return int(float(text))
-        except ValueError:
+        except (ValueError, OverflowError):
             try:
                 from beamo_wipe.diagnostics import log_diag
 
@@ -184,8 +185,10 @@ def _clean(value: Any) -> str:
     # chars, ANSI, newlines, or HTML. Strip control codes (0x00-0x1F, 0x7F),
     # truncate to 128 (display/evidence limit), and never pass raw to innerHTML.
     s = str(value)
-    # Remove C0 controls and DEL, keep printable only
-    s = re.sub(r"[\x00-\x1f\x7f]", "", s)
+    # Remove every Unicode control/format/surrogate/private-use/unassigned
+    # character.  C0-only filtering leaves C1 CSI and bidi overrides that can
+    # make an untrusted drive model/serial visually impersonate another disk.
+    s = "".join(ch for ch in s if not unicodedata.category(ch).startswith("C"))
     s = s.strip()
     if len(s) > 128:
         s = s[:128]
@@ -818,6 +821,25 @@ def run_lsblk() -> Dict[str, Any]:
     return load_lsblk_json_text(proc.stdout)
 
 
+def _validate_real_lsblk_metadata(payload: Dict[str, Any]) -> None:
+    """Require safety-critical columns from the real lsblk invocation.
+
+    Missing RO or mountpoint data must not silently mean writable/unmounted.
+    Explicit fixture payloads are validated by their callers and do not use
+    this production-only gate.
+    """
+    blockdevices = payload.get("blockdevices")
+    if not isinstance(blockdevices, list):
+        raise ValueError("lsblk JSON blockdevices must be a list")
+    for node, _parent in flatten_blockdevices(blockdevices):
+        if "type" not in node or "path" not in node or "name" not in node:
+            raise ValueError("lsblk omitted required identity metadata")
+        if "mountpoints" not in node and "mountpoint" not in node:
+            raise ValueError("lsblk omitted mountpoint metadata")
+        if _node_type(node) == "disk" and _as_bool(node.get("ro")) is None:
+            raise ValueError("lsblk omitted read-only metadata")
+
+
 def read_cmdline(path: str = "/proc/cmdline") -> str:
     try:
         with open(path, encoding="utf-8") as fh:
@@ -1026,6 +1048,10 @@ def discover(
         payload = lsblk_payload if lsblk_payload is not None else run_lsblk()
         if not isinstance(payload, dict):
             raise ValueError("lsblk JSON root must be an object")
+        if lsblk_payload is None and not (
+            env.get("BEAMO_WIPE_DRY_RUN") == "1" or env.get("BEAMO_WIPE_DEMO") == "1"
+        ):
+            _validate_real_lsblk_metadata(payload)
         blockdevices = payload.get("blockdevices") or []
         identified = identify_boot_path(
             blockdevices,

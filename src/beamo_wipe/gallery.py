@@ -167,7 +167,15 @@ def gallery_html() -> str:
         },
         "disks": _disks_payload("happy"),
     }
-    data = json.dumps(payload)
+    # JSON is embedded in a script element. Escaping HTML-significant code
+    # points prevents a future fixture/copy string containing </script> from
+    # terminating the element and injecting markup into the local preview.
+    data = (
+        json.dumps(payload)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
     return (
         _TEMPLATE
         .replace("__PAYLOAD__", data)

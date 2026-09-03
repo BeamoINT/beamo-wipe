@@ -16,7 +16,7 @@ def test_runbook_exists_and_is_versioned():
     assert "next review" in text
     assert "owner" in text
     assert "beamo wipe" in text
-    assert "0.2.0" in text
+    assert "0.2.1" in text
     assert "nwipe v0.42" in text
     assert "6082bde" in text
 
@@ -60,7 +60,8 @@ def test_runbook_has_safe_reproduction_section_with_prohibitions():
     assert "isolated" in text and "qemu" in text and "disposable" in text
     assert "prohibitions" in text
     assert "beamo_wipe_dry_run=1" in text
-    assert "qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2" in text
+    assert "scripts/qemu-verify.sh" in text
+    assert "mktemp" in text
     assert "findmnt" in text
     assert "losetup -j" in text
     # must mention not to run on dev disk (markdown may wrap `nwipe` in backticks)

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 
 import pytest
 
@@ -30,7 +31,11 @@ def _seed_evidence(path: Path) -> None:
     sidecar = Path(str(newest) + ".sha256")
     assert sidecar.exists()
     path.write_bytes(newest.read_bytes())
-    Path(str(path) + ".sha256").write_bytes(sidecar.read_bytes())
+    copied = path.read_bytes()
+    Path(str(path) + ".sha256").write_text(
+        f"{hashlib.sha256(copied).hexdigest()}  {path.name}\n",
+        encoding="ascii",
+    )
 
 
 def test_export_to_second_usb_outside_log_dir(tmp_path, monkeypatch):

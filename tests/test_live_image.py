@@ -4,7 +4,8 @@ from pathlib import Path
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
-PROFILE = ROOT / "packaging/live/config/includes.chroot/root/.profile"
+SUPERVISOR = ROOT / "packaging/live/config/includes.chroot/usr/local/sbin/beamo-wipe-kiosk"
+SERVICE = ROOT / "packaging/live/config/includes.chroot/etc/systemd/system/beamo-wipe-kiosk.service"
 PACKAGES = ROOT / "packaging/live/config/package-lists/beamo.list.chroot"
 HOOK = ROOT / "packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot"
 LAUNCHER = ROOT / "packaging/live/config/includes.chroot/usr/local/bin/beamo-wipe"
@@ -19,26 +20,40 @@ FORBIDDEN_PACKAGES = (
     "openssh-server",
     "wget",
     "nmap",
+    # Not needed by the kiosk or the configured nwipe invocation.
+    "nano",
+    "less",
+    "iproute2",
+    "dmidecode",
+    "pciutils",
+    "usbutils",
+    "eject",
 )
 
 
-def test_live_profile_does_not_timeout_the_running_wizard():
-    text = PROFILE.read_text(encoding="utf-8")
+def test_hdparm_is_only_an_nwipe_read_only_dependency():
+    text = PACKAGES.read_text(encoding="utf-8")
+    assert "hdparm" in text.split()
+    source = "\n".join(
+        p.read_text(encoding="utf-8")
+        for p in (ROOT / "src" / "beamo_wipe").glob("*.py")
+    )
+    assert "security-erase" not in source
+    assert "--dco-restore" not in source
+
+
+def test_live_supervisor_does_not_timeout_the_running_wizard():
+    text = SUPERVISOR.read_text(encoding="utf-8")
     assert "timeout 90 startx /usr/local/bin/beamo-wipe" not in text
     assert "beamo-wipe" in text
     assert "while" in text
     assert "nwipe" not in text.split("beamo-wipe")[0] or "exec nwipe" not in text
 
 
-def test_live_profile_does_not_auto_start_nwipe():
-    text = PROFILE.read_text(encoding="utf-8")
+def test_live_supervisor_does_not_auto_start_nwipe():
+    text = SUPERVISOR.read_text(encoding="utf-8")
     assert "nwipe --autonuke" not in text
     assert "exec nwipe" not in text
-
-
-def test_live_packages_include_hdparm():
-    text = PACKAGES.read_text(encoding="utf-8")
-    assert "hdparm" in text.split()
 
 
 def test_live_packages_omit_network_and_compilers():
@@ -91,6 +106,8 @@ def test_nwipe_hook_hides_engine_and_extra_gettys():
     assert "NAutoVTs=1" in text
     assert "systemd-networkd.service" in text
     assert "sshd.service" in text
+    assert "getty@tty1" in text or 'getty@${tty}' in text
+    assert "beamo-wipe-kiosk.service" in text
 
 
 def test_iso_build_uses_https_debian_mirrors():
@@ -200,49 +217,36 @@ def test_extra_gettys_are_masked_as_unit_symlinks():
     assert "getty@tty2" in text or "getty@${tty}" in text
 
 
-def test_kiosk_lock_runs_before_profile_d_xinit():
-    lock = (
-        ROOT
-        / "packaging/live/config/includes.chroot/etc/profile.d/00-beamo-kiosk-lock.sh"
-    )
-    assert lock.is_file()
-    text = lock.read_text(encoding="utf-8")
-    assert "set +m" in text
-    assert "trap" in text
-    assert "TSTP" in text
+def test_kiosk_is_a_hardened_systemd_service_not_a_login_shell():
+    service = SERVICE.read_text(encoding="utf-8")
+    supervisor = SUPERVISOR.read_text(encoding="utf-8")
+    assert "ExecStart=/usr/local/sbin/beamo-wipe-kiosk" in service
+    assert "Conflicts=getty@tty1.service" in service
+    assert "NoNewPrivileges=yes" in service
+    assert "PrivateNetwork=yes" in service
+    assert "ProtectSystem=full" in service
+    assert "StandardOutput=null" in service
+    assert "trap '' TSTP INT QUIT" in supervisor
+    assert not (ROOT / "packaging/live/config/includes.chroot/etc/systemd/system/getty@tty1.service.d/autologin.conf").exists()
 
 
-def test_live_profile_console_if_x_dies_after_socket():
-    """Xorg creates X0 before InitOutput. If startx then dies, wait+return
-    would skip --console and leave a socket that poisons the next startx."""
-    text = PROFILE.read_text(encoding="utf-8")
-    start = text.find("beamo_after_startx()")
-    assert start != -1
-    helper = text[start : text.find("\nbeamo_wipe_ui()")]
-    assert "wait" in helper
-    assert "rm -f /tmp/.X11-unix/X0" in helper
-    assert "beamo-wipe --console" in helper
-    idx = text.find('if [ -S /tmp/.X11-unix/X0 ]; then')
-    assert idx != -1
-    rest = text[idx:]
-    end = rest.find("\n      fi")
-    assert end != -1
-    block = rest[:end]
-    assert "beamo_after_startx" in block
+def test_live_supervisor_falls_back_to_console_after_x_failure():
+    text = SUPERVISOR.read_text(encoding="utf-8")
+    assert "startx /usr/local/bin/beamo-wipe" in text
+    assert "rm -f /tmp/.X11-unix/X0" in text
+    assert "/usr/local/bin/beamo-wipe --console" in text
+    assert "while :" in text
 
 
-def test_kiosk_profile_disables_job_control_suspend():
-    text = PROFILE.read_text(encoding="utf-8")
-    assert "set +m" in text
+def test_kiosk_supervisor_disables_suspend_and_interrupt():
+    text = SUPERVISOR.read_text(encoding="utf-8")
     assert "stty susp undef" in text
     assert "stty intr undef" in text
     assert "trap '' TSTP" in text or 'trap "" TSTP' in text
     assert "rm -f /tmp/.X11-unix/X0" in text
-    assert "kill -0" in text
 
 
 def test_live_kiosk_ignores_sigint():
     text = (ROOT / "src/beamo_wipe/app.py").read_text(encoding="utf-8")
     assert "signal.SIGINT" in text
     assert "signal.SIGTSTP" in text
-

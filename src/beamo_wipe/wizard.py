@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import threading
 import time
@@ -260,7 +261,10 @@ class Wizard:
             # Surface diagnostic for maintainers while keeping UI generic and actionable
             diag = getattr(self.discovery, "diagnostic", None)
             if diag:
-                self.error = f"{self.discovery.error} ({diag})"
+                # Discovery diagnostics can contain command/OS details. Keep
+                # the owner-facing kiosk message generic and write only the
+                # bounded sanitized diagnostic to the protected support log.
+                self.error = self.discovery.error
                 try:
                     from beamo_wipe.diagnostics import log_diag
 
@@ -521,12 +525,23 @@ class Wizard:
                 log_text = getattr(self.runner, "_log_tail", "") or ""
                 if not log_text and self._wipe_request and self._wipe_request.logfile:
                     try:
-                        with open(self._wipe_request.logfile, "r", encoding="utf-8", errors="replace") as fh:
-                            # Last 8 KiB is enough for checksum; full log stays in logfile
-                            fh.seek(0, 2)
-                            size = fh.tell()
-                            fh.seek(max(0, size - 8192))
-                            log_text = fh.read()
+                        fd = os.open(
+                            self._wipe_request.logfile,
+                            os.O_RDONLY | os.O_NOFOLLOW,
+                        )
+                        try:
+                            opened = os.fstat(fd)
+                            if not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.getuid():
+                                raise OSError("unsafe wipe log")
+                            with os.fdopen(fd, "rb") as fh:
+                                fd = -1
+                                fh.seek(0, 2)
+                                size = fh.tell()
+                                fh.seek(max(0, size - 8192))
+                                log_text = fh.read().decode("utf-8", errors="replace")
+                        finally:
+                            if fd >= 0:
+                                os.close(fd)
                     except OSError as exc:
                         try:
                             from beamo_wipe.diagnostics import log_diag
@@ -609,10 +624,9 @@ class Wizard:
             path = write_evidence_atomic(ev, log_dir=log_dir, device_path=target or (self.selected.path if self.selected else ""), target_device=target)
             # Reload provenance from file to ensure evidence_file matches written file
             try:
-                import json as _json
+                from beamo_wipe.evidence import load_evidence
 
-                with open(path, "r", encoding="utf-8") as _fh:
-                    written = _json.load(_fh)
+                written = load_evidence(path)
                 ev["provenance"] = written.get("provenance", ev["provenance"])
             except Exception as exc:
                 try:

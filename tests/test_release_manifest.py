@@ -27,6 +27,17 @@ requires_manufacturing_iso = pytest.mark.skipif(
 )
 
 
+def test_prior_stable_release_identity_is_exact():
+    import beamo_wipe.release_manifest as rm
+
+    assert rm.PRIOR_STABLE == {
+        "version": "0.2.0",
+        "iso_name": "beamo-wipe-0.2.0-amd64.iso",
+        "sha256": "62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74",
+        "commit": "5b3b7afa6c448ee01269c9497c1c93e8e83733c1",
+    }
+
+
 @requires_manufacturing_iso
 def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     monkeypatch.setenv("ALLOW_DIRTY", "1")
@@ -38,7 +49,7 @@ def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     assert m["beamo_wipe_version"] == "0.1.0"
     assert m["source"]["commit"]
     assert "dirty" in m["source"]
-    assert m["build"]["container_image"] == "debian:bookworm"
+    assert m["build"]["container_image"].startswith("debian:bookworm@sha256:")
     assert m["dependencies"]["pyproject.toml"]
     assert m["live_build_inputs"]["bootstrap"]
     assert m["nwipe"]["version"] == "0.42"
@@ -49,7 +60,7 @@ def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     assert m["hardware_limits"]["unsupported"]
     assert m["known_issues"]
     assert m["license"]["wrapper"] == "GPL-3.0-or-later"
-    assert m["prior_stable"]["iso_name"] == "beamo-wipe-0.1.0-amd64.iso"
+    assert m["prior_stable"]["iso_name"] == "beamo-wipe-0.2.0-amd64.iso"
     assert m["verification"]["checksum_instructions"]
     assert "_manifest_sha256" in m
 
@@ -236,17 +247,17 @@ def test_manifest_recovery_after_failed_write(tmp_path, monkeypatch):
     m = rm.generate_manifest(version="0.1.0", strict=False)
     dest = tmp_path / "manifest.json"
     # Simulate disk full on first write
-    orig_open = open
+    orig_write = rm.os.write
 
-    def failing_open(*a, **kw):
+    def failing_write(*a, **kw):
         raise OSError("disk full")
 
-    monkeypatch.setattr("builtins.open", failing_open)
+    monkeypatch.setattr(rm.os, "write", failing_write)
     with pytest.raises(OSError):
         rm.write_manifest(m, dest)
     # No partial file
     assert not dest.exists() or dest.stat().st_size == 0
-    monkeypatch.setattr("builtins.open", orig_open)
+    monkeypatch.setattr(rm.os, "write", orig_write)
     # Retry succeeds
     out = rm.write_manifest(m, dest)
     assert out.exists()
@@ -262,7 +273,7 @@ def test_consumer_verification_instructions(tmp_path, monkeypatch):
     assert "sha256sum -c" in m["verification"]["checksum_instructions"]
     # Should mention both ISO and manifest
     assert "iso.sha256" in m["verification"]["checksum_instructions"] or "manifest" in m["verification"]["checksum_instructions"]
-    assert "retention" in m["verification"]["artifact_immutability"] or "retention-days" in m["verification"]["artifact_immutability"] or "GCS" in m["verification"]["artifact_immutability"]
+    assert "explicit post-QEMU release gate" in m["verification"]["artifact_immutability"]
     assert "not configured" in m["verification"]["signing"] or "SHA256" in m["verification"]["signing"]
 
 
@@ -273,10 +284,10 @@ def test_prior_stable_and_rollback(tmp_path, monkeypatch):
 
     m = rm.generate_manifest(version="0.1.0", strict=False)
     prior = m["prior_stable"]
-    assert prior["iso_name"] == "beamo-wipe-0.1.0-amd64.iso"
-    assert prior["sha256"] == "8a531d35c437d858512ccbba20913cd7dbd9237cc9a2e2a1b7935ba9d9781c55"
+    assert prior["iso_name"] == "beamo-wipe-0.2.0-amd64.iso"
+    assert prior["sha256"] == "62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74"
     assert "rollback" in m
-    assert "3b4c01f" in m["rollback"]
+    assert "5b3b7afa6c448ee01269c9497c1c93e8e83733c1" in m["rollback"]
 
 
 @requires_manufacturing_iso

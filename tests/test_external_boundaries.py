@@ -350,7 +350,7 @@ def test_sigusr1_not_sent_before_ready_and_throttled(tmp_path, monkeypatch):
     from beamo_wipe.nwipe_runner import NwipeRunner
 
     runner = NwipeRunner(binary=str(tmp_path / "nwipe"))
-    req = WipeRequest(device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0", logfile=str(log), device_rdev=123, device_size_bytes=1000000)
+    req = WipeRequest(device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0", logfile=str(log), device_rdev=123, device_size_bytes=1000000, boot_rdev=123)
     # inject fake binary checks
     monkeypatch.setattr("beamo_wipe.nwipe_runner.resolve_nwipe_binary", lambda b: b)
     monkeypatch.setattr("beamo_wipe.nwipe_runner._verify_pinned_nwipe", lambda b: None)
@@ -358,6 +358,7 @@ def test_sigusr1_not_sent_before_ready_and_throttled(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.nwipe_runner.pinned_nwipe_already_running", lambda *a, **k: False)
     monkeypatch.setattr("beamo_wipe.nwipe_runner.assert_existing_is_block_device", lambda *a, **k: None)
     monkeypatch.setattr("beamo_wipe.nwipe_runner.assert_size_unchanged", lambda *a, **k: None)
+    monkeypatch.setattr("beamo_wipe.nwipe_runner.assert_not_boot", lambda *a, **k: None)
     monkeypatch.setattr("beamo_wipe.nwipe_runner.block_rdev", lambda p: 123)
     # flaky lock
     import fcntl

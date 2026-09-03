@@ -88,6 +88,9 @@ def _open_html(path: Path) -> int:
     if not path.is_file():
         print(f"Missing file: {path}", file=sys.stderr)
         return 2
+    if os.environ.get("BEAMO_WIPE_NO_OPEN") == "1":
+        print(path)
+        return 0
     import webbrowser
 
     webbrowser.open(path.resolve().as_uri())

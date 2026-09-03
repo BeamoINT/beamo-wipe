@@ -78,6 +78,10 @@ class WipeRequest:
     # (unit tests / dry-run). Re-checked immediately before exec.
     device_rdev: int = 0
     device_size_bytes: int = 0
+    # Boot-medium identity recorded at the confirmation boundary. Production
+    # rechecks it immediately before exec so a hotplug/rename cannot redirect
+    # --exclude to a different node.
+    boot_rdev: int = 0
 
 
 @dataclass(frozen=True)

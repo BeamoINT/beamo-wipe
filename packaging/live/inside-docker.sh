@@ -3,7 +3,11 @@
 # Builds on the container's own disk so debootstrap can mknod.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-ISO_NAME="${BEAMO_WIPE_ISO_NAME:-beamo-wipe-${BEAMO_WIPE_VERSION:-0.2.0}-amd64.iso}"
+ISO_NAME="${BEAMO_WIPE_ISO_NAME:-beamo-wipe-${BEAMO_WIPE_VERSION:-0.2.1}-amd64.iso}"
+if [[ ! "$ISO_NAME" =~ ^beamo-wipe-[0-9]+\.[0-9]+\.[0-9]+-amd64\.iso$ ]]; then
+  echo "invalid ISO output name" >&2
+  exit 2
+fi
 
 apt-get update
 apt-get install -y \
@@ -70,8 +74,14 @@ lb config \
 
 lb build
 
-found="$(find /build/packaging/live -maxdepth 2 -name '*.iso' -print | head -n 1)"
-if [ -z "$found" ] || [ ! -f "$found" ]; then
+mapfile -t images < <(find /build/packaging/live -maxdepth 2 -type f -name '*.iso' -print)
+if [ "${#images[@]}" -ne 1 ]; then
+  echo "live-build must produce exactly one ISO (found ${#images[@]})" >&2
+  printf '%s\n' "${images[@]}" >&2
+  exit 1
+fi
+found="${images[0]}"
+if [ ! -f "$found" ]; then
   echo "live-build produced no ISO" >&2
   ls -la /build/packaging/live || true
   exit 1

@@ -26,19 +26,14 @@ tk
 # recommends off, no X font is guaranteed otherwise and Tk would fall back
 # to the X server's unscalable built-in "fixed" bitmap font.
 fonts-dejavu-core
-pciutils
-usbutils
 util-linux
-eject
 smartmontools
+# nwipe v0.42 uses hdparm only for read-only HPA/DCO discovery. It is kept as
+# an engine dependency; Beamo never constructs ATA security-erase arguments.
 hdparm
-dmidecode
 ca-certificates
 kbd
 console-setup
-less
-nano
-iproute2
 libncurses6
 libparted2
 libconfig9

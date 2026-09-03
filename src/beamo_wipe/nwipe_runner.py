@@ -27,6 +27,7 @@ from beamo_wipe.safety import (
     SafetyError,
     assert_existing_is_block_device,
     assert_log_not_on_target,
+    assert_local_device_transport,
     assert_not_boot,
     assert_size_unchanged,
     block_rdev,
@@ -580,13 +581,18 @@ class NwipeRunner:
                 raise SafetyError("A wipe is already running.")
             _verify_pinned_nwipe(resolved)
             assert_existing_is_block_device(request.device, required=True)
+            assert_existing_is_block_device(request.boot_device, required=True)
             assert_size_unchanged(request.device, request.device_size_bytes)
+            assert_local_device_transport(request.device)
             now_rdev = block_rdev(request.device)
             if now_rdev is None:
                 raise SafetyError("Target is not a block device.")
             if not request.device_rdev or now_rdev != request.device_rdev:
                 raise SafetyError("Disk identity changed. Refusing to erase.")
-        assert_not_boot(request.device, request.boot_device)
+            now_boot_rdev = block_rdev(request.boot_device)
+            if not request.boot_rdev or now_boot_rdev != request.boot_rdev:
+                raise SafetyError("Boot device identity changed. Refusing to erase.")
+        assert_not_boot(request.device, request.boot_device, required=real_engine)
         argv = build_nwipe_argv(request)
         argv[0] = resolved
         assert_log_not_on_target(request.logfile, request.device)
@@ -600,6 +606,22 @@ class NwipeRunner:
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
             self._acquire_wipe_lock(request)
+            if real_engine:
+                # Recheck both identities while holding the exclusive wipe
+                # lock, immediately before Popen. This narrows the hotplug
+                # window after the owner confirms the displayed disk.
+                try:
+                    assert_existing_is_block_device(request.device, required=True)
+                    assert_existing_is_block_device(request.boot_device, required=True)
+                    if block_rdev(request.device) != request.device_rdev:
+                        raise SafetyError("Disk identity changed. Refusing to erase.")
+                    if block_rdev(request.boot_device) != request.boot_rdev:
+                        raise SafetyError("Boot device identity changed. Refusing to erase.")
+                    assert_local_device_transport(request.device)
+                    assert_not_boot(request.device, request.boot_device, required=True)
+                except Exception:
+                    self._release_wipe_lock()
+                    raise
             self.result = None
             self.progress = None
             self._log_tail = ""
@@ -731,7 +753,7 @@ class NwipeRunner:
             return ""
         try:
             st = os.fstat(fd)
-            if not stat.S_ISREG(st.st_mode):
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid():
                 _try_log_diag("nwipe", "log_not_regular", f"mode={oct(st.st_mode)} log={logfile[:48]}")
                 return ""
             with os.fdopen(fd, "rb") as fh:

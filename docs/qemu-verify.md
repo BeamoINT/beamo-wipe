@@ -1,59 +1,31 @@
 # Controlled QEMU destructive-path verification
 
-Run only on an isolated x86_64 Linux VM/runner with no host-disk passthrough and one newly created disposable virtual target. Never on the development Mac or a real user disk.
+Run `scripts/qemu-verify.sh` only on an isolated x86_64 Linux worker with no host-disk passthrough. It aborts on macOS, non-x86_64 hosts, a missing exact-version ISO/manifest, unverifiable checksums, or any uncertain loop identity.
 
-## Safety
+## Isolation and inputs
 
-- Script `scripts/qemu-verify.sh` aborts if `uname` is not `Linux x86_64`, if `/Users/HP` exists, or if `/tmp/beamo-wipe-target.qcow2` already exists.
-- Only files under `/tmp` (`/tmp/beamo-wipe-target.qcow2`, `/tmp/beamo-wipe-target.raw`, `/tmp/beamo-wipe-qemu-evidence/`) are used. Host block devices are never passed via `--device` or host `/dev` bind; QEMU is invoked with `-drive file=/tmp/…qcow2,if=virtio,format=qcow2` only.
-- Preflight `record_identity` checks `qemu-img info`, `lsblk` host, `findmnt`, and `losetup -j` to prove the loop is the disposable file, not a host disk. Any extra, ambiguous, changed, mounted, or host-backed device aborts.
-- Disposable images are `rm -v` after evidence collection; `trap cleanup` removes loop devices.
+- Every run gets a mode-0700 `mktemp` directory under `/tmp`; no predictable target, mount, PID, or evidence path is reused.
+- The script accepts only `dist/beamo-wipe-<version>-amd64.iso` and its matching manifest/sidecars. There is no wildcard ISO, distro `nwipe`, host `nwipe`, or apt fallback.
+- QEMU receives only the read-only ISO and a newly created qcow2 file. It receives no `/dev` bind, `--device`, network interface, or host block disk.
+- The direct engine boundary uses a newly created 256 MiB raw file. `losetup -j`, `lsblk TYPE=loop`, and `findmnt` re-prove both target and read-only ISO loop devices immediately before invocation.
+- The cleanup trap kills only PIDs obtained from the current background QEMU commands, detaches only validated `/dev/loopN` values, unmounts the private mounts, and removes disposable images. Evidence remains in the path recorded by `qemu-evidence/PATH` for the CI collector.
 
-## What is exercised
+## Required checks
 
-- **BIOS and UEFI boot** where OVMF is present (pflash code+vars drives, `-bios` fallback only without a vars template, and default SeaBIOS), boot-medium exclusion (`sr0` rom not selectable), target `vda` virtio 10G visible.
-- **Target selection** via `discover` payload `sdb` boot USB + `vda` virtio + `sr0` optical, wizard `PICK` → `CONFIRM` → `METHOD` → `LAST_CHANCE`.
-- **Every confirmation gate** — owner checkbox, exact token (`confirm.token`), 5 s `COUNTDOWN_S` via `Clock`, `erase_enabled`, `confirm_erase` re-discovers and checks `assert_boot_excluded`/`assert_disk_identity`.
-- **Exact nwipe boundary** — pinned `nwipe v0.42` at `/tmp/nwipe-pinned` (built from `martijnvanbrummelen/nwipe@v0.42` or host `nwipe`), invoked as `nwipe --autonuke --nogui --nowait --method=zero --verify=off --noblank --exclude=/dev/sdb --logfile=/tmp/beamo-wipe/nwipe-loop.log --PDFreportpath=noPDF /dev/loopN` with `timeout 20` and `pass_fds` checks via existing `tests/test_nwipe_runner.py`.
-- **Progress/completion/cancellation/non-zero/log** — DryRunRunner progress, `evaluate_nwipe_completion` markers (`| Erased |` or last-pass 100%), `timeout 3` kill, bad device `/tmp/not-a-disk` expecting 75, log presence and `log_checksum_sha256` in `evidence.json` plus sidecar `.sha256`.
+The gate fails unless all of these pass:
 
-## How to run
-
-In CI it runs as the `qemu-verify` step of `cloudbuild.yaml` (after `iso-build`, on the build worker — TCG where KVM is absent — against a disposable `qcow2`; evidence copied to `qemu-evidence/` artifacts). Pushes to `main` run it via the `beamo-wipe-main-gate` trigger; PRs skip it (`_SKIP_QEMU=true`).
-
-Manually, on a throwaway x86_64 VM with `/dev/kvm` (e.g., GCE `n2-standard-4`):
+1. ISO and manifest sidecars, manifest-to-actual-ISO hash/size/path binding, ISO9660 PVD, and El Torito catalog.
+2. Read-only mount of the ISO and squashfs, exact `nwipe version 0.42`, root ownership, and no group/other-writable kiosk/engine assets.
+3. No unnecessary admin tools (`nano`, `less`, `iproute2`, `dmidecode`, PCI/USB utilities, `eject`) or compiler/VCS in the installed package database. `hdparm` remains only because pinned nwipe v0.42 uses its read-only HPA/DCO queries.
+4. `debsecan --suite bookworm --only-fixed` reports no installed package with a fixed Debian vulnerability.
+5. Fake-disk owner, confirmation, countdown, boot-exclusion, rediscovery, and process-boundary tests.
+6. The binary copied byte-for-byte from the ISO completes a quick zero on the disposable loop with a target success marker, and rejects a non-block target.
+7. Both SeaBIOS and OVMF QEMU processes remain healthy through the boot observation window. Early exit or missing OVMF is a failure, never `SKIP` or a tolerated timeout.
 
 ```sh
-BEAMO_WIPE_VERSION=0.2.0 ./scripts/qemu-verify.sh
-# Evidence left in /tmp/beamo-wipe-qemu-evidence/ and /tmp/beamo-wipe/
-# ISO checks in $EVIDENCE_DIR/iso-checks.txt, VM info, preflight, wizard-exercise, nwipe-boundary, qemu-bios/uefi, final
-ls -R /tmp/beamo-wipe-qemu-evidence | head -n 50
+BEAMO_WIPE_VERSION=0.2.1 ./scripts/qemu-verify.sh
+evidence_dir=$(cat qemu-evidence/PATH)
+find "$evidence_dir" -maxdepth 1 -type f -print
 ```
 
-Destroy: the script `rm -v /tmp/beamo-wipe-target.*` after `record_identity after-all`; the VM itself is ephemeral (`--rm` or terminate the GCE instance).
-
-## Evidence captured
-
-- `vm-info.txt` — `uname`, `lsb_release`, `qemu`/`nwipe` versions, git SHA
-- `iso-checks.txt` — `ls -lh`, `sha256sum`, `CD001` at 32769, `file`, `isoinfo -d`, squashfs nwipe version
-- `preflight-before.txt`, `create.txt`, `target-before-sha256.txt`, `identity-before-nwipe.txt`, `loop.txt`
-- `wizard-exercise.txt` — Python wizard with fake `vda` (same as QEMU `disk10Gtest`), proves no boot selectable
-- `nwipe-boundary.txt`, `nwipe-cancel.txt`, `nwipe-nonzero.txt`, `after-nwipe.txt`, `target-after-sha256.txt`
-- `qemu-bios.txt`, `qemu-uefi.txt`, `qemu-summary.txt` (RUNNING/EXITED/SKIP)
-- `final.txt`, `untested-physical.txt` (reported separately), `cleanup.txt`
-
-All under `/tmp/beamo-wipe-qemu-evidence` (tmpfs, not target) plus sidecar `.sha256`. Never written to `vda` or `sda`.
-
-## Untested physical-controller behavior (reported separately)
-
-See `untested-physical.txt` in the artifact: real NVMe/SATA controllers beyond QEMU virtio, USB-SATA bridges, Secure Boot enrolled keys, Apple Silicon, RAID, SSD wear-leveling certificate. These require lab hardware and are not claimed in `docs/claims.md`.
-
-## Failure triage
-
-- `ABORT: QEMU verification must run on Linux` → ran on Mac.
-- `ABORT: target already exists` → leftover from prior run; `rm /tmp/beamo-wipe-target.qcow2`.
-- `PVD FAIL` → ISO not hybrid; rebuild via `scripts/build-iso.sh`.
-- `Wizard exercise FAILED` → safety regression; check `src/beamo_wipe/safety.py`/`wizard.py`.
-- `QEMU BIOS/UEFI timeout` on TCG-only (no KVM) is expected; evidence records `SKIP`/`TIMEOUT`.
-
-See `docs/ci.md` for the overall gate (lint → test → negative-test → iso → qemu-verify).
+The run does not validate physical SATA/NVMe firmware behavior, USB bridges, Secure Boot, RAID, SSD spare-area erasure, or a human click-through of every graphical screen. Those require separately authorized lab hardware and are not claimed.

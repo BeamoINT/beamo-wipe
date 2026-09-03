@@ -5,7 +5,7 @@
 # Never execs nwipe on a real disk. Never deploys.
 set -euo pipefail
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
@@ -32,13 +32,23 @@ install_test_deps() {
     python3-pip \
     python3-setuptools \
     ca-certificates
-  python3 -m pip install --break-system-packages -q 'pytest>=8'
+  python3 -m pip install --break-system-packages -q 'pytest==9.0.3'
 }
 
 install_lint_deps() {
   apt-get update -qq
-  apt-get install -y -qq --no-install-recommends ca-certificates
-  python3 -m pip install --break-system-packages -q ruff mypy
+  apt-get install -y -qq --no-install-recommends \
+    ca-certificates \
+    python3 \
+    python3-pip \
+    python3-setuptools \
+    shellcheck
+  python3 -m pip install --break-system-packages -q 'ruff==0.9.2' 'mypy==2.1.0'
+}
+
+install_preview_deps() {
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends python3 python3-tk
 }
 
 install_qemu_deps() {
@@ -48,6 +58,7 @@ install_qemu_deps() {
     qemu-utils \
     ovmf \
     genisoimage \
+    debsecan \
     file \
     sudo \
     python3 \
@@ -66,8 +77,13 @@ install_qemu_deps() {
 }
 
 run_lint() {
-  log "lint / format / type (non-blocking best-effort, see docs/ci.md)"
+  log "blocking syntax, shell and security lint"
   python3 -m compileall -q src/beamo_wipe
+  shellcheck preview scripts/*.sh packaging/live/inside-docker.sh \
+    packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot
+  python3 -m ruff check --select S102,S103,S104,S105,S106,S107,S113,S307,S501,S506,S508,S602,S604,S605,S606,S608,S609,S610,S611,S612 src/beamo_wipe
+  python3 -m ruff check --select S102,S103,S104,S107,S113,S307,S501,S506,S508,S602,S604,S605,S606,S608,S609,S610,S611,S612 tests
+  log "advisory full lint and type report"
   python3 -m ruff check src/beamo_wipe tests || true
   python3 -m mypy --ignore-missing-imports src/beamo_wipe || true
   if grep -R --include="*.py" -n "TODO" src/beamo_wipe | grep -v "TODO:"; then
@@ -79,26 +95,31 @@ run_pytest() {
   log "pytest under Xvfb 1600x1000 @ 72 DPI"
   # Two live-image tests need lb config (bootstrap/binary) from the ISO
   # build; skip them when those artifacts are absent.
-  PYTEST_K=""
+  PYTEST_ARGS=()
   if [ ! -f packaging/live/config/bootstrap ] || [ ! -f packaging/live/config/binary ]; then
     log "skipping two live-image tests that need 'lb config' artifacts"
-    PYTEST_K='-k "not test_iso_build_uses_https_debian_mirrors and not test_live_config_xinit_cannot_hijack_kiosk"'
+    PYTEST_ARGS=(-k "not test_iso_build_uses_https_debian_mirrors and not test_live_config_xinit_cannot_hijack_kiosk")
   fi
-  # shellcheck disable=SC2086 -- intentional word splitting of -k filter
-  xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest $PYTEST_K
+  xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest "${PYTEST_ARGS[@]}"
 }
 
 run_preview() {
   log "preview verification (fake disks, no browser)"
   BEAMO_WIPE_NO_OPEN=1 ./preview --web
   test -f web-preview/index.html
-  BEAMO_WIPE_NO_OPEN=1 ./preview --console < /dev/null | head -n 20
-  BEAMO_WIPE_NO_OPEN=1 ./preview --helper 2>&1 | head -n 20 || true
+  BEAMO_WIPE_NO_OPEN=1 ./preview --console < /dev/null
+  BEAMO_WIPE_NO_OPEN=1 ./preview --helper
 }
 
 run_negative() {
   log "negative test: broken boot-media safety must be rejected"
-  cp src/beamo_wipe/safety.py src/beamo_wipe/safety.py.bak
+  safety_backup="$(mktemp /tmp/beamo-wipe-safety.XXXXXX)"
+  cp src/beamo_wipe/safety.py "$safety_backup"
+  restore_safety() {
+    cp "$safety_backup" src/beamo_wipe/safety.py
+    rm -f -- "$safety_backup"
+  }
+  trap restore_safety EXIT HUP INT TERM
   # NOTE: heredoc body stays at column 0 — Python rejects indented
   # top-level statements (IndentationError), which would fail the gate
   # before the patch is even applied.
@@ -118,7 +139,8 @@ PY
   # report tee/head's status and mask a passing-while-broken gate).
   negative_code=0
   BEAMO_WIPE_DRY_RUN=1 python3 -m pytest tests/test_boot_exclusion_fails_closed.py::test_e2e_no_nwipe_process_created_on_uncertainty -q || negative_code=$?
-  mv src/beamo_wipe/safety.py.bak src/beamo_wipe/safety.py
+  restore_safety
+  trap - EXIT HUP INT TERM
   if [ "$negative_code" -eq 0 ]; then
     printf 'NEGATIVE TEST FAILED: broken safety was NOT caught\n' >&2
     exit 1
@@ -130,7 +152,7 @@ PY
 
 inspect_iso() {
   local iso version size magic
-  version="${BEAMO_WIPE_VERSION:-0.2.0}"
+  version="${BEAMO_WIPE_VERSION:-0.2.1}"
   iso="$ROOT/dist/beamo-wipe-${version}-amd64.iso"
   [ -f "$iso" ] || {
     printf 'ISO missing: %s\n' "$iso" >&2
@@ -166,16 +188,22 @@ run_iso() {
 }
 
 run_qemu() {
-  mkdir -p "$ROOT/qemu-evidence"
+  install -d -m 0700 "$ROOT/qemu-evidence"
   if [ "${SKIP_QEMU:-false}" = "true" ]; then
     log "QEMU step skipped via SKIP_QEMU=true"
     echo "skipped via SKIP_QEMU=true" > "$ROOT/qemu-evidence/SKIPPED.txt"
     return 0
   fi
   log "controlled QEMU verification (disposable qcow2, TCG where KVM absent)"
-  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.0}" ./scripts/qemu-verify.sh
-  # Publish evidence as build artifacts (the script only writes /tmp).
-  cp -r /tmp/beamo-wipe-qemu-evidence/. "$ROOT/qemu-evidence/" 2>/dev/null || true
+  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.1}" ./scripts/qemu-verify.sh
+  # Copy private temporary evidence into the ignored workspace directory for
+  # the explicit post-QEMU publisher. Verification-only builds discard it.
+  evidence_source="$(cat "$ROOT/qemu-evidence/PATH" 2>/dev/null || true)"
+  if [ -z "$evidence_source" ] || [ ! -d "$evidence_source" ]; then
+    echo "QEMU evidence directory was not reported" >&2
+    exit 1
+  fi
+  cp -r "$evidence_source/." "$ROOT/qemu-evidence/"
   log "QEMU evidence copied to qemu-evidence/"
 }
 
@@ -189,6 +217,7 @@ case "$PHASE" in
     run_pytest
     ;;
   preview)
+    install_preview_deps
     run_preview
     ;;
   negative)

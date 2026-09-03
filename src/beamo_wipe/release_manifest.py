@@ -8,7 +8,9 @@ import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -17,11 +19,13 @@ from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_VERSION = 1
 MANIFEST_NAME_TEMPLATE = "beamo-wipe-{version}-amd64.manifest.json"
+VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+EXPECTED_REMOTE = "https://github.com/BeamoINT/beamo-wipe"
 PRIOR_STABLE = {
-    "version": "0.1.0",
-    "iso_name": "beamo-wipe-0.1.0-amd64.iso",
-    "sha256": "8a531d35c437d858512ccbba20913cd7dbd9237cc9a2e2a1b7935ba9d9781c55",
-    "commit": "3b4c01f",  # abbreviated, full resolved at runtime if tag exists
+    "version": "0.2.0",
+    "iso_name": "beamo-wipe-0.2.0-amd64.iso",
+    "sha256": "62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74",
+    "commit": "5b3b7afa6c448ee01269c9497c1c93e8e83733c1",
 }
 
 PLACEHOLDER_RE = re.compile(r"PLACEHOLDER|TODO|XXX|CHANGEME", re.I)
@@ -58,14 +62,46 @@ def git_dirty() -> tuple[bool, List[str]]:
 
 def git_remote_url() -> str:
     try:
-        return _run(["git", "config", "--get", "remote.origin.url"])
+        raw = _run(["git", "config", "--get", "remote.origin.url"])
     except Exception:
-        return "https://github.com/BeamoINT/beamo-wipe"
+        raise RuntimeError("untraceable source state: origin URL unavailable")
+    allowed = {
+        EXPECTED_REMOTE,
+        EXPECTED_REMOTE + ".git",
+        "git@github.com:BeamoINT/beamo-wipe.git",
+        "ssh://git@github.com/BeamoINT/beamo-wipe.git",
+    }
+    if raw not in allowed:
+        # Do not echo the raw value: a malformed HTTPS remote can contain a
+        # credential in its userinfo or query string.
+        raise RuntimeError("untraceable source state: unexpected origin URL")
+    return EXPECTED_REMOTE
+
+
+def _validate_version(version: str) -> str:
+    if not isinstance(version, str) or not VERSION_RE.fullmatch(version):
+        raise RuntimeError("invalid Beamo Wipe version")
+    return version
+
+
+def _open_regular_nofollow(path: Path) -> int:
+    try:
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise RuntimeError(f"cannot safely read {path.name}") from exc
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise RuntimeError(f"cannot safely read {path.name}")
+    except Exception:
+        os.close(fd)
+        raise
+    return fd
 
 
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
-    with open(path, "rb") as fh:
+    fd = _open_regular_nofollow(Path(path))
+    with os.fdopen(fd, "rb") as fh:
         for chunk in iter(lambda: fh.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
@@ -98,7 +134,7 @@ def live_build_inputs() -> Dict[str, Any]:
         "includes",
         "package-lists/beamo.list.chroot",
         "package-lists/live.list.chroot",
-        "hooks/normal/0099-beamo-nwipe.hook.chroot",
+        "hooks/normal/0500-build-nwipe.hook.chroot",
     ]:
         p = cfg / rel
         if p.is_file():
@@ -107,8 +143,13 @@ def live_build_inputs() -> Dict[str, Any]:
             # hash directory contents
             h = hashlib.sha256()
             for sub in sorted(p.rglob("*")):
-                if sub.is_file():
-                    rel2 = str(sub.relative_to(cfg))
+                rel2 = str(sub.relative_to(cfg))
+                if sub.is_symlink():
+                    # Hash the link itself, never a file outside the tree.
+                    h.update(rel2.encode())
+                    h.update(b"\0SYMLINK\0")
+                    h.update(os.readlink(sub).encode("utf-8", errors="surrogateescape"))
+                elif sub.is_file():
                     h.update(rel2.encode())
                     h.update(b"\0")
                     h.update(sha256_file(sub).encode())
@@ -116,7 +157,10 @@ def live_build_inputs() -> Dict[str, Any]:
     # Also hash src/beamo_wipe
     src_h = hashlib.sha256()
     for sub in sorted((ROOT / "src" / "beamo_wipe").rglob("*.py")):
-        src_h.update(sub.name.encode())
+        if sub.is_symlink():
+            raise RuntimeError("source tree contains a symlink")
+        src_h.update(str(sub.relative_to(ROOT)).encode())
+        src_h.update(b"\0")
         src_h.update(sha256_file(sub).encode())
     inputs["src/beamo_wipe/"] = src_h.hexdigest()
     return inputs
@@ -136,7 +180,10 @@ def build_env() -> Dict[str, Any]:
     # Container/runner image
     try:
         # In Cloud Build, the ISO step uses debian:bookworm
-        env["container_image"] = "debian:bookworm"
+        env["container_image"] = (
+            "debian:bookworm@sha256:"
+            "6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443"
+        )
     except Exception:
         env["container_image"] = "unknown"
     # Runner
@@ -152,6 +199,7 @@ def build_env() -> Dict[str, Any]:
 
 
 def iso_info(version: str = __version__) -> Dict[str, Any]:
+    version = _validate_version(version)
     iso_name = f"beamo-wipe-{version}-amd64.iso"
     iso_path = ROOT / "dist" / iso_name
     if not iso_path.is_file():
@@ -212,13 +260,15 @@ def test_evidence_stub() -> Dict[str, Any]:
 
 
 def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[str, Any]:
+    version = _validate_version(version)
     commit = git_commit()
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise RuntimeError("untraceable source state: commit not 40-hex")
     tag = git_tag_for_commit(commit)
     dirty, dirty_files = git_dirty()
     if strict and dirty:
-        raise RuntimeError(f"uncommitted source state: {dirty_files[:20]}")
+        # File names can themselves contain customer or secret material.
+        raise RuntimeError("uncommitted source state")
     # Placeholder check
     for f in [ROOT / "src" / "beamo_wipe" / "__init__.py", ROOT / "packaging" / "live" / "config" / "binary"]:
         if f.is_file():
@@ -251,7 +301,7 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
             "commit": commit,
             "tag": tag,
             "dirty": dirty,
-            "dirty_files": dirty_files,
+            "dirty_count": len(dirty_files),
             "branch": _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]) if not dirty else "dirty",
             "remote_url": git_remote_url(),
         },
@@ -278,9 +328,9 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
         "prior_stable": PRIOR_STABLE,
         "rollback": f"git checkout {PRIOR_STABLE['commit']} or git revert <commit> to prior ISO {PRIOR_STABLE['iso_name']}",
         "verification": {
-            "checksum_instructions": f"sha256sum -c dist/{iso['iso_name']}.sha256 or sha256sum {iso['iso_name']}",
-            "artifact_immutability": "GCS gs://beamo-wipe_cloudbuild/releases/${BUILD_ID} (retention per bucket) and GitHub upload-artifact retention-days 14",
-            "signing": "not configured (SHA256 sidecar only); verify via published SHA256SUMS",
+            "checksum_instructions": f"cd dist && sha256sum -c {iso['iso_name']}.sha256",
+            "artifact_immutability": "verification is ephemeral unless the explicit post-QEMU release gate writes a unique build path",
+            "signing": "not configured; SHA256 detects corruption but does not authenticate the publisher",
             "reproducibility": "live-build is not bit-reproducible due to apt timestamps; use SHA256 and source commit for traceability",
         },
     }
@@ -290,36 +340,85 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
     return manifest
 
 
+def _atomic_write(path: Path, blob: bytes) -> None:
+    path = Path(path)
+    directory = path.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    dirfd = os.open(str(directory), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    name = path.name
+    tmp_name = f".{name}.tmp.{os.getpid()}.{time.time_ns()}"
+    fd = -1
+    try:
+        fd = os.open(
+            tmp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=dirfd,
+        )
+        view = memoryview(blob)
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError("short manifest write")
+            view = view[written:]
+        os.fsync(fd)
+        os.close(fd)
+        fd = -1
+        os.rename(tmp_name, name, src_dir_fd=dirfd, dst_dir_fd=dirfd)
+        os.fsync(dirfd)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(tmp_name, dir_fd=dirfd)
+        except FileNotFoundError:
+            pass
+        os.close(dirfd)
+
+
+def _sidecar_blob(sha: str, name: str) -> bytes:
+    if not re.fullmatch(r"[0-9a-f]{64}", sha) or not name or name != os.path.basename(name):
+        raise RuntimeError("invalid checksum sidecar fields")
+    return f"{sha}  {name}\n".encode("ascii")
+
+
 def write_manifest(manifest: Dict[str, Any], dest: Path) -> Path:
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    # Atomic write
-    tmp = dest.with_suffix(dest.suffix + f".tmp.{os.getpid()}")
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(manifest, fh, indent=2, sort_keys=True, ensure_ascii=False)
-        fh.write("\n")
-        fh.flush()
-        os.fsync(fh.fileno())
-    os.rename(tmp, dest)
+    artifact = manifest.get("artifact", {})
+    iso_name = str(artifact.get("iso_name", ""))
+    iso_path = Path(str(artifact.get("iso_path", "")))
+    if not re.fullmatch(r"beamo-wipe-[0-9]+\.[0-9]+\.[0-9]+-amd64\.iso", iso_name):
+        raise RuntimeError("invalid ISO artifact name")
+    try:
+        if iso_path.resolve(strict=True) != (ROOT / "dist" / iso_name).resolve(strict=True):
+            raise RuntimeError("ISO path escapes the release directory")
+    except OSError as exc:
+        raise RuntimeError("ISO referenced by manifest is missing") from exc
+    recorded_iso_sha = str(artifact.get("iso_sha256", ""))
+    if sha256_file(iso_path) != recorded_iso_sha:
+        raise RuntimeError("ISO checksum mismatch")
+    blob = (json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+    _atomic_write(dest, blob)
     # Sidecar
     sha = sha256_file(dest)
     sidecar = Path(str(dest) + ".sha256")
-    with open(sidecar, "w", encoding="utf-8") as out:
-        out.write(f"{sha}  {dest.name}\n")
-        out.flush()
-        os.fsync(out.fileno())
+    _atomic_write(sidecar, _sidecar_blob(sha, dest.name))
     # Also write ISO sidecar if not exists
-    iso_name = manifest["artifact"]["iso_name"]
-    iso_path = Path(manifest["artifact"]["iso_path"])
     iso_sidecar = iso_path.parent / f"{iso_name}.sha256"
-    if not iso_sidecar.is_file():
-        with open(iso_sidecar, "w", encoding="utf-8") as out:
-            out.write(f"{manifest['artifact']['iso_sha256']}  {iso_name}\n")
+    _atomic_write(
+        iso_sidecar,
+        _sidecar_blob(str(manifest["artifact"]["iso_sha256"]), str(iso_name)),
+    )
     return dest
 
 
 def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    path = Path(path)
+    fd = _open_regular_nofollow(path)
+    with os.fdopen(fd, "r", encoding="utf-8") as stream:
+        raw_manifest = stream.read()
+    data = json.loads(raw_manifest)
     # Recompute checksum (exclude sidecar)
     expected = data.pop("_manifest_sha256", None)
     if expected is None:
@@ -335,7 +434,7 @@ def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
     # Dirty check (skipped only for explicit local-dev ALLOW_DIRTY runs; every
     # other structural check still applies)
     if not allow_dirty and data.get("source", {}).get("dirty"):
-        raise RuntimeError(f"uncommitted source state: {data['source'].get('dirty_files')}")
+        raise RuntimeError("uncommitted source state")
     # Missing checksum
     if not data.get("artifact", {}).get("iso_sha256"):
         raise RuntimeError("missing checksum")
@@ -344,3 +443,36 @@ def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
         raise RuntimeError(f"unexpected nwipe version {data['nwipe']['version']}")
     if not re.fullmatch(r"[0-9a-f]{40}", data.get("nwipe", {}).get("commit", "")):
         raise RuntimeError("placeholder nwipe commit")
+    artifact = data.get("artifact", {})
+    version = _validate_version(data.get("beamo_wipe_version", ""))
+    iso_name = f"beamo-wipe-{version}-amd64.iso"
+    if artifact.get("iso_name") != iso_name:
+        raise RuntimeError("unexpected ISO name in manifest")
+    iso_path = Path(str(artifact.get("iso_path", "")))
+    expected_path = ROOT / "dist" / iso_name
+    try:
+        if iso_path.resolve(strict=True) != expected_path.resolve(strict=True):
+            raise RuntimeError("ISO path escapes the release directory")
+    except OSError as exc:
+        raise RuntimeError("ISO referenced by manifest is missing") from exc
+    recorded_iso_sha = str(artifact.get("iso_sha256", ""))
+    if not re.fullmatch(r"[0-9a-f]{64}", recorded_iso_sha):
+        raise RuntimeError("missing checksum")
+    if sha256_file(iso_path) != recorded_iso_sha:
+        raise RuntimeError("ISO checksum mismatch")
+    if iso_path.stat().st_size != int(artifact.get("iso_size_bytes", -1)):
+        raise RuntimeError("ISO size mismatch")
+    _verify_sidecar(Path(str(iso_path) + ".sha256"), recorded_iso_sha, iso_name)
+    _verify_sidecar(
+        Path(str(path) + ".sha256"),
+        hashlib.sha256(raw_manifest.encode("utf-8")).hexdigest(),
+        path.name,
+    )
+
+
+def _verify_sidecar(path: Path, sha: str, name: str) -> None:
+    fd = _open_regular_nofollow(path)
+    with os.fdopen(fd, "r", encoding="ascii") as stream:
+        text = stream.read(512)
+    if text != f"{sha}  {name}\n":
+        raise RuntimeError(f"checksum sidecar mismatch for {name}")

@@ -7,6 +7,7 @@ import json
 import os
 import stat
 import time
+import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
@@ -21,8 +22,12 @@ def _sanitize_detail(text: str) -> str:
     # Safe: strip control chars, truncate, no secrets
     if not text:
         return ""
-    # Remove newlines, nulls, and truncate
-    s = str(text).replace("\n", " ").replace("\r", " ").replace("\0", " ")
+    # Replace all Unicode control/format characters. This includes bidi
+    # overrides and C1 terminal controls, not just newlines and NUL.
+    s = "".join(
+        " " if unicodedata.category(ch).startswith("C") else ch
+        for ch in str(text)
+    )
     # Never log full nwipe log contents here; caller must truncate before passing
     if len(s) > DIAG_DETAIL_MAX:
         s = s[: DIAG_DETAIL_MAX - 3] + "..."
@@ -53,24 +58,20 @@ def log_diag(
 
         directory = log_dir if log_dir is not None else default_log_dir()
     except Exception:
-        # If log dir unavailable, try /tmp/beamo-wipe directly; still safe via mkdir
-        directory = Path("/tmp/beamo-wipe")
+        # Never bypass default_log_dir's ownership, no-symlink and filesystem
+        # checks by recreating the same raw /tmp path. Diagnostics are optional;
+        # a sanitized stderr line is the only safe fallback.
         try:
-            directory.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            # Fallback to stderr visibility (sanitized like the JSON path:
-            # no newlines, no control chars, truncated).
-            try:
-                import sys
+            import sys
 
-                print(
-                    f"beamo-wipe [{_sanitize_detail(area)[:64]}] "
-                    f"{_sanitize_detail(code)[:64]}: {_sanitize_detail(detail)[:80]}",
-                    file=sys.stderr,
-                )
-            except Exception:
-                pass
-            return False
+            print(
+                f"beamo-wipe [{_sanitize_detail(area)[:64]}] "
+                f"{_sanitize_detail(code)[:64]}: {_sanitize_detail(detail)[:80]}",
+                file=sys.stderr,
+            )
+        except Exception:
+            pass
+        return False
     # Atomic append: open with O_APPEND, write, fsync; best-effort
     path = Path(directory) / "diagnostics.log"
     # Sanitize structured fields (basename only, no serials)
@@ -121,6 +122,13 @@ def log_diag(
         # tail through this fd; a write-only fd fails the read with EBADF.
         fd = os.open(str(path), os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
         try:
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode):
+                raise OSError("diagnostics path is not a regular file")
+            if opened.st_uid != os.getuid():
+                raise OSError("diagnostics path has the wrong owner")
+            if stat.S_IMODE(opened.st_mode) != 0o600:
+                os.fchmod(fd, 0o600)
             os.write(fd, line.encode("utf-8"))
             # Do not fsync every diagnostic; best-effort
             try:
@@ -183,10 +191,20 @@ def read_diagnostics(log_dir: Optional[Path] = None, limit: int = 100) -> list[d
 
         directory = log_dir if log_dir is not None else default_log_dir()
     except Exception:
-        directory = Path("/tmp/beamo-wipe")
+        return []
     path = Path(directory) / "diagnostics.log"
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.getuid():
+                return []
+            with os.fdopen(fd, "r", encoding="utf-8", errors="replace") as stream:
+                fd = -1
+                text = stream.read(DIAG_LOG_MAX_BYTES + 1)
+        finally:
+            if fd >= 0:
+                os.close(fd)
     except OSError:
         return []
     lines = [ln for ln in text.splitlines() if ln.strip()]

@@ -85,7 +85,7 @@ def test_mountinfo_unreadable_is_logged(tmp_path, monkeypatch):
     assert "mountinfo_unreadable" in diag
 
 
-def test_pick_blocked_surfaces_diagnostic():
+def test_pick_blocked_logs_but_does_not_expose_diagnostic():
     from beamo_wipe.demo import make_demo_wizard
     from beamo_wipe.wizard import Wizard
 
@@ -101,7 +101,8 @@ def test_pick_blocked_surfaces_diagnostic():
     wiz.set_owner(True)
     wiz.continue_owner()
     assert wiz.screen.value == "pick_blocked"
-    assert "CalledProcessError" in (wiz.error or "")
+    assert wiz.error == blocked.error
+    assert "CalledProcessError" not in (wiz.error or "")
 
 
 def test_console_progress_is_formatted_not_raw():
@@ -215,7 +216,8 @@ def test_diagnostics_log_is_structured_json(tmp_path, monkeypatch):
 def test_build_hook_logs_with_retry_and_timestamp():
     text = Path("packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot").read_text(encoding="utf-8")
     assert "date -u" in text
-    assert "tee -a" in text
+    assert '>>"$clone_log" 2>&1' in text
+    assert 'run_logged "$WORKDIR/apt-update.log"' in text
     assert "Acquire::Retries=3" in text
     assert "Next: check" in text
 

@@ -803,7 +803,7 @@ def test_atomic_write_no_partial_file_on_failure(tmp_path, monkeypatch):
     )
     # Force os.rename to fail
     orig_rename = os.rename
-    monkeypatch.setattr(os, "rename", lambda a, b: (_ for _ in ()).throw(OSError("rename failed")))
+    monkeypatch.setattr(os, "rename", lambda *a, **k: (_ for _ in ()).throw(OSError("rename failed")))
     with pytest.raises(OSError):
         write_evidence_atomic(ev, log_dir=tmp_path, device_path=disk.path)
     # No partial .json should be visible, only tmp

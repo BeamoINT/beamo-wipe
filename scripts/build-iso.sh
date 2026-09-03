@@ -3,9 +3,16 @@
 # Requires Docker. Does not wipe any host disk.
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${BEAMO_WIPE_VERSION:-0.2.0}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.1}"
+case "$VERSION" in
+  ''|*[!0-9.]*|.*|*..*|*.) echo "Invalid BEAMO_WIPE_VERSION" >&2; exit 2 ;;
+esac
+if [ "$(printf '%s' "$VERSION" | awk -F. '{print NF}')" -ne 3 ]; then
+  echo "Invalid BEAMO_WIPE_VERSION" >&2
+  exit 2
+fi
 OUT_DIR="$ROOT/dist"
 ISO_NAME="beamo-wipe-${VERSION}-amd64.iso"
 LIVE="$ROOT/packaging/live"
@@ -18,12 +25,13 @@ if [ -n "$missing" ]; then
   exit 2
 fi
 
-if ! docker info >/tmp/beamo-docker-info.log 2>&1; then
+DOCKER_INFO="$(mktemp "${TMPDIR:-/tmp}/beamo-wipe-docker.XXXXXX")"
+trap 'rm -f -- "$DOCKER_INFO"' EXIT HUP INT TERM
+if ! docker info >"$DOCKER_INFO" 2>&1; then
   echo "Docker is installed but not running, or this user cannot talk to the daemon." >&2
   echo "--- docker info output ---" >&2
-  cat /tmp/beamo-docker-info.log >&2 || true
+  tail -n 40 "$DOCKER_INFO" >&2 || true
   echo "Next: start Docker Desktop, check 'docker context ls' and permissions, then retry." >&2
-  echo "Log: /tmp/beamo-docker-info.log" >&2
   exit 2
 fi
 
@@ -77,12 +85,13 @@ echo "because debootstrap needs mknod. This can take a while…"
 # Bind mounts on Docker Desktop for Mac are nodev/noexec — debootstrap
 # cannot mknod there. Copy the tree onto the container disk, build, copy ISO out.
 docker_status=0
+BUILD_IMAGE="debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443"
 docker run --rm --privileged --platform linux/amd64 \
   -e BEAMO_WIPE_VERSION="$VERSION" \
   -e BEAMO_WIPE_ISO_NAME="$ISO_NAME" \
   -v "$ROOT":/src:ro \
   -v "$OUT_DIR":/out \
-  debian:bookworm \
+  "$BUILD_IMAGE" \
   bash /src/packaging/live/inside-docker.sh || docker_status=$?
 if [ "$docker_status" -ne 0 ]; then
   echo "ERROR: live-build container failed (exit $docker_status); no ISO was produced." >&2

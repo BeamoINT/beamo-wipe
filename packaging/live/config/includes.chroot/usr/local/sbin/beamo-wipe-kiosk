@@ -1,0 +1,31 @@
+#!/bin/sh
+# systemd kiosk supervisor. It never starts a login shell.
+set -eu
+umask 077
+export HOME=/root
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export XAUTHORITY=/tmp/beamo-wipe-xauthority
+
+stty susp undef 2>/dev/null || true
+stty quit undef 2>/dev/null || true
+stty intr undef 2>/dev/null || true
+trap 'exit 0' TERM HUP
+trap '' TSTP INT QUIT
+
+run_ui() {
+  rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
+  if command -v startx >/dev/null 2>&1; then
+    startx /usr/local/bin/beamo-wipe -- -nolisten tcp vt1
+    rc=$?
+    rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
+    if [ "$rc" -eq 0 ]; then
+      return 0
+    fi
+  fi
+  /usr/local/bin/beamo-wipe --console
+}
+
+while :; do
+  run_ui || true
+  sleep 1
+done

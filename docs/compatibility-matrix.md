@@ -1,9 +1,9 @@
 # Beamo Wipe — Boot and Hardware Compatibility Matrix
 
-> **Matrix v1.0 — for Beamo Wipe 0.1.1 (nwipe 0.42)**
-> Date: 2026-09-01
+> **Matrix v1.2 — for Beamo Wipe 0.2.1 (nwipe 0.42)**
+> Date: 2026-09-03
 > Author: Accountable senior engineer (this checkout)
-> Status: Published from fake-device + hosted-gate evidence. No physical destructives on developer host. QEMU destructive path requires x86_64 KVM — see evidence column.
+> Status: Versioned release target. No physical destructives on the developer host. Production evidence requires the isolated x86_64 Cloud Build gate described below.
 
 This matrix is the versioned answer to the production-readiness gate: *which firmware, boot media, storage, display, and input combinations are supported, degraded, or unsupported, and how we know*.
 
@@ -28,10 +28,10 @@ It does **not** weaken safety gates. Every *Fail Closed* row lists no disks and 
 | Env | Identity | Use | Isolation |
 | --- | --- | --- | --- |
 | **Local fake-device** | `Darwin MacBook-Air-7.local 25.5.0 arm64, Python 3.10.0, pytest 9.0.3` | Parser/device-state, wizard state machine, UI layout, safety gates | Fake `lsblk` JSON injection; `BEAMO_WIPE_DRY_RUN=1`; `DryRunRunner`; no subprocess `nwipe` |
-| **Cloud Build hosted gate** | `Google Cloud Build project beamo-wipe, machineType E2_HIGHCPU_8, python:3.11-bookworm + docker, Xvfb 1600x1000 @72 DPI` | Canonical pytest + amd64 ISO build | `cloudbuild.yaml` parallel steps; secret-free; ISO validated 9660 + size + sha256; artifacts `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/` |
+| **Cloud Build hosted gate** | `Google Cloud Build project beamo-wipe, machineType E2_HIGHCPU_8, content-addressed images, Xvfb 1600x1000 @72 DPI` | Canonical pytest + amd64 ISO build + isolated QEMU | `cloudbuild.yaml`; fake local metadata; ISO 9660/size/hash validation; default-ephemeral output; explicitly authorized releases use a unique no-overwrite `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/` path |
 | **Isolated x86_64 QEMU/KVM** | Per `docs/vm-test.md`: throwaway `n2-standard-4` / `t3.large` with `/dev/kvm`, disposable `qcow2` | Boot the ISO, prove wizard is first UI, wipe disposable disk, confirm success/fail screens | No host-disk passthrough; `qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G`; VM torn down after |
 
-Local `python3 -m pytest -k "not tk_runtime"` is the fast gate (this checkout: **218 tests, 0 failures** when `BEAMO_WIPE_DRY_RUN=1`; `tk_runtime` clipped-text checks require Xvfb 72 DPI and are run on the hosted gate). Tk tests scale with DPI — `DISPLAY=:99` @72 DPI or `xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"`; VNC `DISPLAY=:1` @96 DPI is not the gate.
+Local `python3 -m pytest` is the fast fake-device gate; `tk_runtime` clipped-text checks require Xvfb 72 DPI and are run on the hosted gate. Tk tests scale with DPI — `DISPLAY=:99` @72 DPI or `xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"`; VNC `DISPLAY=:1` @96 DPI is not the gate.
 
 ---
 
@@ -39,10 +39,10 @@ Local `python3 -m pytest -k "not tk_runtime"` is the fast gate (this checkout: *
 
 | Artifact | Version | Path | Size | SHA-256 | Build inputs pinned |
 | --- | --- | --- | --- | --- | --- |
-| Beamo Wipe wrapper | **0.1.1** | `src/beamo_wipe/__init__.py:__version__` | — | — | `pyproject.toml 0.1.1`, `NWIPE_PINNED_VERSION 0.42`, `NWIPE_PINNED_COMMIT 6082bde0…67105` |
-| Staged chroot copy | 0.1.1 | `packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/__init__.py` | — | — | Synced from `src/` by `scripts/build-iso.sh` (hook `0500-build-nwipe` clones at pinned commit, `GIT_CONFIG_*` isolated, fails closed if gcc remains) |
-| Live ISO (last manufacturing) | **0.1.0** | `dist/beamo-wipe-0.1.0-amd64.iso` | 419 MiB | `8a531d35c437d858512ccbba20913cd7dbd9237cc9a2e2a1b7935ba9d9781c55` | `packaging/live/config/{bootstrap,binary}` (lb config), `hooks/normal/0500-build-nwipe`, `debian:bookworm` via Docker `linux/amd64` privileged |
-| Expected ISO for 0.1.1 | 0.1.1 | `dist/beamo-wipe-0.1.1-amd64.iso` (not yet built in this checkout) | — | — | Same inputs with `BEAMO_WIPE_VERSION=0.1.1`; hosted gate will produce and validate size ≥80 MiB, PVD `CD001`, `sha256sum` |
+| Beamo Wipe wrapper | **0.2.1** | `src/beamo_wipe/__init__.py:__version__` | — | — | `pyproject.toml 0.2.1`, `NWIPE_PINNED_VERSION 0.42`, `NWIPE_PINNED_COMMIT 6082bde0…67105` |
+| Staged chroot copy | 0.2.1 | `packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/__init__.py` | — | — | Synced from `src/` by `scripts/build-iso.sh` (hook `0500-build-nwipe` clones at pinned commit, `GIT_CONFIG_*` isolated, fails closed if compiler packages remain) |
+| Prior stable ISO | **0.2.0** | GitHub release `v0.2.0` | 419 MiB | `62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74` | Source `5b3b7afa6c448ee01269c9497c1c93e8e83733c1`; retained rollback target |
+| Release target | **0.2.1** | `dist/beamo-wipe-0.2.1-amd64.iso` | Set by hosted build | Set by manifest | Content-addressed build inputs; production upload only after full hosted/QEMU success |
 
 `packaging/live/config/bootstrap` and `binary` are `https://deb.debian.org` / `https://security.debian.org` only, `firmware false`, `bootappend live: noeject nopersistence noswap ip=frommedia nox11autologin`, `bootloaders syslinux grub-efi` (BIOS + UEFI). Full apt/package list: `packaging/live/config/package-lists/beamo.list.chroot` (kept minimal — no `curl/git/build-essential/sudo/network-manager/openssh-server`).
 
@@ -279,13 +279,14 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ls web-preview/index.html
 ### Hosted gate (BIOS+UEFI ISO + pytest @72 DPI)
 
 ```bash
-./scripts/ci-cloud.sh --project beamo-wipe
+./scripts/ci-cloud.sh --project beamo-wipe                  # ephemeral verification
+./scripts/ci-cloud.sh --project beamo-wipe --publish-release # separately authorized production path
 # or: gcloud builds submit --project=beamo-wipe --config cloudbuild.yaml .
 # Logs: Google Cloud Console → Cloud Build → beamo-wipe-pr-gate / beamo-wipe-main-gate
-# Artifacts: gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/beamo-wipe-0.1.1-amd64.iso
+# Authorized artifacts: gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/beamo-wipe-0.2.1-amd64.iso
 # Validate locally after download:
-sha256sum dist/beamo-wipe-0.1.1-amd64.iso
-dd if=dist/beamo-wipe-0.1.1-amd64.iso bs=1 skip=32769 count=5 2>/dev/null | od -An -tx1  # CD001
+sha256sum dist/beamo-wipe-0.2.1-amd64.iso
+dd if=dist/beamo-wipe-0.2.1-amd64.iso bs=1 skip=32769 count=5 2>/dev/null | od -An -tx1  # CD001
 python3 -m pytest  # (inside cloudbuild step, xvfb-run 72 DPI)
 ```
 
@@ -293,20 +294,14 @@ python3 -m pytest  # (inside cloudbuild step, xvfb-run 72 DPI)
 
 ```bash
 # On a throwaway x86_64 Linux VM with /dev/kvm, no host disks passed through:
-qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
-# BIOS:
-qemu-system-x86_64 -m 2048 -enable-kvm -cdrom dist/beamo-wipe-0.1.1-amd64.iso -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 -boot order=d
-# UEFI:
-qemu-system-x86_64 -m 2048 -enable-kvm -bios /usr/share/OVMF/OVMF_CODE.fd -cdrom dist/beamo-wipe-0.1.1-amd64.iso -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
+BEAMO_WIPE_VERSION=0.2.1 ./scripts/qemu-verify.sh
 # Checklist per docs/vm-test.md:
-# - ISO boots to wizard (no desktop)
-# - Pick shows 10 GB QEMU HARDDISK with size+serial
-# - Live disc s not selectable
-# - Wrong token keeps Continue disabled
-# - Everyday wipe 10 GB → Done ok; kill-nwipe → Done fail
-# Record: image sha256, firmware mode, storage line, wizard logs, pass/fail, VM flavor, then delete VM:
-rm /tmp/beamo-wipe-target.qcow2
-# and tear down the cloud VM.
+# - exact manifest/ISO checksums
+# - shipped nwipe 0.42 bytes only
+# - disposable loop identity before direct nwipe
+# - fake wizard confirmation and boot-exclusion gates
+# - BIOS and UEFI process-health probes
+# The script tears down its private loop, mounts, and images; tear down the cloud VM afterward.
 ```
 
 ---
@@ -338,6 +333,7 @@ rm /tmp/beamo-wipe-target.qcow2
 | --- | --- | --- | --- |
 | **1.0** | 2026-09-01 | 0.1.1 | Initial publish: firmware/BIOS/UEFI, USB, NVMe/SATA/multi, missing/duplicate, unusual controllers, resolutions, keyboard, boot-media, safety gates, supported/degraded/unsupported, BF-001..009 |
 | **1.1** | 2026-09-02 | 0.1.1 | First complete audit: wizard (`BF-010` rediscover crash fix), docs (`BF-011` no-fallback), CI (`BF-012` ruff non-blocking), release (`BF-013` sidecar `cd dist`); full evidence in `docs/audit-2026-09-02.md` |
+| **1.2** | 2026-09-03 | 0.2.1 | Security audit hardening: device identity rechecks, metadata sanitization, private files, verified provenance, fixed kiosk boundary, content-addressed CI, isolated shipped-engine QEMU, and explicit no-overwrite publication gate. |
 
 ---
 

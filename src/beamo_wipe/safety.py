@@ -360,7 +360,7 @@ def assert_boot_excluded(discovery: DiscoveryResult) -> None:
         raise SafetyError("Boot USB appeared as a selectable disk. Refusing to continue.")
 
 
-def assert_not_boot(device: str, boot_path: str) -> None:
+def assert_not_boot(device: str, boot_path: str, *, required: bool = False) -> None:
     if not device or not boot_path:
         raise SafetyError("Missing device or boot path.")
     if os.path.realpath(device) == os.path.realpath(boot_path):
@@ -377,6 +377,8 @@ def assert_not_boot(device: str, boot_path: str) -> None:
         dst = os.lstat(dev)
         bst = os.lstat(boot)
     except OSError as exc:
+        if required:
+            raise SafetyError("Cannot prove target and boot device are distinct.") from exc
         try:
             from beamo_wipe.diagnostics import log_diag
 
@@ -532,6 +534,23 @@ def assert_size_unchanged(path: str, expected_bytes: int) -> None:
         raise SafetyError("Cannot read disk size.")
     if sysfs != expected_bytes:
         raise SafetyError("Disk size changed. Refusing to erase.")
+
+
+def assert_local_device_transport(path: str) -> None:
+    """Refuse NVMe-over-Fabrics at the final kernel-backed boundary."""
+    if is_preview_env():
+        return
+    name = os.path.basename(os.path.realpath(path))
+    match = re.fullmatch(r"(nvme\d+)n\d+", name)
+    if not match:
+        return
+    transport_path = Path("/sys/class/nvme") / match.group(1) / "transport"
+    try:
+        transport = transport_path.read_text(encoding="ascii").strip().casefold()
+    except OSError as exc:
+        raise SafetyError("Cannot prove NVMe is locally attached.") from exc
+    if transport != "pcie":
+        raise SafetyError("Refusing a remote or unknown NVMe transport.")
 
 
 def _is_under(path: Path, root: Path) -> bool:
@@ -732,6 +751,10 @@ def truncate_log_file(log_path: str, target: str) -> None:
             stf = os.fstat(fd)
             if not stat.S_ISREG(stf.st_mode):
                 raise SafetyError("Refusing to write logs to a non-regular file.")
+            if stf.st_uid != os.getuid():
+                raise SafetyError("Log file must be owned by this process.")
+            if stat.S_IMODE(stf.st_mode) != 0o600:
+                os.fchmod(fd, 0o600)
         finally:
             os.close(fd)
     finally:
@@ -771,11 +794,12 @@ def assert_ready_to_wipe(
         raise SafetyError("Boot device missing.")
     device = normalize_whole_disk(disk.path, allow_optical=False)
     boot_path = normalize_whole_disk(boot.path, allow_optical=True)
-    assert_not_boot(device, boot_path)
     need_block = not is_preview_env()
+    assert_not_boot(device, boot_path, required=need_block)
     assert_existing_is_block_device(device, required=need_block)
-    assert_existing_is_block_device(boot_path, required=False)
+    assert_existing_is_block_device(boot_path, required=need_block)
     assert_size_unchanged(device, disk.size_bytes)
+    assert_local_device_transport(device)
     log = logfile_for(device)
     return WipeRequest(
         device=device,
@@ -784,6 +808,7 @@ def assert_ready_to_wipe(
         logfile=log,
         device_rdev=block_rdev(device) or 0,
         device_size_bytes=disk.size_bytes,
+        boot_rdev=block_rdev(boot_path) or 0,
     )
 
 

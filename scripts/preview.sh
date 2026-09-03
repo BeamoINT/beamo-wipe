@@ -1,7 +1,7 @@
 #!/bin/sh
 # Preview Beamo Wipe on this computer. Fake disks. Nothing is erased.
 set -eu
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 export BEAMO_WIPE_DRY_RUN=1

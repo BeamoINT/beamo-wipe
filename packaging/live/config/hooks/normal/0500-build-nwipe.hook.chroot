@@ -1,13 +1,31 @@
 #!/bin/sh
-set -e
+set -eu
+umask 077
 # Pin nwipe v0.42 by tag AND commit. Tags can move; the SHA cannot.
 # No distro fallback — bookworm's nwipe is not 0.42.
 NWIPE_TAG=v0.42
 NWIPE_COMMIT=6082bde060091e66365d852a1877f2ee80c67105
 export DEBIAN_FRONTEND=noninteractive
+WORKDIR="$(mktemp -d /tmp/beamo-wipe-nwipe.XXXXXX)"
+trap 'rm -rf -- "$WORKDIR"' EXIT HUP INT TERM
 
-apt-get update -o Acquire::Retries=3 2>&1 | tee /tmp/apt-update.log || { echo "ERROR: apt-get update failed — see /tmp/apt-update.log" >&2; tail -n 30 /tmp/apt-update.log >&2; echo "Next: check mirror https://deb.debian.org, retry build." >&2; exit 1; }
-apt-get install -y --no-install-recommends \
+run_logged() {
+  log_file="$1"
+  shift
+  if "$@" >"$log_file" 2>&1; then
+    return 0
+  fi
+  rc=$?
+  echo "ERROR: command failed (exit $rc): $1" >&2
+  tail -n 50 "$log_file" >&2 || true
+  return "$rc"
+}
+
+run_logged "$WORKDIR/apt-update.log" apt-get update -o Acquire::Retries=3 || {
+  echo "Next: check mirror https://deb.debian.org and retry the build." >&2
+  exit 1
+}
+run_logged "$WORKDIR/apt-install.log" apt-get install -y --no-install-recommends \
   build-essential \
   automake \
   autoconf \
@@ -16,7 +34,10 @@ apt-get install -y --no-install-recommends \
   libncurses-dev \
   libparted-dev \
   libconfig-dev \
-  ca-certificates 2>&1 | tee /tmp/apt-install.log || { echo "ERROR: apt-get install failed — see /tmp/apt-install.log" >&2; tail -n 30 /tmp/apt-install.log >&2; echo "Next: check mirror, retry build." >&2; exit 1; }
+  ca-certificates || {
+  echo "Next: check the signed Debian mirror and retry the build." >&2
+  exit 1
+}
 
 mkdir -p /usr/share/doc/beamo-wipe
 # Ignore chroot/host gitconfig so url.insteadOf cannot redirect this clone.
@@ -26,19 +47,20 @@ export GIT_CONFIG_SYSTEM=/dev/null
 # QEMU user-mode amd64 git+GnuTLS often drops the pack once; retry.
 # Log each attempt with timestamp, exit code, and tail for maintainer triage.
 n=0
-clone_log="/tmp/nwipe-clone.log"
+clone_log="$WORKDIR/nwipe-clone.log"
 : > "$clone_log"
 while :; do
-  rm -rf /tmp/nwipe
+  rm -rf -- "$WORKDIR/nwipe"
   ts="$(date -u +%FT%TZ 2>/dev/null || date)"
   if git clone --depth 1 --branch "$NWIPE_TAG" \
-    https://github.com/martijnvanbrummelen/nwipe.git /tmp/nwipe 2>&1 | tee -a "$clone_log"; then
-    echo "[$ts] git clone succeeded (attempt $((n+1))/5)" | tee -a "$clone_log" >&2
+    https://github.com/martijnvanbrummelen/nwipe.git "$WORKDIR/nwipe" >>"$clone_log" 2>&1; then
+    echo "[$ts] git clone succeeded (attempt $((n+1))/5)" >>"$clone_log"
     break
+  else
+    rc=$?
   fi
-  rc=$?
   n=$((n + 1))
-  echo "[$ts] W: git clone nwipe failed rc=$rc, retry $n/5 (tag=$NWIPE_TAG commit=$NWIPE_COMMIT). Next: check github/gnutls EAGAIN, rerun hook." | tee -a "$clone_log" >&2
+  echo "[$ts] W: git clone nwipe failed rc=$rc, retry $n/5 (tag=$NWIPE_TAG commit=$NWIPE_COMMIT)." >>"$clone_log"
   if [ "$n" -ge 5 ]; then
     echo "ERROR: git clone nwipe failed after $n attempts (tag=$NWIPE_TAG commit=$NWIPE_COMMIT rc=$rc). Last 40 lines:" >&2
     tail -n 40 "$clone_log" >&2 || true
@@ -47,20 +69,21 @@ while :; do
   fi
   sleep $((n * 8))
 done
-cd /tmp/nwipe
+cd "$WORKDIR/nwipe"
 got="$(git rev-parse HEAD)"
 if [ "$got" != "$NWIPE_COMMIT" ]; then
   echo "ERROR: nwipe commit $got does not match pinned $NWIPE_COMMIT" >&2
   exit 1
 fi
 if [ -x ./autogen.sh ]; then
-  ./autogen.sh 2>&1 | tee /tmp/nwipe-autogen.log || { echo "ERROR: autogen.sh failed (exit $?) — see /tmp/nwipe-autogen.log" >&2; tail -n 50 /tmp/nwipe-autogen.log >&2; exit 1; }
+  run_logged "$WORKDIR/nwipe-autogen.log" ./autogen.sh || exit 1
 fi
-./configure 2>&1 | tee /tmp/nwipe-configure.log || { echo "ERROR: configure failed (exit $?) — see /tmp/nwipe-configure.log" >&2; tail -n 50 /tmp/nwipe-configure.log >&2; exit 1; }
-make -j"$(nproc || echo 2)" 2>&1 | tee /tmp/nwipe-make.log || { echo "ERROR: make failed (exit $?) — see /tmp/nwipe-make.log" >&2; tail -n 50 /tmp/nwipe-make.log >&2; exit 1; }
-make install 2>&1 | tee /tmp/nwipe-install.log || { echo "ERROR: make install failed (exit $?) — see /tmp/nwipe-install.log" >&2; tail -n 50 /tmp/nwipe-install.log >&2; exit 1; }
+run_logged "$WORKDIR/nwipe-configure.log" ./configure || exit 1
+jobs="$(nproc 2>/dev/null || printf '2\n')"
+run_logged "$WORKDIR/nwipe-make.log" make -j"$jobs" || exit 1
+run_logged "$WORKDIR/nwipe-install.log" make install || exit 1
 cd /
-rm -rf /tmp/nwipe
+rm -rf -- "$WORKDIR/nwipe"
 # Keep the engine off PATH so a second TTY cannot skip the wizard gates.
 install -d -m 0755 /usr/lib/beamo-wipe
 if [ ! -x /usr/local/bin/nwipe ]; then
@@ -111,7 +134,17 @@ apt-get autoremove -y --purge
 # the runtime libgcc-s1/libstdc++6 or gcc-12-base.
 leftovers="$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | grep -E '^(gcc|g\+\+)(-[0-9]+)?(:[a-z0-9-]+)?$|^lib(gcc|stdc\+\+)-[0-9]+-dev(:[a-z0-9-]+)?$' || true)"
 if [ -n "$leftovers" ]; then
-  apt-get purge -y $leftovers
+  # dpkg-query output is newline-delimited and the strict package-name regex
+  # above excludes whitespace and glob metacharacters.
+  # shellcheck disable=SC2086
+  set -- $leftovers
+  for package in "$@"; do
+    case "$package" in
+      gcc|g++|gcc-[0-9]*|g++-[0-9]*|libgcc-[0-9]*-dev|libstdc++-[0-9]*-dev) ;;
+      *) echo "ERROR: unsafe compiler package name" >&2; exit 1 ;;
+    esac
+  done
+  apt-get purge -y -- "$@"
   apt-get autoremove -y --purge
 fi
 apt-get install -y --no-install-recommends libncurses6 libparted2 libconfig9
@@ -127,13 +160,14 @@ if command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
-# No network by default. Extra TTYs would bypass the confirm gates.
+# No network by default. Every getty would bypass the confirm gates; tty1 is
+# owned directly by the systemd kiosk service, never an autologin shell.
 # live-build's chroot is not PID 1, so `systemctl mask` is often a no-op.
 # Write the mask units as symlinks; keep systemctl as a best-effort extra.
 systemctl mask NetworkManager.service wpa_supplicant.service \
   systemd-networkd.service systemd-networkd.socket systemd-timesyncd.service \
   ssh.service ssh.socket sshd.service sshd.socket || true
-for tty in tty2 tty3 tty4 tty5 tty6; do
+for tty in tty1 tty2 tty3 tty4 tty5 tty6; do
   ln -sfn /dev/null "/etc/systemd/system/getty@${tty}.service"
   systemctl mask "getty@${tty}.service" || true
 done
@@ -149,3 +183,24 @@ NAutoVTs=1
 ReserveVT=1
 EOF
 chmod 755 /usr/local/bin/beamo-wipe
+chmod 755 /usr/local/sbin/beamo-wipe-kiosk
+mkdir -p /etc/systemd/system/multi-user.target.wants
+ln -sfn /etc/systemd/system/beamo-wipe-kiosk.service \
+  /etc/systemd/system/multi-user.target.wants/beamo-wipe-kiosk.service
+# Boot assets and the pinned engine are immutable to non-root users. rsync from
+# a macOS bind mount can otherwise preserve host UID/GID values in the chroot.
+chown -R root:root /usr/lib/beamo-wipe /usr/local/bin/beamo-wipe \
+  /usr/local/sbin/beamo-wipe-kiosk /etc/systemd/system/beamo-wipe-kiosk.service \
+  /usr/share/beamo-wipe /usr/share/doc/beamo-wipe
+find /usr/lib/beamo-wipe /usr/share/beamo-wipe /usr/share/doc/beamo-wipe \
+  -type d -exec chmod 0755 {} +
+find /usr/lib/beamo-wipe /usr/share/beamo-wipe /usr/share/doc/beamo-wipe \
+  -type f -exec chmod 0644 {} +
+chmod 0755 /usr/lib/beamo-wipe/nwipe /usr/local/bin/beamo-wipe \
+  /usr/local/sbin/beamo-wipe-kiosk
+if find /usr/lib/beamo-wipe /usr/local/bin/beamo-wipe \
+  /usr/local/sbin/beamo-wipe-kiosk /usr/share/beamo-wipe \
+  \( ! -user root -o ! -group root -o -perm /022 \) -print | grep -q .; then
+  echo "ERROR: writable or non-root-owned boot asset" >&2
+  exit 1
+fi

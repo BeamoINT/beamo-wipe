@@ -9,7 +9,7 @@ Neither gate ever wipes a host disk.
 
 | Gate | Runner | What it proves |
 | --- | --- | --- |
-| **Cloud Build** `cloudbuild.yaml` (`./scripts/ci-cloud.sh`, project `beamo-wipe`) | `E2_HIGHCPU_8` `diskSizeGb: 200` | `lint`, fake-disk pytest under Xvfb 72 DPI, preview verification, negative test, amd64 ISO build, and controlled QEMU verification — all with fake `lsblk` JSON or disposable images. Artifacts go to `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/`. |
+| **Cloud Build** `cloudbuild.yaml` (`./scripts/ci-cloud.sh`, project `beamo-wipe`) | One vulnerability-scanned, content-addressed Debian base on `E2_HIGHCPU_8`, `diskSizeGb: 200`; current Debian Python, Docker CLI, and test packages installed over signed HTTPS metadata | `lint`, fake-disk pytest under Xvfb 72 DPI, preview verification, negative test, amd64 ISO build, and controlled QEMU verification. Outputs remain ephemeral unless an operator explicitly invokes `--publish-release`; the standard-library publisher is post-QEMU, no-overwrite, byte-verified, and completion-marked. |
 
 ```bash
 python3 -m pytest                          # fast checkout (fake lsblk, no nwipe)
@@ -24,14 +24,14 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 
 | Phase | Step | What it runs |
 | --- | --- | --- |
-| `lint` | `lint` | `py_compile` + `ruff` + `mypy` (non-blocking best-effort) + stray-TODO warning |
+| `lint` | `lint` | Blocking compile, ShellCheck, and Ruff security rules; full Ruff and mypy remain advisory reports |
 | `tests` | `python-tests` | `xvfb-run … 72 DPI` with `BEAMO_WIPE_DRY_RUN=1`; destructive-boundary spies use fake runners, never real `nwipe` |
 | `preview` | `preview` | `BEAMO_WIPE_NO_OPEN=1 ./preview --web` + `--console` + `--helper` (fake disks) |
-| `negative` | `negative-test` | Deliberately breaks `assert_boot_excluded` fail-open, expects the e2e test to fail, reverts, proves clean passes. Runs after `python-tests` so the temporary patch cannot corrupt the parallel suite |
-| `iso` | `iso-build` | `docker run --rm --privileged --platform linux/amd64` with no `--device` or host `/dev` bind, builds `dist/beamo-wipe-0.2.0-amd64.iso` on the container fs, checks `CD001` at 32769, size ≥80 MiB, `sha256sum`, manifest + sidecars |
-| `qemu` | `qemu-verify` | `scripts/qemu-verify.sh` on the worker (TCG where KVM is absent) against a disposable `qcow2` + loop devices; evidence copied to `qemu-evidence/` artifacts. Runs after `iso-build` because it verifies the built ISO |
+| `negative` | `negative-test` | Waits for every source-reading gate, deliberately breaks `assert_boot_excluded`, expects the e2e test to fail, and restores from a private `mktemp` backup even on signals |
+| `iso` | `iso-build` | Waits for the restored negative-test workspace, then performs a privileged linux/amd64 build with no host `/dev` bind, content-addressed Debian build image, strict versioned output, PVD/size checks, manifest + sidecars |
+| `qemu` | `qemu-verify` | Exact verified ISO, read-only image inspection, Debian fixed-vulnerability scan, shipped nwipe on a proved disposable loop, and mandatory BIOS+UEFI probes; no host binary/image fallback |
 
-`./scripts/ci-hosted.sh all` runs every phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`).
+`./scripts/ci-hosted.sh all` runs every verification phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`). `_PUBLISH_RELEASE` defaults to `false`; `./scripts/ci-cloud.sh --publish-release` is the explicit production path and refuses either skip.
 
 ## Triggers
 
