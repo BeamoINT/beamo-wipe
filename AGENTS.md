@@ -25,7 +25,7 @@ python3 -m pytest
 ./scripts/build-iso.sh   # amd64 live image (prefer Cloud Build, not this Mac)
 ```
 
-Local pytest is the fast checkout gate. GitHub Actions is billing-blocked and never gates anything. The hosted gate is Google Cloud Build in project `beamo-wipe` (`cloudbuild.yaml` → `scripts/ci-hosted.sh`; secret-free; see `docs/ci.md`). Intended triggers: PRs targeting `main` (`beamo-wipe-pr-gate`) and pushes to `main` (`beamo-wipe-main-gate`). Agents must `./scripts/ci-cloud.sh` (or `gcloud builds submit --project=beamo-wipe`) after local pytest for ISO/x86 work — do not treat Hostinger or this Apple silicon Mac as the ISO gate.
+Local pytest is the fast checkout gate. CI is Google Cloud Build in project `beamo-wipe` — GitHub Actions is not used (no workflows under `.github/workflows/`). The hosted gate is `cloudbuild.yaml` → `scripts/ci-hosted.sh` phases `lint`/`tests`/`preview`/`negative`/`iso`/`qemu` (secret-free; see `docs/ci.md`). Intended triggers: PRs targeting `main` (`beamo-wipe-pr-gate`, QEMU skipped) and pushes to `main` (`beamo-wipe-main-gate`, full gate). Agents must `./scripts/ci-cloud.sh` (or `gcloud builds submit --project=beamo-wipe`) after local pytest for ISO/x86 work — do not treat Hostinger or this Apple silicon Mac as the ISO gate.
 
 **ISO build and QEMU wipe tests:** on the Apple silicon Mac, Docker `linux/amd64` and `qemu-system-x86_64` are TCG. Do not wait on local emulation. Cloud Build always builds the ISO on amd64. Interactive QEMU wipe (`docs/vm-test.md`) still uses a disposable x86_64 KVM VM via `gcloud`/`aws`, then tear the VM down. See `.ai/memory/iso-builds-on-cloud.md`.
 

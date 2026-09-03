@@ -19,21 +19,15 @@ Run only on an isolated x86_64 Linux VM/runner with no host-disk passthrough and
 
 ## How to run
 
-On a throwaway x86_64 VM with `/dev/kvm` (e.g., GCE `n2-standard-4`, `t3.large`, or GitHub `ubuntu-latest`):
+In CI it runs as the `qemu-verify` step of `cloudbuild.yaml` (after `iso-build`, on the build worker — TCG where KVM is absent — against a disposable `qcow2`; evidence copied to `qemu-evidence/` artifacts). Pushes to `main` run it via the `beamo-wipe-main-gate` trigger; PRs skip it (`_SKIP_QEMU=true`).
+
+Manually, on a throwaway x86_64 VM with `/dev/kvm` (e.g., GCE `n2-standard-4`):
 
 ```sh
 BEAMO_WIPE_VERSION=0.1.1 ./scripts/qemu-verify.sh
 # Evidence left in /tmp/beamo-wipe-qemu-evidence/ and /tmp/beamo-wipe/
 # ISO checks in $EVIDENCE_DIR/iso-checks.txt, VM info, preflight, wizard-exercise, nwipe-boundary, qemu-bios/uefi, final
 ls -R /tmp/beamo-wipe-qemu-evidence | head -n 50
-```
-
-Via GitHub:
-
-```sh
-gh workflow run qemu-verify --ref main   # or push to main with src/packaging/live changes
-gh run watch $(gh run list --workflow qemu-verify --limit 1 --json databaseId -q '.[0].databaseId')
-gh run download <id> -n qemu-verify-evidence
 ```
 
 Destroy: the script `rm -v /tmp/beamo-wipe-target.*` after `record_identity after-all`; the VM itself is ephemeral (`--rm` or terminate the GCE instance).

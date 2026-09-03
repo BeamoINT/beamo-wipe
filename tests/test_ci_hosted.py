@@ -1,14 +1,29 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+"""Google Cloud Build is the project's CI. GitHub Actions is not used."""
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_hosted_gate_runs_pytest_and_iso_on_cloud_build():
+def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     cfg = (ROOT / "cloudbuild.yaml").read_text(encoding="utf-8")
+    assert "ci-hosted.sh lint" in cfg
     assert "ci-hosted.sh tests" in cfg
+    assert "ci-hosted.sh preview" in cfg
+    assert "ci-hosted.sh negative" in cfg
     assert "ci-hosted.sh iso" in cfg
+    assert "ci-hosted.sh qemu" in cfg
     assert "E2_HIGHCPU_8" in cfg
+    assert "_SKIP_ISO" in cfg
+    assert "_SKIP_QEMU" in cfg
+    # QEMU needs the built ISO, so it must wait for the ISO step.
+    qemu_at = cfg.find("qemu-verify")
+    assert qemu_at != -1
+    assert "waitFor: ['iso-build']" in cfg[qemu_at:]
+    # Negative test must run after the test step so its temporary
+    # safety.py patch cannot corrupt the parallel pytest run.
+    assert "waitFor: ['python-tests']" in cfg
     submit = (ROOT / "scripts" / "ci-cloud.sh").read_text(encoding="utf-8")
     assert "--project=" in submit
     assert "beamo-wipe" in submit
@@ -16,7 +31,29 @@ def test_hosted_gate_runs_pytest_and_iso_on_cloud_build():
     assert "xvfb-run" in hosted
     assert "BEAMO_WIPE_DRY_RUN" in hosted
     assert "build-iso.sh" in hosted
+    assert "qemu-verify.sh" in hosted
+    assert "SKIP_QEMU" in hosted
+    # lb-config live-image tests skip when bootstrap/binary are absent.
+    assert "test_iso_build_uses_https_debian_mirrors" in hosted
+    assert "test_live_config_xinit_cannot_hijack_kiosk" in hosted
     assert (ROOT / "scripts" / "install-cloud-triggers.sh").is_file()
+
+
+def test_github_actions_not_used():
+    # No GitHub workflow may remain: billing is disabled there and Cloud
+    # Build is the gate. Templates and agent instructions are not CI.
+    workflows = ROOT / ".github" / "workflows"
+    assert not workflows.exists(), f"{workflows} must not exist"
+
+
+def test_cloud_triggers_cover_prs_and_main():
+    text = (ROOT / "scripts" / "install-cloud-triggers.sh").read_text(encoding="utf-8")
+    assert "beamo-wipe-pr-gate" in text
+    assert "beamo-wipe-main-gate" in text
+    assert "--pull-request-pattern" in text
+    assert "--branch-pattern" in text
+    # QEMU (TCG, slowest) runs on pushes to main; PRs run the rest.
+    assert "_SKIP_QEMU=true" in text
 
 
 def test_cloud_submit_uploads_git_metadata():
@@ -34,33 +71,3 @@ def test_cloud_submit_uploads_git_metadata():
     ]
     assert ".git/" not in rules
     assert "**/.git/" not in rules
-
-
-def test_github_actions_gates_prs_and_main():
-    text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    # Must gate PRs and pushes to main, not manual-only
-    assert "pull_request" in text
-    assert "push" in text
-    assert "workflow_dispatch" in text
-    assert "branches: [main]" in text
-    # Must pin actions and use least privilege
-    assert "permissions:" in text and "contents: read" in text
-    assert "concurrency:" in text and "cancel-in-progress: true" in text
-    assert "actions/checkout@11d5960" in text
-    assert "actions/setup-python@a26af69" in text
-    # Must run under Xvfb 72 DPI and skip live-image tests when files missing
-    assert "xvfb-run" in text and "72" in text
-    assert "BEAMO_WIPE_DRY_RUN" in text
-    # Must include lint, preview, and negative-test
-    assert "ruff" in text or "py_compile" in text
-    assert "preview --web" in text
-    assert "negative-test" in text
-    # ISO must be built on x86_64 with artifact retention
-    assert "build-iso.sh" in text
-    assert "upload-artifact@ea165f8" in text
-    assert "retention-days:" in text
-    # 90 days for ISO+manifest, at least 14
-    import re
-
-    m = re.search(r"retention-days:\s*(\d+)", text)
-    assert m and int(m.group(1)) >= 14

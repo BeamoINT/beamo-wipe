@@ -205,9 +205,9 @@ def known_issues() -> List[str]:
 def test_evidence_stub() -> Dict[str, Any]:
     # Machine-readable but not placeholder: real CI will fill with actual pytest counts
     return {
-        "pytest": "see cloudbuild.yaml python-tests and GitHub CI test job (xvfb 72 DPI, BEAMO_WIPE_DRY_RUN=1)",
+        "pytest": "see cloudbuild.yaml python-tests (xvfb 72 DPI, BEAMO_WIPE_DRY_RUN=1)",
         "preview": "BEAMO_WIPE_NO_OPEN=1 ./preview --web (web-preview/index.html) + ./preview --console",
-        "qemu": "see docs/qemu-verify.md and .github/workflows/qemu-verify.yml (disposable qcow2)",
+        "qemu": "see docs/qemu-verify.md and cloudbuild.yaml qemu-verify (disposable qcow2)",
     }
 
 

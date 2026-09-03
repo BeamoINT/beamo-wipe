@@ -17,5 +17,5 @@ python3 -m pytest
 ./scripts/ci-cloud.sh    # Google Cloud Build: pytest + ISO (required hosted gate)
 ```
 
-Open PRs into `main`. The GitHub Actions workflow is manual-only; Cloud Build
-in project `beamo-wipe` is the hosted check (`docs/ci.md`).
+Open PRs into `main`. Google Cloud Build in project `beamo-wipe` is the
+hosted check (`docs/ci.md`); there are no GitHub Actions workflows.

@@ -121,10 +121,10 @@ make test
 
 Tests use fake `lsblk` JSON. They never run nwipe on a real disk.
 
-Hosted x86_64 pytest **and** the amd64 ISO build run on Google Cloud Build
-(`./scripts/ci-cloud.sh`, project `beamo-wipe`). That is the gate GitHub
-Actions cannot be: the org's Actions account is billing-blocked. Details:
-[docs/ci.md](docs/ci.md).
+Hosted CI — lint, x86_64 pytest, preview, negative test, the amd64 ISO
+build, and controlled QEMU verification — runs on Google Cloud Build
+(`./scripts/ci-cloud.sh`, project `beamo-wipe`). GitHub Actions is not
+used. Details: [docs/ci.md](docs/ci.md).
 
 ## How it works
 

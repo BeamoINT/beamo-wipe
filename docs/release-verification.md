@@ -6,13 +6,13 @@ Each release publishes a machine-readable manifest that links the ISO to its sou
 
 | File | Purpose | Retention | Location |
 | --- | --- | --- | --- |
-| `beamo-wipe-0.1.1-amd64.iso` | Bootable live image (hybrid BIOS+UEFI) | 90 days GitHub + GCS per `cloudbuild.yaml` / `ci.yml` | `dist/`, `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}/` |
+| `beamo-wipe-0.1.1-amd64.iso` | Bootable live image (hybrid BIOS+UEFI) | GCS per `cloudbuild.yaml` | `dist/`, `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}/` |
 | `beamo-wipe-0.1.1-amd64.iso.sha256` | SHA256 sidecar (`<sha>  <name>`) | same | `dist/` alongside ISO |
 | `beamo-wipe-0.1.1-amd64.manifest.json` | Release provenance (this doc) | same | `dist/` |
 | `beamo-wipe-0.1.1-amd64.manifest.json.sha256` | Manifest checksum | same | `dist/` |
 | `SHA256SUMS` | `sha256sum` of ISO + manifest | same | `dist/` |
 
-All are under `dist/` after `./scripts/build-iso.sh`; Cloud Build uploads to `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}/`; GitHub `ci.yml` `iso` job uploads with `retention-days: 90`.
+All are under `dist/` after `./scripts/build-iso.sh`; Cloud Build uploads to `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}/`.
 
 ## What the manifest contains
 
@@ -69,7 +69,7 @@ If any `sha256sum -c` fails, do not use the ISO. If `verify_manifest` raises `un
 
 ## Immutability and signing
 
-- **Immutability:** `cloudbuild.yaml` `artifacts.objects` to `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}` (bucket versioning/retention per project) and GitHub `upload-artifact` `retention-days: 90` `if-no-files-found: error`.
+- **Immutability:** `cloudbuild.yaml` `artifacts.objects` to `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}` (bucket versioning/retention per project).
 - **Signing:** Not configured (SHA256 sidecar only). Verify via `SHA256SUMS` and manifest `_manifest_sha256`. If `cosign`/`gpg` is added later, the manifest `verification.signing` field will be updated.
 
 ## Reproducibility

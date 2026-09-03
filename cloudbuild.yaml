@@ -1,14 +1,16 @@
-# Beamo Wipe hosted CI — Google Cloud project beamo-wipe only.
+# Beamo Wipe CI — Google Cloud Build, project beamo-wipe only.
+# This is the project's CI gate. GitHub Actions is not used.
 #
-#   gcloud builds submit --project=beamo-wipe
 #   ./scripts/ci-cloud.sh
 #
-# GitHub App triggers (same project):
-#   - Pull requests targeting main (beamo-wipe-pr-gate)
-#   - Pushes to main (beamo-wipe-main-gate)
+# GitHub App triggers (same project; see scripts/install-cloud-triggers.sh):
+#   - Pull requests targeting main (beamo-wipe-pr-gate, QEMU skipped)
+#   - Pushes to main (beamo-wipe-main-gate, full gate incl. QEMU)
 #
 # Secret-free. Does not deploy. Tests use fake lsblk JSON and never exec
 # nwipe on a real disk. ISO build runs in privileged Docker on amd64.
+# QEMU runs on the build worker (TCG where KVM is absent) against a
+# disposable qcow2 created by scripts/qemu-verify.sh — no host disks.
 
 timeout: 7200s
 options:
@@ -18,8 +20,19 @@ options:
 
 substitutions:
   _SKIP_ISO: "false"
+  _SKIP_QEMU: "false"
 
 steps:
+  - id: lint
+    name: mirror.gcr.io/library/python:3.11-bookworm
+    waitFor: ['-']
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        chmod +x scripts/ci-hosted.sh scripts/test-all.sh
+        ./scripts/ci-hosted.sh lint
+
   - id: python-tests
     name: mirror.gcr.io/library/python:3.11-bookworm
     waitFor: ['-']
@@ -29,6 +42,26 @@ steps:
       - |
         chmod +x scripts/ci-hosted.sh scripts/test-all.sh scripts/build-iso.sh
         ./scripts/ci-hosted.sh tests
+
+  - id: preview
+    name: mirror.gcr.io/library/python:3.11-bookworm
+    waitFor: ['-']
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        chmod +x scripts/ci-hosted.sh preview
+        ./scripts/ci-hosted.sh preview
+
+  - id: negative-test
+    name: mirror.gcr.io/library/python:3.11-bookworm
+    waitFor: ['python-tests']
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        chmod +x scripts/ci-hosted.sh scripts/test-all.sh
+        ./scripts/ci-hosted.sh negative
 
   - id: iso-build
     name: gcr.io/cloud-builders/docker
@@ -40,12 +73,21 @@ steps:
     args:
       - -ceu
       - |
-        if [ "$${SKIP_ISO}" = "true" ]; then
-          echo "ISO step skipped via _SKIP_ISO=true"
-          exit 0
-        fi
         chmod +x scripts/ci-hosted.sh scripts/build-iso.sh
         ./scripts/ci-hosted.sh iso
+
+  - id: qemu-verify
+    name: debian:bookworm
+    waitFor: ['iso-build']
+    entrypoint: bash
+    env:
+      - SKIP_QEMU=${_SKIP_QEMU}
+      - BEAMO_WIPE_VERSION=0.1.1
+    args:
+      - -ceu
+      - |
+        chmod +x scripts/ci-hosted.sh scripts/qemu-verify.sh scripts/build-iso.sh
+        ./scripts/ci-hosted.sh qemu
 
 artifacts:
   objects:
@@ -56,3 +98,4 @@ artifacts:
       - dist/beamo-wipe-*.manifest.json
       - dist/beamo-wipe-*.manifest.json.sha256
       - dist/SHA256SUMS
+      - qemu-evidence/*

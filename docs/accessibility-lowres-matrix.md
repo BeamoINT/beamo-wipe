@@ -242,7 +242,7 @@ xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest tests/test_tk_
 ## 13. Evidence & logs (this checkout)
 
 - `python3 -m pytest -k "not tk_runtime"` — **349 passed, 0 failed** on `Darwin 25.5.0 arm64, Python 3.10.0, pytest 9.0.3` with `BEAMO_WIPE_DRY_RUN=1`.
-- `xvfb 72 DPI` clipping suite — `28/28 tk_runtime` on `ubuntu-latest` hosted gate (see `docs/ci.md`). On this Mac headless, `DISPLAY=:1 @96 DPI` aborts — expected, not the gate.
+- `xvfb 72 DPI` clipping suite — `28/28 tk_runtime` on the Cloud Build hosted gate (see `docs/ci.md`). On this Mac headless, `DISPLAY=:1 @96 DPI` aborts — expected, not the gate.
 - `BEAMO_WIPE_NO_OPEN=1 ./preview --web` → `web-preview/index.html` 54K, `BEAMO_WIPE_DRY_RUN=1` no `nwipe` spawn.
 - No `nwipe` `Popen` in any fake path — spy `test_popen_inherits_wipe_lock_fd` asserts `pass_fds`, `cwd="/"`, `shell False`, `start_new_session True`.
 
