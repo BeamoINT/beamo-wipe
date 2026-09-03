@@ -375,7 +375,17 @@ if [ -f "$ISO" ]; then
   done
   if [ -n "$OVMF" ]; then
     echo "=== QEMU UEFI boot check (OVMF $OVMF) ===" | tee "$EVIDENCE_DIR/qemu-uefi.txt"
-    timeout 30 qemu-system-x86_64 -m 1024 -bios "$OVMF" -cdrom "$ISO" -drive file="$TARGET",if=virtio,format=qcow2 -boot order=d -display none -serial none -daemonize -pidfile /tmp/qemu-uefi.pid 2>&1 | tee -a "$EVIDENCE_DIR/qemu-uefi.txt" || true
+    # OVMF 4M images do not load via -bios ("could not load PC BIOS");
+    # attach code (readonly) + a writable vars copy as pflash drives.
+    OVMF_VARS="$(dirname "$OVMF")/$(basename "$OVMF" | sed 's/CODE/VARS/')"
+    if [ -f "$OVMF_VARS" ]; then
+      cp "$OVMF_VARS" /tmp/beamo-ovmf-vars.fd
+      OVMF_DRIVES="-drive if=pflash,format=raw,readonly=on,file=$OVMF -drive if=pflash,format=raw,file=/tmp/beamo-ovmf-vars.fd"
+    else
+      OVMF_DRIVES="-bios $OVMF"
+    fi
+    # shellcheck disable=SC2086 -- intentional word splitting of drive flags
+    timeout 30 qemu-system-x86_64 -m 1024 $OVMF_DRIVES -cdrom "$ISO" -drive file="$TARGET",if=virtio,format=qcow2 -boot order=d -display none -serial none -daemonize -pidfile /tmp/qemu-uefi.pid 2>&1 | tee -a "$EVIDENCE_DIR/qemu-uefi.txt" || true
     if [ -f /tmp/qemu-uefi.pid ]; then
       sleep 5
       if ps -p $(cat /tmp/qemu-uefi.pid 2>&1) >/dev/null 2>&1; then

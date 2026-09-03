@@ -443,6 +443,8 @@ def test_qemu_uefi_probes_4m_firmware():
     text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
     assert "OVMF_CODE_4M.fd" in text
     assert 'ls /usr/share/OVMF/OVMF_CODE.fd' not in text
+    # 4M images do not load via -bios; UEFI must use pflash drives.
+    assert "if=pflash" in text
 
 
 def test_qemu_nwipe_exit_codes_are_recorded_truthfully():

@@ -310,7 +310,7 @@ A release is suspect if any of:
 - `result.json` shows a host disk (e.g. `boot_device` equals `device`, or `boot_device_in_selectable` regression) in QEMU evidence `wizard-exercise.txt` or `nwipe-boundary.txt`.
 - Evidence shows `certificate`/`compliant` fields (forbidden by `tests/test_storage_limits.py`).
 - ISO `sha256` mismatch between `dist/beamo-wipe-*.iso` and `dist/*.iso.sha256` + `manifest.json.sha256` and the published `SHA256SUMS` in `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/` and GitHub release sidecars.
-- Manifest `pinned nwipe commit 6082bde060091e66365d852a1877f2ee80c67105` or `__version__ 0.1.1` drift from `src/beamo_wipe/__init__.py` (check `python -m pytest tests/test_live_image.py::test_staged_chroot_package_matches_src`).
+- Manifest `pinned nwipe commit 6082bde060091e66365d852a1877f2ee80c67105` or `__version__` drift from `src/beamo_wipe/__init__.py` (currently `0.2.0`; check `python -m pytest tests/test_live_image.py::test_staged_chroot_package_matches_src`).
 - QEMU preflight aborts on host-backed device.
 
 ### 8.b Immediate actions (page release manager)
