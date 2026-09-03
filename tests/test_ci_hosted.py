@@ -56,6 +56,22 @@ def test_cloud_triggers_cover_prs_and_main():
     assert "_SKIP_QEMU=true" in text
 
 
+def test_shell_embedded_python_parses():
+    """Every `<<'PY'` heredoc in scripts must compile.
+
+    Shell functions indent their bodies, but Python rejects indented
+    top-level statements — an indented heredoc fails the gate with
+    IndentationError before doing anything (caught once in
+    ci-hosted.sh run_negative).
+    """
+    import re
+
+    for script in sorted((ROOT / "scripts").glob("*.sh")):
+        text = script.read_text(encoding="utf-8")
+        for m in re.finditer(r"<<'PY'\n(.*?)^PY$", text, re.S | re.M):
+            compile(m.group(1), str(script), "exec")
+
+
 def test_cloud_submit_uploads_git_metadata():
     """`.gcloudignore` must not exclude `.git/`.
 

@@ -99,16 +99,19 @@ run_preview() {
 run_negative() {
   log "negative test: broken boot-media safety must be rejected"
   cp src/beamo_wipe/safety.py src/beamo_wipe/safety.py.bak
+  # NOTE: heredoc body stays at column 0 — Python rejects indented
+  # top-level statements (IndentationError), which would fail the gate
+  # before the patch is even applied.
   python3 - <<'PY'
-  import pathlib
-  p = pathlib.Path("src/beamo_wipe/safety.py")
-  t = p.read_text()
-  orig = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if not discovery.boot_identified or discovery.boot is None:\n        raise SafetyError(IDENTIFY_ERROR)'
-  broken = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if False:  # BROKEN for negative test\n        raise SafetyError(IDENTIFY_ERROR)'
-  if orig not in t:
-      raise SystemExit("pattern not found for negative test")
-  p.write_text(t.replace(orig, broken))
-  print("patched safety.py: assert_boot_excluded now fail-open")
+import pathlib
+p = pathlib.Path("src/beamo_wipe/safety.py")
+t = p.read_text()
+orig = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if not discovery.boot_identified or discovery.boot is None:\n        raise SafetyError(IDENTIFY_ERROR)'
+broken = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if False:  # BROKEN for negative test\n        raise SafetyError(IDENTIFY_ERROR)'
+if orig not in t:
+    raise SystemExit("pattern not found for negative test")
+p.write_text(t.replace(orig, broken))
+print("patched safety.py: assert_boot_excluded now fail-open")
 PY
   # This e2e test expects SafetyError when boot is uncertain, so it must
   # FAIL while broken. Capture the exit without a pipe (a pipe would
