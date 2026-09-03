@@ -19,6 +19,23 @@ def test_hosted_gate_runs_pytest_and_iso_on_cloud_build():
     assert (ROOT / "scripts" / "install-cloud-triggers.sh").is_file()
 
 
+def test_cloud_submit_uploads_git_metadata():
+    """`.gcloudignore` must not exclude `.git/`.
+
+    The hosted gate runs `tests/test_release_manifest.py`, which requires
+    `git rev-parse HEAD` (fail-closed "untraceable source state" without
+    it), and manifest/ISO generation records the source commit. Excluding
+    `.git/` reds python-tests (13 failures) on every `ci-cloud.sh` submit.
+    """
+    rules = [
+        line.strip()
+        for line in (ROOT / ".gcloudignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    assert ".git/" not in rules
+    assert "**/.git/" not in rules
+
+
 def test_github_actions_gates_prs_and_main():
     text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     # Must gate PRs and pushes to main, not manual-only

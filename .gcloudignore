@@ -1,5 +1,8 @@
-.git/
-**/.git/
+# NOTE: .git/ is intentionally NOT ignored. The hosted gate needs git
+# metadata: tests/test_release_manifest.py requires `git rev-parse HEAD`
+# (fail-closed "untraceable source state" otherwise), and manifest/ISO
+# generation records the source commit. A git-less tarball reds the whole
+# python-tests step (13 failures) and would break manifest provenance.
 **/__pycache__/
 **/.pytest_cache/
 **/*.pyc
