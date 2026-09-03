@@ -3,7 +3,7 @@
 set -eu
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${BEAMO_WIPE_VERSION:-0.1.1}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.0}"
 DEST="${1:-dist/beamo-wipe-${VERSION}-amd64.manifest.json}"
 
 # Fail on uncommitted state unless explicitly allowed for local dev

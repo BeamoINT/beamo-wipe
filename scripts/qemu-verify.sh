@@ -23,7 +23,7 @@ fi
 
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${BEAMO_WIPE_VERSION:-0.1.1}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.0}"
 ISO="dist/beamo-wipe-${VERSION}-amd64.iso"
 if [ ! -f "$ISO" ]; then
   # Fallback to any built ISO (0.1.0 manufacturing)
@@ -363,8 +363,17 @@ if [ -f "$ISO" ]; then
     fi
   fi
 
-  if [ -f /usr/share/OVMF/OVMF_CODE.fd ] || [ -f /usr/share/edk2/ovmf/OVMF_CODE.fd ]; then
-    OVMF="$(ls /usr/share/OVMF/OVMF_CODE.fd /usr/share/edk2/ovmf/OVMF_CODE.fd 2>&1 | head -n 1)"
+  # Debian/Ubuntu ship the 4M firmware variants; older layouts used
+  # OVMF_CODE.fd. Probe all known paths (no ls|head path selection) so
+  # UEFI boot evidence is collected wherever ovmf is installed.
+  OVMF=""
+  for _ovmf in /usr/share/OVMF/OVMF_CODE_4M.fd \
+      /usr/share/OVMF/OVMF_CODE.fd \
+      /usr/share/edk2/ovmf/OVMF_CODE_4M.fd \
+      /usr/share/edk2/ovmf/OVMF_CODE.fd; do
+    if [ -f "$_ovmf" ]; then OVMF="$_ovmf"; break; fi
+  done
+  if [ -n "$OVMF" ]; then
     echo "=== QEMU UEFI boot check (OVMF $OVMF) ===" | tee "$EVIDENCE_DIR/qemu-uefi.txt"
     timeout 30 qemu-system-x86_64 -m 1024 -bios "$OVMF" -cdrom "$ISO" -drive file="$TARGET",if=virtio,format=qcow2 -boot order=d -display none -serial none -daemonize -pidfile /tmp/qemu-uefi.pid 2>&1 | tee -a "$EVIDENCE_DIR/qemu-uefi.txt" || true
     if [ -f /tmp/qemu-uefi.pid ]; then

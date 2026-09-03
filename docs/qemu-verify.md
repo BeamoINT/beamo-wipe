@@ -24,7 +24,7 @@ In CI it runs as the `qemu-verify` step of `cloudbuild.yaml` (after `iso-build`,
 Manually, on a throwaway x86_64 VM with `/dev/kvm` (e.g., GCE `n2-standard-4`):
 
 ```sh
-BEAMO_WIPE_VERSION=0.1.1 ./scripts/qemu-verify.sh
+BEAMO_WIPE_VERSION=0.2.0 ./scripts/qemu-verify.sh
 # Evidence left in /tmp/beamo-wipe-qemu-evidence/ and /tmp/beamo-wipe/
 # ISO checks in $EVIDENCE_DIR/iso-checks.txt, VM info, preflight, wizard-exercise, nwipe-boundary, qemu-bios/uefi, final
 ls -R /tmp/beamo-wipe-qemu-evidence | head -n 50

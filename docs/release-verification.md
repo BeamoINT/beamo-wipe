@@ -6,10 +6,10 @@ Each release publishes a machine-readable manifest that links the ISO to its sou
 
 | File | Purpose | Retention | Location |
 | --- | --- | --- | --- |
-| `beamo-wipe-0.1.1-amd64.iso` | Bootable live image (hybrid BIOS+UEFI) | GCS per `cloudbuild.yaml` | `dist/`, `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}/` |
-| `beamo-wipe-0.1.1-amd64.iso.sha256` | SHA256 sidecar (`<sha>  <name>`) | same | `dist/` alongside ISO |
-| `beamo-wipe-0.1.1-amd64.manifest.json` | Release provenance (this doc) | same | `dist/` |
-| `beamo-wipe-0.1.1-amd64.manifest.json.sha256` | Manifest checksum | same | `dist/` |
+| `beamo-wipe-0.2.0-amd64.iso` | Bootable live image (hybrid BIOS+UEFI) | GCS per `cloudbuild.yaml` | `dist/`, `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}/` |
+| `beamo-wipe-0.2.0-amd64.iso.sha256` | SHA256 sidecar (`<sha>  <name>`) | same | `dist/` alongside ISO |
+| `beamo-wipe-0.2.0-amd64.manifest.json` | Release provenance (this doc) | same | `dist/` |
+| `beamo-wipe-0.2.0-amd64.manifest.json.sha256` | Manifest checksum | same | `dist/` |
 | `SHA256SUMS` | `sha256sum` of ISO + manifest | same | `dist/` |
 
 All are under `dist/` after `./scripts/build-iso.sh`; Cloud Build uploads to `gs://beamo-wipe_cloudbuild/releases/${BUILD_ID}/`.
@@ -31,11 +31,11 @@ Top-level `_manifest_sha256` is the SHA256 of the canonical JSON (sorted keys, n
 
 ```sh
 # From the release directory (where ISO and manifest were downloaded):
-sha256sum -c beamo-wipe-0.1.1-amd64.iso.sha256
-sha256sum -c beamo-wipe-0.1.1-amd64.manifest.json.sha256
+sha256sum -c beamo-wipe-0.2.0-amd64.iso.sha256
+sha256sum -c beamo-wipe-0.2.0-amd64.manifest.json.sha256
 # Or from repo root:
-sha256sum -c dist/beamo-wipe-0.1.1-amd64.iso.sha256
-sha256sum -c dist/beamo-wipe-0.1.1-amd64.manifest.json.sha256
+sha256sum -c dist/beamo-wipe-0.2.0-amd64.iso.sha256
+sha256sum -c dist/beamo-wipe-0.2.0-amd64.manifest.json.sha256
 sha256sum -c dist/SHA256SUMS   # checks both
 
 # Verify manifest itself (fails closed on dirty/placeholder):
@@ -43,12 +43,12 @@ python3 - <<'PY'
 import pathlib, sys
 sys.path.insert(0, "src")
 from beamo_wipe.release_manifest import verify_manifest
-verify_manifest(pathlib.Path("dist/beamo-wipe-0.1.1-amd64.manifest.json"))
+verify_manifest(pathlib.Path("dist/beamo-wipe-0.2.0-amd64.manifest.json"))
 print("manifest OK")
 PY
 
 # Inspect provenance without trusting ISO:
-python3 -m json.tool dist/beamo-wipe-0.1.1-amd64.manifest.json | head -n 60
+python3 -m json.tool dist/beamo-wipe-0.2.0-amd64.manifest.json | head -n 60
 # Check source commit matches tag:
 git rev-parse HEAD  # should equal manifest source.commit
 git status --porcelain  # should be clean for a release

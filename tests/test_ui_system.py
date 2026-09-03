@@ -178,6 +178,15 @@ def test_helper_page_renders_boot_keys_as_key_caps():
     assert "F12" in keys and "Esc" in keys and "F9" in keys
 
 
+def test_helper_page_documents_secure_boot_path():
+    """The unsigned stick is refused by Secure Boot firmware, so the
+    helper must tell owners how to allow it in their own settings."""
+    html = (ROOT / "helper" / "index.html").read_text(encoding="utf-8").lower()
+    assert "secure boot" in html
+    assert "firmware" in html
+    assert "disabled" in html
+
+
 def _luminance(hex_color: str) -> float:
     h = hex_color.lstrip("#")
     channels = (int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))

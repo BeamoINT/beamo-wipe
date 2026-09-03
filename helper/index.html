@@ -185,6 +185,25 @@
     </div>
 
     <div class="card">
+      <h2>If the computer says Secure Boot will not start this USB</h2>
+      <p>This stick is not signed, so some firmware refuses it. That is the
+      computer protecting itself. You can allow it in the computer's own
+      settings:</p>
+      <ol>
+        <li>Restart and press the setup key for your PC to enter firmware settings:
+          <span class="kbd">F2</span> (Dell, Acer),
+          <span class="kbd">Esc</span> then <span class="kbd">F10</span> (HP),
+          <span class="kbd">F1</span> (Lenovo),
+          <span class="kbd">Del</span> (ASUS, MSI, Gigabyte)</li>
+        <li>Find the Security or Boot tab and set Secure Boot to
+          <span class="kbd">Disabled</span></li>
+        <li>Save and exit, then use the boot key above to start from this USB</li>
+      </ol>
+      <p class="small">You can turn Secure Boot back on in the same screen
+      afterwards. We do not ship any tool that bypasses it.</p>
+    </div>
+
+    <div class="card">
       <h2>What this USB does</h2>
       <p>You pick a disk. Everything on it is erased. You cannot get the files back.</p>
       <p>For regular Windows PCs that start from USB. <strong>Not Apple Silicon Macs. Not Chromebooks.</strong> Some Intel Macs may show this USB; many will not.</p>

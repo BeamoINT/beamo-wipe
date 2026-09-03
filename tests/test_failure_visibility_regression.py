@@ -434,6 +434,17 @@ def test_qemu_wizard_exercise_reads_python_exit():
     assert '| tee -a "$EVIDENCE_DIR/wizard-exercise.txt"\nBEAMO_WIPE_DRY_RUN' not in text
 
 
+def test_qemu_uefi_probes_4m_firmware():
+    """UEFI evidence must not SKIP where ovmf is installed.
+
+    Debian/Ubuntu ship OVMF_CODE_4M.fd; probing only OVMF_CODE.fd (or
+    selecting the path via ls|head) silently skips UEFI boot proof.
+    """
+    text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
+    assert "OVMF_CODE_4M.fd" in text
+    assert 'ls /usr/share/OVMF/OVMF_CODE.fd' not in text
+
+
 def test_qemu_nwipe_exit_codes_are_recorded_truthfully():
     """Evidence exit_code lines must carry nwipe's code, never a masked 0."""
     text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")

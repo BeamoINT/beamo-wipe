@@ -69,7 +69,7 @@ steps:
     entrypoint: bash
     env:
       - SKIP_ISO=${_SKIP_ISO}
-      - BEAMO_WIPE_VERSION=0.1.1
+      - BEAMO_WIPE_VERSION=0.2.0
     args:
       - -ceu
       - |
@@ -82,7 +82,7 @@ steps:
     entrypoint: bash
     env:
       - SKIP_QEMU=${_SKIP_QEMU}
-      - BEAMO_WIPE_VERSION=0.1.1
+      - BEAMO_WIPE_VERSION=0.2.0
     args:
       - -ceu
       - |

@@ -35,7 +35,14 @@ show this USB; many will not.
 4. Type the confirm number. Wait five seconds. Erase.
 
 If the stick never appears: try another port, disable fast boot, or allow
-USB boot in firmware. We do not ship Secure Boot bypass tools.
+USB boot in firmware.
+
+If the computer says Secure Boot will not start the stick: this image is
+unsigned, so that refusal is the firmware doing its job. Enter firmware
+settings yourself (setup key: F2 Dell/Acer, Esc then F10 HP, F1 Lenovo,
+Del ASUS/MSI/Gigabyte), set Secure Boot to Disabled under Security or
+Boot, save and exit, then pick the USB from the boot menu. You can turn
+Secure Boot back on afterwards. We do not ship Secure Boot bypass tools.
 
 Source and license: **https://github.com/BeamoINT/beamo-wipe**
 (print a QR to that README, not a store page).

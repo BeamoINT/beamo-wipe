@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "beamo-wipe"
-version = "0.1.1"
+version = "0.2.0"
 description = "Guided nwipe front-end and live USB for Beamo Wipe."
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }

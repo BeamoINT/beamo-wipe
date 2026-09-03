@@ -5,7 +5,7 @@ set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${BEAMO_WIPE_VERSION:-0.1.1}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.0}"
 OUT_DIR="$ROOT/dist"
 ISO_NAME="beamo-wipe-${VERSION}-amd64.iso"
 LIVE="$ROOT/packaging/live"
