@@ -31,6 +31,7 @@ install_test_deps() {
     python3-tk \
     python3-pip \
     python3-setuptools \
+    git \
     ca-certificates
   python3 -m pip install --break-system-packages -q 'pytest==9.0.3'
 }

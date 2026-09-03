@@ -177,3 +177,10 @@ def test_cloud_submit_uploads_git_metadata():
     ]
     assert ".git/" not in rules
     assert "**/.git/" not in rules
+
+
+def test_hosted_python_tests_install_git_for_fail_closed_manifest():
+    """The source metadata is useless unless the test image can read it."""
+    hosted = (ROOT / "scripts" / "ci-hosted.sh").read_text(encoding="utf-8")
+    test_deps = hosted.split("install_test_deps() {", 1)[1].split("\n}", 1)[0]
+    assert "    git \\\n" in test_deps
