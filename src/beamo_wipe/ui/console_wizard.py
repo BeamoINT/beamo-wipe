@@ -141,7 +141,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(wizard.error)
             while wizard.countdown_left > 0:
                 wizard.tick()
-                print(f"Wait {int(wizard.countdown_left + 0.99)}…")
+                print(f"Wait {wizard.countdown_display}…")
                 time.sleep(0.4)
             ans = input("Type ERASE to start: ").strip()
             if ans.upper() == "ERASE":
@@ -279,7 +279,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _wrap(stdscr, y, wizard.erase_label(), w)
             if wizard.error:
                 _wrap(stdscr, y + 2, wizard.error, w)
-            _add(stdscr, y + 3, 0, f"Wait {int(wizard.countdown_left + 0.99)}s" if wizard.countdown_left else "Enter to erase.")
+            _add(stdscr, y + 3, 0, f"Wait {wizard.countdown_display}s" if not wizard.erase_enabled else "Enter to erase.")
         elif wizard.screen == Screen.WORKING:
             _add(stdscr, y, 0, C.WORKING_PULSE)
             if wizard.progress is None:

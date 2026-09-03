@@ -2003,7 +2003,7 @@ class TkWizard:
     def _refresh_last_chance(self) -> None:
         if self._countdown_ring is None or self._countdown_label is None:
             return
-        left = int(self.w.countdown_left + 0.99)
+        left = self.w.countdown_display
         ring = self._countdown_ring
         edge0 = RING_PAD
         edge1 = RING_SIZE - RING_PAD

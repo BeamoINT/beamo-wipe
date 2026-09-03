@@ -146,6 +146,18 @@ class Wizard:
         return max(0.0, self._erase_until - self.now)
 
     @property
+    def countdown_display(self) -> int:
+        """Whole seconds shown to the owner. Never 0 while the gate blocks.
+
+        The erase gate (erase_enabled) is authoritative; the display must
+        never understate the remaining wait, so clamp to at least 1 until
+        the gate opens.
+        """
+        if self.erase_enabled:
+            return 0
+        return max(1, int(self.countdown_left + 0.99))
+
+    @property
     def erase_enabled(self) -> bool:
         return self.screen == Screen.LAST_CHANCE and self.countdown_left <= 0.0
 

@@ -126,15 +126,26 @@ def classify_bus(tran: Optional[str]) -> str:
         "spi": "other",
         "virtio": "other",
     }
-    return mapping.get(key, key.upper())
+    if key in mapping:
+        return mapping[key]
+    # Unknown transports stay visible but sanitized: strip control chars
+    # (lsblk TRAN is untrusted; ANSI must not reach the UI or evidence)
+    # and bound the length. The upper() shape is load-bearing:
+    # safety.is_remote_disk matches bus.casefold() against remote tokens,
+    # so this must never become UNKNOWN/"other" (that would make iSCSI/FC
+    # wipeable).
+    fallback = re.sub(r"[\x00-\x1f\x7f]", "", key).upper()[:32]
+    return fallback or "other"
 
 
 def _as_bool(value: Any) -> Optional[bool]:
     if value is True or value is False:
         return value
-    if value in (1, "1", "true", "True"):
+    if isinstance(value, str):
+        value = value.strip().lower()
+    if value in (1, "1", "true"):
         return True
-    if value in (0, "0", "false", "False"):
+    if value in (0, "0", "false"):
         return False
     return None
 
