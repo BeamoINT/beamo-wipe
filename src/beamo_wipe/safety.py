@@ -10,7 +10,13 @@ import time
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple
 
-from beamo_wipe.copy import IDENTIFY_ERROR, confirm_type_chars, confirm_type_four, confirm_type_size
+from beamo_wipe.copy import (
+    IDENTIFY_ERROR,
+    NOT_LIVE_ERROR,
+    confirm_type_chars,
+    confirm_type_four,
+    confirm_type_size,
+)
 from beamo_wipe.models import ConfirmSpec, Disk, DiscoveryResult, WipeRequest
 
 # Whole-disk nodes only. Partitions (sda1, nvme0n1p1) are never wipe targets.
@@ -189,9 +195,7 @@ def require_live_or_dry_run(
         env=env, cmdline=cmdline, live_medium_mounted=live_medium_mounted
     ):
         return
-    raise SafetyError(
-        "Beamo Wipe only erases disks from the bootable USB environment."
-    )
+    raise SafetyError(NOT_LIVE_ERROR)
 
 
 def require_real_live_for_nwipe(env: Optional[dict] = None) -> None:

@@ -1774,7 +1774,11 @@ class TkWizard:
             self._primary.focus_set()
 
     def _empty(self) -> None:
-        self._status_screen("info", C.TITLE_EMPTY, C.EMPTY_DISKS)
+        msg = C.EMPTY_DISKS
+        detail = self.w.empty_detail
+        if detail:
+            msg = f"{msg}\n\n{detail}"
+        self._status_screen("info", C.TITLE_EMPTY, msg)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)

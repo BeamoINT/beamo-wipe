@@ -67,9 +67,19 @@ def _parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--console", action="store_true", help="Use the keyboard console UI.")
     p.add_argument("--fullscreen", action="store_true", help="Fill the screen (live USB).")
-    p.add_argument("--dry-run", action="store_true", help="Do not invoke nwipe.")
-    p.add_argument("--lsblk-json", help="Read disks from an lsblk JSON file.")
-    p.add_argument("--boot-device", help="Override live-medium path (tests only).")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Do not invoke nwipe. Test only; ignored on the live USB.",
+    )
+    p.add_argument(
+        "--lsblk-json",
+        help="Read disks from an lsblk JSON file. Test only; ignored on the live USB.",
+    )
+    p.add_argument(
+        "--boot-device",
+        help="Override live-medium path. Test only; ignored on the live USB.",
+    )
     p.add_argument("--version", action="version", version=f"Beamo Wipe {__version__}")
     return p
 
@@ -99,6 +109,22 @@ def apply_live_session_overrides(args: argparse.Namespace) -> None:
     """On the live USB, preview/gallery flags cannot disguise a fake wipe."""
     if not running_on_live_usb():
         return
+    cleared = [
+        name
+        for name, was_set in (
+            ("demo", args.demo),
+            ("empty", args.empty),
+            ("blocked", args.blocked),
+            ("fail_demo", args.fail_demo),
+            ("scenario", args.scenario != "happy"),
+            ("lsblk_json", bool(args.lsblk_json)),
+            ("boot_device", bool(args.boot_device)),
+            ("dry_run", args.dry_run),
+            ("web", args.web),
+            ("helper", args.helper),
+        )
+        if was_set
+    ]
     args.demo = False
     args.empty = False
     args.blocked = False
@@ -112,6 +138,15 @@ def apply_live_session_overrides(args: argparse.Namespace) -> None:
     os.environ.pop("BEAMO_WIPE_BOOT_DEVICE", None)
     os.environ.pop("BEAMO_WIPE_DRY_RUN", None)
     os.environ.pop("BEAMO_WIPE_DEMO", None)
+    if cleared:
+        # Visible to maintainers: an operator who passed a test flag on the
+        # live USB should find why it had no effect. Never raises.
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("app", "live_overrides_cleared", ",".join(sorted(cleared))[:120])
+        except Exception:
+            pass
 
 
 def _build_wizard(args: argparse.Namespace) -> Wizard:
@@ -136,10 +171,24 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
         with open(args.lsblk_json, encoding="utf-8") as fh:
             payload = load_lsblk_json_text(fh.read())
 
+    import time as _time
+
+    _discover_start = _time.monotonic()
     discovery = discover(
         lsblk_payload=payload,
         boot_path=args.boot_device,
     )
+    try:
+        from beamo_wipe.diagnostics import log_diag as _log_diag
+
+        _elapsed_ms = int((_time.monotonic() - _discover_start) * 1000)
+        _log_diag(
+            "discover",
+            "timing",
+            f"elapsed_ms={_elapsed_ms} boot_identified={discovery.boot_identified}",
+        )
+    except Exception:
+        pass
     use_dry = (
         args.dry_run
         or args.demo

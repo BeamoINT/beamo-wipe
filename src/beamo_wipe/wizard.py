@@ -118,6 +118,24 @@ class Wizard:
         return self._clock()
 
     @property
+    def empty_detail(self) -> str:
+        """Read-only boot-device line for the empty screen.
+
+        The boot USB is shown so the owner can see it was found; it stays
+        non-selectable (selectable_disks never includes it).
+        """
+        from beamo_wipe.copy import NO_CODE
+
+        boot = self.discovery.boot
+        if boot is None:
+            return ""
+        serial = boot.serial or NO_CODE
+        return (
+            f"Boot device (not erasable): {boot.display_name} "
+            f"{boot.size_phrase} {boot.path} {serial}"
+        )
+
+    @property
     def selectable(self):
         return selectable_disks(self.discovery)
 
@@ -248,7 +266,7 @@ class Wizard:
             # Surface diagnostic for maintainers while keeping UI generic and actionable
             diag = getattr(self.discovery, "diagnostic", None)
             if diag:
-                self.error = f"{self.discovery.error} ({diag})"
+                self.error = f"{self.discovery.error} [Support detail: {diag}]"
                 try:
                     from beamo_wipe.diagnostics import log_diag
 

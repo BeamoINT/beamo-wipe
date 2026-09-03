@@ -77,6 +77,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
+            if wizard.empty_detail:
+                print(wizard.empty_detail)
             input("Press Enter to shut down… ")
             wizard.shutdown()
             continue
@@ -238,7 +240,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _wrap(stdscr, y, wizard.error or C.IDENTIFY_ERROR, w)
             _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.PICK_EMPTY:
-            _wrap(stdscr, y, C.EMPTY_DISKS, w)
+            _empty_text = C.EMPTY_DISKS
+            if wizard.empty_detail:
+                _empty_text = f"{_empty_text}\n\n{wizard.empty_detail}"
+            _wrap(stdscr, y, _empty_text, w)
             _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.CONFIRM and wizard.selected:
             disk = wizard.selected
