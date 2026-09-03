@@ -270,10 +270,26 @@ def build_nwipe_argv(request: WipeRequest) -> List[str]:
 
 
 def validate_argv(argv: List[str], request: WipeRequest) -> None:
+    if not argv or argv[0] != "nwipe":
+        raise SafetyError("First argument must be nwipe.")
+    try:
+        spec: NwipeMethodSpec = METHODS[request.method]
+    except KeyError as exc:
+        raise SafetyError("Unknown wipe method.") from exc
+    # Bind flags to the confirmed method: an allowlist alone would accept a
+    # stronger/weaker method than the owner confirmed (e.g. zero/off on EVERYDAY).
+    expected = {
+        f"--method={spec.nwipe_method}",
+        f"--verify={spec.verify}",
+        f"--rounds={int(spec.rounds)}",
+    }
+    for want in sorted(expected):
+        if argv.count(want) != 1:
+            raise SafetyError(f"nwipe flags do not match the confirmed method ({want} required).")
+    if spec.noblank != ("--noblank" in argv):
+        raise SafetyError("nwipe flags do not match the confirmed method (--noblank mismatch).")
     if any(a == "--force" or a.startswith("--force=") for a in argv):
         raise SafetyError("Refusing to pass --force to nwipe.")
-    if argv[0] != "nwipe":
-        raise SafetyError("First argument must be nwipe.")
     if "--autonuke" not in argv or "--nogui" not in argv:
         raise SafetyError("Non-interactive nwipe flags required.")
     for required in ("--autonuke", "--nogui", "--nowait", "--PDFreportpath=noPDF"):

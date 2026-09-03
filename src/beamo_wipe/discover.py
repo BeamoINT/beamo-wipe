@@ -78,7 +78,7 @@ FINDMNT_BINARIES = ("/usr/bin/findmnt",)
 MOUNTINFO_PATH = "/proc/self/mountinfo"
 LSBLK_COLUMNS = (
     "NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,RM,HOTPLUG,"
-    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,VENDOR,PKNAME,UUID,WWN,PARTUUID,PARTLABEL"
+    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,VENDOR,PKNAME,UUID,WWN,PARTUUID,PARTLABEL,RO"
 )
 TYPED_SOURCE_KEYS = frozenset({"LABEL", "UUID", "PARTUUID", "PARTLABEL"})
 
@@ -396,6 +396,9 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
         bus=classify_bus(node.get("tran")),
         label=label,
         is_boot=is_boot,
+        # lsblk RO missing (older fakes) means writable: exclude only an
+        # explicit read-only flag, never on unknown.
+        read_only=_as_bool(node.get("ro")) is True,
         wwn=_clean(node.get("wwn")) or _first_descendant_field(node, "wwn"),
         vendor=_clean(node.get("vendor")) or _first_descendant_field(node, "vendor"),
         mountpoints=mountpoints,

@@ -106,6 +106,11 @@ class Wizard:
         self.evidence_path: Optional[str] = None
         self.evidence_error: Optional[str] = None
         self._evidence_written_for: Optional[str] = None  # deduplicate poll
+        # First-writer-wins interruption flags per dedup key: if the first
+        # write for a result fails transiently, _finish's rewrite must keep
+        # the original cancelled/interrupted flags, never downgrade a user
+        # interrupt to an engine outcome.
+        self._evidence_flag_hint: dict[str, tuple[bool, bool]] = {}
         self._lock = threading.RLock()
 
     @property
@@ -201,6 +206,7 @@ class Wizard:
         self._evidence_start_mono = None
         self._evidence_argv = None
         self._evidence_written_for = None
+        self._evidence_flag_hint = {}
         # evidence / evidence_path / evidence_error are kept for audit
 
     def shutdown(self) -> None:
@@ -397,6 +403,8 @@ class Wizard:
             self.error = None
             self._wipe_request = request
             self._cancel_requested = False
+            self._evidence_written_for = None
+            self._evidence_flag_hint = {}
             self.screen = Screen.WORKING
             # Record evidence start (wall + monotonic) + redacted argv for later completion
             try:
@@ -485,6 +493,12 @@ class Wizard:
             key = None
         if key is not None and self._evidence_written_for == key:
             return
+        if key is not None:
+            # First writer wins: a later rewrite of the same result (e.g.
+            # _finish after a transient write failure in cancel_wipe) keeps
+            # the original interruption flags instead of downgrading them.
+            prev = self._evidence_flag_hint.setdefault(key, (cancelled, interrupted))
+            cancelled, interrupted = prev
         try:
             from beamo_wipe.evidence import build_evidence, write_evidence_atomic
 
@@ -661,21 +675,28 @@ class Wizard:
         self.screen = self._advanced_from or Screen.METHOD
 
     def back(self) -> None:
-        mapping = {
-            Screen.OWNER: Screen.WHAT,
-            Screen.PICK: Screen.OWNER,
-            Screen.PICK_EMPTY: Screen.OWNER,
-            Screen.PICK_BLOCKED: Screen.OWNER,
-            Screen.CONFIRM: Screen.PICK,
-            Screen.METHOD: Screen.CONFIRM,
-            Screen.LAST_CHANCE: Screen.METHOD,
-            Screen.ADVANCED: self._advanced_from or Screen.METHOD,
-        }
-        if self.screen in mapping:
-            self.screen = mapping[self.screen]
-            if self.screen != Screen.LAST_CHANCE:
-                self._erase_until = None
-            self.error = None
+        # Under _lock like every other screen mutation: confirm_erase holds
+        # the lock from its LAST_CHANCE gate through runner.start, so a
+        # concurrent back() either wins (confirm then refuses, nothing
+        # started) or waits and becomes a no-op once WORKING (no mapping).
+        # Without this, a back-out landing mid-confirm leaves the UI on
+        # METHOD while nwipe is already running.
+        with self._lock:
+            mapping = {
+                Screen.OWNER: Screen.WHAT,
+                Screen.PICK: Screen.OWNER,
+                Screen.PICK_EMPTY: Screen.OWNER,
+                Screen.PICK_BLOCKED: Screen.OWNER,
+                Screen.CONFIRM: Screen.PICK,
+                Screen.METHOD: Screen.CONFIRM,
+                Screen.LAST_CHANCE: Screen.METHOD,
+                Screen.ADVANCED: self._advanced_from or Screen.METHOD,
+            }
+            if self.screen in mapping:
+                self.screen = mapping[self.screen]
+                if self.screen != Screen.LAST_CHANCE:
+                    self._erase_until = None
+                self.error = None
 
     def warning_text(self) -> str:
         if self.selected is None:

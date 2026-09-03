@@ -245,10 +245,14 @@ findmnt; losetup -j /tmp/beamo-wipe-target.qcow2        # must show nothing host
 # BIOS:
 qemu-system-x86_64 -m 2048 -enable-kvm -cdrom dist/beamo-wipe-0.2.0-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 -boot order=d
-# UEFI (when OVMF present):
-qemu-system-x86_64 -m 2048 -enable-kvm -bios /usr/share/OVMF/OVMF_CODE.fd \
+# UEFI (when OVMF present; 4M firmware needs pflash, not -bios):
+cp /usr/share/OVMF/OVMF_VARS.fd /tmp/beamo-ovmf-vars.fd
+qemu-system-x86_64 -m 2048 -enable-kvm \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
+  -drive if=pflash,format=raw,file=/tmp/beamo-ovmf-vars.fd \
   -cdrom dist/beamo-wipe-0.2.0-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
+# No vars template (older OVMF_CODE.fd-only layout): -bios /usr/share/OVMF/OVMF_CODE.fd
 # Re-check immediately before destructive assertion:
 qemu-img info /tmp/beamo-wipe-target.qcow2; sha256sum /tmp/beamo-wipe-target.qcow2
 # Checklist per docs/vm-test.md (wizard first UI, vda 10G visible, s not selectable, token mismatch keeps Continue off, zero pass completes):
@@ -374,7 +378,7 @@ All three spies prove no real nwipe on the support host: `NwipeRunner.start` rai
 
 ## 11. Change control for this runbook
 
-This doc is versioned with the wrapper (`1.0` for `0.1.1`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
+This doc is versioned with the wrapper (`1.0` for `0.2.0`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
 
 ---
 

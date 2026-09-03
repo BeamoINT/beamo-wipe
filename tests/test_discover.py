@@ -118,6 +118,71 @@ def _payload(blockdevices):
     return {"blockdevices": blockdevices}
 
 
+def test_read_only_disk_is_not_selectable():
+    """A write-protected disk (lsblk RO=1) must be excluded up front.
+
+    nwipe cannot erase it; listing it invites a late, confusing failure.
+    Missing RO (older payloads) still means writable — exclude only an
+    explicit read-only flag, never on unknown.
+    """
+    payload = _payload(
+        [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "model": "Beamo Wipe",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {
+                        "name": "sda1",
+                        "path": "/dev/sda1",
+                        "type": "part",
+                        "label": "BEAMO_WIPE",
+                    }
+                ],
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 32000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "ro": "1",
+                "model": "Locked Stick",
+                "serial": "LOCKED001",
+            },
+            {
+                "name": "sdc",
+                "path": "/dev/sdc",
+                "size": 64000000000,
+                "type": "disk",
+                "tran": "sata",
+                "rota": True,
+                "ro": "0",
+                "model": "Data Disk",
+                "serial": "DATA001",
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path="/dev/sda",
+        mount_sources=[],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot is not None
+    assert [d.path for d in result.selectable] == ["/dev/sdc"]
+    by_path = {d.path: d for d in result.disks}
+    assert by_path["/dev/sdb"].read_only is True
+    assert by_path["/dev/sdc"].read_only is False
+
+
 def test_duplicate_beamo_wipe_labels_fail_closed():
     """Two USB sticks labeled BEAMO_WIPE: cannot tell which we booted. List nothing."""
     payload = _payload(

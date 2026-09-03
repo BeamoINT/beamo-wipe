@@ -948,3 +948,37 @@ def test_poll_keeps_concurrent_cancel(tmp_path):
     assert runner.result is not None
     assert runner.result.summary == "cancelled"
 
+
+def test_rejects_flags_for_unconfirmed_method():
+    """Validator binds flags to the confirmed method, not just the allowlist.
+
+    An EVERYDAY request (prng/verify-last) with zero/off flags swapped in
+    must fail: otherwise a weaker wipe than confirmed could exec.
+    """
+    req = _request(MethodId.EVERYDAY)
+    argv = build_nwipe_argv(req)
+    swapped = [
+        "--method=zero" if a.startswith("--method=") else a for a in argv
+    ]
+    swapped = [
+        "--verify=off" if a.startswith("--verify=") else a for a in swapped
+    ]
+    with pytest.raises(SafetyError, match="confirmed method"):
+        validate_argv(swapped, req)
+    # Cross-method for EXTRA too (dodshort expected, prng must fail).
+    req_extra = _request(MethodId.EXTRA)
+    argv_extra = build_nwipe_argv(req_extra)
+    downgraded = [
+        "--method=prng" if a.startswith("--method=") else a
+        for a in argv_extra
+    ]
+    with pytest.raises(SafetyError, match="confirmed method"):
+        validate_argv(downgraded, req_extra)
+
+
+def test_rejects_empty_argv_as_safety_error():
+    """Fail-closed boundary must raise SafetyError, never IndexError."""
+    req = _request()
+    with pytest.raises(SafetyError, match="First argument"):
+        validate_argv([], req)
+

@@ -48,6 +48,7 @@ class Disk:
     bus: str
     label: str
     is_boot: bool = False
+    read_only: bool = False
     wwn: str = ""
     vendor: str = ""
     mountpoints: Tuple[str, ...] = ()

@@ -277,3 +277,112 @@ def test_post_cancel_poll_result_never_finishes_as_engine_failed(
     assert wiz.screen.value == "done"
     assert wiz.evidence is not None
     assert wiz.evidence["outcome"] == "interrupted"
+
+
+def test_back_during_confirm_keeps_screen_truthful(tmp_path, monkeypatch):
+    """A back-out racing confirm_erase must not show METHOD while nwipe runs.
+
+    confirm_erase holds _lock from its LAST_CHANCE gate through runner.start;
+    back() takes the same lock, so it either wins (confirm then refuses and
+    nothing starts) or waits and becomes a no-op once WORKING. Fake runner
+    with a blocking start; threads only, fake disks only.
+    """
+    from beamo_wipe.demo import make_demo_wizard
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.wizard import Wizard
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    base = make_demo_wizard()
+    wiz = Wizard(base.discovery, DryRunRunner(duration_s=30.0), dry_run=True)
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    tgt = wiz.selectable[0]
+    wiz.select_disk(tgt.path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    wiz._erase_until = 0
+
+    gate = threading.Event()
+    release = threading.Event()
+    orig_start = wiz.runner.start
+
+    def slow_start(request):
+        gate.set()
+        assert release.wait(timeout=5)
+        orig_start(request)
+
+    wiz.runner.start = slow_start  # type: ignore[method-assign]
+    worker = threading.Thread(target=wiz.confirm_erase)
+    worker.start()
+    assert gate.wait(timeout=5)
+
+    def delayed_release():
+        # Let back() block on the confirm-held lock first, then let confirm
+        # finish. The lock is held continuously from gate through WORKING.
+        time.sleep(0.2)
+        release.set()
+
+    releaser = threading.Thread(target=delayed_release)
+    releaser.start()
+    wiz.back()
+    seen_after_back = wiz.screen.value
+    worker.join(timeout=5)
+    releaser.join(timeout=5)
+    assert not worker.is_alive()
+    # The screen observed right after the back-out must never contradict the
+    # engine: METHOD shown while a wipe started is the losing interleaving.
+    assert not (seen_after_back == "method" and wiz.runner.started), (
+        f"back-out showed {seen_after_back!r} while nwipe started"
+    )
+    assert wiz.screen.value == "working"
+    assert wiz.runner.started
+
+
+def test_cancel_flags_survive_transient_evidence_failure(tmp_path, monkeypatch):
+    """A failed first evidence write must not downgrade interrupt to engine outcome.
+
+    cancel_wipe writes (cancelled=True, interrupted=True); _finish rewrites
+    the same result. First-writer-wins flags keep the retry truthful.
+    """
+    from beamo_wipe.demo import make_demo_wizard
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.wizard import Wizard
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    base = make_demo_wizard()
+    wiz = Wizard(base.discovery, DryRunRunner(duration_s=30.0), dry_run=True)
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    tgt = wiz.selectable[0]
+    wiz.select_disk(tgt.path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    wiz._erase_until = 0
+    wiz.confirm_erase()
+    assert wiz.screen.value == "working"
+
+    import beamo_wipe.evidence as evidence_mod
+
+    orig_write = evidence_mod.write_evidence_atomic
+    calls = {"n": 0}
+
+    def fail_once(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError("simulated full disk")
+        return orig_write(*args, **kwargs)
+
+    monkeypatch.setattr(evidence_mod, "write_evidence_atomic", fail_once)
+    wiz.cancel_wipe()
+    assert wiz.screen.value == "done"
+    assert wiz.evidence is not None
+    assert wiz.evidence["outcome"] == "interrupted"
+    assert wiz.evidence["interruption"] == {"interrupted": True, "cancelled": True}

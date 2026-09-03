@@ -207,6 +207,8 @@ def is_wipeable_disk(disk: Disk) -> bool:
     """True if this node is a whole-disk wipe target (same gate as nwipe argv)."""
     if disk.is_boot or disk.size_bytes <= 0:
         return False
+    if disk.read_only:
+        return False
     if has_any_mount(disk) or is_remote_disk(disk):
         return False
     try:
