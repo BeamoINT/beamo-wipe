@@ -14,7 +14,20 @@ from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# The 0.1.0 manufacturing ISO (419 MiB) lives only where it was built or
+# downloaded — never in git, never in CI/Cloud uploads. Tests below that
+# generate a manifest for it need the bytes; without them they skip
+# (visible in counts, like the lb-config live-image skips) instead of
+# failing fresh checkouts. The production path is still exercised on
+# every hosted build by scripts/build-iso.sh generating the real manifest.
+ISO_010 = ROOT / "dist" / "beamo-wipe-0.1.0-amd64.iso"
+requires_manufacturing_iso = pytest.mark.skipif(
+    not ISO_010.is_file(),
+    reason="manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact",
+)
 
+
+@requires_manufacturing_iso
 def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     monkeypatch.setenv("ALLOW_DIRTY", "1")
     # Generate for existing 0.1.0 ISO
@@ -41,6 +54,7 @@ def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     assert "_manifest_sha256" in m
 
 
+@requires_manufacturing_iso
 def test_manifest_fails_on_dirty_when_strict(monkeypatch):
     import beamo_wipe.release_manifest as rm
 
@@ -88,6 +102,7 @@ def test_manifest_fails_on_missing_iso(monkeypatch, tmp_path):
         rm.generate_manifest(version="9.9.9", strict=True)
 
 
+@requires_manufacturing_iso
 def test_manifest_fails_on_unexpected_nwipe_version(monkeypatch):
     import beamo_wipe.release_manifest as rm
 
@@ -119,6 +134,7 @@ def test_manifest_fails_on_unapproved_dependency_drift(monkeypatch, tmp_path):
         rm.generate_manifest(version="0.1.0", strict=True)
 
 
+@requires_manufacturing_iso
 def test_manifest_atomic_write_and_checksum(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.release_manifest.git_dirty", lambda: (False, []))
     import beamo_wipe.release_manifest as rm
@@ -140,6 +156,7 @@ def test_manifest_atomic_write_and_checksum(tmp_path, monkeypatch):
     assert sidecar.read_text().strip().split()[0] == hashlib.sha256(dest.read_bytes()).hexdigest()
 
 
+@requires_manufacturing_iso
 def test_manifest_checksum_mismatch_is_rejected(tmp_path):
     import beamo_wipe.release_manifest as rm
 
@@ -157,6 +174,7 @@ def test_manifest_checksum_mismatch_is_rejected(tmp_path):
     monkeypatch.undo()
 
 
+@requires_manufacturing_iso
 def test_manifest_duplicate_write_is_idempotent(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.release_manifest.git_dirty", lambda: (False, []))
     import beamo_wipe.release_manifest as rm
@@ -172,6 +190,7 @@ def test_manifest_duplicate_write_is_idempotent(tmp_path, monkeypatch):
     rm.verify_manifest(dest)
 
 
+@requires_manufacturing_iso
 def test_manifest_stale_state_detected(tmp_path, monkeypatch):
     # Simulate commit changed between generate and verify
     import beamo_wipe.release_manifest as rm
@@ -188,6 +207,7 @@ def test_manifest_stale_state_detected(tmp_path, monkeypatch):
     assert m1["source"]["commit"] != m2["source"]["commit"]
 
 
+@requires_manufacturing_iso
 def test_manifest_recovery_after_failed_write(tmp_path, monkeypatch):
     import beamo_wipe.release_manifest as rm
 
@@ -212,6 +232,7 @@ def test_manifest_recovery_after_failed_write(tmp_path, monkeypatch):
     rm.verify_manifest(out)
 
 
+@requires_manufacturing_iso
 def test_consumer_verification_instructions(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.release_manifest.git_dirty", lambda: (False, []))
     import beamo_wipe.release_manifest as rm
@@ -224,6 +245,7 @@ def test_consumer_verification_instructions(tmp_path, monkeypatch):
     assert "not configured" in m["verification"]["signing"] or "SHA256" in m["verification"]["signing"]
 
 
+@requires_manufacturing_iso
 def test_prior_stable_and_rollback(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.release_manifest.git_dirty", lambda: (False, []))
     import beamo_wipe.release_manifest as rm
@@ -236,6 +258,7 @@ def test_prior_stable_and_rollback(tmp_path, monkeypatch):
     assert "3b4c01f" in m["rollback"]
 
 
+@requires_manufacturing_iso
 def test_hardware_limits_and_license(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.release_manifest.git_dirty", lambda: (False, []))
     import beamo_wipe.release_manifest as rm
