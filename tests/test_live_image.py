@@ -80,6 +80,14 @@ def test_nwipe_hook_fails_closed_instead_of_unpinned_fallback():
     assert "GIT_CONFIG_SYSTEM=/dev/null" in text
 
 
+def test_nwipe_hook_accepts_safe_debian_arch_qualifier_before_purge():
+    text = HOOK.read_text(encoding="utf-8")
+    assert "base_package=\"${package%%:*}\"" in text
+    assert 'case "$base_package" in' in text
+    assert "apt-get purge -y -- \"$@\"" in text
+    assert "grep -E '^(gcc|g\\+\\+)" in text
+
+
 def test_live_launcher_isolates_sys_path_and_preview_env():
     text = LAUNCHER.read_text(encoding="utf-8")
     assert "python3 -sP" in text

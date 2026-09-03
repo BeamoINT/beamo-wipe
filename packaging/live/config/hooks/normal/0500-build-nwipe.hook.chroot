@@ -139,7 +139,12 @@ if [ -n "$leftovers" ]; then
   # shellcheck disable=SC2086
   set -- $leftovers
   for package in "$@"; do
-    case "$package" in
+    # ${binary:Package} appends an architecture qualifier to Multi-Arch
+    # packages (for example libgcc-12-dev:amd64). The strict regex above
+    # authenticates that qualifier; validate the base allowlist here while
+    # retaining the exact qualified name for apt-get below.
+    base_package="${package%%:*}"
+    case "$base_package" in
       gcc|g++|gcc-[0-9]*|g++-[0-9]*|libgcc-[0-9]*-dev|libstdc++-[0-9]*-dev) ;;
       *) echo "ERROR: unsafe compiler package name" >&2; exit 1 ;;
     esac
