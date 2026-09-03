@@ -356,6 +356,34 @@ def test_confirm_erase_refuses_identity_change_on_rediscover(monkeypatch, tmp_pa
     assert "identity" in (wiz.error or "").lower()
 
 
+def test_confirm_erase_fails_closed_on_unexpected_rediscover_error(monkeypatch, tmp_path):
+    """A non-standard rediscover failure (not OSError/ValueError/…) must still
+    refuse the wipe with a visible error, never start nwipe. Fake disks only."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.dry_run = False
+    wiz.preview = False
+
+    def _boom():
+        raise RuntimeError("unexpected lsblk harness failure")
+
+    wiz._rediscover = _boom
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not getattr(wiz.runner, "started", False)
+    assert wiz.error and "Could not re-read disks" in wiz.error
+
+
 def test_confirm_erase_refuses_real_runner_in_dry_run(monkeypatch, tmp_path):
     from beamo_wipe.nwipe_runner import NwipeRunner
 
@@ -563,4 +591,87 @@ def test_working_uis_never_round_percent_with_point_zero_f():
     console_src = inspect.getsource(_loop)
     assert "format_progress_percent" in console_src
     assert ":.0f" not in console_src
+
+
+def _drive_to_working(wiz, clock):
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.WORKING
+
+
+def test_cancel_wipe_failure_stays_working_with_error(monkeypatch, tmp_path):
+    """A runner that cannot stop the engine must not become clean 'interrupted'."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    _drive_to_working(wiz, clock)
+
+    def boom() -> None:
+        raise OSError(1, "Operation not permitted")
+
+    wiz.runner.cancel = boom  # type: ignore[method-assign]
+    wiz.cancel_wipe()
+    assert wiz.screen == Screen.WORKING
+    assert wiz.error and "Could not stop the wipe" in wiz.error
+    assert wiz.wipe_result is None
+    # No interrupted evidence for a wipe that may still run.
+    assert wiz.evidence is None or wiz.evidence.get("outcome") != "interrupted"
+
+
+def test_cancel_wipe_retry_succeeds_after_failure(monkeypatch, tmp_path):
+    """After a failed cancel, a retry that stops the engine interrupts cleanly."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    _drive_to_working(wiz, clock)
+    calls = []
+
+    def flaky() -> None:
+        calls.append(1)
+        if len(calls) == 1:
+            raise OSError(1, "Operation not permitted")
+
+    wiz.runner.cancel = flaky  # type: ignore[method-assign]
+    wiz.cancel_wipe()
+    assert wiz.screen == Screen.WORKING
+    wiz.cancel_wipe()
+    assert wiz.screen == Screen.DONE
+    assert wiz.wipe_result is not None and not wiz.wipe_result.ok
+    assert "interrupted" in wiz.wipe_result.summary
+
+
+def test_confirm_erase_second_start_reports_already_running(monkeypatch, tmp_path):
+    """A second confirm_erase while WORKING gets a visible error, no double start."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    _drive_to_working(wiz, clock)
+    first_request = wiz._wipe_request
+    starts = []
+    orig_start = wiz.runner.start
+    wiz.runner.start = lambda request: (starts.append(request), orig_start(request))  # type: ignore[method-assign]
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.WORKING
+    assert wiz.error == "A wipe is already running."
+    assert starts == []
+    assert wiz._wipe_request is first_request
+
+
+def test_working_screens_render_cancel_failure():
+    """WORKING must show wizard.error (failed cancel) instead of hiding it."""
+    import inspect
+
+    from beamo_wipe.ui.console_wizard import _loop
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    assert "self.w.error" in inspect.getsource(TkWizard._working)
+    console_src = inspect.getsource(_loop)
+    working_block = console_src.split("Screen.WORKING", 1)[1].split("Screen.DONE", 1)[0]
+    assert "wizard.error" in working_block
 

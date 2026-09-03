@@ -773,3 +773,178 @@ def test_completion_sees_erased_row_after_large_pdf_tail(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert result.ok is True
 
+
+# ---------------------------------------------------------------------------
+# Cancel integrity: fail closed when the engine survives, never overwrite a
+# concurrent outcome. Fake procs only; no real device is ever touched.
+# ---------------------------------------------------------------------------
+
+
+class _StillAliveProc:
+    """Ignores terminate/kill: wait() always times out, poll() says running."""
+
+    returncode = None
+
+    def poll(self):
+        return None
+
+    def terminate(self):
+        pass
+
+    def kill(self):
+        pass
+
+    def wait(self, timeout=None):
+        import subprocess
+
+        raise subprocess.TimeoutExpired(cmd="nwipe", timeout=timeout)
+
+
+class _ExitsOnKillProc:
+    """Dies only once killed: first wait times out, second returns."""
+
+    def __init__(self):
+        self.returncode = None
+        self.killed = False
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        pass
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -9
+
+    def wait(self, timeout=None):
+        import subprocess
+
+        if not self.killed:
+            raise subprocess.TimeoutExpired(cmd="nwipe", timeout=timeout)
+        return self.returncode
+
+
+def _cancel_runner(tmp_path):
+    from beamo_wipe.nwipe_runner import NwipeRunner
+
+    return NwipeRunner(binary=str(tmp_path / "fake"))
+
+
+def test_cancel_surviving_engine_fails_closed(tmp_path):
+    """kill() ignored -> SafetyError, no 'cancelled' claim, lock retained."""
+    runner = _cancel_runner(tmp_path)
+    proc = _StillAliveProc()
+    runner._proc = proc
+    runner._lock_fd = None
+    runner.result = None
+    with pytest.raises(SafetyError, match="still be erasing"):
+        runner.cancel()
+    assert runner.result is None
+    assert runner._proc is proc
+    # A retry still targets the live engine (and still fails closed).
+    with pytest.raises(SafetyError, match="still be erasing"):
+        runner.cancel()
+
+
+def test_cancel_eperm_kill_fails_closed(tmp_path):
+    """EPERM on terminate/kill with a live engine must not read 'cancelled'."""
+
+    class _EpermProc(_StillAliveProc):
+        def terminate(self):
+            raise OSError(1, "Operation not permitted")
+
+        def kill(self):
+            raise OSError(1, "Operation not permitted")
+
+    runner = _cancel_runner(tmp_path)
+    proc = _EpermProc()
+    runner._proc = proc
+    runner._lock_fd = None
+    runner.result = None
+    with pytest.raises(SafetyError, match="still be erasing"):
+        runner.cancel()
+    assert runner.result is None
+    assert runner._proc is proc
+
+
+def test_cancel_exited_after_timeout_is_cancelled(tmp_path):
+    """wait() timed out but the process is verifiably dead -> cancelled."""
+    runner = _cancel_runner(tmp_path)
+    proc = _ExitsOnKillProc()
+    runner._proc = proc
+    runner._lock_fd = None
+    runner.result = None
+    runner.cancel()
+    assert runner.result is not None
+    assert runner.result.summary == "cancelled"
+    assert runner._proc is None
+
+
+def test_cancel_keeps_concurrent_poll_completion(tmp_path):
+    """poll() that won the race keeps its outcome; cancel() does not clobber."""
+    from beamo_wipe.models import WipeResult
+
+    runner = _cancel_runner(tmp_path)
+    runner._proc = _StillAliveProc()
+    runner.result = WipeResult(ok=True, exit_code=0, summary="finished", logfile="x")
+    runner.cancel()
+    assert runner.result is not None
+    assert runner.result.summary == "finished"
+
+
+def test_poll_keeps_concurrent_cancel(tmp_path):
+    """A poll snapshot taken before cancel() must not overwrite 'cancelled'."""
+    import threading
+
+    from beamo_wipe.models import MethodId
+
+    entered = threading.Event()
+    release = threading.Event()
+
+    class _RaceProc:
+        returncode = None
+
+        def poll(self):
+            entered.set()
+            assert release.wait(timeout=5)
+            self.returncode = 0
+            return 0
+
+        def terminate(self):
+            pass
+
+        def kill(self):
+            pass
+
+        def wait(self, timeout=None):
+            return 0
+
+    log = tmp_path / "nwipe-vda.log"
+    log.write_text("/dev/vda | Erased |\n", encoding="utf-8")
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile=str(log),
+    )
+    runner = _cancel_runner(tmp_path)
+    runner._proc = _RaceProc()
+    runner._lock_fd = None
+    out = {}
+
+    def do_poll():
+        out["result"] = runner.poll(req)
+
+    thread = threading.Thread(target=do_poll)
+    thread.start()
+    assert entered.wait(timeout=5)
+    runner.cancel()
+    assert runner.result is not None
+    assert runner.result.summary == "cancelled"
+    release.set()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert runner.result is not None
+    assert runner.result.summary == "cancelled"
+

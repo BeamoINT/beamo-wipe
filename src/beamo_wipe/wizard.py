@@ -318,20 +318,19 @@ class Wizard:
 
     def confirm_erase(self) -> None:
         with self._lock:
+            # Double-start guard first: a second caller blocked on _lock
+            # arrives after the first moved to WORKING. Refuse it with a
+            # visible error (checking LAST_CHANCE first would silently
+            # swallow it, since the screen is already WORKING).
+            if self.screen == Screen.WORKING and self._wipe_request is not None:
+                self.error = "A wipe is already running."
+                return
             if self.screen != Screen.LAST_CHANCE:
                 return
             if not self.erase_enabled or self.selected is None:
                 return
             if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
                 self.error = "Preview and dry-run cannot exec nwipe."
-                return
-            # Double-start guard: if a wipe is already in progress, refuse
-            # the second caller (TOCTOU between check and start). Keep
-            # error visible and stay on LAST_CHANCE.
-            if self._wipe_request is not None and self.screen == Screen.WORKING:
-                self.error = "A wipe is already running."
-                return
-            if self.screen != Screen.LAST_CHANCE:
                 return
             # We already hold the lock; keep it for the whole start
             # sequence to prevent a second thread from also passing the
@@ -434,6 +433,12 @@ class Wizard:
                 log_diag("wizard", "cancel_runner_failed", type(exc).__name__)
             except Exception:
                 pass
+            # Fail closed: the engine may still hold the disk. Stay on
+            # WORKING so tick() can still deliver the real outcome (or the
+            # user can retry), and surface the failure instead of writing a
+            # clean 'interrupted' outcome for a wipe that may still run.
+            self.error = f"Could not stop the wipe: {exc}"
+            return
         # Hold lock while checking and transitioning to avoid race with
         # tick()->_finish.
         with self._lock:

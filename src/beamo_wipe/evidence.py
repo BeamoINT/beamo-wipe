@@ -414,19 +414,22 @@ def load_evidence(path: Path) -> dict[str, Any]:
 
 
 def verify_evidence_checksum(path: Path) -> bool:
-    """Return True if sidecar sha matches file, or if no sidecar, compute self-consistent."""
+    """Return True only if the sidecar sha matches the file bytes.
+
+    A missing sidecar is unverifiable, never valid: well-formed JSON alone
+    proves nothing about integrity, so it returns False (callers record
+    ``provenance.verified = False`` instead of blessing forged evidence).
+    """
     sidecar = Path(str(path) + CHECKSUM_SUFFIX)
     try:
         data = Path(path).read_bytes()
         h = hashlib.sha256(data).hexdigest()
-        if sidecar.exists():
-            txt = sidecar.read_text(encoding="utf-8").strip()
-            # Format: "<sha>  <name>"
-            want = txt.split()[0] if txt else ""
-            return want.lower() == h.lower()
-        # No sidecar: treat as ok if file is valid JSON with expected fields
-        obj = json.loads(data.decode("utf-8"))
-        return isinstance(obj, dict) and "schema_version" in obj
+        if not sidecar.exists():
+            return False
+        txt = sidecar.read_text(encoding="utf-8").strip()
+        # Format: "<sha>  <name>"
+        want = txt.split()[0] if txt else ""
+        return want.lower() == h.lower()
     except Exception:
         return False
 
@@ -458,11 +461,14 @@ def export_evidence(
     except OSError as exc:
         raise SafetyError(f"Cannot stat export destination: {exc}") from exc
     # Off-target checks: dest_dir must not be on target or boot filesystem via mountinfo
-    # Use assert_log_not_on_target semantics: a file under dest_dir must not be on target
+    # Use assert_log_not_on_target semantics: a file under dest_dir must not be on target.
+    # The dest is a second USB, not the log dir, so scope the under-dir check
+    # to dest_dir itself (default would wrongly require dest under /tmp/beamo-wipe
+    # and every real export would fail).
     dest_file = dest_dir / src.name
-    assert_log_not_on_target(str(dest_file), target_device or "")
+    assert_log_not_on_target(str(dest_file), target_device or "", log_dir=dest_dir)
     if boot_device:
-        assert_log_not_on_target(str(dest_file), boot_device)
+        assert_log_not_on_target(str(dest_file), boot_device, log_dir=dest_dir)
     # Also check via mountinfo that dest_dir is not on target (best effort)
     # Atomic copy: read src, write tmp in dest_dir, fsync, rename
     data = src.read_bytes()

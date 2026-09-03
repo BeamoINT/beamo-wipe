@@ -112,7 +112,11 @@ def classify_kind(name: str, tran: Optional[str], rota: Any) -> DiskKind:
 def classify_bus(tran: Optional[str]) -> str:
     if not tran:
         return "other"
-    key = tran.lower()
+    # lsblk TRAN is untrusted padding-wise; strip like classify_kind does so
+    # " usb " still groups as USB instead of a padded raw fallback.
+    key = tran.lower().strip()
+    if not key:
+        return "other"
     mapping = {
         "nvme": "NVMe",
         "sata": "SATA",
@@ -122,7 +126,7 @@ def classify_bus(tran: Optional[str]) -> str:
         "spi": "other",
         "virtio": "other",
     }
-    return mapping.get(key, tran.upper())
+    return mapping.get(key, key.upper())
 
 
 def _as_bool(value: Any) -> Optional[bool]:
@@ -370,6 +374,11 @@ def _volume_label(node: Dict[str, Any]) -> str:
 def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
     name = _clean(node.get("name"))
     path = _clean(node.get("path")) or f"/dev/{name}"
+    if not path or path == "/dev/":
+        # Fail closed on malformed lsblk nodes: never mint Disk(path="/dev/").
+        # Callers skip the node (per-node, so one bad node cannot hide the
+        # whole bus) with a diagnostic for maintainer triage.
+        raise ValueError("lsblk node has no usable device path")
     label = _volume_label(node)
     mountpoints = tuple(mp for mp in _node_mountpoints(node) if mp)
     if not is_boot:
@@ -652,7 +661,16 @@ def parse_lsblk_json(
         matched_boot = _node_is_boot(node, boot_path)
         if should_hide(node, boot_path) and not matched_boot:
             continue
-        disk = node_to_disk(node, is_boot=matched_boot)
+        try:
+            disk = node_to_disk(node, is_boot=matched_boot)
+        except ValueError:
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "node_skipped_no_path", str(node.get("type"))[:32])
+            except Exception:
+                pass
+            continue
         disks.append(disk)
         if matched_boot and identified_boot is None:
             identified_boot = disk
@@ -667,7 +685,16 @@ def parse_lsblk_json(
             if not _node_is_boot(node, boot_path):
                 continue
             if _node_type(node) in {"rom", "disk"}:
-                disk = node_to_disk(node, is_boot=True)
+                try:
+                    disk = node_to_disk(node, is_boot=True)
+                except ValueError:
+                    try:
+                        from beamo_wipe.diagnostics import log_diag
+
+                        log_diag("discover", "node_skipped_no_path", str(node.get("type"))[:32])
+                    except Exception:
+                        pass
+                    continue
                 disks.append(disk)
                 identified_boot = disk
                 break

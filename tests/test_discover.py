@@ -1140,3 +1140,67 @@ def test_pick_list_omits_nodes_nwipe_would_reject():
     assert paths == {"/dev/sda"}
     assert {d.path for d in selectable_disks(result)} == {"/dev/sda"}
 
+
+def test_node_to_disk_rejects_empty_path():
+    """Malformed lsblk nodes must never become Disk(path='/dev/')."""
+    import pytest
+
+    from beamo_wipe.discover import node_to_disk
+
+    for node in (
+        {"name": "", "path": ""},
+        {"name": "   ", "path": "   "},
+        {"name": "", "path": None},
+        {"name": None, "path": ""},
+        {"type": "disk"},
+    ):
+        with pytest.raises(ValueError, match="no usable device path"):
+            node_to_disk(node, is_boot=False)
+
+
+def test_parse_skips_pathless_node_keeps_sibling():
+    """One malformed node is skipped per-node; the valid sibling still lists."""
+    from beamo_wipe.discover import parse_lsblk_json
+
+    payload = _payload(
+        [
+            {"name": "", "path": "", "size": 8000000000, "type": "disk"},
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "sata",
+                "rota": True,
+                "model": "ST500",
+                "serial": "Z9A",
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "model": "BootStick",
+                "serial": "USB1",
+            },
+        ]
+    )
+    result = parse_lsblk_json(payload, boot_path="/dev/sdb")
+    assert result.boot_identified
+    assert "/dev/" not in {d.path for d in result.disks}
+    assert "/dev/sda" in {d.path for d in result.selectable}
+
+
+def test_classify_bus_strips_padding():
+    from beamo_wipe.discover import classify_bus
+
+    assert classify_bus(" usb ") == "USB"
+    assert classify_bus("SATA ") == "SATA"
+    assert classify_bus("  Nvme\t") == "NVMe"
+    assert classify_bus("   ") == "other"
+    assert classify_bus(" mystery ") == "MYSTERY"
+    assert classify_bus("usb") == "USB"
+    assert classify_bus(None) == "other"
+    assert classify_bus("") == "other"
+

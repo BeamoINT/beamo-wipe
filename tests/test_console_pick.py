@@ -121,6 +121,95 @@ def test_curses_enter_repeat_helper_ignores_second_enter():
     assert not _is_enter_repeat(True, ord("x"))
 
 
+def _drive_to_working_plain(wiz):
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    return wiz
+
+
+def test_plain_working_hint_does_not_promise_typing(capsys):
+    """WORKING must not tell the owner to 'type cancel + Enter': the plain
+    loop never reads stdin on WORKING, so the instruction is unexecutable."""
+    from beamo_wipe.ui import console_wizard as C
+
+    import inspect
+
+    src = inspect.getsource(C._plain_loop_body)
+    working = src.split("Screen.WORKING", 1)[1].split("Screen.DONE", 1)[0]
+    assert "input(" not in working.replace("via input()", "")
+    out = working
+    assert "type 'cancel'" not in out
+
+
+def test_plain_loop_ctrl_c_while_working_cancels(monkeypatch):
+    """Ctrl-C during a plain-loop wipe must cancel it, not traceback.
+
+    Fake runner only; no real device is ever touched.
+    """
+    from beamo_wipe.models import Screen
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.ui import console_wizard as C
+    from beamo_wipe.wizard import Wizard
+
+    class _Clock:
+        t = 0.0
+
+        def __call__(self):
+            return _Clock.t
+
+    base = make_demo_wizard()
+    wiz = Wizard(base.discovery, DryRunRunner(duration_s=60.0), clock=_Clock(), dry_run=True)
+    _drive_to_working_plain(wiz)
+    _Clock.t += 5.0
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.WORKING
+
+    class _Time:
+        calls = 0
+
+        @staticmethod
+        def sleep(_s):
+            _Time.calls += 1
+            if _Time.calls == 1:
+                raise KeyboardInterrupt
+
+    monkeypatch.setattr(C, "time", _Time)
+    monkeypatch.setattr(
+        "builtins.input", lambda _prompt="": (wiz.shutdown(), "x")[1]
+    )
+    code = C._plain_loop(wiz)
+    assert code == 0
+    assert wiz.runner.cancelled is True
+    assert wiz.screen == Screen.DONE
+    assert wiz.wipe_result is not None and not wiz.wipe_result.ok
+
+
+def test_plain_loop_ctrl_c_outside_working_shuts_down(monkeypatch):
+    """Ctrl-C before any wipe must shut down cleanly, not traceback."""
+    from beamo_wipe.models import Screen
+    from beamo_wipe.ui import console_wizard as C
+
+    wiz = make_demo_wizard()
+    wiz.skip_splash()
+    wiz.accept_what()
+    assert wiz.screen == Screen.OWNER
+
+    def fake_input(_prompt=""):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    code = C._plain_loop(wiz)
+    assert code == 0
+    assert wiz.wants_shutdown
+
+
 def test_curses_confirm_enter_sets_held_so_method_is_not_skipped():
     """Confirm uses its own getch and `continue`s; that path must set enter_held."""
     import inspect

@@ -21,11 +21,26 @@ def run_console(wizard: Wizard) -> int:
 
 def _plain_loop(wizard: Wizard) -> int:
     """Last-resort TTY with input(). Still requires confirms; never auto-wipes."""
-    try:
-        return _plain_loop_body(wizard)
-    except EOFError:
-        wizard.shutdown()
-        return 0
+    while True:
+        try:
+            return _plain_loop_body(wizard)
+        except EOFError:
+            wizard.shutdown()
+            return 0
+        except KeyboardInterrupt:
+            # Ctrl-C when SIGINT is not ignored (desktop fallback). A running
+            # wipe must be cancelled, never abandoned with nwipe still on disk;
+            # anywhere else it shuts down cleanly instead of a traceback.
+            if wizard.screen == Screen.WORKING:
+                try:
+                    wizard.cancel_wipe()
+                except Exception:
+                    pass
+                if wizard.wants_shutdown:
+                    return 0
+                continue
+            wizard.shutdown()
+            return 0
 
 
 def _plain_loop_body(wizard: Wizard) -> int:
@@ -136,7 +151,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.WORKING:
             pct = "—" if wizard.progress is None else format_progress_percent(wizard.progress)
-            print(C.WORKING_PULSE, pct, "  [Ctrl-C or type 'cancel' + Enter to interrupt]")
+            print(C.WORKING_PULSE, pct, "  [Ctrl-C to interrupt]")
             if wizard.evidence_error:
                 print(f"Note: {wizard.evidence_error}")
             if wizard.selected:
@@ -146,9 +161,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     wizard.selected.path,
                     wizard.selected.serial or "no serial",
                 )
-            # Plain loop: allow typing cancel to interrupt visibly
-            # Non-blocking check: if user typed in previous input timeout, we already handle via input()
-            # Here we just continue; the next loop will show cancel hint. Real cancel via input() below.
+            # Plain loop never blocks on stdin here, so typing cannot
+            # interrupt; Ctrl-C is handled in _plain_loop (cancel_wipe).
             time.sleep(0.3)
             continue
         if screen == Screen.DONE:
@@ -280,6 +294,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     0,
                     f"{wizard.selected.path}  {wizard.selected.serial or 'no serial'}",
                 )
+            # A failed cancel stays on WORKING with wizard.error set: show it
+            # so the owner knows the disk may still be erasing.
+            if wizard.error:
+                _wrap(stdscr, y + 6, wizard.error, w)
             _add(stdscr, y + 7, 0, "Esc: cancel erase (interrupted)")
         elif wizard.screen == Screen.DONE:
             _wrap(

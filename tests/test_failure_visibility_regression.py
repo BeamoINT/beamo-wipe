@@ -148,6 +148,42 @@ def test_log_diag_fallback_to_stderr_on_write_failure(tmp_path, monkeypatch, cap
     assert "diag_write_failed" in err or "area1" in err
 
 
+def test_log_diag_stderr_fallback_sanitizes_newlines(tmp_path, monkeypatch, capsys):
+    """Stderr fallback honors the same no-newline contract as the JSON path."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    with mock.patch("os.open", side_effect=OSError("no space")):
+        assert log_diag("area1", "code1", "line1\nline2", log_dir=tmp_path) is False
+    err = capsys.readouterr().err
+    assert "line1 line2" in err
+    assert "line1\nline2" not in err
+
+
+def test_nwipe_try_log_diag_falls_back_to_stderr(capsys):
+    """Runner diagnostics must never raise and never vanish: if the
+    diagnostics module itself is broken, the event still reaches stderr."""
+    from beamo_wipe.nwipe_runner import _try_log_diag
+
+    with mock.patch(
+        "beamo_wipe.diagnostics.log_diag", side_effect=RuntimeError("diag broken")
+    ):
+        _try_log_diag("nwipe", "sigusr1_failed", "line1\nline2")
+    err = capsys.readouterr().err
+    assert "nwipe" in err and "sigusr1_failed" in err
+    assert "line1 line2" in err
+    assert "line1\nline2" not in err
+
+
+def test_diagnostics_log_is_bounded(tmp_path):
+    """An over-cap log keeps its last half (newest entry survives)."""
+    from beamo_wipe.diagnostics import DIAG_LOG_MAX_BYTES
+
+    big = tmp_path / "diagnostics.log"
+    big.write_bytes(b"0" * (DIAG_LOG_MAX_BYTES + 4096))
+    assert log_diag("t", "c", "newest-marker", log_dir=tmp_path) is True
+    assert big.stat().st_size <= DIAG_LOG_MAX_BYTES
+    assert "newest-marker" in big.read_text(encoding="utf-8", errors="replace")
+
+
 # ---------------------------------------------------------------------------
 # Discover: alias and safety rdev visibility
 # ---------------------------------------------------------------------------
@@ -359,6 +395,54 @@ def test_build_iso_chmod_fail_closed():
     text = Path("scripts/build-iso.sh").read_text(encoding="utf-8")
     assert '2>/dev/null || true' not in text
     assert "no hook scripts found" in text
+
+
+def test_build_iso_container_failure_is_diagnosed():
+    """A failed privileged docker run must print next steps, not exit silently."""
+    text = Path("scripts/build-iso.sh").read_text(encoding="utf-8")
+    assert "live-build container failed" in text
+    assert "no ISO was produced" in text
+    assert "docker_status" in text
+
+
+def test_manifest_heredoc_does_not_interpolate_version():
+    """BEAMO_WIPE_VERSION must cross as env data, never as Python source."""
+    text = Path("scripts/generate-release-manifest.sh").read_text(encoding="utf-8")
+    assert "<<'PY'" in text
+    assert 'version="$VERSION"' not in text
+    assert 'os.environ["BEAMO_WIPE_MANIFEST_VERSION"]' in text
+    assert 'os.environ["BEAMO_WIPE_MANIFEST_DEST"]' in text
+
+
+def test_manifest_verify_steps_propagate_mismatch():
+    """sha256sum -c verify lines must fail the script, not hide behind head."""
+    text = Path("scripts/generate-release-manifest.sh").read_text(encoding="utf-8")
+    assert '${DEST}.sha256") 2>&1 | head' not in text
+    assert '${ISO}.sha256") 2>&1 | head' not in text
+    assert "SHA256SUMS 2>&1 | head )" not in text
+    # Generation must also fail fast: masking it would corrupt SHA256SUMS
+    # with stderr and hide the missing-input root cause from set -eu.
+    assert "> SHA256SUMS 2>&1 | head" not in text
+    assert "> SHA256SUMS || true" not in text and "SHA256SUMS 2>&1 | head || true" not in text
+    assert "Manifest written:" in text  # no premature "verified" claim
+
+
+def test_qemu_wizard_exercise_reads_python_exit():
+    """The wizard gate's $? must be python's, not tee's."""
+    text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
+    assert '>>"$EVIDENCE_DIR/wizard-exercise.txt" 2>&1' in text
+    assert '| tee -a "$EVIDENCE_DIR/wizard-exercise.txt"\nBEAMO_WIPE_DRY_RUN' not in text
+
+
+def test_qemu_nwipe_exit_codes_are_recorded_truthfully():
+    """Evidence exit_code lines must carry nwipe's code, never a masked 0."""
+    text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
+    assert "exit_code:${nwipe_code}" in text
+    assert "exit_code:${nwipe_cancel_code}" in text
+    assert "bad exit:${nwipe_bad_code}" in text
+    assert 'echo "exit_code:$?"' not in text
+    assert 'echo "bad exit:$?"' not in text
+    assert "qemu_bios_code" in text
 
 
 # ---------------------------------------------------------------------------

@@ -677,16 +677,21 @@ class NwipeRunner:
             # Verification ambiguity: nwipe exit 0 without explicit success must
             # not become success via fallback. Log for maintainer triage.
             _try_log_diag("nwipe", "verification_ambiguous", f"device={request.device[:32]} summary={summary[:80]}")
-        self.result = WipeResult(
-            ok=ok,
-            exit_code=code,
-            summary=summary,
-            logfile=request.logfile,
-        )
-        # Only show 100 on verified success; keep monotonic cap otherwise.
-        if ok:
-            self.progress = 100.0
         with self._lock:
+            if self._proc is not proc:
+                # cancel() ran concurrently and already recorded its outcome
+                # (or a new run superseded this one). Never overwrite it with
+                # a stale completion.
+                return self.result
+            self.result = WipeResult(
+                ok=ok,
+                exit_code=code,
+                summary=summary,
+                logfile=request.logfile,
+            )
+            # Only show 100 on verified success; keep monotonic cap otherwise.
+            if ok:
+                self.progress = 100.0
             self._proc = None
         self._release_wipe_lock()
         return self.result
@@ -774,15 +779,18 @@ class NwipeRunner:
             _try_log_diag("nwipe", "lock_close_failed", type(exc).__name__)
 
     def cancel(self) -> None:
+        # Snapshot under lock but keep _proc registered until the outcome is
+        # decided: a concurrent poll() keeps monitoring, and start() keeps
+        # refusing while the engine may still hold the disk.
         with self._lock:
             proc = self._proc
-            self._proc = None
-        if proc is None:
-            return
+            if proc is None or self.result is not None:
+                return
         try:
             proc.terminate()
         except (OSError, AttributeError) as exc:
             _try_log_diag("nwipe", "cancel_terminate_failed", type(exc).__name__)
+        still_alive = False
         try:
             proc.wait(timeout=8)
         except subprocess.TimeoutExpired:
@@ -794,12 +802,30 @@ class NwipeRunner:
                 proc.wait(timeout=2)
             except subprocess.TimeoutExpired as exc:
                 _try_log_diag("nwipe", "cancel_kill_still_alive", type(exc).__name__)
-        self.result = WipeResult(
-            ok=False,
-            exit_code=proc.returncode if proc.returncode is not None else 143,
-            summary="cancelled",
-            logfile="",
-        )
+                still_alive = True
+        if still_alive:
+            # A clean wait() return means the process exited; only a wait
+            # timeout leaves liveness in doubt. Confirm via poll() (tolerating
+            # minimal test doubles) and fail closed if it may still run:
+            # keep _proc and the wipe lock so a retry can target it, and
+            # never report a 'cancelled' outcome for a live engine.
+            try:
+                exited = proc.poll() is not None
+            except (OSError, AttributeError):
+                exited = False
+            if not exited:
+                raise SafetyError("Could not stop nwipe; the disk may still be erasing.")
+        with self._lock:
+            if self.result is not None:
+                # poll() recorded the real outcome concurrently; keep it.
+                return
+            self._proc = None
+            self.result = WipeResult(
+                ok=False,
+                exit_code=proc.returncode if proc.returncode is not None else 143,
+                summary="cancelled",
+                logfile="",
+            )
         self._release_wipe_lock()
 
 

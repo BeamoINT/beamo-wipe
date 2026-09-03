@@ -58,11 +58,16 @@ def log_diag(
         try:
             directory.mkdir(parents=True, exist_ok=True)
         except Exception:
-            # Fallback to stderr visibility
+            # Fallback to stderr visibility (sanitized like the JSON path:
+            # no newlines, no control chars, truncated).
             try:
                 import sys
 
-                print(f"beamo-wipe [{area}] {code}: {detail[:80]}", file=sys.stderr)
+                print(
+                    f"beamo-wipe [{_sanitize_detail(area)[:64]}] "
+                    f"{_sanitize_detail(code)[:64]}: {_sanitize_detail(detail)[:80]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
             return False
@@ -111,8 +116,10 @@ def log_diag(
     line = json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n"
     try:
         # Use O_NOFOLLOW to avoid symlink, O_APPEND to atomically append
-        # If file doesn't exist, create 0o600; if exists, append
-        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
+        # If file doesn't exist, create 0o600; if exists, append.
+        # O_RDWR (not O_WRONLY): the size-bound rotation below must read the
+        # tail through this fd; a write-only fd fails the read with EBADF.
+        fd = os.open(str(path), os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
         try:
             os.write(fd, line.encode("utf-8"))
             # Do not fsync every diagnostic; best-effort
@@ -120,24 +127,39 @@ def log_diag(
                 os.fsync(fd)
             except OSError:
                 pass
-            # Truncate if over max size: keep last half
+            # Bound the log: keep the last half once over max size.
+            # Best-effort and loss-tolerant (diagnostics only): a concurrent
+            # appender may interleave, but growth stays bounded either way.
             try:
                 st = os.fstat(fd)
                 if st.st_size > DIAG_LOG_MAX_BYTES:
-                    # Truncation is best-effort; we won't race here
-                    pass
+                    keep = DIAG_LOG_MAX_BYTES // 2
+                    os.lseek(fd, -keep, os.SEEK_END)
+                    tail = b""
+                    while len(tail) < keep:
+                        chunk = os.read(fd, keep - len(tail))
+                        if not chunk:
+                            break
+                        tail += chunk
+                    os.ftruncate(fd, 0)
+                    # O_APPEND lands at end (offset 0 after truncate)
+                    os.write(fd, tail)
             except OSError:
                 pass
         finally:
             os.close(fd)
         return True
     except OSError as exc:
-        # Fallback to stderr so failure is visible to maintainer (no secrets)
+        # Fallback to stderr so failure is visible to maintainer (sanitized:
+        # no newlines, no control chars, truncated — same contract as JSON).
         try:
             import sys
 
             print(
-                f"beamo-wipe [{area}] {code} (diag_write_failed:{type(exc).__name__}): {detail[:80]}",
+                f"beamo-wipe [{_sanitize_detail(area)[:64]}] "
+                f"{_sanitize_detail(code)[:64]} "
+                f"(diag_write_failed:{type(exc).__name__}): "
+                f"{_sanitize_detail(detail)[:80]}",
                 file=sys.stderr,
             )
         except Exception:

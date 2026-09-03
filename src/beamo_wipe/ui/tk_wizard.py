@@ -2056,6 +2056,10 @@ class TkWizard:
             zone, f"{card_copy['title']}.  {C.WORKING_PULSE}", fg=MUTED, font=self.font_b
         )
         self._progress_label.pack(fill=tk.X, pady=(14, 0))
+        # A failed cancel stays on WORKING with w.error set: show it so the
+        # owner knows the disk may still be erasing (never fail silently).
+        if self.w.error:
+            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         # Cancel is a secondary action: visible but not primary to avoid
         # accidental clicks. Always shown so interruption is reachable.
         row = self._footer_shell(C.HINT_WORKING)

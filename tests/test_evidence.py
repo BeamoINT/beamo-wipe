@@ -423,6 +423,21 @@ def test_export_preserves_checksum_tamper_evident(tmp_path, monkeypatch):
     assert not verify_evidence_checksum(p)
 
 
+def test_missing_sidecar_is_not_verified(tmp_path):
+    """A sidecar-less file, however well-formed, never verifies (fail closed).
+
+    Otherwise a forged `result-*.json` with a plausible schema would carry
+    `provenance.verified = True` without any integrity check ever running.
+    """
+    p = tmp_path / "result-forged.json"
+    p.write_text(
+        json.dumps({"schema_version": 1, "outcome": "verified", "device": "/dev/sda"}),
+        encoding="utf-8",
+    )
+    assert not Path(str(p) + ".sha256").exists()
+    assert not verify_evidence_checksum(p)
+
+
 # ---------------------------------------------------------------------------
 # 5. Edge cases: malformed output, signals, partial logs, clock anomalies,
 #    duplicate events, recovery

@@ -16,14 +16,16 @@ if [ "${ALLOW_DIRTY:-0}" != "1" ]; then
   fi
 fi
 
-# Generate via Python
-python3 - <<PY
+# Generate via Python. Values cross the shell->Python boundary through the
+# environment, never through source interpolation: the heredoc is quoted so
+# a crafted BEAMO_WIPE_VERSION cannot break out into Python exec.
+BEAMO_WIPE_MANIFEST_VERSION="$VERSION" BEAMO_WIPE_MANIFEST_DEST="$DEST" python3 - <<'PY'
 import os, pathlib, sys
 sys.path.insert(0, "src")
 from beamo_wipe.release_manifest import generate_manifest, write_manifest
 strict = os.environ.get("ALLOW_DIRTY") != "1"
-manifest = generate_manifest(version="$VERSION", strict=strict)
-dest = pathlib.Path("$DEST")
+manifest = generate_manifest(version=os.environ["BEAMO_WIPE_MANIFEST_VERSION"], strict=strict)
+dest = pathlib.Path(os.environ["BEAMO_WIPE_MANIFEST_DEST"])
 out = write_manifest(manifest, dest)
 # Verify only when strict (dirty not allowed); local ALLOW_DIRTY skips dirty check
 if strict:
@@ -38,20 +40,24 @@ sidecar = pathlib.Path(str(out) + ".sha256")
 print(f"Sidecar {sidecar}: {sidecar.read_text().strip()}")
 PY
 
-echo "Manifest verified: $DEST"
+echo "Manifest written: $DEST (verifying checksums below)"
 ls -lh "$DEST" "${DEST}.sha256" 2>&1 | head -n 10
-# Verify checksum publication (from dist/ directory so sidecar's bare filename resolves)
-( cd "$(dirname "$DEST")" && sha256sum -c "$(basename "${DEST}.sha256")" 2>&1 | head )
+# Verify checksum publication (from dist/ directory so sidecar's bare filename resolves).
+# No `| head` on verify lines: under set -eu without pipefail the pipeline's
+# status would be head's, and a mismatch would still print success and exit 0.
+( cd "$(dirname "$DEST")" && sha256sum -c "$(basename "${DEST}.sha256")" )
 # Also ensure ISO sidecar exists and verifies
 ISO="dist/beamo-wipe-${VERSION}-amd64.iso"
 if [ -f "$ISO" ]; then
   if [ ! -f "${ISO}.sha256" ]; then
     sha256sum "$ISO" > "${ISO}.sha256"
   fi
-  ( cd "$(dirname "$ISO")" && sha256sum -c "$(basename "${ISO}.sha256")" 2>&1 | head )
-  # Update SHA256SUMS for consumer
-  ( cd dist && sha256sum "beamo-wipe-${VERSION}-amd64.iso" "beamo-wipe-${VERSION}-amd64.manifest.json" > SHA256SUMS 2>&1 | head || true )
-  ( cd dist && sha256sum -c SHA256SUMS 2>&1 | head )
+  ( cd "$(dirname "$ISO")" && sha256sum -c "$(basename "${ISO}.sha256")" )
+  # Update SHA256SUMS for consumer (no masking: a generation failure must
+  # fail the script under set -eu, not hide behind head/true and corrupt
+  # SHA256SUMS with stderr; the next line verifies it).
+  ( cd dist && sha256sum "beamo-wipe-${VERSION}-amd64.iso" "beamo-wipe-${VERSION}-amd64.manifest.json" > SHA256SUMS )
+  ( cd dist && sha256sum -c SHA256SUMS )
   echo "Consumer: sha256sum -c beamo-wipe-${VERSION}-amd64.iso.sha256 (from dist/)"
   echo "Consumer: sha256sum -c SHA256SUMS (from dist/)"
 else

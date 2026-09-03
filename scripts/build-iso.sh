@@ -76,13 +76,20 @@ echo "because debootstrap needs mknod. This can take a while…"
 
 # Bind mounts on Docker Desktop for Mac are nodev/noexec — debootstrap
 # cannot mknod there. Copy the tree onto the container disk, build, copy ISO out.
+docker_status=0
 docker run --rm --privileged --platform linux/amd64 \
   -e BEAMO_WIPE_VERSION="$VERSION" \
   -e BEAMO_WIPE_ISO_NAME="$ISO_NAME" \
   -v "$ROOT":/src:ro \
   -v "$OUT_DIR":/out \
   debian:bookworm \
-  bash /src/packaging/live/inside-docker.sh
+  bash /src/packaging/live/inside-docker.sh || docker_status=$?
+if [ "$docker_status" -ne 0 ]; then
+  echo "ERROR: live-build container failed (exit $docker_status); no ISO was produced." >&2
+  echo "Next: re-run with a clean Docker daemon, check disk space and network," >&2
+  echo "then retry ./scripts/build-iso.sh. Staged files under packaging/live/config/includes.* are gitignored and safe to leave." >&2
+  exit 1
+fi
 
 if [ ! -f "$OUT_DIR/$ISO_NAME" ]; then
   echo "live-build finished but $OUT_DIR/$ISO_NAME was not written." >&2

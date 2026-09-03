@@ -180,7 +180,9 @@ fi
 # This proves boot exclusion, selection, confirmation gates, and process boundary
 # without needing interactive QEMU GUI.
 echo "=== Wizard fake-disk exercise (mirrors disposable virtio disk) ===" | tee "$EVIDENCE_DIR/wizard-exercise.txt"
-BEAMO_WIPE_DRY_RUN=1 python3 - <<PY 2>&1 | tee -a "$EVIDENCE_DIR/wizard-exercise.txt"
+# Append-redirect, not `| tee`: the `$?` check below must read python's exit,
+# not tee's (a pipe would always report success and mask failed safety gates).
+BEAMO_WIPE_DRY_RUN=1 python3 - <<'PY' >>"$EVIDENCE_DIR/wizard-exercise.txt" 2>&1
 import json, pathlib
 from beamo_wipe.discover import discover, load_lsblk_json_text
 from beamo_wipe.models import MethodId
@@ -274,9 +276,18 @@ if [ -n "$LOOP" ] && [ -e "$LOOP" ]; then
   # First, test that nwipe refuses without --exclude (we pass correct)
   # Use quick zero, verify off, for speed
   set -x
-  timeout 20 "$NWIPE_BIN" --autonuke --nogui --nowait --method=zero --rounds=1 --verify=off --noblank --exclude=/dev/sdb --logfile="$LOG" --PDFreportpath=noPDF "$LOOP" 2>&1 | tee -a "$EVIDENCE_DIR/nwipe-boundary.txt" || true
+  # No `| tee` + `|| true`: both mask the real exit ($? would read tee's, and
+  # `|| true` forces 0). Redirect to a file, capture $?, then tee the file so
+  # the evidence records the true nwipe exit code.
+  nwipe_code=0
+  timeout 20 "$NWIPE_BIN" --autonuke --nogui --nowait --method=zero --rounds=1 --verify=off --noblank --exclude=/dev/sdb --logfile="$LOG" --PDFreportpath=noPDF "$LOOP" >"$EVIDENCE_DIR/nwipe-run.log" 2>&1 || nwipe_code=$?
   set +x
-  echo "exit_code:$?" | tee -a "$EVIDENCE_DIR/nwipe-boundary.txt"
+  if [ -f "$EVIDENCE_DIR/nwipe-run.log" ]; then
+    tee -a "$EVIDENCE_DIR/nwipe-boundary.txt" < "$EVIDENCE_DIR/nwipe-run.log"
+  else
+    echo "(no nwipe output captured)" | tee -a "$EVIDENCE_DIR/nwipe-boundary.txt"
+  fi
+  echo "exit_code:${nwipe_code}" | tee -a "$EVIDENCE_DIR/nwipe-boundary.txt"
   ls -lh "$LOG" 2>&1 | tee -a "$EVIDENCE_DIR/nwipe-boundary.txt" || true
   # Check log contains success markers only if exit 0
   if grep -q "Nwipe.*successfully completed" "$LOG" 2>&1; then echo "nwipe success marker found" | tee -a "$EVIDENCE_DIR/nwipe-boundary.txt"; fi
@@ -295,14 +306,27 @@ if [ -n "$LOOP" ] && [ -e "$LOOP" ]; then
   qemu-img create -f raw "$TARGET_RAW" 10G 2>&1 | tee -a "$EVIDENCE_DIR/nwipe-cancel.txt"
   LOOP=$(sudo losetup --find --show "$TARGET_RAW" 2>&1 | head -n 1)
   LOG2="/tmp/beamo-wipe/nwipe-cancel.log"
-  timeout 3 "$NWIPE_BIN" --autonuke --nogui --nowait --method=prng --rounds=1 --verify=last --noblank --exclude=/dev/sdb --logfile="$LOG2" --PDFreportpath=noPDF "$LOOP" 2>&1 | tee -a "$EVIDENCE_DIR/nwipe-cancel.txt" || true
+  nwipe_cancel_code=0
+  timeout 3 "$NWIPE_BIN" --autonuke --nogui --nowait --method=prng --rounds=1 --verify=last --noblank --exclude=/dev/sdb --logfile="$LOG2" --PDFreportpath=noPDF "$LOOP" >"$EVIDENCE_DIR/nwipe-cancel-run.log" 2>&1 || nwipe_cancel_code=$?
+  if [ -f "$EVIDENCE_DIR/nwipe-cancel-run.log" ]; then
+    tee -a "$EVIDENCE_DIR/nwipe-cancel.txt" < "$EVIDENCE_DIR/nwipe-cancel-run.log"
+  else
+    echo "(no nwipe output captured)" | tee -a "$EVIDENCE_DIR/nwipe-cancel.txt"
+  fi
+  echo "exit_code:${nwipe_cancel_code}" | tee -a "$EVIDENCE_DIR/nwipe-cancel.txt"
   # Kill if still running (timeout will have killed)
   echo "cancel test done" | tee -a "$EVIDENCE_DIR/nwipe-cancel.txt"
   ls -lh "$LOG2" 2>&1 | tee -a "$EVIDENCE_DIR/nwipe-cancel.txt" || true
   # Non-zero exit test: try to wipe a non-block device (should fail 75)
   echo "=== Non-zero exit test (bad device) ===" | tee -a "$EVIDENCE_DIR/nwipe-nonzero.txt"
-  timeout 5 "$NWIPE_BIN" --autonuke --nogui --nowait --method=zero --rounds=1 --verify=off --noblank --exclude=/dev/sdb --logfile="/tmp/beamo-wipe/nwipe-bad.log" --PDFreportpath=noPDF /tmp/not-a-disk 2>&1 | tee -a "$EVIDENCE_DIR/nwipe-nonzero.txt" || true
-  echo "bad exit:$?" | tee -a "$EVIDENCE_DIR/nwipe-nonzero.txt"
+  nwipe_bad_code=0
+  timeout 5 "$NWIPE_BIN" --autonuke --nogui --nowait --method=zero --rounds=1 --verify=off --noblank --exclude=/dev/sdb --logfile="/tmp/beamo-wipe/nwipe-bad.log" --PDFreportpath=noPDF /tmp/not-a-disk >"$EVIDENCE_DIR/nwipe-bad-run.log" 2>&1 || nwipe_bad_code=$?
+  if [ -f "$EVIDENCE_DIR/nwipe-bad-run.log" ]; then
+    tee -a "$EVIDENCE_DIR/nwipe-nonzero.txt" < "$EVIDENCE_DIR/nwipe-bad-run.log"
+  else
+    echo "(no nwipe output captured)" | tee -a "$EVIDENCE_DIR/nwipe-nonzero.txt"
+  fi
+  echo "bad exit:${nwipe_bad_code}" | tee -a "$EVIDENCE_DIR/nwipe-nonzero.txt"
 fi
 
 # --- QEMU boot checks (BIOS and UEFI) where OVMF available ---
@@ -326,11 +350,15 @@ if [ -f "$ISO" ]; then
     fi
     rm -f /tmp/qemu-bios.pid
   else
-    # Try non-daemonized with timeout
-    if timeout 10 qemu-system-x86_64 -m 1024 -cdrom "$ISO" -drive file="$TARGET",if=virtio,format=qcow2 -boot order=d -display none -serial none 2>&1 | head -n 20 | tee -a "$EVIDENCE_DIR/qemu-bios.txt"; then
+    # Try non-daemonized with timeout. No `| head | tee` in the `if` condition:
+    # the pipeline status would be tee's (always 0) and every run reports OK.
+    qemu_bios_code=0
+    timeout 10 qemu-system-x86_64 -m 1024 -cdrom "$ISO" -drive file="$TARGET",if=virtio,format=qcow2 -boot order=d -display none -serial none >"$EVIDENCE_DIR/qemu-bios-run.log" 2>&1 || qemu_bios_code=$?
+    head -n 20 "$EVIDENCE_DIR/qemu-bios-run.log" 2>/dev/null | tee -a "$EVIDENCE_DIR/qemu-bios.txt" || true
+    if [ "$qemu_bios_code" -eq 0 ]; then
       BIOS_OK="OK"
     else
-      echo "QEMU BIOS timeout or not available" | tee -a "$EVIDENCE_DIR/qemu-bios.txt"
+      echo "QEMU BIOS exit ${qemu_bios_code} (timeout or not available)" | tee -a "$EVIDENCE_DIR/qemu-bios.txt"
       BIOS_OK="TIMEOUT"
     fi
   fi

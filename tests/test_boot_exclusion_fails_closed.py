@@ -216,6 +216,34 @@ def test_duplicate_beamo_wipe_labels_fail_closed():
     assert spy.start_calls == []
 
 
+def test_duplicate_lsblk_nodes_refuse_identity():
+    """The same /dev path twice in lsblk must never wipe: identity needs
+    exactly one match, so the duplicate refuses fail-closed. Fake JSON only."""
+    from beamo_wipe.discover import parse_lsblk_json
+    from beamo_wipe.safety import assert_disk_identity
+
+    def _node(name):
+        return {
+            "name": name,
+            "path": f"/dev/{name}",
+            "size": 500107862016,
+            "type": "disk",
+            "tran": "sata",
+            "rota": True,
+            "model": "ST500",
+            "serial": "Z9A",
+        }
+
+    result = parse_lsblk_json(
+        _payload([_node("sda"), _node("sda"), _node("sdb")]), boot_path="/dev/sdb"
+    )
+    assert result.boot_identified
+    dup = [d for d in result.selectable if d.path == "/dev/sda"]
+    assert len(dup) == 2
+    with pytest.raises(SafetyError, match="safe list"):
+        assert_disk_identity(dup[0], result)
+
+
 def test_duplicate_uuid_typed_source_fails_closed():
     result = discover(
         lsblk_payload=_load("lsblk_adversarial_duplicate_uuid.json"),
