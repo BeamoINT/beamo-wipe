@@ -1994,7 +1994,11 @@ class TkWizard:
     def _empty(self) -> None:
         col = self._column(self._body, fill_height=True)
         _icon_badge(col, "info", 40).pack(anchor="w")
-        self._title_block(col, C.TITLE_EMPTY, C.EMPTY_DISKS)
+        msg = C.EMPTY_DISKS
+        detail = self.w.empty_detail
+        if detail:
+            msg = f"{msg}\n\n{detail}"
+        self._title_block(col, C.TITLE_EMPTY, msg)
         self._other_devices(col)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
