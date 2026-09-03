@@ -91,6 +91,10 @@ class Wizard:
         self._splash_until = self._clock() + SPLASH_S
         self._erase_until: Optional[float] = None
         self._wipe_request: Optional[WipeRequest] = None
+        # Set when cancel_wipe starts (under _lock, before runner.cancel())
+        # so a concurrent tick() drops the post-cancel poll result instead
+        # of finishing with a misleading engine-'failed' outcome.
+        self._cancel_requested = False
         self._advanced_from: Optional[Screen] = None
         self.log_text = ""
         self._done_keyboard_armed = False
@@ -157,8 +161,12 @@ class Wizard:
         with self._lock:
             if self.screen == Screen.WORKING and self._wipe_request is not None:
                 result = self.runner.poll(self._wipe_request)
-                if result is not None:
+                if result is not None and not self._cancel_requested:
                     should_finish = result
+                # When a cancel is in flight, drop the poll result: the
+                # post-cancel runner state is not an engine verdict, and
+                # finishing with it would lose the user's cancel (evidence
+                # would say engine-'failed' instead of 'interrupted').
         if should_finish is not None:
             self._finish(should_finish)
 
@@ -184,6 +192,7 @@ class Wizard:
         self._splash_until = self.now + SPLASH_S
         self._erase_until = None
         self._wipe_request = None
+        self._cancel_requested = False
         self._advanced_from = None
         self.log_text = ""
         self._done_keyboard_armed = False
@@ -387,6 +396,7 @@ class Wizard:
                 return
             self.error = None
             self._wipe_request = request
+            self._cancel_requested = False
             self.screen = Screen.WORKING
             # Record evidence start (wall + monotonic) + redacted argv for later completion
             try:
@@ -424,9 +434,20 @@ class Wizard:
 
     def cancel_wipe(self) -> None:
         """User or system interruption. Produce interrupted evidence."""
+        with self._lock:
+            if self._wipe_request is None or self.screen != Screen.WORKING:
+                return
+            # Claim the finish before touching the runner: a concurrent
+            # tick() must drop the post-cancel poll result (see tick())
+            # instead of recording an engine-'failed' outcome.
+            self._cancel_requested = True
         try:
             self.runner.cancel()
         except Exception as exc:
+            with self._lock:
+                # Cancel failed: release the claim so tick() resumes
+                # delivering real outcomes while the engine may still run.
+                self._cancel_requested = False
             try:
                 from beamo_wipe.diagnostics import log_diag
 

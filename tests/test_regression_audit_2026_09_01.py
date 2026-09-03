@@ -235,3 +235,45 @@ def test_concurrent_cancel_and_tick_is_not_lost(tmp_path, monkeypatch):
     assert wiz.screen.value == "done"
     assert wiz.evidence is not None
     assert wiz.evidence["outcome"] == "interrupted"
+
+
+def test_post_cancel_poll_result_never_finishes_as_engine_failed(
+    tmp_path, monkeypatch
+):
+    """Deterministic form of the tick/cancel race above (no threads).
+
+    Forces the exact losing interleaving: cancel claimed, runner in
+    post-cancel state, then a tick lands in the window. tick() must drop
+    the post-cancel poll result so cancel_wipe() finishes 'interrupted'
+    instead of the engine-'failed' the runner state alone would record.
+    """
+    from beamo_wipe.demo import make_demo_wizard
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.wizard import Wizard
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    base = make_demo_wizard()
+    wiz = Wizard(base.discovery, DryRunRunner(duration_s=30.0), dry_run=True)
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    tgt = wiz.selectable[0]
+    wiz.select_disk(tgt.path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    wiz._erase_until = 0
+    wiz.confirm_erase()
+    assert wiz.screen.value == "working"
+    # cancel_wipe's first half ran (claim set, runner cancelled), then a
+    # tick lands before cancel_wipe resumes.
+    wiz._cancel_requested = True
+    wiz.runner.cancel()
+    wiz.tick()
+    assert wiz.screen.value == "working"
+    wiz.cancel_wipe()
+    assert wiz.screen.value == "done"
+    assert wiz.evidence is not None
+    assert wiz.evidence["outcome"] == "interrupted"
