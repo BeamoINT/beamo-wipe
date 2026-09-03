@@ -318,7 +318,7 @@ def write_manifest(manifest: Dict[str, Any], dest: Path) -> Path:
     return dest
 
 
-def verify_manifest(path: Path) -> None:
+def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     # Recompute checksum (exclude sidecar)
     expected = data.pop("_manifest_sha256", None)
@@ -332,8 +332,9 @@ def verify_manifest(path: Path) -> None:
     blob = json.dumps(data)
     if PLACEHOLDER_RE.search(blob):
         raise RuntimeError("placeholder provenance in manifest")
-    # Dirty check
-    if data.get("source", {}).get("dirty"):
+    # Dirty check (skipped only for explicit local-dev ALLOW_DIRTY runs; every
+    # other structural check still applies)
+    if not allow_dirty and data.get("source", {}).get("dirty"):
         raise RuntimeError(f"uncommitted source state: {data['source'].get('dirty_files')}")
     # Missing checksum
     if not data.get("artifact", {}).get("iso_sha256"):

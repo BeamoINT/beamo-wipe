@@ -419,7 +419,7 @@ def normalize_whole_disk(path: str, *, allow_optical: bool = False) -> str:
     if not path or not path.startswith("/dev/"):
         raise SafetyError("Target must be a /dev/ path.")
     if any(ch in path for ch in " \t\n\r\0,;"):
-        raise SafetyError("Device path contains whitespace.")
+        raise SafetyError("Device path contains whitespace or delimiter.")
     if ".." in path.split("/"):
         raise SafetyError("Device path must not contain '..'.")
     real = os.path.realpath(path)

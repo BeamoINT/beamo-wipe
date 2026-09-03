@@ -3,7 +3,7 @@
 # Builds on the container's own disk so debootstrap can mknod.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-ISO_NAME="${BEAMO_WIPE_ISO_NAME:-beamo-wipe-0.1.1-amd64.iso}"
+ISO_NAME="${BEAMO_WIPE_ISO_NAME:-beamo-wipe-${BEAMO_WIPE_VERSION:-0.2.0}-amd64.iso}"
 
 apt-get update
 apt-get install -y \

@@ -27,13 +27,12 @@ strict = os.environ.get("ALLOW_DIRTY") != "1"
 manifest = generate_manifest(version=os.environ["BEAMO_WIPE_MANIFEST_VERSION"], strict=strict)
 dest = pathlib.Path(os.environ["BEAMO_WIPE_MANIFEST_DEST"])
 out = write_manifest(manifest, dest)
-# Verify only when strict (dirty not allowed); local ALLOW_DIRTY skips dirty check
-if strict:
-    from beamo_wipe.release_manifest import verify_manifest
-    verify_manifest(out)
-    print(f"Verified {out} (strict)")
-else:
-    print(f"Wrote {out} (dirty allowed, skip strict verify)")
+# Always verify: with ALLOW_DIRTY only the dirty-state check is skipped, every
+# other structural check (checksum, placeholders, nwipe pin, ISO checksum)
+# still runs so a dirty-tree manifest cannot pass as clean provenance.
+from beamo_wipe.release_manifest import verify_manifest
+verify_manifest(out, allow_dirty=not strict)
+print(f"Verified {out} (strict={strict})")
 print(f"Manifest SHA256: {out.read_text().split()}")
 import json, hashlib
 sidecar = pathlib.Path(str(out) + ".sha256")
@@ -61,5 +60,9 @@ if [ -f "$ISO" ]; then
   echo "Consumer: sha256sum -c beamo-wipe-${VERSION}-amd64.iso.sha256 (from dist/)"
   echo "Consumer: sha256sum -c SHA256SUMS (from dist/)"
 else
-  echo "WARN: ISO $ISO not found; manifest still links to it but build should have produced it" >&2
+  # Fail closed: a manifest that links to an ISO that was not produced must
+  # never exit 0 (normally unreachable — iso_info already fails above — but
+  # must stay fail-closed if generation semantics ever change).
+  echo "ERROR: ISO $ISO not found but the manifest links to it; refusing to publish" >&2
+  exit 2
 fi

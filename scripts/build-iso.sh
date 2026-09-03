@@ -103,5 +103,11 @@ if [ "${SKIP_MANIFEST:-0}" != "1" ]; then
   echo "Generating release manifest..."
   BEAMO_WIPE_VERSION="$VERSION" ./scripts/generate-release-manifest.sh "dist/beamo-wipe-${VERSION}-amd64.manifest.json"
   echo "Manifest: dist/beamo-wipe-${VERSION}-amd64.manifest.json"
-  ls -lh "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" 2>&1 | head -n 20
+  for _f in "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"; do
+    if [ ! -f "$_f" ]; then
+      echo "ERROR: missing provenance file $_f" >&2
+      exit 1
+    fi
+  done
+  ls -lh "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"
 fi

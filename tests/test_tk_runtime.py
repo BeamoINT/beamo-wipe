@@ -17,6 +17,30 @@ from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.models import Screen
 from beamo_wipe.ui.tk_wizard import TkWizard
 
+try:
+    import tkinter as _tk_probe  # noqa: F401
+    _HAS_TK_DISPLAY = True
+except Exception:  # pragma: no cover
+    _HAS_TK_DISPLAY = False
+
+
+def _needs_display():
+    import os as _os
+    import sys as _sys
+    if not _HAS_TK_DISPLAY:
+        pytest.skip("tkinter not available")
+    # macOS without DISPLAY aborts the process on Tk() — skip without calling it
+    if _sys.platform == "darwin" and not _os.environ.get("DISPLAY"):
+        pytest.skip("no DISPLAY on macOS — Tk would abort")
+    try:
+        import tkinter as _tk
+        root = _tk.Tk()
+        root.withdraw()
+        root.update_idletasks()
+        root.destroy()
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"no display: {exc}")
+
 WINDOW = (1280, 820)
 MIN_WINDOW = (1024, 740)  # TkWizard.minsize; oldest laptops the USB targets
 
@@ -26,6 +50,7 @@ def ui():
     created = []
 
     def build(scenario="happy", fail=False, size=WINDOW):
+        _needs_display()
         wiz = make_demo_wizard(fail=fail, scenario=scenario)
         app = TkWizard(wiz)
         app.root.geometry(f"{size[0]}x{size[1]}+40+40")
@@ -517,3 +542,29 @@ def test_every_screen_has_a_focusable_action(ui):
 
         visit(app.root)
         assert focusable, f"{screen} has no focusable widget"
+
+
+def test_needs_display_skips_without_aborting(monkeypatch):
+    """Headless must skip, never abort the gate (needs no display itself)."""
+    import sys as _sys
+
+    monkeypatch.setattr(_sys, "platform", "darwin")
+    monkeypatch.delenv("DISPLAY", raising=False)
+    with pytest.raises(pytest.skip.Exception):
+        _needs_display()
+
+
+def test_needs_display_skips_when_tk_raises(monkeypatch):
+    """Linux/CI headless path: Tk() raising must skip, never propagate."""
+    import sys as _sys
+    import tkinter as _tkmod
+
+    monkeypatch.setattr(_sys, "platform", "linux")
+    monkeypatch.setenv("DISPLAY", ":0")
+
+    def _boom(*args, **kwargs):
+        raise _tkmod.TclError("couldn't connect to display")
+
+    monkeypatch.setattr(_tkmod, "Tk", _boom)
+    with pytest.raises(pytest.skip.Exception):
+        _needs_display()

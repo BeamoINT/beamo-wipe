@@ -81,7 +81,10 @@ exit 2
 EOF
 chmod 0755 /usr/local/bin/nwipe
 /usr/lib/beamo-wipe/nwipe -V > /usr/share/doc/beamo-wipe/NWIPE_VERSION 2>&1
-if ! grep -q "0.42" /usr/share/doc/beamo-wipe/NWIPE_VERSION; then
+# Anchored pinned-version match (mirrors NWIPE_VERSION_LINE_RE in
+# src/beamo_wipe/nwipe_runner.py): a bare "0.42" substring also matches
+# 0.420 / 10.42 / help text mentioning the pin.
+if ! grep -qiE '^nwipe version 0\.42([[:space:]]|$)' /usr/share/doc/beamo-wipe/NWIPE_VERSION; then
   echo "ERROR: installed nwipe is not v0.42" >&2
   cat /usr/share/doc/beamo-wipe/NWIPE_VERSION >&2
   exit 1

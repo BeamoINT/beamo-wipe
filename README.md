@@ -86,10 +86,15 @@ On macOS, drop `-enable-kvm` and use `-accel hvf` if available, or TCG.
 UEFI:
 
 ```bash
+# OVMF 4M firmware does not load via -bios ("could not load PC BIOS"):
+# attach code (readonly) plus a writable vars copy as pflash drives.
+cp /usr/share/OVMF/OVMF_VARS.fd /tmp/beamo-ovmf-vars.fd
 qemu-system-x86_64 -m 2048 \
-  -bios /usr/share/OVMF/OVMF_CODE.fd \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
+  -drive if=pflash,format=raw,file=/tmp/beamo-ovmf-vars.fd \
   -cdrom dist/beamo-wipe-0.2.0-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
+# No vars template (older OVMF_CODE.fd-only layout): -bios /usr/share/OVMF/OVMF_CODE.fd
 ```
 
 Full notes: [docs/vm-test.md](docs/vm-test.md).

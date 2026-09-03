@@ -67,6 +67,27 @@ def test_manifest_fails_on_dirty_when_strict(monkeypatch):
     assert m["source"]["dirty"] is True
 
 
+@requires_manufacturing_iso
+def test_verify_allows_dirty_only_for_dirty_check(tmp_path, monkeypatch):
+    """ALLOW_DIRTY still verifies: only the dirty-state check is skipped."""
+    import beamo_wipe.release_manifest as rm
+
+    monkeypatch.setattr(rm, "git_dirty", lambda: (True, ["M src/beamo_wipe/__init__.py"]))
+    m = rm.generate_manifest(version="0.1.0", strict=False)
+    dest = tmp_path / "dirty-manifest.json"
+    out = rm.write_manifest(m, dest)
+    # Default verify still rejects the dirty tree.
+    with pytest.raises(RuntimeError, match="uncommitted"):
+        rm.verify_manifest(out)
+    # allow_dirty accepts the dirty flag — but nothing else.
+    rm.verify_manifest(out, allow_dirty=True)
+    tampered = json.loads(dest.read_text(encoding="utf-8"))
+    tampered["beamo_wipe_version"] = "9.9.9-dirty"
+    dest.write_text(json.dumps(tampered), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="checksum mismatch"):
+        rm.verify_manifest(out, allow_dirty=True)
+
+
 def test_manifest_fails_on_placeholder(monkeypatch, tmp_path):
     import beamo_wipe.release_manifest as rm
 

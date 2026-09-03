@@ -38,7 +38,7 @@ qemu-system-x86_64 -m 2048 \
 
 Checklist:
 
-- [ ] ISO boots UEFI (`-bios OVMF_CODE.fd` when the firmware file exists).
+- [ ] ISO boots UEFI (pflash code+vars drives; `-bios OVMF_CODE.fd` only when no vars template exists).
 - [ ] ISO boots legacy BIOS (default SeaBIOS).
 - [ ] Wizard is the first and only UI (no desktop, no raw nwipe).
 - [ ] Keyboard-only can complete the flow.

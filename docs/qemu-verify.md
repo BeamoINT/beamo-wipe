@@ -11,7 +11,7 @@ Run only on an isolated x86_64 Linux VM/runner with no host-disk passthrough and
 
 ## What is exercised
 
-- **BIOS and UEFI boot** where OVMF is present (`-bios OVMF_CODE.fd` and default SeaBIOS), boot-medium exclusion (`sr0` rom not selectable), target `vda` virtio 10G visible.
+- **BIOS and UEFI boot** where OVMF is present (pflash code+vars drives, `-bios` fallback only without a vars template, and default SeaBIOS), boot-medium exclusion (`sr0` rom not selectable), target `vda` virtio 10G visible.
 - **Target selection** via `discover` payload `sdb` boot USB + `vda` virtio + `sr0` optical, wizard `PICK` → `CONFIRM` → `METHOD` → `LAST_CHANCE`.
 - **Every confirmation gate** — owner checkbox, exact token (`confirm.token`), 5 s `COUNTDOWN_S` via `Clock`, `erase_enabled`, `confirm_erase` re-discovers and checks `assert_boot_excluded`/`assert_disk_identity`.
 - **Exact nwipe boundary** — pinned `nwipe v0.42` at `/tmp/nwipe-pinned` (built from `martijnvanbrummelen/nwipe@v0.42` or host `nwipe`), invoked as `nwipe --autonuke --nogui --nowait --method=zero --verify=off --noblank --exclude=/dev/sdb --logfile=/tmp/beamo-wipe/nwipe-loop.log --PDFreportpath=noPDF /dev/loopN` with `timeout 20` and `pass_fds` checks via existing `tests/test_nwipe_runner.py`.

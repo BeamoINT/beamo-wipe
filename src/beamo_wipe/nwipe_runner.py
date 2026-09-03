@@ -553,6 +553,7 @@ class NwipeRunner:
         self._log_tail = ""
         self._last_sigusr1 = 0.0
         self._sigusr1_armed = False
+        self._last_logfile = ""
 
     def start(self, request: WipeRequest) -> None:
         resolved = resolve_nwipe_binary(self.binary)
@@ -588,6 +589,7 @@ class NwipeRunner:
             self._log_tail = ""
             self._last_sigusr1 = 0.0
             self._sigusr1_armed = False
+            self._last_logfile = request.logfile
             popen_kwargs = {
                 "stdin": subprocess.DEVNULL,
                 "stdout": subprocess.DEVNULL,
@@ -824,7 +826,7 @@ class NwipeRunner:
                 ok=False,
                 exit_code=proc.returncode if proc.returncode is not None else 143,
                 summary="cancelled",
-                logfile="",
+                logfile=getattr(self, "_last_logfile", "") or "",
             )
         self._release_wipe_lock()
 

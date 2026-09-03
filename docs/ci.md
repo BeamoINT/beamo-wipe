@@ -28,7 +28,7 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 | `tests` | `python-tests` | `xvfb-run … 72 DPI` with `BEAMO_WIPE_DRY_RUN=1`; destructive-boundary spies use fake runners, never real `nwipe` |
 | `preview` | `preview` | `BEAMO_WIPE_NO_OPEN=1 ./preview --web` + `--console` + `--helper` (fake disks) |
 | `negative` | `negative-test` | Deliberately breaks `assert_boot_excluded` fail-open, expects the e2e test to fail, reverts, proves clean passes. Runs after `python-tests` so the temporary patch cannot corrupt the parallel suite |
-| `iso` | `iso-build` | `docker run --rm --privileged --platform linux/amd64` with no `--device` or host `/dev` bind, builds `dist/beamo-wipe-0.1.1-amd64.iso` on the container fs, checks `CD001` at 32769, size ≥80 MiB, `sha256sum`, manifest + sidecars |
+| `iso` | `iso-build` | `docker run --rm --privileged --platform linux/amd64` with no `--device` or host `/dev` bind, builds `dist/beamo-wipe-0.2.0-amd64.iso` on the container fs, checks `CD001` at 32769, size ≥80 MiB, `sha256sum`, manifest + sidecars |
 | `qemu` | `qemu-verify` | `scripts/qemu-verify.sh` on the worker (TCG where KVM is absent) against a disposable `qcow2` + loop devices; evidence copied to `qemu-evidence/` artifacts. Runs after `iso-build` because it verifies the built ISO |
 
 `./scripts/ci-hosted.sh all` runs every phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`).
