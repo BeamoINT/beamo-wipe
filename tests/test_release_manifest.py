@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,14 @@ requires_manufacturing_iso = pytest.mark.skipif(
     not ISO_010.is_file(),
     reason="manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact",
 )
+
+
+def _copy_iso_release_files(manifest: dict, directory: Path) -> None:
+    """Make a temp directory match the downloadable release layout."""
+    iso_name = manifest["artifact"]["iso_name"]
+    source = ROOT / "dist" / iso_name
+    shutil.copy2(source, directory / iso_name)
+    shutil.copy2(Path(str(source) + ".sha256"), directory / f"{iso_name}.sha256")
 
 
 def test_prior_stable_release_identity_is_exact():
@@ -55,6 +64,7 @@ def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     assert m["nwipe"]["version"] == "0.42"
     assert m["nwipe"]["commit"] == NWIPE_PINNED_COMMIT
     assert m["artifact"]["iso_sha256"] == "8a531d35c437d858512ccbba20913cd7dbd9237cc9a2e2a1b7935ba9d9781c55"
+    assert m["artifact"]["iso_path"] == m["artifact"]["iso_name"]
     assert m["test_evidence"]["pytest"]
     assert m["hardware_limits"]["supported"]
     assert m["hardware_limits"]["unsupported"]
@@ -87,6 +97,7 @@ def test_verify_allows_dirty_only_for_dirty_check(tmp_path, monkeypatch):
     m = rm.generate_manifest(version="0.1.0", strict=False)
     dest = tmp_path / "dirty-manifest.json"
     out = rm.write_manifest(m, dest)
+    _copy_iso_release_files(m, tmp_path)
     # Default verify still rejects the dirty tree.
     with pytest.raises(RuntimeError, match="uncommitted"):
         rm.verify_manifest(out)
@@ -174,6 +185,7 @@ def test_manifest_atomic_write_and_checksum(tmp_path, monkeypatch):
     m = rm.generate_manifest(version="0.1.0", strict=False)
     dest = tmp_path / "beamo-wipe-0.1.0-amd64.manifest.json"
     out = rm.write_manifest(m, dest)
+    _copy_iso_release_files(m, tmp_path)
     assert out == dest
     assert dest.is_file()
     sidecar = Path(str(dest) + ".sha256")
@@ -181,10 +193,8 @@ def test_manifest_atomic_write_and_checksum(tmp_path, monkeypatch):
     # Verify checksum
     rm.verify_manifest(dest)
     # Check ISO sidecar also created
-    iso_sidecar = Path(m["artifact"]["iso_path"]).parent / m["artifact"]["iso_sha256_sidecar"]
-    # In this test, iso_path is dist/... which exists, so sidecar should be there
-    # But we wrote to tmp_path, not dist, so iso sidecar is in dist, not tmp_path
-    # Instead check our dest's sidecar
+    iso_sidecar = ROOT / "dist" / m["artifact"]["iso_sha256_sidecar"]
+    assert iso_sidecar.is_file()
     assert sidecar.read_text().strip().split()[0] == hashlib.sha256(dest.read_bytes()).hexdigest()
 
 
@@ -216,6 +226,7 @@ def test_manifest_duplicate_write_is_idempotent(tmp_path, monkeypatch):
     out1 = rm.write_manifest(m, dest)
     h1 = out1.read_text()
     out2 = rm.write_manifest(m, dest)
+    _copy_iso_release_files(m, tmp_path)
     h2 = out2.read_text()
     # Should be same content (except _manifest_sha256 is deterministic, so same)
     assert h1 == h2
@@ -261,6 +272,7 @@ def test_manifest_recovery_after_failed_write(tmp_path, monkeypatch):
     # Retry succeeds
     out = rm.write_manifest(m, dest)
     assert out.exists()
+    _copy_iso_release_files(m, tmp_path)
     rm.verify_manifest(out)
 
 

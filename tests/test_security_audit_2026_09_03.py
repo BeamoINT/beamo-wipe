@@ -82,7 +82,7 @@ def _manifest_for(root: Path, iso_bytes: bytes = b"known image") -> Path:
         "nwipe": {"version": "0.42", "commit": "a" * 40},
         "artifact": {
             "iso_name": iso.name,
-            "iso_path": str(iso),
+            "iso_path": iso.name,
             "iso_size_bytes": len(iso_bytes),
             "iso_sha256": iso_sha,
         },
@@ -111,9 +111,7 @@ def test_manifest_verification_rejects_iso_path_escape(tmp_path, monkeypatch):
     monkeypatch.setattr(rm, "ROOT", tmp_path)
     manifest = _manifest_for(tmp_path)
     data = json.loads(manifest.read_text(encoding="utf-8"))
-    escaped = tmp_path / "outside.iso"
-    escaped.write_bytes(b"known image")
-    data["artifact"]["iso_path"] = str(escaped)
+    data["artifact"]["iso_path"] = "../outside.iso"
     no_hash = {k: v for k, v in data.items() if k != "_manifest_sha256"}
     canonical = json.dumps(no_hash, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     data["_manifest_sha256"] = hashlib.sha256(canonical.encode()).hexdigest()
@@ -125,6 +123,21 @@ def test_manifest_verification_rejects_iso_path_escape(tmp_path, monkeypatch):
     )
     with pytest.raises(RuntimeError, match="escapes"):
         rm.verify_manifest(manifest)
+
+
+def test_manifest_verifies_after_release_directory_relocation(tmp_path, monkeypatch):
+    import shutil
+
+    import beamo_wipe.release_manifest as rm
+
+    monkeypatch.setattr(rm, "ROOT", tmp_path)
+    manifest = _manifest_for(tmp_path)
+    release = tmp_path / "downloaded-release"
+    release.mkdir()
+    for source in manifest.parent.iterdir():
+        shutil.copy2(source, release / source.name)
+
+    rm.verify_manifest(release / manifest.name)
 
 
 def test_gallery_payload_cannot_close_script_element(monkeypatch):

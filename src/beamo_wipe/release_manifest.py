@@ -215,7 +215,9 @@ def iso_info(version: str = __version__) -> Dict[str, Any]:
         raise RuntimeError("placeholder provenance: nwipe commit not a 40-hex SHA")
     return {
         "iso_name": iso_name,
-        "iso_path": str(iso_path),
+        # Public manifests must be relocatable. Record only the canonical bare
+        # filename; write/verify resolve it in their trusted release directory.
+        "iso_path": iso_name,
         "iso_size_bytes": size,
         "iso_sha256": sha,
         "iso_sha256_sidecar": f"{iso_name}.sha256",
@@ -387,9 +389,11 @@ def write_manifest(manifest: Dict[str, Any], dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     artifact = manifest.get("artifact", {})
     iso_name = str(artifact.get("iso_name", ""))
-    iso_path = Path(str(artifact.get("iso_path", "")))
     if not re.fullmatch(r"beamo-wipe-[0-9]+\.[0-9]+\.[0-9]+-amd64\.iso", iso_name):
         raise RuntimeError("invalid ISO artifact name")
+    if artifact.get("iso_path") != iso_name:
+        raise RuntimeError("ISO path escapes the release directory")
+    iso_path = ROOT / "dist" / iso_name
     try:
         if iso_path.resolve(strict=True) != (ROOT / "dist" / iso_name).resolve(strict=True):
             raise RuntimeError("ISO path escapes the release directory")
@@ -448,20 +452,19 @@ def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
     iso_name = f"beamo-wipe-{version}-amd64.iso"
     if artifact.get("iso_name") != iso_name:
         raise RuntimeError("unexpected ISO name in manifest")
-    iso_path = Path(str(artifact.get("iso_path", "")))
-    expected_path = ROOT / "dist" / iso_name
-    try:
-        if iso_path.resolve(strict=True) != expected_path.resolve(strict=True):
-            raise RuntimeError("ISO path escapes the release directory")
-    except OSError as exc:
-        raise RuntimeError("ISO referenced by manifest is missing") from exc
+    if artifact.get("iso_path") != iso_name:
+        raise RuntimeError("ISO path escapes the release directory")
+    iso_path = path.parent / iso_name
     recorded_iso_sha = str(artifact.get("iso_sha256", ""))
     if not re.fullmatch(r"[0-9a-f]{64}", recorded_iso_sha):
         raise RuntimeError("missing checksum")
-    if sha256_file(iso_path) != recorded_iso_sha:
-        raise RuntimeError("ISO checksum mismatch")
-    if iso_path.stat().st_size != int(artifact.get("iso_size_bytes", -1)):
-        raise RuntimeError("ISO size mismatch")
+    try:
+        if sha256_file(iso_path) != recorded_iso_sha:
+            raise RuntimeError("ISO checksum mismatch")
+        if iso_path.stat().st_size != int(artifact.get("iso_size_bytes", -1)):
+            raise RuntimeError("ISO size mismatch")
+    except OSError as exc:
+        raise RuntimeError("ISO referenced by manifest is missing") from exc
     _verify_sidecar(Path(str(iso_path) + ".sha256"), recorded_iso_sha, iso_name)
     _verify_sidecar(
         Path(str(path) + ".sha256"),

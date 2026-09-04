@@ -39,7 +39,9 @@ sha256sum -c beamo-wipe-0.2.1-amd64.manifest.json.sha256
 (cd dist && sha256sum -c beamo-wipe-0.2.1-amd64.manifest.json.sha256)
 (cd dist && sha256sum -c SHA256SUMS)
 
-# Verify manifest itself (fails closed on dirty/placeholder):
+# From a checked-out v0.2.1 source tree, place the downloaded release files
+# together under dist/, then verify the manifest and sibling ISO (fails closed
+# on dirty/placeholder, path escape, size, content, or sidecar mismatch):
 python3 - <<'PY'
 import pathlib, sys
 sys.path.insert(0, "src")
@@ -55,7 +57,7 @@ git rev-parse HEAD  # should equal manifest source.commit
 git status --porcelain  # should be clean for a release
 ```
 
-`verify_manifest` also hashes the actual ISO, checks its size and exact `dist/` path, and validates both exact sidecar lines. If any check fails, do not use the ISO.
+`verify_manifest` requires the manifest to record only the canonical bare ISO filename, resolves that file beside the manifest, hashes the actual bytes, checks its size, and validates both exact sidecar lines. This makes the release directory relocatable without accepting an embedded absolute path or traversal. If any check fails, do not use the ISO.
 
 ## Build failure (fail-closed)
 
