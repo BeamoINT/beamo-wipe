@@ -65,6 +65,12 @@ def test_live_packages_omit_network_and_compilers():
     for pkg in FORBIDDEN_PACKAGES:
         assert pkg not in names, pkg
 
+    build = (ROOT / "packaging" / "live" / "inside-docker.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '--debootstrap-options "--variant=minbase"' in build
+    assert "--ignore-system-defaults" in build
+
 
 def test_nwipe_hook_fails_closed_instead_of_unpinned_fallback():
     text = HOOK.read_text(encoding="utf-8")

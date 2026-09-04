@@ -42,9 +42,11 @@ cd /build/packaging/live
 lb clean --all || true
 
 lb config \
+  --ignore-system-defaults \
   --mode debian \
   --distribution bookworm \
   --architectures amd64 \
+  --debootstrap-options "--variant=minbase" \
   --binary-images iso-hybrid \
   --bootloaders syslinux,grub-efi \
   --debian-installer none \

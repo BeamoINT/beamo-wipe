@@ -44,7 +44,7 @@ Local `python3 -m pytest` is the fast fake-device gate; `tk_runtime` clipped-tex
 | Prior stable ISO | **0.2.0** | GitHub release `v0.2.0` | 419 MiB | `62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74` | Source `5b3b7afa6c448ee01269c9497c1c93e8e83733c1`; retained rollback target |
 | Release target | **0.2.1** | `dist/beamo-wipe-0.2.1-amd64.iso` | Set by hosted build | Set by manifest | Content-addressed build inputs; production upload only after full hosted/QEMU success |
 
-`packaging/live/config/bootstrap` and `binary` are `https://deb.debian.org` / `https://security.debian.org` only, `firmware false`, `bootappend live: noeject nopersistence noswap ip=frommedia nox11autologin`, `bootloaders syslinux grub-efi` (BIOS + UEFI). Full apt/package list: `packaging/live/config/package-lists/beamo.list.chroot` (kept minimal — no `curl/git/build-essential/sudo/network-manager/openssh-server`).
+`packaging/live/config/bootstrap` and `binary` are `https://deb.debian.org` / `https://security.debian.org` only, use debootstrap `minbase` with system defaults ignored, `firmware false`, `bootappend live: noeject nopersistence noswap ip=frommedia nox11autologin`, and `bootloaders syslinux grub-efi` (BIOS + UEFI). Full apt/package list: `packaging/live/config/package-lists/beamo.list.chroot` (kept minimal — no `curl/git/build-essential/sudo/network-manager/openssh-server`).
 
 ---
 
