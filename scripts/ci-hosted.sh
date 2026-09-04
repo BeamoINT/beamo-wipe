@@ -68,6 +68,7 @@ install_qemu_deps() {
     procps \
     util-linux \
     kmod \
+    hdparm \
     build-essential \
     automake \
     autoconf \

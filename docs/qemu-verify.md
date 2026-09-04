@@ -8,6 +8,7 @@ Run `scripts/qemu-verify.sh` only on an isolated x86_64 Linux worker with no hos
 - The script accepts only `dist/beamo-wipe-<version>-amd64.iso` and its matching manifest/sidecars. There is no wildcard ISO, distro `nwipe`, host `nwipe`, or apt fallback.
 - QEMU receives only the read-only ISO and a newly created qcow2 file. It receives no `/dev` bind, `--device`, network interface, or host block disk.
 - The direct engine boundary uses a newly created 256 MiB raw file. `losetup -j`, `lsblk TYPE=loop`, and `findmnt` re-prove both target and read-only ISO loop devices immediately before invocation.
+- The worker installs `hdparm` because exact nwipe v0.42 exits before device processing when it is absent. The Beamo application does not invoke `hdparm`, and no destructive hdparm option is used by this gate.
 - The cleanup trap kills only PIDs obtained from the current background QEMU commands, detaches only validated `/dev/loopN` values, unmounts the private mounts, and removes disposable images. Evidence remains in the path recorded by `qemu-evidence/PATH` for the CI collector.
 
 ## Required checks
