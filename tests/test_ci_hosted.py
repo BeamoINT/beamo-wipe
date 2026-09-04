@@ -43,6 +43,8 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     iso_at = cfg.find("  - id: iso-build\n")
     assert iso_at != -1
     assert "waitFor: ['negative-test']" in cfg[iso_at:qemu_at]
+    iso_step = cfg[iso_at:qemu_at]
+    assert "ca-certificates docker.io git python3" in iso_step
     submit = (ROOT / "scripts" / "ci-cloud.sh").read_text(encoding="utf-8")
     assert "--project=" in submit
     assert "beamo-wipe" in submit
@@ -184,3 +186,10 @@ def test_hosted_python_tests_install_git_for_fail_closed_manifest():
     hosted = (ROOT / "scripts" / "ci-hosted.sh").read_text(encoding="utf-8")
     test_deps = hosted.split("install_test_deps() {", 1)[1].split("\n}", 1)[0]
     assert "    git \\\n" in test_deps
+
+
+def test_iso_build_requires_and_always_generates_provenance():
+    build = (ROOT / "scripts" / "build-iso.sh").read_text(encoding="utf-8")
+    assert "for tool in docker awk git python3 sha256sum" in build
+    assert "SKIP_MANIFEST" not in build
+    assert "./scripts/generate-release-manifest.sh" in build

@@ -18,10 +18,12 @@ ISO_NAME="beamo-wipe-${VERSION}-amd64.iso"
 LIVE="$ROOT/packaging/live"
 
 missing=""
-command -v docker >/dev/null 2>&1 || missing="$missing docker"
+for tool in docker awk git python3 sha256sum; do
+  command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
+done
 if [ -n "$missing" ]; then
   echo "Missing required tools:$missing" >&2
-  echo "Install Docker Desktop (or Docker Engine) and re-run ./scripts/build-iso.sh" >&2
+  echo "Install Docker plus the listed provenance tools and re-run ./scripts/build-iso.sh" >&2
   exit 2
 fi
 
@@ -106,17 +108,17 @@ if [ ! -f "$OUT_DIR/$ISO_NAME" ]; then
 fi
 echo "Wrote $OUT_DIR/$ISO_NAME"
 ls -lh "$OUT_DIR/$ISO_NAME"
-# Generate provenance manifest (fails closed on dirty/placeholder/missing checksum)
-# In CI, git is clean; locally, allow dirty with ALLOW_DIRTY=1 but still verify.
-if [ "${SKIP_MANIFEST:-0}" != "1" ]; then
-  echo "Generating release manifest..."
-  BEAMO_WIPE_VERSION="$VERSION" ./scripts/generate-release-manifest.sh "dist/beamo-wipe-${VERSION}-amd64.manifest.json"
-  echo "Manifest: dist/beamo-wipe-${VERSION}-amd64.manifest.json"
-  for _f in "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"; do
-    if [ ! -f "$_f" ]; then
-      echo "ERROR: missing provenance file $_f" >&2
-      exit 1
-    fi
-  done
-  ls -lh "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"
-fi
+# Generate provenance manifest (fails closed on dirty/placeholder/missing
+# checksum). There is deliberately no environment bypass: every ISO build is
+# bound to verified provenance. Locally, ALLOW_DIRTY=1 relaxes only the clean
+# tree requirement and still verifies every artifact checksum.
+echo "Generating release manifest..."
+BEAMO_WIPE_VERSION="$VERSION" ./scripts/generate-release-manifest.sh "dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+echo "Manifest: dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+for _f in "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"; do
+  if [ ! -f "$_f" ]; then
+    echo "ERROR: missing provenance file $_f" >&2
+    exit 1
+  fi
+done
+ls -lh "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"

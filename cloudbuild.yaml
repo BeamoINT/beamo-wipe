@@ -78,7 +78,7 @@ steps:
       - -ceu
       - |
         apt-get update -qq
-        apt-get install -y -qq --no-install-recommends ca-certificates docker.io
+        apt-get install -y -qq --no-install-recommends ca-certificates docker.io git python3
         chmod +x scripts/ci-hosted.sh scripts/build-iso.sh
         ./scripts/ci-hosted.sh iso
 
