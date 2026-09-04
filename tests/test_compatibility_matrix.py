@@ -602,12 +602,13 @@ def test_matrix_live_build_uses_https_and_bootloaders():
     from pathlib import Path
 
     root = Path(__file__).parents[1]
-    bootstrap = (root / "packaging/live/config/bootstrap").read_text(encoding="utf-8")
-    binary = (root / "packaging/live/config/binary").read_text(encoding="utf-8")
     inside = (root / "packaging/live/inside-docker.sh").read_text(encoding="utf-8")
-    assert "https://deb.debian.org/debian/" in bootstrap
-    assert "https://security.debian.org/" in bootstrap
-    assert "https://deb.debian.org/debian/" in binary or "https://deb.debian.org/" in inside
-    assert 'LB_BOOTLOADERS="syslinux grub-efi"' in binary
-    assert 'LB_BOOTAPPEND_LIVE="boot=live components' in binary
-    assert "nox11autologin" in binary
+    # bootstrap/binary are gitignored outputs produced by this command.  The
+    # source-level compatibility contract must also run in a clean trigger
+    # checkout, before the ISO phase invokes lb config.
+    assert 'lb config \\' in inside
+    assert "https://deb.debian.org/debian/" in inside
+    assert "https://security.debian.org/" in inside
+    assert "--bootloaders syslinux,grub-efi" in inside
+    assert '--bootappend-live "boot=live components' in inside
+    assert "nox11autologin" in inside
