@@ -40,6 +40,13 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 - `beamo-wipe-pr-gate` — PRs targeting `main`: lint, tests, preview, negative, ISO (QEMU skipped via `_SKIP_QEMU=true`).
 - `beamo-wipe-main-gate` — pushes to `main`: the full gate including QEMU.
 
+The installer pins the production project's existing, constrained build service
+account explicitly; Cloud Build must not fall back to a legacy or implicit
+identity. Re-running the installer reconciles both triggers instead of silently
+accepting stale event, repository, substitution, or service-account settings.
+For a different project, set `BEAMO_WIPE_CLOUD_BUILD_SERVICE_ACCOUNT` to a
+fully qualified service-account resource in that same project.
+
 Branch protection on `main` should require these Cloud Build statuses.
 
 ## Billing

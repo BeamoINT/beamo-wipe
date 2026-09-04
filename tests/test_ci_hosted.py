@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Google Cloud Build is the project's CI. GitHub Actions is not used."""
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -148,6 +149,96 @@ def test_cloud_triggers_cover_prs_and_main():
     assert "--branch-pattern" in text
     # QEMU (TCG, slowest) runs on pushes to main; PRs run the rest.
     assert "_SKIP_QEMU=true" in text
+
+
+def test_cloud_trigger_installer_pins_identity_and_reconciles(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "calls.jsonl"
+    fake_gcloud = fake_bin / "gcloud"
+    fake_gcloud.write_text(
+        """#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+with Path(os.environ["FAKE_GCLOUD_CALLS"]).open("a", encoding="utf-8") as out:
+    out.write(json.dumps(args) + "\\n")
+if args[:3] == ["builds", "triggers", "describe"]:
+    raise SystemExit(0 if os.environ["FAKE_TRIGGER_EXISTS"] == "true" else 1)
+""",
+        encoding="utf-8",
+    )
+    fake_gcloud.chmod(0o755)
+    service_account = (
+        "projects/beamo-wipe/serviceAccounts/"
+        "368895881889-compute@developer.gserviceaccount.com"
+    )
+
+    for exists, verb in (("false", "create"), ("true", "update")):
+        calls.write_text("", encoding="utf-8")
+        env = os.environ.copy()
+        env.update(
+            {
+                "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+                "FAKE_GCLOUD_CALLS": str(calls),
+                "FAKE_TRIGGER_EXISTS": exists,
+                "BEAMO_WIPE_CLOUD_BUILD_SERVICE_ACCOUNT": service_account,
+            }
+        )
+        completed = subprocess.run(  # noqa: S603
+            ["bash", str(ROOT / "scripts" / "install-cloud-triggers.sh")],
+            cwd=ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert completed.returncode == 0, completed.stderr
+        recorded = [json.loads(line) for line in calls.read_text().splitlines()]
+        mutations = [
+            args
+            for args in recorded
+            if args[:3] == ["builds", "triggers", verb]
+        ]
+        assert len(mutations) == 2
+        assert all(f"--service-account={service_account}" in args for args in mutations)
+        mutation_text = [" ".join(args) for args in mutations]
+        assert any("beamo-wipe-pr-gate" in args for args in mutation_text)
+        assert any("beamo-wipe-main-gate" in args for args in mutation_text)
+        pr_call = next(
+            args for args in mutations if "beamo-wipe-pr-gate" in " ".join(args)
+        )
+        substitution_flag = (
+            "--substitutions=_SKIP_QEMU=true"
+            if verb == "create"
+            else "--update-substitutions=_SKIP_QEMU=true"
+        )
+        assert substitution_flag in pr_call
+
+
+def test_cloud_trigger_installer_rejects_cross_project_identity():
+    env = os.environ.copy()
+    env.update(
+        {
+            "BEAMO_WIPE_GCP_PROJECT": "beamo-wipe",
+            "BEAMO_WIPE_CLOUD_BUILD_SERVICE_ACCOUNT": (
+                "projects/other/serviceAccounts/build@other.iam.gserviceaccount.com"
+            ),
+        }
+    )
+    completed = subprocess.run(  # noqa: S603
+        ["bash", str(ROOT / "scripts" / "install-cloud-triggers.sh")],
+        cwd=ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 2
+    assert "must belong to project beamo-wipe" in completed.stderr
 
 
 def test_shell_embedded_python_parses():
