@@ -217,6 +217,9 @@ def test_qemu_gate_has_no_unverified_or_host_binary_fallback():
     assert "--quiet" in script
     assert "required libparted2 dependency missing from ISO: dmidecode" in script
     assert "unsafe dmidecode helper permissions" in script
+    assert "qemu verification failed at line" in script
+    assert "artifact checksums verified" in script
+    assert "live filesystem package and permission policy verified" in script
     assert '[[ "$nwipe_code" == 0 ]]' in script
     assert '[[ "$bad_code" != 0 ]]' in script
 

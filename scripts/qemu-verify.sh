@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 # Destructive-path verification for an isolated x86_64 Linux worker only.
 # QEMU receives only newly-created image files; no host block device is passed.
-set -euo pipefail
+set -Eeuo pipefail
 umask 077
+
+# Redirected verification commands keep potentially noisy or sensitive output
+# in the private evidence directory. Preserve a safe failure location on stderr
+# so a hosted stop can be diagnosed without dumping that evidence into CI logs.
+on_error() {
+  local rc="$1" line="$2"
+  trap - ERR
+  printf 'ABORT: qemu verification failed at line %s (exit %s)\n' "$line" "$rc" >&2
+  exit "$rc"
+}
+trap 'on_error "$?" "$LINENO"' ERR
 
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -75,6 +86,7 @@ git rev-parse HEAD >"$EVIDENCE_DIR/source-commit.txt"
   sha256sum -c "$(basename "$ISO").sha256"
   sha256sum -c "$(basename "$MANIFEST").sha256"
 ) >"$EVIDENCE_DIR/checksums.txt" 2>&1
+log "artifact checksums verified"
 PYTHONPATH="$ROOT/src" python3 -c \
   'import pathlib,sys; from beamo_wipe.release_manifest import verify_manifest; verify_manifest(pathlib.Path(sys.argv[1]))' \
   "$MANIFEST"
@@ -144,6 +156,7 @@ else
   echo "debsecan is required for the image vulnerability gate" >&2
   exit 2
 fi
+log "live filesystem package and permission policy verified"
 install -m 0700 "$SHIPPED_NWIPE" "$NWIPE_BIN"
 shipped_sha="$(sha256sum "$SHIPPED_NWIPE" | awk '{print $1}')"
 copied_sha="$(sha256sum "$NWIPE_BIN" | awk '{print $1}')"
@@ -159,6 +172,7 @@ BEAMO_WIPE_DRY_RUN=1 python3 -m pytest -q \
   tests/test_confirmation_gates.py \
   tests/test_boot_exclusion_fails_closed.py \
   >"$EVIDENCE_DIR/fake-disk-e2e.txt" 2>&1
+log "fake-disk confirmation and boot-exclusion checks passed"
 
 # The only destructive process-boundary check uses a newly-created sparse raw
 # file attached to a loop node whose backing file is re-proved before each run.
@@ -183,6 +197,7 @@ prove_loop() {
 }
 prove_loop "$LOOP" "$TARGET_RAW"
 prove_loop "$BOOT_LOOP" "$ISO"
+log "disposable target and boot loop identities verified"
 NWIPE_LOG="$RUN_ROOT/nwipe.log"
 nwipe_code=0
 timeout 45 "$NWIPE_BIN" --autonuke --nogui --nowait --quiet --method=zero \
@@ -198,6 +213,7 @@ grep -Eq '\|[[:space:]]*Erased[[:space:]]*\||100\.00%' "$NWIPE_LOG" || {
   echo "nwipe exited without a target success marker" >&2
   exit 2
 }
+log "pinned nwipe boundary and anonymized logging verified"
 
 # A non-block target and an interrupted run must never return success.
 bad_code=0
