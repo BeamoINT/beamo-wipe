@@ -31,7 +31,7 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 | `iso` | `iso-build` | Waits for the restored negative-test workspace, then performs a privileged linux/amd64 build with no host `/dev` bind, content-addressed Debian build image, strict versioned output, PVD/size checks, manifest + sidecars |
 | `qemu` | `qemu-verify` | Exact verified ISO, read-only image inspection, Debian fixed-vulnerability scan, shipped nwipe on a proved disposable loop, and mandatory BIOS+UEFI probes; no host binary/image fallback |
 
-`./scripts/ci-hosted.sh all` runs every verification phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`). `_PUBLISH_RELEASE` defaults to `false`; `./scripts/ci-cloud.sh --publish-release` is the explicit production path and refuses either skip.
+`./scripts/ci-hosted.sh all` runs every verification phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`). `_PUBLISH_RELEASE` defaults to `false`; `./scripts/ci-cloud.sh --publish-release` is the explicit production path and refuses either skip. The publisher step explicitly maps Cloud Build's immutable `$BUILD_ID` substitution into its process environment; the publisher rejects a missing or malformed identifier before any upload.
 
 ## Triggers
 

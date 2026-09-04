@@ -32,7 +32,9 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     assert "waitFor: ['iso-build']" in cfg[qemu_at:]
     publish_at = cfg.find("  - id: publish-release\n")
     assert publish_at > qemu_at
-    assert "waitFor: ['qemu-verify']" in cfg[publish_at:]
+    publish_step = cfg[publish_at:]
+    assert "waitFor: ['qemu-verify']" in publish_step
+    assert "BUILD_ID=$BUILD_ID" in publish_step
     assert "cloud-builders/gsutil" not in cfg
     assert "cloud-builders/docker" not in cfg
     assert "library/python" not in cfg
