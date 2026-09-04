@@ -107,6 +107,29 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def sha256_file_with_stat(path: Path) -> tuple[str, int]:
+    """Hash and size one opened inode, rejecting pathname replacement."""
+    path = Path(path)
+    h = hashlib.sha256()
+    fd = _open_regular_nofollow(path)
+    with os.fdopen(fd, "rb") as fh:
+        opened = os.fstat(fh.fileno())
+        for chunk in iter(lambda: fh.read(8192), b""):
+            h.update(chunk)
+    try:
+        current = os.lstat(path)
+    except OSError as exc:
+        raise RuntimeError(f"cannot safely read {path.name}") from exc
+    if (
+        stat.S_ISLNK(current.st_mode)
+        or not stat.S_ISREG(current.st_mode)
+        or (current.st_dev, current.st_ino, current.st_size)
+        != (opened.st_dev, opened.st_ino, opened.st_size)
+    ):
+        raise RuntimeError(f"{path.name} changed while it was being verified")
+    return h.hexdigest(), int(opened.st_size)
+
+
 def file_sha256_or_none(path: Path) -> Optional[str]:
     try:
         if path.is_file():
@@ -131,7 +154,8 @@ def live_build_inputs() -> Dict[str, Any]:
         "bootloaders",
         "debian-installer",
         "hooks",
-        "includes",
+        "includes.chroot",
+        "includes.binary",
         "package-lists/beamo.list.chroot",
         "package-lists/live.list.chroot",
         "hooks/normal/0500-build-nwipe.hook.chroot",
@@ -146,31 +170,52 @@ def live_build_inputs() -> Dict[str, Any]:
                 rel2 = str(sub.relative_to(cfg))
                 if sub.is_symlink():
                     # Hash the link itself, never a file outside the tree.
-                    h.update(rel2.encode())
-                    h.update(b"\0SYMLINK\0")
-                    h.update(os.readlink(sub).encode("utf-8", errors="surrogateescape"))
+                    rel_blob = rel2.encode()
+                    target = os.readlink(sub).encode("utf-8", errors="surrogateescape")
+                    h.update(f"{len(rel_blob)}:".encode() + rel_blob)
+                    h.update(b"S")
+                    h.update(f"{len(target)}:".encode() + target)
                 elif sub.is_file():
-                    h.update(rel2.encode())
-                    h.update(b"\0")
-                    h.update(sha256_file(sub).encode())
+                    rel_blob = rel2.encode()
+                    digest = sha256_file(sub).encode()
+                    h.update(f"{len(rel_blob)}:".encode() + rel_blob)
+                    h.update(b"F")
+                    h.update(f"{len(digest)}:".encode() + digest)
             inputs[rel + "/"] = h.hexdigest()
     # Also hash src/beamo_wipe
     src_h = hashlib.sha256()
-    for sub in sorted((ROOT / "src" / "beamo_wipe").rglob("*.py")):
+    source_files = []
+    for sub in sorted((ROOT / "src" / "beamo_wipe").rglob("*")):
+        if not sub.is_file() or "__pycache__" in sub.parts or sub.suffix in {".pyc", ".pyo"}:
+            continue
         if sub.is_symlink():
             raise RuntimeError("source tree contains a symlink")
-        src_h.update(str(sub.relative_to(ROOT)).encode())
-        src_h.update(b"\0")
-        src_h.update(sha256_file(sub).encode())
+        source_files.append(sub)
+        rel_blob = str(sub.relative_to(ROOT)).encode()
+        digest = sha256_file(sub).encode()
+        src_h.update(f"{len(rel_blob)}:".encode() + rel_blob)
+        src_h.update(f"{len(digest)}:".encode() + digest)
+    if not source_files:
+        raise RuntimeError("missing shipped wrapper source")
     inputs["src/beamo_wipe/"] = src_h.hexdigest()
+    for rel in (
+        "helper/index.html",
+        "scripts/build-iso.sh",
+        "packaging/live/inside-docker.sh",
+    ):
+        path = ROOT / rel
+        if path.is_file():
+            inputs[rel] = sha256_file(path)
     return inputs
 
 
-def dependency_locks() -> Dict[str, Any]:
+def dependency_locks(*, strict: bool = False) -> Dict[str, Any]:
     locks: Dict[str, Any] = {}
     locks["pyproject.toml"] = file_sha256_or_none(ROOT / "pyproject.toml")
     locks["THIRD_PARTY.md"] = file_sha256_or_none(ROOT / "THIRD_PARTY.md")
     locks["NOTICE"] = file_sha256_or_none(ROOT / "NOTICE")
+    if strict and any(not digest for digest in locks.values()):
+        raise RuntimeError("missing required release dependency input")
     # live-build package lists already in live_build_inputs but duplicate for drift check
     return locks
 
@@ -204,8 +249,7 @@ def iso_info(version: str = __version__) -> Dict[str, Any]:
     iso_path = ROOT / "dist" / iso_name
     if not iso_path.is_file():
         raise RuntimeError(f"missing checksum: ISO not found at {iso_path}")
-    sha = sha256_file(iso_path)
-    size = iso_path.stat().st_size
+    sha, size = sha256_file_with_stat(iso_path)
     if not sha or size == 0:
         raise RuntimeError("missing checksum")
     # Verify nwipe version inside ISO via hook pins (not by mounting, just pins)
@@ -289,12 +333,19 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
         with open(ROOT / "pyproject.toml", "rb") as fh:
             pyproject = tomllib.load(fh)
         py_ver = pyproject.get("project", {}).get("version", "")
-        if py_ver and py_ver != __version__:
+        if not py_ver:
+            raise RuntimeError("missing project version")
+        if py_ver != __version__:
             raise RuntimeError(f"unapproved dependency drift: pyproject version {py_ver} != wrapper {__version__}")
+        if strict and version != __version__:
+            raise RuntimeError(
+                f"artifact version {version} != wrapper {__version__}"
+            )
     except RuntimeError:
         raise
-    except Exception:
-        pass
+    except Exception as exc:
+        if strict:
+            raise RuntimeError("cannot validate pyproject version") from exc
 
     manifest: Dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -308,7 +359,7 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
             "remote_url": git_remote_url(),
         },
         "build": build_env(),
-        "dependencies": dependency_locks(),
+        "dependencies": dependency_locks(strict=strict),
         "live_build_inputs": live_build_inputs(),
         "nwipe": {
             "version": NWIPE_PINNED_VERSION,
@@ -336,6 +387,11 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
             "reproducibility": "live-build is not bit-reproducible due to apt timestamps; use SHA256 and source commit for traceability",
         },
     }
+    if strict:
+        final_commit = git_commit()
+        final_dirty, _final_files = git_dirty()
+        if final_commit != commit or final_dirty:
+            raise RuntimeError("source state changed during manifest generation")
     # Top-level checksum (of manifest without itself)
     canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     manifest["_manifest_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -459,9 +515,10 @@ def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
     if not re.fullmatch(r"[0-9a-f]{64}", recorded_iso_sha):
         raise RuntimeError("missing checksum")
     try:
-        if sha256_file(iso_path) != recorded_iso_sha:
+        actual_sha, actual_size = sha256_file_with_stat(iso_path)
+        if actual_sha != recorded_iso_sha:
             raise RuntimeError("ISO checksum mismatch")
-        if iso_path.stat().st_size != int(artifact.get("iso_size_bytes", -1)):
+        if actual_size != int(artifact.get("iso_size_bytes", -1)):
             raise RuntimeError("ISO size mismatch")
     except OSError as exc:
         raise RuntimeError("ISO referenced by manifest is missing") from exc

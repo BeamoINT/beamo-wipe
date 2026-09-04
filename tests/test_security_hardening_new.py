@@ -85,12 +85,12 @@ def test_shutdown_uses_clean_env(monkeypatch):
 
     calls = {}
 
-    def fake_popen(cmd, **kwargs):
+    def fake_run(cmd, **kwargs):
         calls["kwargs"] = kwargs
         calls["cmd"] = cmd
         raise OSError("fail one")
 
-    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: Path("/tmp/beamo-wipe"))
     # Should try all cmds then log and print, not leak env
     with mock.patch("beamo_wipe.diagnostics.log_diag") as lg:

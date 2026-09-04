@@ -4,12 +4,17 @@
 from __future__ import annotations
 
 import curses
+import select
+import sys
 import time
 
 from beamo_wipe import copy as C
 from beamo_wipe.models import MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.wizard import Wizard, format_progress_percent
+
+
+ENTER_RELEASE_QUIET_S = 1.0
 
 
 def run_console(wizard: Wizard) -> int:
@@ -151,7 +156,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.WORKING:
             pct = "—" if wizard.progress is None else format_progress_percent(wizard.progress)
-            print(C.WORKING_PULSE, pct, "  [Ctrl-C to interrupt]")
+            print(C.WORKING_PULSE, pct, "  [type CANCEL then Enter to interrupt]")
             if wizard.evidence_error:
                 print(f"Note: {wizard.evidence_error}")
             if wizard.selected:
@@ -161,11 +166,21 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     wizard.selected.path,
                     wizard.selected.serial or "no serial",
                 )
-            # Plain loop never blocks on stdin here, so typing cannot
-            # interrupt; Ctrl-C is handled in _plain_loop (cancel_wipe).
-            time.sleep(0.3)
+            # Poll canonical TTY input without blocking progress updates.
+            # This remains usable when the hardened kiosk disables INTR.
+            try:
+                ready, _w, _x = select.select([sys.stdin], [], [], 0.3)
+                if ready:
+                    typed = sys.stdin.readline()
+                    if typed.strip().casefold() == "cancel":
+                        wizard.cancel_wipe()
+            except (OSError, ValueError):
+                time.sleep(0.3)
             continue
         if screen == Screen.DONE:
+            report = wizard.report_view
+            if report.evidence_error:
+                print(f"Evidence was not saved: {report.evidence_error}")
             if wizard.preview:
                 print(C.DONE_OK_PREVIEW if wizard.done_ok else C.DONE_FAIL_PREVIEW)
                 ans = input("Enter to run again, or q to close… ").strip().lower()
@@ -175,8 +190,22 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     wizard.reset_for_preview()
             else:
                 print(C.DONE_OK if wizard.done_ok else C.DONE_FAIL)
-                input("Press Enter to shut down… ")
-                wizard.shutdown()
+                if report.can_save:
+                    print(
+                        report.message
+                        or "Leave the Beamo USB and selected disk connected. Insert exactly "
+                        "one FAT32 USB if you need a report."
+                    )
+                    prompt = "Type SAVE to save the report, or SHUTDOWN: "
+                else:
+                    if report.message:
+                        print(report.message)
+                    prompt = "Type SHUTDOWN: "
+                action = input(prompt).strip().upper()
+                if action == "SAVE" and report.can_save:
+                    wizard.save_report_to_usb()
+                elif action == "SHUTDOWN":
+                    wizard.shutdown()
             continue
         if screen == Screen.ADVANCED:
             input("Press Enter to go back… ")
@@ -191,6 +220,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
     stdscr.nodelay(True)
     curses.use_default_colors()
     enter_held = False
+    enter_quiet_since = None
     while not wizard.wants_shutdown:
         wizard.tick()
         stdscr.erase()
@@ -261,6 +291,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 wizard.continue_confirm()
                 # Same physical Enter must not also fire Method → Last chance.
                 enter_held = True
+                enter_quiet_since = None
             elif ch in (27,):
                 wizard.back()
             elif ch in (curses.KEY_BACKSPACE, 127, 8):
@@ -300,6 +331,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 _wrap(stdscr, y + 6, wizard.error, w)
             _add(stdscr, y + 7, 0, "Esc: cancel erase (interrupted)")
         elif wizard.screen == Screen.DONE:
+            report = wizard.report_view
             _wrap(
                 stdscr,
                 y,
@@ -312,19 +344,53 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 stdscr,
                 y + 4,
                 0,
-                "Enter: run again    C: close" if wizard.preview else "Enter: shut down",
+                "Enter: run again    C: close"
+                if wizard.preview
+                else (
+                    "R: save report to one FAT32 USB    Enter: shut down"
+                    if report.can_save
+                    else "Enter: shut down"
+                ),
             )
+            if report.evidence_error:
+                _wrap(stdscr, y + 6, f"Evidence was not saved: {report.evidence_error}", w)
+            elif not wizard.preview:
+                message = report.message
+                if not message and report.can_save:
+                    message = "Leave the Beamo USB and selected disk connected while saving."
+                if message:
+                    _wrap(stdscr, y + 6, message, w)
         stdscr.refresh()
         ch = stdscr.getch()
         if ch == -1:
-            enter_held = False
-            if wizard.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
+            enter_held, enter_quiet_since, released = _advance_enter_quiet(
+                enter_held, enter_quiet_since, time.monotonic()
+            )
+            if released and wizard.screen in (
+                Screen.DONE,
+                Screen.PICK_EMPTY,
+                Screen.PICK_BLOCKED,
+            ):
                 wizard.arm_done_keyboard()
             time.sleep(0.08)
             continue
+        if enter_held:
+            # Any queued event breaks the quiet interval. A repeat Enter is
+            # still part of the same physical hold and remains suppressed.
+            enter_quiet_since = None
         if _is_enter_repeat(enter_held, ch):
             continue
         enter_held = ch in (curses.KEY_ENTER, 10, 13)
+        if (
+            wizard.screen == Screen.DONE
+            and not wizard.preview
+            and wizard.report_view.can_save
+            and ch in (ord("r"), ord("R"))
+        ):
+            _confirm_report_save(stdscr, wizard)
+            enter_held = True
+            enter_quiet_since = None
+            continue
         _handle(wizard, ch)
     return 0
 
@@ -332,6 +398,37 @@ def _loop(stdscr, wizard: Wizard) -> int:
 def _is_enter_repeat(held: bool, ch: int) -> bool:
     """True for X/TTY auto-repeat Enter (extra KEY_ENTER with no gap)."""
     return held and ch in (curses.KEY_ENTER, 10, 13)
+
+
+def _advance_enter_quiet(
+    held: bool, quiet_since: float | None, now: float
+) -> tuple[bool, float | None, bool]:
+    """Require a full quiet interval before treating Enter as released."""
+    if not held:
+        return False, None, True
+    if quiet_since is None:
+        return True, now, False
+    if now - quiet_since < ENTER_RELEASE_QUIET_S:
+        return True, quiet_since, False
+    return False, None, True
+
+
+def _confirm_report_save(stdscr, wizard: Wizard) -> None:
+    """A held R cannot confirm an export; the owner must type literal SAVE."""
+    h, _w = stdscr.getmaxyx()
+    curses.echo()
+    curses.curs_set(1)
+    stdscr.nodelay(False)
+    try:
+        _add(stdscr, max(0, h - 2), 0, "Type SAVE and press Enter: ")
+        stdscr.refresh()
+        typed = stdscr.getstr(max(0, h - 2), 27, 8).decode("ascii", errors="ignore")
+        if typed == "SAVE":
+            wizard.save_report_to_usb()
+    finally:
+        curses.noecho()
+        curses.curs_set(0)
+        stdscr.nodelay(True)
 
 
 def _handle(wizard: Wizard, ch: int) -> None:

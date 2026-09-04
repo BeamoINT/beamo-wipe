@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
 import time
 import unicodedata
@@ -16,6 +17,37 @@ from typing import Any, Optional
 
 DIAG_LOG_MAX_BYTES = 256 * 1024
 DIAG_DETAIL_MAX = 300
+SERIAL_MARKER_RE = re.compile(r"^BEAMO_WIPE_[A-Z0-9_]{1,64}$")
+SERIAL_DEVICE = "/dev/ttyS0"
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    view = memoryview(data)
+    while view:
+        written = os.write(fd, view)
+        if written <= 0:
+            raise OSError("short diagnostics write")
+        view = view[written:]
+
+
+def emit_serial_marker(marker: str) -> bool:
+    """Emit one bounded non-sensitive QEMU/field diagnostic marker."""
+    if not isinstance(marker, str) or not SERIAL_MARKER_RE.fullmatch(marker):
+        return False
+    try:
+        fd = os.open(
+            SERIAL_DEVICE,
+            os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+        )
+        try:
+            if not stat.S_ISCHR(os.fstat(fd).st_mode):
+                return False
+            _write_all(fd, (marker + "\n").encode("ascii"))
+        finally:
+            os.close(fd)
+        return True
+    except OSError:
+        return False
 
 
 def _sanitize_detail(text: str) -> str:
@@ -129,7 +161,7 @@ def log_diag(
                 raise OSError("diagnostics path has the wrong owner")
             if stat.S_IMODE(opened.st_mode) != 0o600:
                 os.fchmod(fd, 0o600)
-            os.write(fd, line.encode("utf-8"))
+            _write_all(fd, line.encode("utf-8"))
             # Do not fsync every diagnostic; best-effort
             try:
                 os.fsync(fd)
@@ -151,7 +183,7 @@ def log_diag(
                         tail += chunk
                     os.ftruncate(fd, 0)
                     # O_APPEND lands at end (offset 0 after truncate)
-                    os.write(fd, tail)
+                    _write_all(fd, tail)
             except OSError:
                 pass
         finally:
@@ -186,6 +218,8 @@ def _iso_now() -> str:
 
 def read_diagnostics(log_dir: Optional[Path] = None, limit: int = 100) -> list[dict[str, Any]]:
     """Read last `limit` diagnostic lines. For support export; never raises."""
+    if limit <= 0:
+        return []
     try:
         from beamo_wipe.safety import default_log_dir
 
@@ -199,9 +233,21 @@ def read_diagnostics(log_dir: Optional[Path] = None, limit: int = 100) -> list[d
             opened = os.fstat(fd)
             if not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.getuid():
                 return []
-            with os.fdopen(fd, "r", encoding="utf-8", errors="replace") as stream:
-                fd = -1
-                text = stream.read(DIAG_LOG_MAX_BYTES + 1)
+            size = opened.st_size
+            start = max(0, size - DIAG_LOG_MAX_BYTES)
+            os.lseek(fd, start, os.SEEK_SET)
+            chunks = []
+            remaining = size - start
+            while remaining > 0:
+                chunk = os.read(fd, min(65536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+            if start and b"\n" in raw:
+                raw = raw.split(b"\n", 1)[1]
+            text = raw.decode("utf-8", errors="replace")
         finally:
             if fd >= 0:
                 os.close(fd)

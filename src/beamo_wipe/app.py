@@ -14,6 +14,7 @@ from beamo_wipe import NWIPE_PINNED_VERSION, __version__
 from beamo_wipe.demo import Scenario, make_demo_wizard
 from beamo_wipe.discover import discover, load_lsblk_json_text
 from beamo_wipe.nwipe_runner import DryRunRunner, NwipeRunner
+from beamo_wipe.models import Screen
 from beamo_wipe.safety import SafetyError, require_live_or_dry_run, running_on_live_usb
 from beamo_wipe.wizard import Wizard
 
@@ -157,7 +158,7 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
     return Wizard(discovery, runner, dry_run=False)
 
 
-def _shutdown() -> None:
+def _shutdown() -> bool:
     import subprocess
 
     last_exc: Exception | None = None
@@ -175,9 +176,21 @@ def _shutdown() -> None:
             # even for poweroff — use the same replacement env as nwipe.
             from beamo_wipe.safety import CLEAN_SUBPROCESS_ENV
 
-            subprocess.Popen(cmd, close_fds=True, env=CLEAN_SUBPROCESS_ENV, shell=False)
-            return
-        except OSError as exc:
+            completed = subprocess.run(
+                cmd,
+                check=False,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+                env=CLEAN_SUBPROCESS_ENV,
+                shell=False,
+                timeout=8,
+            )
+            if completed.returncode == 0:
+                return True
+            last_exc = RuntimeError(f"exit {completed.returncode}")
+        except (OSError, subprocess.TimeoutExpired) as exc:
             last_exc = exc
             continue
     # All shutdown paths failed; surface to diagnostics and stderr (safe, no secrets)
@@ -189,6 +202,7 @@ def _shutdown() -> None:
     except Exception:
         pass
     print("Shutdown failed: could not power off. Hold the power button.", file=sys.stderr)
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -245,6 +259,25 @@ def main(argv: list[str] | None = None) -> int:
             return code
         except Exception as exc:  # noqa: BLE001 — fall back to console
             print(f"Graphical UI failed ({exc}). Using keyboard screens.", file=sys.stderr)
+            if not args.demo and not wizard.dry_run:
+                # Under startx, running the console here leaves X owning tty1
+                # and hides the fallback. Exit so the kiosk supervisor can
+                # tear X down and launch the visible console on tty1.
+                if wizard.screen == Screen.WORKING:
+                    try:
+                        wizard.cancel_wipe()
+                    except Exception as cancel_exc:
+                        try:
+                            from beamo_wipe.diagnostics import log_diag
+
+                            log_diag(
+                                "app",
+                                "graphical_failure_cancel_failed",
+                                type(cancel_exc).__name__,
+                            )
+                        except Exception:
+                            pass
+                return 3
             use_console = True
 
     from beamo_wipe.ui.console_wizard import run_console

@@ -27,11 +27,15 @@ unset $(env | awk -F= '/^CLOUDSDK_/ {print $1}') 2>/dev/null || true
 
 reconcile() {
   local name=$1; shift
-  local -a update_args=("$@")
+  local -a update_args=()
+  local desired_substitutions=""
   local i
-  for ((i = 0; i < ${#update_args[@]}; i++)); do
-    if [[ "${update_args[i]}" == --substitutions=* ]]; then
-      update_args[i]="--update-substitutions=${update_args[i]#--substitutions=}"
+  local -a requested_args=("$@")
+  for ((i = 0; i < ${#requested_args[@]}; i++)); do
+    if [[ "${requested_args[i]}" == --substitutions=* ]]; then
+      desired_substitutions="${requested_args[i]#--substitutions=}"
+    else
+      update_args+=("${requested_args[i]}")
     fi
   done
 
@@ -44,7 +48,15 @@ reconcile() {
       --build-config=cloudbuild.yaml \
       --include-logs-with-status \
       --service-account="$service_account" \
+      --clear-substitutions \
       "${update_args[@]}"
+    if [[ -n "$desired_substitutions" ]]; then
+      gcloud builds triggers update github "$name" \
+        --project="$project" \
+        --repo-owner=BeamoINT \
+        --repo-name=beamo-wipe \
+        --update-substitutions="$desired_substitutions"
+    fi
     return
   fi
 

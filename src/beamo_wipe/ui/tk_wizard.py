@@ -54,10 +54,11 @@ from tkinter import font as tkfont
 from typing import Callable, List, Optional
 
 from beamo_wipe import copy as C
+from beamo_wipe.diagnostics import emit_serial_marker
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
-from beamo_wipe.wizard import COUNTDOWN_S, Wizard, format_progress_percent
+from beamo_wipe.wizard import COUNTDOWN_S, ReportView, Wizard, format_progress_percent
 
 # --- Design tokens ---------------------------------------------------------
 #
@@ -667,9 +668,17 @@ class _Button(tk.Canvas):
     def _key(self, _event=None) -> str:
         app = getattr(self.winfo_toplevel(), "_tk_wizard", None)
         if app is not None:
-            app._space_held = True
+            if not app._claim_space_press():
+                return "break"
+            app._space_action_active = True
         if self._enabled and self._command is not None:
-            self._command()
+            try:
+                self._command()
+            finally:
+                if app is not None:
+                    app._space_action_active = False
+        elif app is not None:
+            app._space_action_active = False
         return "break"
 
     def _enter(self, _event=None) -> None:
@@ -861,6 +870,7 @@ class TkWizard:
         self._match_icon: Optional[tk.Canvas] = None
         self._match_pill: Optional[_Box] = None
         self._shown: Optional[Screen] = None
+        self._shown_report_revision = -1
         self._primary_cmd: Optional[Callable[[], None]] = None
         self._after_id: Optional[str] = None
         # Pick-list scroll state: the list is rebuilt on every redraw, so the
@@ -874,7 +884,11 @@ class TkWizard:
         self._pick_applied: Optional[float] = None
         self._pick_gen = 0
         self._return_held = False
+        self._return_release_after: Optional[str] = None
         self._space_held = False
+        self._space_release_after: Optional[str] = None
+        self._space_action_active = False
+        self._fatal_ui = False
         # Optional extra detail (device path, bus) on existing screens.
         # One flag for the session; not a new wizard step.
         self._show_more = False
@@ -1027,6 +1041,14 @@ class TkWizard:
             self.w.arm_done_keyboard()
 
     def _teardown(self) -> None:
+        for attr in ("_return_release_after", "_space_release_after"):
+            callback = getattr(self, attr)
+            if callback is not None:
+                try:
+                    self.root.after_cancel(callback)
+                except tk.TclError:
+                    pass
+                setattr(self, attr, None)
         if self._after_id is not None:
             try:
                 self.root.after_cancel(self._after_id)
@@ -1049,13 +1071,35 @@ class TkWizard:
                 return
             if self.w.screen != prev:
                 self._draw()
+            elif self.w.screen == Screen.DONE and (
+                self.w.report_view.revision != self._shown_report_revision
+            ):
+                self._draw()
             elif self.w.screen == Screen.LAST_CHANCE:
                 self._refresh_last_chance()
             elif self.w.screen == Screen.WORKING:
                 self._refresh_working()
             self._after_id = self.root.after(100, self._tick)
-        except tk.TclError:
+        except tk.TclError as exc:
             self._after_id = None
+            self._fatal_ui = True
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("ui", "tk_runtime_failed", type(exc).__name__)
+            except Exception:
+                pass
+            if self.w.screen == Screen.WORKING:
+                try:
+                    self.w.cancel_wipe()
+                except Exception as cancel_exc:
+                    try:
+                        from beamo_wipe.diagnostics import log_diag
+
+                        log_diag("ui", "tk_failure_cancel_failed", type(cancel_exc).__name__)
+                    except Exception:
+                        pass
+            self._teardown()
 
     def _draw(self) -> None:
         assert self._body is not None and self._footer is not None
@@ -1086,6 +1130,7 @@ class TkWizard:
         self._match_icon = None
         self._match_pill = None
         screen = self.w.screen
+        report_view = self.w.report_view if screen == Screen.DONE else None
         self._sync_chrome(screen == Screen.SPLASH)
         self._body.configure(bg=BG)
         dispatch = {
@@ -1099,13 +1144,25 @@ class TkWizard:
             Screen.METHOD: self._method,
             Screen.LAST_CHANCE: self._last,
             Screen.WORKING: self._working,
-            Screen.DONE: self._done,
             Screen.ADVANCED: self._advanced,
         }
-        dispatch[screen]()
+        if report_view is not None:
+            self._done(report_view)
+        else:
+            dispatch[screen]()
         self._draw_header()
         self._draw_strip()
         self._shown = screen
+        if report_view is not None:
+            # Record the exact snapshot rendered above. If a worker published
+            # a newer revision mid-draw, _tick will render it on the next pass.
+            self._shown_report_revision = report_view.revision
+        # Emit only fixed state names after the full screen is rendered. These
+        # bounded markers let the isolated QEMU gate synchronize with the real
+        # shipped Tk workflow without exposing disk identifiers or log data.
+        emit_serial_marker(f"BEAMO_WIPE_SCREEN_{screen.name}")
+        if report_view is not None:
+            emit_serial_marker(f"BEAMO_WIPE_REPORT_{report_view.status.upper()}")
 
     # -- text / small components --------------------------------------------
 
@@ -1385,13 +1442,20 @@ class TkWizard:
         btn.pack(side=tk.LEFT)
         return btn
 
-    def _secondary_btn(self, row: tk.Frame, text: str, command: Callable[[], None]) -> _Button:
+    def _secondary_btn(
+        self,
+        row: tk.Frame,
+        text: str,
+        command: Callable[[], None],
+        enabled: bool = True,
+    ) -> _Button:
         btn = _Button(
             row._left,  # type: ignore[attr-defined]
             text=text,
             command=self._nav(command),
             font=self.font_btn,
             variant="secondary",
+            enabled=enabled,
         )
         btn.pack(side=tk.LEFT)
         return btn
@@ -1528,7 +1592,7 @@ class TkWizard:
         )
         text.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
         self._bind_tree(card, self._owner_clicked)
-        card.bind("<space>", self._owner_clicked)
+        card.bind("<space>", self._owner_key)
         card.bind("<FocusIn>", lambda _e: card.set_focused(True))
         card.bind("<FocusOut>", lambda _e: card.set_focused(False))
         card.focus_set()
@@ -1541,9 +1605,21 @@ class TkWizard:
         self._owner_toggled()
         return "break"
 
+    def _owner_key(self, _event=None) -> str:
+        """Toggle ownership once per physical Space press."""
+        if not self._claim_space_press():
+            return "break"
+        self._space_action_active = True
+        try:
+            return self._owner_clicked(_event)
+        finally:
+            self._space_action_active = False
+
     def _owner_toggled(self) -> None:
         self.w.set_owner(bool(self._owner_var.get()))
         self._draw()
+        if self.w.owner_ok:
+            emit_serial_marker("BEAMO_WIPE_OWNER_CHECKED")
 
     def _disk_row(self, parent: tk.Widget, disk: Disk, selected: bool) -> _Box:
         if disk.is_boot:
@@ -1815,6 +1891,7 @@ class TkWizard:
         entry.bind("<FocusOut>", lambda _e: shell.set_focused(False))
         shell.set_focused(True)
         entry.focus_set()
+        entry.after_idle(lambda: self._ensure_confirm_focus(entry))
         # Token-match state is a pill: calm while waiting, green when it
         # matches, so the gate's answer scans at a glance.
         pill = _Box(
@@ -1863,12 +1940,35 @@ class TkWizard:
             cv.create_oval(2, 2, 20, 20, outline=BORDER_STRONG, width=2)
             self._match_label.configure(text=C.CONFIRM_MATCH_WAIT, fg=MUTED, bg=SURFACE_ALT)
 
+    def _ensure_confirm_focus(self, entry: tk.Entry, retries: int = 20) -> None:
+        """Recover Entry focus while X11 finishes mapping the no-WM window."""
+        try:
+            if self.w.screen != Screen.CONFIRM:
+                return
+            if self.root.focus_get() is not entry:
+                entry.focus_force()
+            focused = self.root.focus_get() is entry
+        except tk.TclError:
+            focused = False
+        if focused:
+            emit_serial_marker("BEAMO_WIPE_CONFIRM_FOCUSED")
+            return
+        if retries > 0:
+            try:
+                entry.after(50, lambda: self._ensure_confirm_focus(entry, retries - 1))
+                return
+            except tk.TclError:
+                pass
+        emit_serial_marker("BEAMO_WIPE_CONFIRM_UNFOCUSED")
+
     def _confirm_var_written(self, *_a) -> None:
         if self.w.screen != Screen.CONFIRM:
             return
         self.w.set_confirm_input(self._confirm_var.get())
         self._set_primary_enabled(self.w.token_ok)
         self._paint_match()
+        if self.w.token_ok:
+            emit_serial_marker("BEAMO_WIPE_CONFIRM_MATCHED")
 
     def _method_card(self, parent: tk.Widget, method: MethodId) -> None:
         card_copy = C.METHOD_CARDS[method]
@@ -2105,7 +2205,7 @@ class TkWizard:
         if fill_w > 1:
             _round_rect(bar, 0, 0, max(fill_w, 14), 14, 7, fill=PRIMARY, outline="")
 
-    def _done(self) -> None:
+    def _done(self, report: ReportView) -> None:
         col = self._column(self._body, fill_height=True)
         ok = self.w.done_ok
         title = C.TITLE_DONE_OK if ok else C.TITLE_DONE_FAIL
@@ -2124,6 +2224,30 @@ class TkWizard:
         self._p(
             col, msg, font=self.font_b, wraplength=700, justify=tk.CENTER, anchor="center"
         ).pack(fill=tk.X)
+        if report.evidence_error:
+            self._p(
+                col,
+                f"Evidence was not saved: {report.evidence_error}",
+                font=self.font_s_bold,
+                wraplength=700,
+                justify=tk.CENTER,
+                anchor="center",
+                fg=DANGER,
+            ).pack(fill=tk.X, pady=(12, 0))
+        elif not self.w.preview and (report.message or report.can_save):
+            instruction = (
+                "Leave the Beamo USB and selected disk connected. Insert exactly one "
+                "separate FAT32 USB to save the report. The report includes disk identifiers."
+            )
+            self._p(
+                col,
+                report.message or instruction,
+                font=self.font_s_bold,
+                wraplength=700,
+                justify=tk.CENTER,
+                anchor="center",
+                fg=(DANGER if report.status == "error" else INK),
+            ).pack(fill=tk.X, pady=(12, 0))
         if self.w.selected is not None:
             self._disk_summary(col, self.w.selected).pack(fill=tk.X, pady=(24, 0))
             self._more_link(col)
@@ -2133,7 +2257,18 @@ class TkWizard:
             self._secondary_btn(row, C.BTN_CLOSE_PREVIEW, self._click_shutdown)
             self._primary_btn(row, C.BTN_RUN_AGAIN, self.w.reset_for_preview)
         else:
-            self._primary_btn(row, C.BTN_SHUTDOWN, self._click_shutdown)
+            self._secondary_btn(
+                row,
+                C.BTN_SAVE_REPORT,
+                self._click_save_report,
+                enabled=report.can_save,
+            )
+            self._primary_btn(
+                row,
+                C.BTN_SHUTDOWN,
+                self._click_shutdown,
+                enabled=not report.exporting,
+            )
         if self._primary is not None:
             self._primary.focus_set()
 
@@ -2207,14 +2342,52 @@ class TkWizard:
         return "break"
 
     def _on_return_release(self, _event=None) -> str:
-        self._return_held = False
-        self.w.arm_done_keyboard()
+        # X11 autorepeat is a queued KeyRelease/KeyPress pair. Defer clearing
+        # until the event queue is idle; the repeat press cancels this callback
+        # and remains one physical key hold.
+        if self._return_release_after is not None:
+            try:
+                self.root.after_cancel(self._return_release_after)
+            except tk.TclError:
+                pass
+        self._return_release_after = self.root.after_idle(self._release_return)
         return "break"
 
+    def _release_return(self) -> None:
+        self._return_release_after = None
+        self._return_held = False
+        self.w.arm_done_keyboard()
+        emit_serial_marker("BEAMO_WIPE_KEY_RETURN_RELEASED")
+
+    def _claim_space_press(self) -> bool:
+        """Claim a new physical Space press; suppress X11 repeat pairs."""
+        if self._space_release_after is not None:
+            try:
+                self.root.after_cancel(self._space_release_after)
+            except tk.TclError:
+                pass
+            self._space_release_after = None
+        if self._space_held:
+            return False
+        self._space_held = True
+        return True
+
     def _on_space_release(self, _event=None) -> str:
+        # Like Return, X11 autorepeat queues Release/Press pairs. Only an idle
+        # queue proves that the physical key was actually released.
+        if self._space_release_after is not None:
+            try:
+                self.root.after_cancel(self._space_release_after)
+            except tk.TclError:
+                pass
+        self._space_release_after = self.root.after_idle(self._release_space)
+        return "break"
+
+    def _release_space(self) -> None:
+        self._space_release_after = None
         self._space_held = False
         self.w.arm_done_keyboard()
-        return "break"
+        emit_serial_marker("BEAMO_WIPE_KEY_SPACE_RELEASED")
 
     def _click_cancel(self) -> None:
         """Visible cancel on WORKING. Never silently ignored."""
@@ -2229,8 +2402,14 @@ class TkWizard:
                 pass
         self._draw()
 
+    def _click_save_report(self) -> None:
+        if self.w.begin_report_export():
+            self._draw()
+
     def _click_shutdown(self) -> None:
         """Button Space/click on Shut down. Ignore until the arriving key is up."""
+        if self._return_held or (self._space_held and not self._space_action_active):
+            return
         if self.w.screen in (Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             if not self.w._done_keyboard_armed:
                 return
@@ -2239,6 +2418,12 @@ class TkWizard:
     def _on_return(self, _event=None) -> str:
         # X11 auto-repeat is extra KeyPress events with no KeyRelease. The
         # same physical Enter would skip Confirm → Method → Last chance.
+        if self._return_release_after is not None:
+            try:
+                self.root.after_cancel(self._return_release_after)
+            except tk.TclError:
+                pass
+            self._return_release_after = None
         if self._return_held:
             return "break"
         self._return_held = True
@@ -2267,6 +2452,10 @@ class TkWizard:
         if self.w.wants_shutdown:
             self._teardown()
             return "break"
+        # Fixed, identifier-free pre-render state for the isolated QEMU gate.
+        # If rendering raises, this still distinguishes the accepted state
+        # transition from a missing key event or a fail-closed pick result.
+        emit_serial_marker(f"BEAMO_WIPE_RETURN_RESULT_{self.w.screen.name}")
         if self.w.screen != before or screen != Screen.CONFIRM:
             self._draw()
         return "break"
@@ -2274,8 +2463,8 @@ class TkWizard:
     def _on_key(self, event) -> Optional[str]:
         if event.keysym in ("Return", "KP_Enter", "Escape", "Tab"):
             return None
-        if event.keysym == "space":
-            self._space_held = True
+        if event.keysym == "space" and not self._claim_space_press():
+            return "break"
         if self.w.screen == Screen.SPLASH:
             self.w.skip_splash()
             self._draw()
@@ -2324,11 +2513,14 @@ class TkWizard:
             self._draw()
             return
         self.w.shutdown()
-        self._teardown()
+        if self.w.wants_shutdown:
+            self._teardown()
+        else:
+            self._draw()
 
     def run(self) -> int:
         self.root.mainloop()
-        return 0
+        return 3 if self._fatal_ui else 0
 
 
 def run_tk(wizard: Wizard, fullscreen: bool = False) -> int:

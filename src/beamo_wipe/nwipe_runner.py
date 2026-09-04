@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import fcntl
+import errno
 import os
 import re
 import signal
@@ -40,8 +41,11 @@ PERCENT_RE = re.compile(r"(?<!\d)(\d{1,3}(?:\.\d+)?)\s*%")
 # nwipe 0.42 SIGUSR1: "/dev/vda: 045.23%, round 1 of 1, pass 1 of 1, eta …"
 # Groups: percent, round i, round n, optional pass i, optional pass n.
 NWIPE_PROGRESS_RE = re.compile(
-    r":\s*(\d{1,3}(?:\.\d+)?)\s*%,\s*round\s+(\d+)\s+of\s+(\d+)"
-    r"(?:,\s*pass\s+(\d+)\s+of\s+(\d+))?"
+    r"^\s*(?:(?:\[[^\]\r\n]*\]\s*)?"
+    r"(?:debug|info|notice|warning|error|fatal|sanity):\s*)?"
+    r"(/dev/[A-Za-z0-9._+-]+)"
+    r":\s*(\d{1,3}(?:\.\d+)?)\s*%,\s*round\s+(\d{1,6})\s+of\s+(\d{1,6})"
+    r"(?:,\s*pass\s+(\d{1,6})\s+of\s+(\d{1,6}))?"
 )
 # nwipe 0.42 (device.c / nwipe.c) when the target is mounted and --force is unset.
 NWIPE_BUSY_RE = re.compile(
@@ -122,7 +126,7 @@ def _verify_pinned_nwipe(binary: str) -> None:
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise SafetyError("Cannot verify the nwipe binary.") from exc
     blob = f"{proc.stdout or ''}{proc.stderr or ''}"
-    if not nwipe_version_is_pinned(blob):
+    if proc.returncode != 0 or not nwipe_version_is_pinned(blob):
         raise SafetyError(
             f"Refusing to exec nwipe; pinned version is {NWIPE_PINNED_VERSION}."
         )
@@ -198,9 +202,9 @@ def _try_log_diag(area: str, code: str, detail: str = "") -> None:
 def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
     """True if another process is already exec'ing the pinned engine.
 
-    Fail-closed: any OSError reading /proc or resolving the pinned path is
-    treated as "possibly running" (True) to prevent concurrent wipe, and
-    emitted as a structured diagnostic with actionable next steps.
+    Permission failures and top-level /proc failures are treated as
+    "possibly running". Vanished processes and kernel threads without an
+    executable are ignored after emitting a bounded diagnostic.
     """
     try:
         pinned = os.path.realpath(NWIPE_PINNED_PATH)
@@ -221,9 +225,20 @@ def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
             continue
         try:
             exe = os.path.realpath(os.readlink(f"/proc/{name}/exe"))
-        except OSError:
-            unreadable += 1
-            continue
+        except OSError as exc:
+            # Processes can exit between listdir and readlink; kernel threads
+            # may not expose exe. Those expected races do not prove nwipe is
+            # running, but remain visible as a bounded diagnostic.
+            if exc.errno in {errno.ENOENT, errno.ESRCH}:
+                unreadable += 1
+                continue
+            code = (
+                "proc_exe_permission_denied"
+                if exc.errno in {errno.EACCES, errno.EPERM}
+                else "proc_exe_check_failed"
+            )
+            _try_log_diag("nwipe", code, f"pid={pid}")
+            return True
         if exe == pinned:
             return True
     if unreadable:
@@ -444,14 +459,25 @@ def _target_reported_failure(log_text: str, device: str) -> bool:
 def _iter_target_progress(log_text: str, device: str):
     """Yield SIGUSR1 progress matches for this device, in log order."""
     for line in (log_text or "").splitlines():
-        if not _line_mentions_device(line, device):
-            continue
-        match = NWIPE_PROGRESS_RE.search(line)
+        match = NWIPE_PROGRESS_RE.match(line)
         if match is None:
             continue
-        value = float(match.group(1))
-        if 0.0 <= value <= 100.0:
-            yield match, value
+        if os.path.realpath(match.group(1)) != os.path.realpath(device):
+            continue
+        try:
+            value = float(match.group(2))
+            round_i, round_n = int(match.group(3)), int(match.group(4))
+            pass_i = int(match.group(5)) if match.group(5) is not None else None
+            pass_n = int(match.group(6)) if match.group(6) is not None else None
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not (0.0 <= value <= 100.0 and 1 <= round_i <= round_n):
+            continue
+        if (pass_i is None) != (pass_n is None):
+            continue
+        if pass_i is not None and pass_n is not None and not (1 <= pass_i <= pass_n):
+            continue
+        yield match, value
 
 
 def _target_last_percent(log_text: str, device: str) -> Optional[float]:
@@ -468,25 +494,8 @@ def _target_last_percent(log_text: str, device: str) -> Optional[float]:
 
 
 def _job_percent_from_match(match: re.Match, value: float) -> float:
-    """Map a pass-local SIGUSR1 percent onto the whole job.
-
-    dodshort reports 100% at the end of each of 3 passes. Showing that as
-    the only progress number makes WORKING flash 100% then wrap to 0%.
-    """
-    round_i, round_n = int(match.group(2)), int(match.group(3))
-    if round_n <= 0:
-        return value
-    pass_i, pass_n = match.group(4), match.group(5)
-    if pass_i is None or pass_n is None:
-        total = round_n
-        done = max(0, round_i - 1)
-        return min(100.0, (done + value / 100.0) / total * 100.0)
-    pass_i_n, pass_n_n = int(pass_i), int(pass_n)
-    if pass_n_n <= 0:
-        return value
-    total = round_n * pass_n_n
-    done = (round_i - 1) * pass_n_n + (pass_i_n - 1)
-    return min(100.0, (done + value / 100.0) / total * 100.0)
+    """Return nwipe 0.42's already job-wide ``round_percent`` value."""
+    return value
 
 
 def _target_job_percent(log_text: str, device: str) -> Optional[float]:
@@ -498,10 +507,10 @@ def _target_job_percent(log_text: str, device: str) -> Optional[float]:
 
 def _progress_is_final_pass(match: re.Match) -> bool:
     """True if this SIGUSR1 line is the last pass of the last round."""
-    round_i, round_n = int(match.group(2)), int(match.group(3))
+    round_i, round_n = int(match.group(3)), int(match.group(4))
     if round_i != round_n:
         return False
-    pass_i, pass_n = match.group(4), match.group(5)
+    pass_i, pass_n = match.group(5), match.group(6)
     if pass_i is None or pass_n is None:
         return True
     return int(pass_i) == int(pass_n)
@@ -526,10 +535,10 @@ def _target_reported_success(log_text: str, device: str) -> bool:
     pointer is unset and result is 0 — including after nwipe_options_log()
     and before pthread_create. That line is not a completed wipe.
     """
+    name = re.escape(os.path.basename(os.path.realpath(device)))
+    row = re.compile(rf"^\s*!?\s*{name}\s*\|\s*Erased\s*\|")
     for line in (log_text or "").splitlines():
-        if not _line_mentions_device(line, device):
-            continue
-        if re.search(r"\|\s*Erased\s*\|", line):
+        if row.match(line):
             return True
     return False
 
@@ -580,6 +589,10 @@ class NwipeRunner:
         self._last_logfile = ""
 
     def start(self, request: WipeRequest) -> None:
+        # Refuse a duplicate before touching the active run's log.
+        with self._lock:
+            if self._proc is not None:
+                raise SafetyError("A wipe is already running.")
         resolved = resolve_nwipe_binary(self.binary)
         real_engine = os.path.basename(resolved) == "nwipe"
         if real_engine:
@@ -603,7 +616,6 @@ class NwipeRunner:
         argv = build_nwipe_argv(request)
         argv[0] = resolved
         assert_log_not_on_target(request.logfile, request.device)
-        truncate_log_file(request.logfile, request.device)
         popen_env = None
         if real_engine:
             env = dict(NWIPE_CLEAN_ENV)
@@ -613,22 +625,26 @@ class NwipeRunner:
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
             self._acquire_wipe_lock(request)
-            if real_engine:
-                # Recheck both identities while holding the exclusive wipe
-                # lock, immediately before Popen. This narrows the hotplug
-                # window after the owner confirms the displayed disk.
-                try:
+            try:
+                # A losing concurrent process must never truncate the active
+                # runner's log. Touch the logfile only after flock succeeds.
+                truncate_log_file(request.logfile, request.device)
+                if real_engine:
+                    # Recheck both identities while holding the exclusive wipe
+                    # lock, immediately before Popen. This narrows the hotplug
+                    # window after the owner confirms the displayed disk.
                     assert_existing_is_block_device(request.device, required=True)
                     assert_existing_is_block_device(request.boot_device, required=True)
+                    assert_size_unchanged(request.device, request.device_size_bytes)
                     if block_rdev(request.device) != request.device_rdev:
                         raise SafetyError("Disk identity changed. Refusing to erase.")
                     if block_rdev(request.boot_device) != request.boot_rdev:
                         raise SafetyError("Boot device identity changed. Refusing to erase.")
                     assert_local_device_transport(request.device)
                     assert_not_boot(request.device, request.boot_device, required=True)
-                except Exception:
-                    self._release_wipe_lock()
-                    raise
+            except Exception:
+                self._release_wipe_lock()
+                raise
             self.result = None
             self.progress = None
             self._log_tail = ""
@@ -890,6 +906,7 @@ class DryRunRunner:
         self._clock = clock or time.monotonic
         self.progress: Optional[float] = None
         self.result: Optional[WipeResult] = None
+        self._log_tail = ""
         self._started: Optional[float] = None
         self._request: Optional[WipeRequest] = None
         self.started = False
@@ -903,6 +920,7 @@ class DryRunRunner:
         self.cancelled = False
         self.progress = None
         self.result = None
+        self._log_tail = ""
 
     def poll(self, request: WipeRequest) -> Optional[WipeResult]:
         if self._started is None:
@@ -945,6 +963,10 @@ class DryRunRunner:
                 logfile=request.logfile,
             )
             self.progress = 100.0
+            self._log_tail = (
+                f"{request.device}: 100.00%, round 1 of 1, pass 1 of 1, "
+                "eta 00:00:00, [finished]\n"
+            )
         self._started = None
         return self.result
 

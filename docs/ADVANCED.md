@@ -42,4 +42,9 @@ vendor secure erase or physical destruction, see
 ## Logs
 
 Export a log only to a **second** USB that is not the target and not the
-Beamo boot stick. Advanced screen shows the log path.
+Beamo boot stick. The Advanced screen shows the temporary log path. After the
+wipe reaches Finished, choose **Save report to USB**, leave the Beamo boot USB
+and selected disk connected, and insert exactly one separate FAT32 USB. Beamo
+Wipe writes a unique report directory, verifies it after a read-only remount,
+and only then says that the report USB is safe to remove. It never formats or
+repairs the report USB.

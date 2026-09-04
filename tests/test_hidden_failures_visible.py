@@ -159,7 +159,7 @@ def test_shutdown_failure_is_visible(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe import app as app_mod
 
-    with mock.patch("subprocess.Popen", side_effect=OSError("no systemctl")):
+    with mock.patch("subprocess.run", side_effect=OSError("no systemctl")):
         with mock.patch("beamo_wipe.diagnostics.log_diag") as lg:
             app_mod._shutdown()
             assert lg.called
@@ -225,8 +225,8 @@ def test_build_hook_logs_with_retry_and_timestamp():
 def test_progress_never_shows_100_before_verified():
     from beamo_wipe.nwipe_runner import _target_job_percent, evaluate_nwipe_completion
 
-    # dodshort mid-pass: raw 100% but job 33% must not be treated as verified
-    log = "/dev/vda: 100.00%, round 1 of 1, pass 1 of 3, eta 00:10:00, [writing]\n"
+    # dodshort mid-job: pinned nwipe's value is already job-wide.
+    log = "/dev/vda: 33.33%, round 1 of 1, pass 1 of 3, eta 00:10:00, [writing]\n"
     assert _target_job_percent(log, "/dev/vda") == pytest.approx(33.33, abs=0.01)
     ok, _ = evaluate_nwipe_completion(0, log, "/dev/vda")
     assert not ok, "mid-pass 100% must not be verified"

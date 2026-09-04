@@ -159,8 +159,18 @@ def _outcome_for(
         # No result yet: running vs started distinguished by caller
         return OUTCOME_RUNNING, None
     # result exists
-    ok = bool(result.ok)
+    ok = False
     exit_code = result.exit_code
+    completion_summary = ""
+    if result.ok:
+        try:
+            from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+            ok, completion_summary = evaluate_nwipe_completion(
+                exit_code, log_text or "", device
+            )
+        except Exception:
+            ok = False
     spec = METHODS.get(method)
     verify = spec.verify if spec else "unknown"
     # Truthful: nonzero/unknown without markers is FAILED
@@ -168,7 +178,11 @@ def _outcome_for(
     # However if result.summary indicates bus skip / abort / open fail, ok is False
     if not ok:
         # Preserve the summary as failure reason (redacted, no host details)
-        reason = (result.summary or "").strip() or f"nwipe exited {exit_code}"
+        reason = (
+            completion_summary
+            or (result.summary or "").strip()
+            or f"nwipe exited {exit_code}"
+        )
         # Never translate to success
         return OUTCOME_FAILED, reason
     # ok == True
@@ -228,16 +242,26 @@ def build_evidence(
     warnings = _warnings_for(disk, selectable)
 
     # Verification
+    device_path = disk.path if disk else (request.device if request else "")
+    validated_ok = False
+    if result is not None and result.ok:
+        try:
+            from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+            validated_ok, _summary = evaluate_nwipe_completion(
+                result.exit_code, log_text or "", device_path
+            )
+        except Exception:
+            validated_ok = False
     verification_requested, verified = _verification_state(
         method,
         log_text or "",
         (disk.path if disk else (request.device if request else "")),
         exit_code,
-        bool(result.ok) if result else False,
+        validated_ok,
     )
 
     # Outcome
-    device_path = disk.path if disk else (request.device if request else "")
     outcome, failure_reason = _outcome_for(
         result=result,
         method=method,
@@ -263,11 +287,15 @@ def build_evidence(
 
     # Log checksum (tail only, not full sensitive log)
     log_checksum: Optional[str] = None
+    log_snapshot_size_bytes = 0
     if log_text:
         try:
-            log_checksum = hashlib.sha256(log_text.encode("utf-8", errors="replace")).hexdigest()
+            log_snapshot = log_text.encode("utf-8", errors="replace")
+            log_checksum = hashlib.sha256(log_snapshot).hexdigest()
+            log_snapshot_size_bytes = len(log_snapshot)
         except Exception:
             log_checksum = None
+            log_snapshot_size_bytes = 0
 
     evidence: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -312,6 +340,10 @@ def build_evidence(
         },
         "logfile": (result.logfile if result and result.logfile else (request.logfile if request else "")),
         "log_checksum_sha256": log_checksum,
+        # Authenticates the exact UTF-8 log suffix used to decide this
+        # outcome. The mutable logfile is exported only when this length and
+        # digest still match; otherwise the report omits it.
+        "log_snapshot_size_bytes": log_snapshot_size_bytes,
         "provenance": {
             "evidence_file": "",  # filled by writer
             "written_at_wall": "",
@@ -415,8 +447,35 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
         os.fsync(fd)
         os.close(fd)
         fd = -1
-        os.rename(tmp_name, path.name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
-        os.fsync(dir_fd)
+        # Publish the already-fsynced inode without replacing an existing
+        # entry. linkat's create-if-absent behavior closes the exists()/rename
+        # race that could overwrite a report planted between preflight and
+        # commit. This primitive is used on the local evidence filesystem;
+        # the FAT32 workflow has its own O_EXCL bundle writer.
+        os.link(
+            tmp_name,
+            path.name,
+            src_dir_fd=dir_fd,
+            dst_dir_fd=dir_fd,
+            follow_symlinks=False,
+        )
+        try:
+            os.unlink(tmp_name, dir_fd=dir_fd)
+            os.fsync(dir_fd)
+        except BaseException:
+            # linkat() already made the destination visible. If durability
+            # cannot be proved, remove the entry created by this call so a
+            # retry is not permanently blocked by an orphan without its
+            # checksum partner.
+            try:
+                os.unlink(path.name, dir_fd=dir_fd)
+            except OSError:
+                pass
+            try:
+                os.fsync(dir_fd)
+            except OSError:
+                pass
+            raise
     finally:
         if fd >= 0:
             os.close(fd)
@@ -444,6 +503,20 @@ def verify_evidence_checksum(path: Path) -> bool:
         return False
 
 
+def _verified_evidence_bytes(path: Path) -> bytes:
+    """Return the exact bytes authenticated by the adjacent sidecar."""
+    data = _read_regular_nofollow(path)
+    sidecar = Path(str(path) + CHECKSUM_SUFFIX)
+    try:
+        text = _read_regular_nofollow(sidecar).decode("ascii")
+    except Exception as exc:
+        raise SafetyError("Evidence checksum is missing or invalid") from exc
+    expected = f"{hashlib.sha256(data).hexdigest()}  {path.name}\n"
+    if text != expected:
+        raise SafetyError("Evidence checksum is missing or invalid")
+    return data
+
+
 def export_evidence(
     evidence_path: Path,
     dest_dir: Path,
@@ -457,8 +530,7 @@ def export_evidence(
     """
     src = Path(evidence_path)
     dest_dir = Path(dest_dir)
-    if not verify_evidence_checksum(src):
-        raise SafetyError("Evidence checksum is missing or invalid")
+    data = _verified_evidence_bytes(src)
     if not dest_dir.exists():
         raise SafetyError("Export destination missing")
     # Ensure dest_dir itself is a directory and not a symlink
@@ -482,14 +554,26 @@ def export_evidence(
     if boot_device:
         assert_log_not_on_target(str(dest_file), boot_device, log_dir=dest_dir)
     # Also check via mountinfo that dest_dir is not on target (best effort)
-    # Atomic copy: read src, write tmp in dest_dir, fsync, rename
-    data = _read_regular_nofollow(src)
-    _atomic_write_bytes(dest_file, data)
+    # Compatibility API for pre-mounted destinations. The kiosk does not call
+    # this path; _atomic_write_bytes still publishes without replacement.
     dest_sc = Path(str(dest_file) + CHECKSUM_SUFFIX)
-    _atomic_write_bytes(
-        dest_sc,
-        f"{hashlib.sha256(data).hexdigest()}  {dest_file.name}\n".encode("ascii"),
-    )
+    wrote_data = False
+    try:
+        _atomic_write_bytes(dest_file, data)
+        wrote_data = True
+        _atomic_write_bytes(
+            dest_sc,
+            f"{hashlib.sha256(data).hexdigest()}  {dest_file.name}\n".encode("ascii"),
+        )
+    except Exception:
+        # The preflight proved both paths absent, so only remove the partial
+        # data file created by this call. A retry can then recover in place.
+        if wrote_data:
+            try:
+                dest_file.unlink()
+            except OSError:
+                pass
+        raise
     # Fsync dest_dir
     try:
         dfd = os.open(str(dest_dir), os.O_DIRECTORY | os.O_RDONLY)

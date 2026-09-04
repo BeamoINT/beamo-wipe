@@ -135,8 +135,8 @@ ADVANCED_LEAD = (
 )
 
 ADVANCED_LOG_NOTE = (
-    "To save a log, plug in a second USB that is not the disk you erased "
-    "and copy the log file there."
+    "After the wipe finishes, use Save report to USB. Insert one separate "
+    "FAT32 USB only when the Finished screen asks for it."
 )
 
 ADVANCED_LOG_LABEL = "Log file (never on the disk you erase): "
@@ -151,6 +151,7 @@ BTN_ERASE = "Erase now"
 BTN_ADVANCED = "Advanced (technicians)"
 BTN_MORE = "Show more"
 BTN_LESS = "Show less"
+BTN_SAVE_REPORT = "Save report to USB"
 
 PREVIEW_BANNER = "PREVIEW on this computer — fake disks — nothing is erased"
 
@@ -161,7 +162,7 @@ HINT_METHOD = "Press 1, 2, or 3 to choose.  Enter continues."
 HINT_CONFIRM = "Type exactly what we ask for, then Enter."
 HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
 HINT_BLOCKED = "Enter shuts down.  Esc goes back."
-HINT_DONE = "Enter shuts down."
+HINT_DONE = "Save the report first if you need it. Enter shuts down."
 HINT_WORKING = "Leave this USB in until you see Finished."
 HINT_SPLASH = "Press any key to continue."
 

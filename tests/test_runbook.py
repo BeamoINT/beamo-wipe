@@ -145,3 +145,11 @@ def test_runbook_evidence_checklist_has_redaction():
     assert "serial" in text
     assert "hmac" not in text  # no inventing hmac redaction
     assert "evidence" in text and "log_checksum" in text
+
+
+def test_runbook_matches_fail_closed_completion_and_authenticated_log_export():
+    text = _lower("docs/runbook.md")
+    assert "exit 0, no markers" not in text
+    assert "log over 8 mib" not in text
+    assert "explicit successful completion marker" in text
+    assert "authenticated log suffix" in text

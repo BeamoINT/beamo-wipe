@@ -239,9 +239,29 @@ def test_kiosk_is_a_hardened_systemd_service_not_a_login_shell():
     assert "NoNewPrivileges=yes" in service
     assert "PrivateNetwork=yes" in service
     assert "ProtectSystem=full" in service
-    assert "StandardOutput=null" in service
+    assert "StandardOutput=tty" in service
+    assert "StandardError=tty" in service
     assert "trap '' TSTP INT QUIT" in supervisor
     assert not (ROOT / "packaging/live/config/includes.chroot/etc/systemd/system/getty@tty1.service.d/autologin.conf").exists()
+
+
+def test_bootloaders_autostart_the_normal_live_entry():
+    """An unattended kiosk must not wait forever at either firmware menu."""
+    isolinux = (
+        ROOT
+        / "packaging/live/config/bootloaders/isolinux/isolinux.cfg"
+    ).read_text()
+    grub = (
+        ROOT
+        / "packaging/live/config/bootloaders/grub-pc/config.cfg"
+    ).read_text()
+
+    assert "default vesamenu.c32" in isolinux
+    assert "prompt 0" in isolinux
+    assert "timeout 50" in isolinux  # Syslinux units are tenths of a second.
+    assert "timeout 0" not in isolinux
+    assert "set default=0" in grub
+    assert "set timeout=5" in grub
 
 
 def test_live_supervisor_falls_back_to_console_after_x_failure():

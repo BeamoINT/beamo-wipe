@@ -422,11 +422,11 @@ def test_reboot_shutdown_fallback_chain(monkeypatch):
 
     called = []
 
-    def fake_popen(cmd, **kw):
+    def fake_run(cmd, **kw):
         called.append(cmd[0])
         raise OSError("missing")
 
-    monkeypatch.setattr("subprocess.Popen", fake_popen)
+    monkeypatch.setattr("subprocess.run", fake_run)
     # Should try all 7 shutdown commands and then log_diag + print
     monkeypatch.setattr("beamo_wipe.diagnostics.log_diag", lambda a, c, d="": None)
     # Capture stderr

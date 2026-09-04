@@ -110,14 +110,14 @@ def test_unknown_method_raises_safetyerror_not_keyerror():
         build_nwipe_argv(req)
 
 
-def test_job_percent_not_raw_on_dodshort_mid_pass():
-    log = "/dev/vda: 100.00%, round 1 of 1, pass 1 of 3, eta 00:10:00, [writing]\n"
+def test_job_percent_uses_nwipe_job_wide_round_percent():
+    log = "/dev/vda: 66.67%, round 1 of 1, pass 3 of 3, eta 00:10:00, [writing]\n"
     raw = _target_last_percent(log, "/dev/vda")
     job = _target_job_percent(log, "/dev/vda")
-    assert raw == 100.0
+    assert raw == 66.67
     assert job is not None
-    assert abs(job - 33.33333333333333) < 0.01
-    # Poll must use job percent, not raw, so incomplete wipe never flashes 100%
+    assert job == 66.67
+    # Pinned nwipe already reports round_done / round_size across all passes.
     from beamo_wipe.nwipe_runner import NwipeRunner
 
     import inspect

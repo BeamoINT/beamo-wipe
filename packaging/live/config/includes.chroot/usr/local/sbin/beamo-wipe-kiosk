@@ -12,6 +12,12 @@ stty intr undef 2>/dev/null || true
 trap 'exit 0' TERM HUP
 trap '' TSTP INT QUIT
 
+# QEMU's boot gate waits for this marker from the shipped live filesystem.
+# It is harmless on physical machines without a serial console.
+if [ -c /dev/ttyS0 ]; then
+  printf '%s\n' BEAMO_WIPE_KIOSK_READY >/dev/ttyS0 2>/dev/null || true
+fi
+
 run_ui() {
   rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
   if command -v startx >/dev/null 2>&1; then

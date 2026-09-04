@@ -26,9 +26,34 @@ if [ -n "$missing" ]; then
   echo "Install Docker plus the listed provenance tools and re-run ./scripts/build-iso.sh" >&2
   exit 2
 fi
+WRAPPER_VERSION="$(PYTHONPATH="$ROOT/src" python3 -c 'import beamo_wipe; print(beamo_wipe.__version__)')"
+if [ "$VERSION" != "$WRAPPER_VERSION" ]; then
+  echo "BEAMO_WIPE_VERSION $VERSION does not match wrapper $WRAPPER_VERSION" >&2
+  exit 2
+fi
 
 DOCKER_INFO="$(mktemp "${TMPDIR:-/tmp}/beamo-wipe-docker.XXXXXX")"
-trap 'rm -f -- "$DOCKER_INFO"' EXIT HUP INT TERM
+BUILD_OUT=""
+BACKUP_DIR=""
+bundle_in_progress=0
+BUNDLE_FILES="$ISO_NAME beamo-wipe-${VERSION}-amd64.manifest.json beamo-wipe-${VERSION}-amd64.manifest.json.sha256 beamo-wipe-${VERSION}-amd64.iso.sha256 SHA256SUMS"
+cleanup() {
+  rc=$?
+  if [ "$bundle_in_progress" -gt 0 ] && [ -n "$BACKUP_DIR" ]; then
+    for name in $BUNDLE_FILES; do
+      if [ "$bundle_in_progress" -eq 2 ]; then rm -f -- "$OUT_DIR/$name"; fi
+      if [ -f "$BACKUP_DIR/$name" ]; then
+        mv -- "$BACKUP_DIR/$name" "$OUT_DIR/$name" || true
+      fi
+    done
+  fi
+  rm -f -- "$DOCKER_INFO"
+  if [ -n "$BUILD_OUT" ]; then rm -f -- "$BUILD_OUT/$ISO_NAME"; rmdir "$BUILD_OUT" 2>/dev/null || :; fi
+  if [ -n "$BACKUP_DIR" ]; then rmdir "$BACKUP_DIR" 2>/dev/null || :; fi
+  exit "$rc"
+}
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
 if ! docker info >"$DOCKER_INFO" 2>&1; then
   echo "Docker is installed but not running, or this user cannot talk to the daemon." >&2
   echo "--- docker info output ---" >&2
@@ -46,8 +71,17 @@ rm -rf "$STAGE_PY" "$STAGE_SHARE" "$STAGE_DOC"
 mkdir -p "$STAGE_PY" "$STAGE_SHARE/helper" "$STAGE_DOC" "$STAGE_BIN" \
   "$LIVE/config/includes.chroot/usr/local/bin"
 
-# Portable dir copy (macOS cp -R)
-cp -R "$ROOT/src/beamo_wipe/." "$STAGE_PY/"
+# Stage only Git-tracked wrapper files. Ignored/untracked executable bytes can
+# never enter the ISO, while an explicit ALLOW_DIRTY local build can still test
+# modifications to already tracked files.
+git ls-files -- src/beamo_wipe | while IFS= read -r tracked; do
+  rel="${tracked#src/beamo_wipe/}"
+  mkdir -p "$STAGE_PY/$(dirname "$rel")"
+  cp "$ROOT/$tracked" "$STAGE_PY/$rel"
+done
+# Bytecode is a local runtime artifact, not reviewed source. Never ship it.
+find "$STAGE_PY" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+find "$STAGE_PY" -type d -name __pycache__ -empty -delete
 cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"
 cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"
 cp "$ROOT/NOTICE" "$STAGE_DOC/NOTICE"
@@ -76,9 +110,15 @@ if ! ls "$LIVE/config/hooks/normal/"*.hook.chroot >/dev/null 2>&1; then
   echo "ERROR: no hook scripts found in $LIVE/config/hooks/normal/" >&2
   exit 1
 fi
+unexpected_hook="$(find "$LIVE/config/hooks/normal" -maxdepth 1 -type f -name '*.hook.chroot' ! -name '0500-build-nwipe.hook.chroot' -print -quit)"
+if [ -n "$unexpected_hook" ]; then
+  echo "ERROR: unapproved live-build hook: $unexpected_hook" >&2
+  exit 1
+fi
 chmod +x "$LIVE/config/hooks/normal/"*.hook.chroot
 
 mkdir -p "$OUT_DIR"
+BUILD_OUT="$(mktemp -d "$OUT_DIR/.build-output.XXXXXX")"
 
 echo "Running Debian live-build in Docker (linux/amd64)."
 echo "The chroot is built on the container filesystem (not a macOS bind mount),"
@@ -92,7 +132,7 @@ docker run --rm --privileged --platform linux/amd64 \
   -e BEAMO_WIPE_VERSION="$VERSION" \
   -e BEAMO_WIPE_ISO_NAME="$ISO_NAME" \
   -v "$ROOT":/src:ro \
-  -v "$OUT_DIR":/out \
+  -v "$BUILD_OUT":/out \
   "$BUILD_IMAGE" \
   bash /src/packaging/live/inside-docker.sh || docker_status=$?
 if [ "$docker_status" -ne 0 ]; then
@@ -102,10 +142,19 @@ if [ "$docker_status" -ne 0 ]; then
   exit 1
 fi
 
-if [ ! -f "$OUT_DIR/$ISO_NAME" ]; then
-  echo "live-build finished but $OUT_DIR/$ISO_NAME was not written." >&2
+if [ ! -f "$BUILD_OUT/$ISO_NAME" ]; then
+  echo "live-build finished but staged $ISO_NAME was not written." >&2
   exit 1
 fi
+BACKUP_DIR="$(mktemp -d "$OUT_DIR/.bundle-backup.XXXXXX")"
+bundle_in_progress=1
+for name in $BUNDLE_FILES; do
+  if [ -f "$OUT_DIR/$name" ]; then
+    mv -- "$OUT_DIR/$name" "$BACKUP_DIR/$name"
+  fi
+done
+bundle_in_progress=2
+mv -- "$BUILD_OUT/$ISO_NAME" "$OUT_DIR/$ISO_NAME"
 echo "Wrote $OUT_DIR/$ISO_NAME"
 ls -lh "$OUT_DIR/$ISO_NAME"
 # Generate provenance manifest (fails closed on dirty/placeholder/missing
@@ -121,4 +170,6 @@ for _f in "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VE
     exit 1
   fi
 done
+bundle_in_progress=0
+for name in $BUNDLE_FILES; do rm -f -- "$BACKUP_DIR/$name"; done
 ls -lh "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"

@@ -69,6 +69,7 @@ install_qemu_deps() {
     util-linux \
     kmod \
     hdparm \
+    dosfstools \
     build-essential \
     automake \
     autoconf \

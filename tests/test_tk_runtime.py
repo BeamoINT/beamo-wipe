@@ -15,7 +15,8 @@ tk = pytest.importorskip("tkinter")
 
 from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.models import Screen
-from beamo_wipe.ui.tk_wizard import TkWizard
+from beamo_wipe.support_export import ExportReceipt
+from beamo_wipe.ui.tk_wizard import TkWizard, _Button
 
 try:
     import tkinter as _tk_probe  # noqa: F401
@@ -124,6 +125,20 @@ def _off_window_problems(app) -> list:
     return problems
 
 
+def _button_named(app, text):
+    found = []
+
+    def visit(widget):
+        if isinstance(widget, _Button) and widget.itemcget(widget._label, "text") == text:
+            found.append(widget)
+        for child in widget.winfo_children():
+            visit(child)
+
+    visit(app.root)
+    assert len(found) == 1
+    return found[0]
+
+
 def _drive_to(wiz, app, screen, size=WINDOW):
     """Walk the real wizard state machine to a screen, then redraw."""
     if wiz.screen == Screen.SPLASH and screen != Screen.SPLASH:
@@ -189,8 +204,12 @@ def test_status_screens_fit(ui, size):
         assert _off_window_problems(app) == []
 
 
-def test_done_screen_fits(ui):
-    wiz, app = ui()
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_done_screen_fits(ui, size):
+    wiz, app = ui(size=size)
+    # Exercise the shipped live Done controls, including Save report to USB,
+    # rather than the shorter preview-only footer.
+    wiz.preview = False
     _drive_to(wiz, app, Screen.LAST_CHANCE)
     wiz._erase_until = 0.0  # countdown already covered elsewhere; skip the 5s
     wiz.tick()
@@ -205,6 +224,7 @@ def test_done_screen_fits(ui):
     app._draw()
     app.root.update_idletasks()
     assert wiz.screen == Screen.DONE
+    assert wiz.can_save_report
     assert _clipping_problems(app) == []
     assert _off_window_problems(app) == []
 
@@ -287,6 +307,22 @@ def test_held_enter_does_not_erase_when_countdown_completes(ui, tmp_path, monkey
     (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
     root.update()
     assert wiz.screen == Screen.WORKING
+
+
+def test_x11_release_press_autorepeat_pair_is_one_held_enter(ui, tmp_path, monkeypatch):
+    """Queued X11 autorepeat Release/Press must not re-arm destructive Enter."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.METHOD)
+    app._on_return()
+    assert wiz.screen == Screen.LAST_CHANCE
+    wiz._erase_until = 0.0
+    wiz.tick()
+    # X11 queues this pair before the event loop becomes idle.
+    app._on_return_release()
+    app._on_return()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not getattr(wiz.runner, "started", False)
 
 
 def test_held_enter_does_not_skip_method_after_confirm(ui):
@@ -464,6 +500,70 @@ def test_held_space_does_not_shutdown_failed_done(ui):
     except tk.TclError:
         pass
     assert wiz.wants_shutdown
+
+
+def test_x11_space_release_press_pair_does_not_shutdown_done(ui):
+    """A synthetic X11 release/press repeat pair is still one Space hold."""
+    wiz, app = ui(scenario="empty")
+    wiz.preview = False
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    app._draw()
+    wiz.arm_done_keyboard()
+    app._space_held = True
+    app._on_space_release()
+
+    shut = app._primary
+    assert shut is not None
+    shut._key()
+
+    assert not wiz.wants_shutdown
+    assert app._space_held
+
+
+def test_held_space_from_save_cannot_repeat_onto_shutdown(ui, tmp_path, monkeypatch):
+    """A fast report completion cannot move one held Space to Shut down."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, app = ui(fail=True)
+    wiz.preview = False
+    wiz.runner.duration_s = 0.05
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    wiz._erase_until = 0.0
+    wiz.tick()
+    wiz.confirm_erase()
+    deadline = time.monotonic() + 3
+    while wiz.screen != Screen.DONE and time.monotonic() < deadline:
+        wiz.tick()
+        app.root.update()
+    assert wiz.screen == Screen.DONE
+
+    def exporter(**kwargs):
+        return ExportReceipt(
+            True,
+            True,
+            "saved_verified_unmounted",
+            evidence_sha256=kwargs["expected_evidence_sha256"],
+            session_name="report-0123456789abcdef01234567",
+        )
+
+    wiz._report_exporter = exporter
+    app._draw()
+    save = _button_named(app, "Save report to USB")
+    save.focus_set()
+    save._key()
+    deadline = time.monotonic() + 3
+    while wiz.report_view.exporting and time.monotonic() < deadline:
+        app.root.update()
+    app._draw()
+    assert wiz.report_status == "saved"
+    assert not wiz._done_keyboard_armed
+
+    shut = app._primary
+    assert shut is not None
+    shut._key()
+    assert not wiz.wants_shutdown
 
 
 def test_escape_goes_back(ui):

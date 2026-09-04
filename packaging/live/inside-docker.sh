@@ -35,6 +35,9 @@ rsync -a \
   --exclude 'packaging/live/.stage/' \
   --exclude 'packaging/live/binary/' \
   --exclude 'packaging/live/tmp/' \
+  --exclude '__pycache__/' \
+  --exclude '*.pyc' \
+  --exclude '*.pyo' \
   /src/ /build/
 
 cd /build/packaging/live

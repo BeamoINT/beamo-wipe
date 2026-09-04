@@ -525,15 +525,15 @@ def test_nwipe_version_line_is_not_a_substring_match():
 def test_job_percent_does_not_wrap_between_dodshort_passes():
     from beamo_wipe.nwipe_runner import _target_job_percent, _target_last_percent
 
-    pass1 = "/dev/vda: 100.00%, round 1 of 1, pass 1 of 3, eta 00:10:00, [writing]\n"
-    assert _target_last_percent(pass1, "/dev/vda") == 100.0
+    pass1 = "/dev/vda: 33.33%, round 1 of 1, pass 1 of 3, eta 00:10:00, [writing]\n"
+    assert _target_last_percent(pass1, "/dev/vda") == 33.33
     mid = _target_job_percent(pass1, "/dev/vda")
     assert mid is not None
-    assert 33.0 <= mid <= 34.0
-    both = pass1 + "/dev/vda: 0.40%, round 1 of 1, pass 2 of 3, eta 00:10:00, [writing]\n"
+    assert mid == 33.33
+    both = pass1 + "/dev/vda: 33.73%, round 1 of 1, pass 2 of 3, eta 00:10:00, [writing]\n"
     job = _target_job_percent(both, "/dev/vda")
     assert job is not None
-    assert 33.0 <= job <= 35.0
+    assert job == 33.73
     last = (
         both + "/dev/vda: 100.00%, round 1 of 1, pass 3 of 3, eta 00:00:00, [verifying]\n"
     )

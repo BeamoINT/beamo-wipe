@@ -52,6 +52,11 @@ class Disk:
     wwn: str = ""
     vendor: str = ""
     mountpoints: Tuple[str, ...] = ()
+    # ``model`` is presentation text and may fall back to a volume label or
+    # "Unknown model".  None means a caller did not provide raw identity
+    # metadata; discovery always sets this to the exact cleaned lsblk MODEL,
+    # including an empty string when MODEL is absent.
+    raw_model: Optional[str] = None
 
     @property
     def display_name(self) -> str:

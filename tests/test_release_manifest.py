@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION
+from beamo_wipe import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,6 +35,85 @@ def _copy_iso_release_files(manifest: dict, directory: Path) -> None:
     source = ROOT / "dist" / iso_name
     shutil.copy2(source, directory / iso_name)
     shutil.copy2(Path(str(source) + ".sha256"), directory / f"{iso_name}.sha256")
+
+
+def test_strict_dependency_inputs_cannot_be_missing(tmp_path, monkeypatch):
+    import beamo_wipe.release_manifest as rm
+
+    monkeypatch.setattr(rm, "ROOT", tmp_path)
+    with pytest.raises(RuntimeError, match="missing required"):
+        rm.dependency_locks(strict=True)
+
+
+def test_live_build_inputs_require_shipped_wrapper_source(tmp_path, monkeypatch):
+    import beamo_wipe.release_manifest as rm
+
+    monkeypatch.setattr(rm, "ROOT", tmp_path)
+    with pytest.raises(RuntimeError, match="missing shipped wrapper"):
+        rm.live_build_inputs()
+
+
+def test_strict_manifest_rejects_artifact_wrapper_version_mismatch(tmp_path, monkeypatch):
+    import beamo_wipe.release_manifest as rm
+
+    (tmp_path / "pyproject.toml").write_text(
+        f'[project]\nname="beamo-wipe"\nversion="{__version__}"\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(rm, "ROOT", tmp_path)
+    monkeypatch.setattr(rm, "git_commit", lambda: "a" * 40)
+    monkeypatch.setattr(rm, "git_tag_for_commit", lambda _c: None)
+    monkeypatch.setattr(rm, "git_dirty", lambda: (False, []))
+    monkeypatch.setattr(
+        rm,
+        "iso_info",
+        lambda _v: {"iso_name": f"beamo-wipe-{__version__}-amd64.iso"},
+    )
+    with pytest.raises(RuntimeError, match="artifact version"):
+        rm.generate_manifest(version="9.9.9", strict=True)
+
+
+def test_strict_manifest_rechecks_clean_state_at_end(tmp_path, monkeypatch):
+    import beamo_wipe.release_manifest as rm
+
+    (tmp_path / "pyproject.toml").write_text(
+        f'[project]\nname="beamo-wipe"\nversion="{__version__}"\n', encoding="utf-8"
+    )
+    for name in ("THIRD_PARTY.md", "NOTICE"):
+        (tmp_path / name).write_text(name, encoding="utf-8")
+    states = iter(((False, []), (True, ["M src/beamo_wipe/x.py"])))
+    monkeypatch.setattr(rm, "ROOT", tmp_path)
+    monkeypatch.setattr(rm, "git_commit", lambda: "a" * 40)
+    monkeypatch.setattr(rm, "git_tag_for_commit", lambda _c: None)
+    monkeypatch.setattr(rm, "git_dirty", lambda: next(states))
+    monkeypatch.setattr(rm, "git_remote_url", lambda: rm.EXPECTED_REMOTE)
+    monkeypatch.setattr(
+        rm,
+        "iso_info",
+        lambda _v: {"iso_name": f"beamo-wipe-{__version__}-amd64.iso"},
+    )
+    monkeypatch.setattr(rm, "live_build_inputs", lambda: {"src/beamo_wipe/": "b" * 64})
+    monkeypatch.setattr(rm, "build_env", lambda: {})
+    monkeypatch.setattr(rm, "_run", lambda *_a, **_k: "main")
+    with pytest.raises(RuntimeError, match="source state changed"):
+        rm.generate_manifest(version=__version__, strict=True)
+
+
+def test_hash_and_size_reject_path_replacement(tmp_path, monkeypatch):
+    import beamo_wipe.release_manifest as rm
+
+    path = tmp_path / "artifact.iso"
+    path.write_bytes(b"original")
+    real_lstat = rm.os.lstat
+
+    def changed_lstat(target):
+        st = real_lstat(target)
+        values = list(st)
+        values[1] = st.st_ino + 1
+        return os.stat_result(values)
+
+    monkeypatch.setattr(rm.os, "lstat", changed_lstat)
+    with pytest.raises(RuntimeError, match="changed"):
+        rm.sha256_file_with_stat(path)
 
 
 def test_prior_stable_release_identity_is_exact():

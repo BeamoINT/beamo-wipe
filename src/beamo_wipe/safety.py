@@ -358,6 +358,12 @@ def assert_boot_excluded(discovery: DiscoveryResult) -> None:
     selectable_paths = {os.path.realpath(s.path) for s in discovery.selectable}
     if any(d.is_boot and os.path.realpath(d.path) in selectable_paths for d in discovery.disks):
         raise SafetyError("Boot USB appeared as a selectable disk. Refusing to continue.")
+    boot_wwn = (discovery.boot.wwn or "").strip().casefold()
+    if boot_wwn and any(
+        (disk.wwn or "").strip().casefold() == boot_wwn
+        for disk in discovery.selectable
+    ):
+        raise SafetyError("Boot USB appeared through another device path. Refusing to continue.")
 
 
 def assert_not_boot(device: str, boot_path: str, *, required: bool = False) -> None:
@@ -436,7 +442,7 @@ def normalize_whole_disk(path: str, *, allow_optical: bool = False) -> str:
     return real
 
 
-def disk_identity(disk: Disk) -> Tuple[str, str, int, str, str, str]:
+def disk_identity(disk: Disk) -> Tuple[str, str, int, str, str, str, str, str]:
     return (
         os.path.realpath(disk.path),
         (disk.serial or "").strip(),
@@ -444,6 +450,8 @@ def disk_identity(disk: Disk) -> Tuple[str, str, int, str, str, str]:
         (disk.model or "").strip(),
         (disk.wwn or "").strip(),
         (disk.vendor or "").strip(),
+        (disk.bus or "").strip(),
+        disk.kind.value if hasattr(disk.kind, "value") else str(disk.kind),
     )
 
 
@@ -590,8 +598,10 @@ def assert_log_not_on_target(
     if st is not None:
         if stat.S_ISLNK(st.st_mode):
             raise SafetyError("Refusing to write logs through a symlink.")
-        if stat.S_ISBLK(st.st_mode) or stat.S_ISCHR(st.st_mode) or stat.S_ISDIR(st.st_mode):
+        if not stat.S_ISREG(st.st_mode):
             raise SafetyError("Refusing to write logs onto a special file.")
+        if st.st_nlink != 1:
+            raise SafetyError("Refusing a multiply-linked log file.")
     try:
         log = raw.resolve()
     except OSError as exc:
@@ -613,8 +623,10 @@ def assert_log_not_on_target(
             st = os.lstat(log)
         except OSError as exc:
             raise SafetyError("Cannot stat log file.") from exc
-        if stat.S_ISLNK(st.st_mode) or stat.S_ISBLK(st.st_mode) or stat.S_ISCHR(st.st_mode):
+        if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode):
             raise SafetyError("Refusing to write logs onto a special file.")
+        if st.st_nlink != 1:
+            raise SafetyError("Refusing a multiply-linked log file.")
     if not is_preview_env() and _log_filesystem_is_target(log, target):
         raise SafetyError("Refusing to write logs onto the target disk.")
 
@@ -643,7 +655,7 @@ def _log_filesystem_is_target(log: Path, target: str) -> bool:
     best_len = -1
     for source, mountpoint in pairs:
         mp = mountpoint.rstrip("/") or "/"
-        if log_text == mp or log_text.startswith(mp + "/"):
+        if log_text == mp or mp == "/" or log_text.startswith(mp + "/"):
             if len(mp) > best_len:
                 best_source = source
                 best_len = len(mp)
@@ -742,7 +754,7 @@ def truncate_log_file(log_path: str, target: str) -> None:
         st = os.fstat(dirfd)
         if not stat.S_ISDIR(st.st_mode):
             raise SafetyError("Log parent is not a directory.")
-        file_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
+        file_flags = os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW
         try:
             fd = os.open(name, file_flags, 0o600, dir_fd=dirfd)
         except OSError as exc:
@@ -753,8 +765,13 @@ def truncate_log_file(log_path: str, target: str) -> None:
                 raise SafetyError("Refusing to write logs to a non-regular file.")
             if stf.st_uid != os.getuid():
                 raise SafetyError("Log file must be owned by this process.")
+            if stf.st_nlink != 1:
+                raise SafetyError("Refusing a multiply-linked log file.")
             if stat.S_IMODE(stf.st_mode) != 0o600:
                 os.fchmod(fd, 0o600)
+            # Truncate only after validating the opened inode. O_TRUNC would
+            # destroy a hardlink peer before fstat can reject it.
+            os.ftruncate(fd, 0)
         finally:
             os.close(fd)
     finally:

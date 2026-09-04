@@ -8,6 +8,7 @@ cancellation race, structured diagnostics, build-script fail-closed.
 
 from __future__ import annotations
 
+import errno
 import os
 import stat
 import subprocess
@@ -62,11 +63,31 @@ def test_pinned_already_running_unreadable_exe_is_logged(tmp_path, monkeypatch):
     # Use real pinned path resolution, then listdir with one numeric entry that fails readlink
     with mock.patch("os.path.realpath", side_effect=lambda p: "/usr/lib/beamo-wipe/nwipe" if p == nr.NWIPE_PINNED_PATH else p):
         with mock.patch("os.listdir", return_value=["999"]):
-            with mock.patch("os.readlink", side_effect=OSError("nope")):
+            with mock.patch(
+                "os.readlink",
+                side_effect=FileNotFoundError(errno.ENOENT, "vanished"),
+            ):
                 result = nr.pinned_nwipe_already_running()
                 assert result is False  # no hit, but unreadable logged
     diag = (tmp_path / "diagnostics.log").read_text(encoding="utf-8")
     assert "proc_exe_unreadable" in diag
+
+
+def test_pinned_already_running_unexpected_proc_read_failure_is_fail_closed(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    from beamo_wipe import nwipe_runner as nr
+
+    monkeypatch.setattr(nr.os.path, "realpath", lambda path: path)
+    monkeypatch.setattr(nr.os, "listdir", lambda _path: ["4242"])
+    monkeypatch.setattr(
+        nr.os,
+        "readlink",
+        lambda _path: (_ for _ in ()).throw(OSError(errno.EIO, "I/O error")),
+    )
+
+    assert nr.pinned_nwipe_already_running() is True
 
 
 # ---------------------------------------------------------------------------

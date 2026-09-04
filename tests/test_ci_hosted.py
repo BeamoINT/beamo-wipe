@@ -203,20 +203,22 @@ if args[:3] == ["builds", "triggers", "describe"]:
             for args in recorded
             if args[:3] == ["builds", "triggers", verb]
         ]
-        assert len(mutations) == 2
-        assert all(f"--service-account={service_account}" in args for args in mutations)
+        assert len(mutations) == (2 if verb == "create" else 3)
+        structural = [args for args in mutations if "--build-config=cloudbuild.yaml" in args]
+        assert len(structural) == 2
+        assert all(f"--service-account={service_account}" in args for args in structural)
         mutation_text = [" ".join(args) for args in mutations]
         assert any("beamo-wipe-pr-gate" in args for args in mutation_text)
         assert any("beamo-wipe-main-gate" in args for args in mutation_text)
-        pr_call = next(
-            args for args in mutations if "beamo-wipe-pr-gate" in " ".join(args)
-        )
+        pr_calls = [args for args in mutations if "beamo-wipe-pr-gate" in " ".join(args)]
         substitution_flag = (
             "--substitutions=_SKIP_QEMU=true"
             if verb == "create"
             else "--update-substitutions=_SKIP_QEMU=true"
         )
-        assert substitution_flag in pr_call
+        assert any(substitution_flag in args for args in pr_calls)
+        if verb == "update":
+            assert all("--clear-substitutions" in args for args in structural)
 
 
 def test_cloud_trigger_installer_rejects_cross_project_identity():

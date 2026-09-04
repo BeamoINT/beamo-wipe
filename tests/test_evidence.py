@@ -183,7 +183,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
         started_mono=0.0,
         ended_mono=60.0,
         argv=["nwipe", "--autonuke"],
-        log_text="",
+        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
     )
     assert ev["outcome"] == OUTCOME_FAILED
     assert ev["failure_reason"] is not None
@@ -218,7 +218,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
         started_mono=0.0,
         ended_mono=60.0,
         argv=[],
-        log_text="",
+        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
     )
     assert ev3["outcome"] == OUTCOME_COMPLETED
     assert ev3["verification"]["verified"] is False
@@ -781,7 +781,7 @@ def test_evidence_files_off_target_and_no_forbidden_roots(tmp_path, monkeypatch)
 
 
 def test_atomic_write_no_partial_file_on_failure(tmp_path, monkeypatch):
-    # Simulate crash mid-write: os.write succeeds but rename fails
+    # Simulate crash mid-write: os.write succeeds but no-replace publish fails
     from beamo_wipe.evidence import build_evidence
 
     monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
@@ -801,15 +801,15 @@ def test_atomic_write_no_partial_file_on_failure(tmp_path, monkeypatch):
         argv=[],
         log_text="",
     )
-    # Force os.rename to fail
-    orig_rename = os.rename
-    monkeypatch.setattr(os, "rename", lambda *a, **k: (_ for _ in ()).throw(OSError("rename failed")))
+    # Force os.link to fail
+    orig_link = os.link
+    monkeypatch.setattr(os, "link", lambda *a, **k: (_ for _ in ()).throw(OSError("link failed")))
     with pytest.raises(OSError):
         write_evidence_atomic(ev, log_dir=tmp_path, device_path=disk.path)
     # No partial .json should be visible, only tmp
     assert not any(tmp_path.glob(f"{EVIDENCE_PREFIX}*.json"))
     # tmp files may remain but not as evidence
-    monkeypatch.setattr(os, "rename", orig_rename)
+    monkeypatch.setattr(os, "link", orig_link)
     # Now succeed
     p = write_evidence_atomic(ev, log_dir=tmp_path, device_path=disk.path)
     assert p.exists()

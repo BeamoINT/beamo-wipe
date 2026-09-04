@@ -3,12 +3,17 @@
 
 from __future__ import annotations
 
+import copy
 import json
+import math
 import os
+import re
 import stat
 import subprocess
 import threading
 import time
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Optional, Protocol
 
 from beamo_wipe.copy import REDISCOVER_ERROR, confirm_warning, erase_now_label
@@ -49,6 +54,33 @@ COUNTDOWN_S = 5.0
 SPLASH_S = 3.0
 
 
+@dataclass(frozen=True)
+class ReportView:
+    """One locked, immutable snapshot of the Done-screen report state."""
+
+    revision: int
+    status: str
+    message: str
+    session: str
+    exporting: bool
+    can_save: bool
+    evidence_error: Optional[str]
+
+
+@dataclass(frozen=True)
+class _ReportExportClaim:
+    """Evidence/result identity captured before an export worker starts."""
+
+    evidence_path: Path
+    evidence_sha256: str
+    evidence_write_seq: int
+    wipe_result: WipeResult
+    discovery: DiscoveryResult
+    target_path: str
+    target_rdev: int
+    boot_rdev: int
+
+
 def format_progress_percent(pct: float) -> str:
     """Integer percent that never shows 100% before the engine reports 100.
 
@@ -71,6 +103,7 @@ class Wizard:
         dry_run: bool = True,
         rediscover: Callable[[], DiscoveryResult] | None = None,
         wall_clock: Callable[[], str] | None = None,
+        report_exporter: Optional[Callable[..., object]] = None,
     ) -> None:
         self.discovery = discovery
         self.runner = runner
@@ -112,6 +145,14 @@ class Wizard:
         # the original cancelled/interrupted flags, never downgrade a user
         # interrupt to an engine outcome.
         self._evidence_flag_hint: dict[str, tuple[bool, bool]] = {}
+        self._evidence_write_seq = 0
+        self._report_exporter = report_exporter
+        self.report_status = "idle"  # idle | saving | saved | error
+        self.report_message = ""
+        self.report_session = ""
+        self._report_exporting = False
+        self._report_revision = 0
+        self._active_report_claim: Optional[_ReportExportClaim] = None
         self._lock = threading.RLock()
 
     @property
@@ -156,7 +197,7 @@ class Wizard:
         """
         if self.erase_enabled:
             return 0
-        return max(1, int(self.countdown_left + 0.99))
+        return max(1, math.ceil(self.countdown_left))
 
     @property
     def erase_enabled(self) -> bool:
@@ -165,6 +206,37 @@ class Wizard:
     @property
     def progress(self) -> Optional[float]:
         return getattr(self.runner, "progress", None)
+
+    @staticmethod
+    def _result_evidence_key(result: WipeResult) -> str:
+        return f"{result.logfile}:{result.exit_code}:{result.summary}"
+
+    def _set_report_state_locked(
+        self,
+        *,
+        status: Optional[str] = None,
+        message: Optional[str] = None,
+        session: Optional[str] = None,
+        exporting: Optional[bool] = None,
+    ) -> None:
+        """Publish report fields as one revision while ``_lock`` is held."""
+        changed = False
+        updates = (
+            ("report_status", status),
+            ("report_message", message),
+            ("report_session", session),
+            ("_report_exporting", exporting),
+        )
+        for name, value in updates:
+            if value is not None and getattr(self, name) != value:
+                setattr(self, name, value)
+                changed = True
+        if changed:
+            self._report_revision += 1
+
+    def _touch_report_locked(self) -> None:
+        """Notify renderers that evidence-dependent report state changed."""
+        self._report_revision += 1
 
     def tick(self) -> None:
         if (
@@ -220,10 +292,21 @@ class Wizard:
         self._evidence_argv = None
         self._evidence_written_for = None
         self._evidence_flag_hint = {}
+        with self._lock:
+            self._active_report_claim = None
+            self._set_report_state_locked(
+                status="idle", message="", session="", exporting=False
+            )
         # evidence / evidence_path / evidence_error are kept for audit
 
     def shutdown(self) -> None:
-        self.wants_shutdown = True
+        with self._lock:
+            if self._report_exporting:
+                self._set_report_state_locked(
+                    message="Wait for the report USB to finish before shutting down."
+                )
+                return
+            self.wants_shutdown = True
 
     def arm_done_keyboard(self) -> None:
         """Allow Enter on Done / empty / blocked after the confirming key is up."""
@@ -453,6 +536,10 @@ class Wizard:
             self.screen = Screen.DONE
             self._done_keyboard_armed = False
             self.log_text = result.summary
+            self._active_report_claim = None
+            self._set_report_state_locked(
+                status="idle", message="", session="", exporting=False
+            )
         # Persist auditable evidence (atomic, off-target, truthful outcome)
         self._write_evidence(result=result, cancelled=False, interrupted=False)
 
@@ -491,11 +578,26 @@ class Wizard:
                 return
             from beamo_wipe.models import WipeResult as _WR
 
-            res = _WR(ok=False, exit_code=143, summary="interrupted", logfile=self._wipe_request.logfile)
+            observed = getattr(self.runner, "result", None)
+            if observed is not None and (
+                observed.ok
+                or (observed.summary or "").strip().casefold()
+                not in {"cancelled", "interrupted"}
+            ):
+                # poll() completed while cancel() was waiting. Preserve the
+                # engine's real outcome instead of relabelling it interrupted.
+                res = observed
+                cancelled = interrupted = False
+            else:
+                res = _WR(ok=False, exit_code=143, summary="interrupted", logfile=self._wipe_request.logfile)
+                cancelled = interrupted = True
             # _write_evidence and _finish outside lock to avoid I/O under lock
             need_evidence = res
-        self._write_evidence(result=need_evidence, cancelled=True, interrupted=True)
+        self._write_evidence(
+            result=need_evidence, cancelled=cancelled, interrupted=interrupted
+        )
         self._finish(need_evidence)
+        self.arm_done_keyboard()
 
     def _write_evidence(
         self, *, result: Optional[WipeResult], cancelled: bool, interrupted: bool
@@ -504,17 +606,24 @@ class Wizard:
         # Deduplicate: poll may deliver same result twice
         key = None
         try:
-            key = f"{(self._wipe_request.logfile if self._wipe_request else '')}:{(result.exit_code if result else 'start')}:{(result.summary if result else '')}"
+            key = (
+                self._result_evidence_key(result)
+                if result is not None
+                else f"{(self._wipe_request.logfile if self._wipe_request else '')}:start:"
+            )
         except Exception:
             key = None
-        if key is not None and self._evidence_written_for == key:
-            return
-        if key is not None:
-            # First writer wins: a later rewrite of the same result (e.g.
-            # _finish after a transient write failure in cancel_wipe) keeps
-            # the original interruption flags instead of downgrading them.
-            prev = self._evidence_flag_hint.setdefault(key, (cancelled, interrupted))
-            cancelled, interrupted = prev
+        with self._lock:
+            if key is not None and self._evidence_written_for == key:
+                return
+            if key is not None:
+                # First writer wins: a later rewrite of the same result (e.g.
+                # _finish after a transient write failure in cancel_wipe) keeps
+                # the original interruption flags instead of downgrading them.
+                prev = self._evidence_flag_hint.setdefault(key, (cancelled, interrupted))
+                cancelled, interrupted = prev
+            self._evidence_write_seq += 1
+            write_seq = self._evidence_write_seq
         try:
             from beamo_wipe.evidence import build_evidence, write_evidence_atomic
 
@@ -636,11 +745,6 @@ class Wizard:
                 except Exception:
                     pass
                 ev["provenance"]["evidence_file"] = str(path)
-            self.evidence = ev
-            self.evidence_path = str(path)
-            self.evidence_error = None
-            if key is not None:
-                self._evidence_written_for = key
             # Also expose checksum for UI (already in evidence, but handy)
             try:
                 from beamo_wipe.evidence import verify_evidence_checksum
@@ -653,8 +757,20 @@ class Wizard:
                     log_diag("wizard", "checksum_verify_failed", type(exc).__name__)
                 except Exception:
                     pass
+            with self._lock:
+                if write_seq != self._evidence_write_seq:
+                    return
+                self.evidence = ev
+                self.evidence_path = str(path)
+                self.evidence_error = None
+                if key is not None:
+                    self._evidence_written_for = key
+                self._touch_report_locked()
         except SafetyError as exc:
-            self.evidence_error = str(exc)
+            with self._lock:
+                if write_seq == self._evidence_write_seq:
+                    self.evidence_error = str(exc)
+                    self._touch_report_locked()
             try:
                 from beamo_wipe.diagnostics import log_diag
 
@@ -662,7 +778,10 @@ class Wizard:
             except Exception:
                 pass
         except Exception as exc:
-            self.evidence_error = f"Could not write evidence: {exc}"
+            with self._lock:
+                if write_seq == self._evidence_write_seq:
+                    self.evidence_error = f"Could not write evidence: {exc}"
+                    self._touch_report_locked()
             try:
                 from beamo_wipe.diagnostics import log_diag
 
@@ -684,6 +803,275 @@ class Wizard:
         boot = self.discovery.boot.path if self.discovery.boot else ""
         out = _export(src, dest, target_device=target, boot_device=boot)
         return str(out)
+
+    @property
+    def can_save_report(self) -> bool:
+        """True only for the current, checksum-verified terminal evidence."""
+        with self._lock:
+            return self._can_save_report_locked()
+
+    def _can_save_report_locked(self) -> bool:
+        result = self.wipe_result
+        evidence = self.evidence
+        path = self.evidence_path
+        if (
+            self.preview
+            or self.screen != Screen.DONE
+            or result is None
+            or self.evidence_error
+            or not path
+            or not isinstance(evidence, dict)
+            or self._report_exporting
+            or self.report_status == "saved"
+            or self._evidence_written_for != self._result_evidence_key(result)
+        ):
+            return False
+        outcome = evidence.get("outcome")
+        if result.ok:
+            if outcome not in {"completed", "verified"}:
+                return False
+        elif outcome not in {"failed", "interrupted"}:
+            return False
+        exit_evidence = evidence.get("exit_evidence")
+        if (
+            not isinstance(exit_evidence, dict)
+            or type(exit_evidence.get("exit_code")) is not int
+            or exit_evidence["exit_code"] != result.exit_code
+        ):
+            return False
+        provenance = evidence.get("provenance")
+        return bool(
+            isinstance(provenance, dict)
+            and provenance.get("verified") is True
+            and provenance.get("evidence_file") == path
+        )
+
+    @property
+    def report_view(self) -> ReportView:
+        """Return one coherent report snapshot for a complete UI render."""
+        with self._lock:
+            return ReportView(
+                revision=self._report_revision,
+                status=self.report_status,
+                message=self.report_message,
+                session=self.report_session,
+                exporting=self._report_exporting,
+                can_save=self._can_save_report_locked(),
+                evidence_error=self.evidence_error,
+            )
+
+    def _claim_report_export(self) -> Optional[_ReportExportClaim]:
+        """Verify and bind one attempt to the exact current evidence bytes."""
+        with self._lock:
+            if self._report_exporting:
+                return None
+            if not self._can_save_report_locked():
+                if self.report_status != "saved":
+                    self._set_report_state_locked(
+                        status="error",
+                        message="A current finished wipe report is not available.",
+                    )
+                return None
+            path = Path(self.evidence_path or "")
+            evidence_write_seq = self._evidence_write_seq
+            result = self.wipe_result
+            assert result is not None
+            discovery_snapshot = copy.deepcopy(self.discovery)
+            expected_payload = dict(self.evidence)
+            expected_provenance = dict(expected_payload.get("provenance", {}))
+            # ``verified`` is a post-write UI convenience; it is not present
+            # in the immutable JSON bytes whose sidecar was verified.
+            expected_provenance.pop("verified", None)
+            expected_payload["provenance"] = expected_provenance
+            if self._wipe_request is not None:
+                target = self._wipe_request.device
+                target_rdev = self._wipe_request.device_rdev
+                boot_rdev = self._wipe_request.boot_rdev
+            else:
+                target = self.selected.path if self.selected is not None else ""
+                target_rdev = 0
+                boot_rdev = 0
+
+        try:
+            from beamo_wipe.support_export import prepare_terminal_evidence
+
+            verified = prepare_terminal_evidence(path, target)
+            payload = json.loads(verified.data.decode("utf-8"))
+        except (SafetyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            with self._lock:
+                if not self._report_exporting:
+                    self._set_report_state_locked(status="error", message=str(exc))
+            return None
+
+        claim = _ReportExportClaim(
+            evidence_path=path,
+            evidence_sha256=verified.sha256,
+            evidence_write_seq=evidence_write_seq,
+            wipe_result=result,
+            discovery=discovery_snapshot,
+            target_path=target,
+            target_rdev=target_rdev,
+            boot_rdev=boot_rdev,
+        )
+        with self._lock:
+            current_target = (
+                self._wipe_request.device
+                if self._wipe_request is not None
+                else (self.selected.path if self.selected is not None else "")
+            )
+            if (
+                self._report_exporting
+                or not self._can_save_report_locked()
+                or self._evidence_write_seq != evidence_write_seq
+                or self.evidence_path != str(path)
+                or self.wipe_result != result
+                or self.discovery != discovery_snapshot
+                or current_target != target
+                or not isinstance(payload, dict)
+                or payload != expected_payload
+                or {
+                    **self.evidence,
+                    "provenance": {
+                        key: value
+                        for key, value in self.evidence["provenance"].items()
+                        if key != "verified"
+                    },
+                }
+                != expected_payload
+                or payload.get("logfile") != result.logfile
+            ):
+                self._set_report_state_locked(
+                    status="error",
+                    message="The finished wipe report changed before it could be saved.",
+                )
+                return None
+            self._active_report_claim = claim
+            self._done_keyboard_armed = False
+            self._set_report_state_locked(
+                status="saving",
+                message="Saving and verifying the report USB. Leave it connected.",
+                session="",
+                exporting=True,
+            )
+            return claim
+
+    def _perform_report_export(self, claim: _ReportExportClaim) -> None:
+        final_status = "error"
+        final_message = "The report export failed. Shut down before removing the USB."
+        final_session = ""
+        try:
+            exporter = self._report_exporter
+            if exporter is None:
+                from beamo_wipe.support_export import export_to_new_usb
+
+                exporter = export_to_new_usb
+            receipt = exporter(
+                evidence_path=claim.evidence_path,
+                discovery=claim.discovery,
+                target_path=claim.target_path,
+                target_rdev=claim.target_rdev,
+                boot_rdev=claim.boot_rdev,
+                expected_evidence_sha256=claim.evidence_sha256,
+            )
+            ok = getattr(receipt, "ok", None) is True
+            safe = getattr(receipt, "safe_to_remove", None) is True
+            code = getattr(receipt, "code", None)
+            receipt_hash = getattr(receipt, "evidence_sha256", None)
+            session = str(getattr(receipt, "session_name", "") or "")
+            if (
+                ok
+                and safe
+                and code == "saved_verified_unmounted"
+                and receipt_hash == claim.evidence_sha256
+                and re.fullmatch(r"report-[0-9a-f]{24}", session) is not None
+            ):
+                final_status = "saved"
+                final_session = session
+                final_message = (
+                    "Report saved and verified. The report USB is safe to remove."
+                )
+            else:
+                final_message = (
+                    "The report was not saved and verified. "
+                    "Shut down before removing the USB."
+                )
+        except SafetyError as exc:
+            final_message = str(exc)
+        except Exception as exc:  # noqa: BLE001 - keep failure visible on Done
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("wizard", "report_export_failed", type(exc).__name__)
+            except Exception:
+                pass
+        finally:
+            with self._lock:
+                current_target = (
+                    self._wipe_request.device
+                    if self._wipe_request is not None
+                    else (self.selected.path if self.selected is not None else "")
+                )
+                claim_is_current = (
+                    self._active_report_claim == claim
+                    and self._evidence_write_seq == claim.evidence_write_seq
+                    and self.evidence_path == str(claim.evidence_path)
+                    and self.wipe_result == claim.wipe_result
+                    and self.discovery == claim.discovery
+                    and current_target == claim.target_path
+                )
+                if final_status == "saved" and not claim_is_current:
+                    final_status = "error"
+                    final_message = (
+                        "The finished wipe report changed while it was being saved. "
+                        "Shut down before removing the USB."
+                    )
+                    final_session = ""
+                # Publish the terminal UI state and re-enable Shutdown in one
+                # lock transition so Tk cannot render a permanently disabled
+                # button between two state changes.
+                self._active_report_claim = None
+                self._set_report_state_locked(
+                    exporting=False,
+                    status=final_status,
+                    message=final_message,
+                    session=final_session,
+                )
+
+    def save_report_to_usb(self) -> None:
+        """Synchronously save a report. Used by console fallbacks and tests."""
+        claim = self._claim_report_export()
+        if claim is not None:
+            self._perform_report_export(claim)
+
+    def begin_report_export(self) -> bool:
+        """Start a single background export for the graphical kiosk."""
+        claim = self._claim_report_export()
+        if claim is None:
+            return False
+        thread = threading.Thread(
+            target=self._perform_report_export,
+            args=(claim,),
+            name="beamo-report-export",
+            daemon=True,
+        )
+        try:
+            thread.start()
+        except Exception as exc:
+            with self._lock:
+                self._active_report_claim = None
+                self._set_report_state_locked(
+                    exporting=False,
+                    status="error",
+                    message="The report export could not start.",
+                )
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("wizard", "report_thread_failed", type(exc).__name__)
+            except Exception:
+                pass
+            return False
+        return True
 
     @property
     def done_ok(self) -> bool:

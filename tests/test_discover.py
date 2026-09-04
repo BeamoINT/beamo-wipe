@@ -713,6 +713,7 @@ def test_lsblk_command_requests_identity_fields():
     assert "UUID" in discover.LSBLK_COLUMNS
     assert "WWN" in discover.LSBLK_COLUMNS
     assert "PARTUUID" in discover.LSBLK_COLUMNS
+    assert "FSVER" in discover.LSBLK_COLUMNS
 
 
 def _leftover_usb_and_sata_bridge():
@@ -1268,4 +1269,3 @@ def test_classify_bus_strips_padding():
     assert classify_bus("usb") == "USB"
     assert classify_bus(None) == "other"
     assert classify_bus("") == "other"
-

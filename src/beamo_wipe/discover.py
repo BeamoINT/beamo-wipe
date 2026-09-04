@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import unicodedata
+from dataclasses import replace
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from beamo_wipe.copy import IDENTIFY_ERROR as CANNOT_IDENTIFY
@@ -79,7 +80,7 @@ FINDMNT_BINARIES = ("/usr/bin/findmnt",)
 MOUNTINFO_PATH = "/proc/self/mountinfo"
 LSBLK_COLUMNS = (
     "NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,RM,HOTPLUG,"
-    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,VENDOR,PKNAME,UUID,WWN,PARTUUID,PARTLABEL,RO"
+    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,FSVER,VENDOR,PKNAME,UUID,WWN,PARTUUID,PARTLABEL,RO"
 )
 TYPED_SOURCE_KEYS = frozenset({"LABEL", "UUID", "PARTUUID", "PARTLABEL"})
 
@@ -195,22 +196,47 @@ def _clean(value: Any) -> str:
     return s
 
 
+def _identity_text(value: Any, field: str) -> str:
+    """Read an lsblk identity field without repairing it into another device."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"lsblk {field} must be text")
+    if not value or not value.strip():
+        return ""
+    if any(unicodedata.category(ch).startswith("C") for ch in value):
+        raise ValueError(f"lsblk {field} contains control characters")
+    text = value.strip()
+    if text != value or not text or len(text) > 128:
+        raise ValueError(f"lsblk {field} is malformed")
+    return text
+
+
 def _node_mountpoints(node: Dict[str, Any]) -> List[str]:
     found: List[str] = []
     mps = node.get("mountpoints")
     if isinstance(mps, list):
         found.extend(_clean(x) for x in mps if x)
-    else:
-        mp = _clean(node.get("mountpoint"))
+    elif mps is not None:
+        # Some util-linux/schema variants emit a scalar. Treat it as mounted,
+        # never as an empty list; malformed containers are rejected below.
+        if not isinstance(mps, str):
+            raise ValueError("lsblk mountpoints has invalid shape")
+        mp = _clean(mps)
         if mp:
             found.append(mp)
+    mp = _clean(node.get("mountpoint"))
+    if mp:
+        found.append(mp)
     for child in node.get("children") or []:
         found.extend(_node_mountpoints(child))
-    return [x for x in found if x]
+    return list(dict.fromkeys(x for x in found if x))
 
 
 def node_path(node: Dict[str, Any]) -> str:
-    return _clean(node.get("path")) or f"/dev/{_clean(node.get('name'))}"
+    path = _identity_text(node.get("path"), "path") if node.get("path") is not None else ""
+    name = _identity_text(node.get("name"), "name") if node.get("name") is not None else ""
+    return path or (f"/dev/{name}" if name else "")
 
 
 def flatten_blockdevices(
@@ -333,10 +359,17 @@ def parent_disk_path(
     A path that is not in the tree returns None (fail closed).
     """
     aliases = _path_aliases(path)
+    owners: List[str] = []
     for disk in disk_nodes(blockdevices):
         for candidate in paths_under(disk):
             if aliases & _path_aliases(candidate):
-                return node_path(disk)
+                owner = node_path(disk)
+                if owner not in owners:
+                    owners.append(owner)
+    if len(owners) == 1:
+        return owners[0]
+    if len(owners) > 1:
+        return None
     for node, parent in flatten_blockdevices(blockdevices):
         if not (aliases & _path_aliases(node_path(node))):
             continue
@@ -382,18 +415,19 @@ def _volume_label(node: Dict[str, Any]) -> str:
     usable = [x for x in all_labels if x.upper() not in FIRMWARE_LABELS]
     if usable:
         return usable[0]
-    return all_labels[0] if all_labels else ""
+    return ""
 
 
 def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
-    name = _clean(node.get("name"))
-    path = _clean(node.get("path")) or f"/dev/{name}"
+    name = _identity_text(node.get("name"), "name") if node.get("name") is not None else ""
+    path = node_path(node)
     if not path or path == "/dev/":
         # Fail closed on malformed lsblk nodes: never mint Disk(path="/dev/").
         # Callers skip the node (per-node, so one bad node cannot hide the
         # whole bus) with a diagnostic for maintainer triage.
         raise ValueError("lsblk node has no usable device path")
     label = _volume_label(node)
+    raw_model = _clean(node.get("model"))
     mountpoints = tuple(mp for mp in _node_mountpoints(node) if mp)
     if not is_boot:
         from beamo_wipe.safety import is_protected_mountpoint
@@ -402,7 +436,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
     return Disk(
         path=path,
         name=name,
-        model=_clean(node.get("model")) or label or "Unknown model",
+        model=raw_model or label or "Unknown model",
         serial=_clean(node.get("serial")) or _first_descendant_field(node, "serial"),
         size_bytes=_as_int(node.get("size")),
         size_gb_label=size_gb_label(_as_int(node.get("size"))),
@@ -416,6 +450,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
         wwn=_clean(node.get("wwn")) or _first_descendant_field(node, "wwn"),
         vendor=_clean(node.get("vendor")) or _first_descendant_field(node, "vendor"),
         mountpoints=mountpoints,
+        raw_model=raw_model,
     )
 
 
@@ -606,14 +641,16 @@ def identify_boot_path(
     if resolved_env:
         return resolved_env
 
-    match = CMDLINE_BOOT_RE.search(cmdline or "")
-    if match:
-        resolved = _resolve_boot_path(match.group(1), blockdevices)
-        if resolved:
-            return resolved
-        # Same as an unmapped live mount: a leftover BEAMO_WIPE label must
-        # not become the boot stick.
-        return None
+    cmdline_sources = CMDLINE_BOOT_RE.findall(cmdline or "")
+    if cmdline_sources:
+        cmdline_hits: List[str] = []
+        for source in cmdline_sources:
+            resolved = _resolve_boot_path(source, blockdevices)
+            if not resolved:
+                return None
+            if resolved not in cmdline_hits:
+                cmdline_hits.append(resolved)
+        return cmdline_hits[0] if len(cmdline_hits) == 1 else None
 
     labels = _label_boot_disks(blockdevices)
     if len(labels) == 1:
@@ -672,13 +709,22 @@ def parse_lsblk_json(
     if require_boot and not boot_path:
         return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
 
+    flat_mounts: Dict[str, List[str]] = {}
+    for candidate, parent in flatten_blockdevices(blockdevices):
+        if parent is not None or _node_type(candidate) == "disk":
+            continue
+        pkname = _clean(candidate.get("pkname"))
+        if not pkname:
+            continue
+        flat_mounts.setdefault(pkname, []).extend(_node_mountpoints(candidate))
+
     disks: List[Disk] = []
     identified_boot: Optional[Disk] = None
     for node in disk_nodes(blockdevices):
-        matched_boot = _node_is_boot(node, boot_path)
-        if should_hide(node, boot_path) and not matched_boot:
-            continue
         try:
+            matched_boot = _node_is_boot(node, boot_path)
+            if should_hide(node, boot_path) and not matched_boot:
+                continue
             disk = node_to_disk(node, is_boot=matched_boot)
         except ValueError:
             try:
@@ -688,6 +734,10 @@ def parse_lsblk_json(
             except Exception:
                 pass
             continue
+        extra_mounts = flat_mounts.get(disk.name, [])
+        if extra_mounts:
+            merged = tuple(dict.fromkeys((*disk.mountpoints, *extra_mounts)))
+            disk = replace(disk, mountpoints=merged)
         disks.append(disk)
         if matched_boot and identified_boot is None:
             identified_boot = disk
@@ -725,6 +775,17 @@ def parse_lsblk_json(
         return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
     from beamo_wipe.safety import is_wipeable_disk
 
+    # A distinct path with the boot medium's WWN may be a multipath/LUN alias.
+    # Mark every such node as boot so none can become selectable.
+    if boot is not None and (boot.wwn or "").strip():
+        boot_wwn = boot.wwn.strip().casefold()
+        disks = [
+            replace(d, is_boot=True)
+            if (d.wwn or "").strip().casefold() == boot_wwn
+            else d
+            for d in disks
+        ]
+        boot = next((d for d in disks if d.path == boot.path), boot)
     selectable = tuple(d for d in disks if is_wipeable_disk(d))
     # Health reporting: empty selectable while boot is identified is fail-closed
     # but opaque. Distinguish "no disks on bus" from "all nodes hidden".
@@ -836,6 +897,9 @@ def _validate_real_lsblk_metadata(payload: Dict[str, Any]) -> None:
             raise ValueError("lsblk omitted required identity metadata")
         if "mountpoints" not in node and "mountpoint" not in node:
             raise ValueError("lsblk omitted mountpoint metadata")
+        mps = node.get("mountpoints")
+        if mps is not None and not isinstance(mps, (list, str)):
+            raise ValueError("lsblk mountpoints has invalid shape")
         if _node_type(node) == "disk" and _as_bool(node.get("ro")) is None:
             raise ValueError("lsblk omitted read-only metadata")
 
