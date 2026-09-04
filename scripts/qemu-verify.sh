@@ -110,9 +110,26 @@ if find "$SQUASH_MOUNT/usr/lib/beamo-wipe" \
   echo "ISO contains writable or non-root-owned boot assets" >&2
   exit 2
 fi
-for forbidden in nano less iproute2 dmidecode pciutils usbutils eject gcc git; do
+for forbidden in nano less iproute2 pciutils usbutils eject gcc git; do
   if dpkg-query --admindir="$SQUASH_MOUNT/var/lib/dpkg" -W -f='${db:Status-Abbrev}' "$forbidden" 2>/dev/null | grep -q '^ii'; then
     echo "forbidden package present in ISO: $forbidden" >&2
+    exit 2
+  fi
+done
+# Debian bookworm's libparted2 on amd64 has a hard dependency on dmidecode.
+# Pinned nwipe needs libparted; its mandatory --quiet argument anonymizes the
+# unique disk and DMI values. Keep the dependency intact and prove that its
+# helpers have no set-id or non-root write permissions.
+if ! dpkg-query --admindir="$SQUASH_MOUNT/var/lib/dpkg" -W \
+    -f='${db:Status-Abbrev}' dmidecode 2>/dev/null | grep -q '^ii'; then
+  echo "required libparted2 dependency missing from ISO: dmidecode" >&2
+  exit 2
+fi
+for helper in dmidecode biosdecode ownership vpddecode; do
+  helper_path="$SQUASH_MOUNT/usr/sbin/$helper"
+  [[ -f "$helper_path" ]] || { echo "dmidecode helper missing: $helper" >&2; exit 2; }
+  if find "$helper_path" \( ! -user root -o ! -group root -o -perm /6022 \) -print -quit | grep -q .; then
+    echo "unsafe dmidecode helper permissions: $helper" >&2
     exit 2
   fi
 done
@@ -168,11 +185,15 @@ prove_loop "$LOOP" "$TARGET_RAW"
 prove_loop "$BOOT_LOOP" "$ISO"
 NWIPE_LOG="$RUN_ROOT/nwipe.log"
 nwipe_code=0
-timeout 45 "$NWIPE_BIN" --autonuke --nogui --nowait --method=zero \
+timeout 45 "$NWIPE_BIN" --autonuke --nogui --nowait --quiet --method=zero \
   --rounds=1 --verify=off --noblank --exclude="$BOOT_LOOP" \
   --logfile="$NWIPE_LOG" --PDFreportpath=noPDF "$LOOP" \
   >"$EVIDENCE_DIR/nwipe-boundary.txt" 2>&1 || nwipe_code=$?
 [[ "$nwipe_code" == 0 ]] || { echo "nwipe boundary run failed: $nwipe_code" >&2; exit 2; }
+grep -Eq 'quiet[[:space:]]*=[[:space:]]*1' "$NWIPE_LOG" || {
+  echo "nwipe did not confirm anonymized logging" >&2
+  exit 2
+}
 grep -Eq '\|[[:space:]]*Erased[[:space:]]*\||100\.00%' "$NWIPE_LOG" || {
   echo "nwipe exited without a target success marker" >&2
   exit 2
@@ -180,7 +201,7 @@ grep -Eq '\|[[:space:]]*Erased[[:space:]]*\||100\.00%' "$NWIPE_LOG" || {
 
 # A non-block target and an interrupted run must never return success.
 bad_code=0
-timeout 5 "$NWIPE_BIN" --autonuke --nogui --nowait --method=zero \
+timeout 5 "$NWIPE_BIN" --autonuke --nogui --nowait --quiet --method=zero \
   --rounds=1 --verify=off --noblank --exclude="$BOOT_LOOP" \
   --logfile="$RUN_ROOT/bad.log" --PDFreportpath=noPDF "$RUN_ROOT/not-a-device" \
   >"$EVIDENCE_DIR/nwipe-invalid-target.txt" 2>&1 || bad_code=$?

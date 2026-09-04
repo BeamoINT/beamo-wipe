@@ -37,6 +37,7 @@ def test_argv_is_single_device_noninteractive():
     assert argv[0] == "nwipe"
     assert "--autonuke" in argv
     assert "--nogui" in argv
+    assert "--quiet" in argv
     assert "--force" not in argv
     assert argv[-1] == "/dev/vda"
     assert argv.count("/dev/vda") == 1
@@ -203,6 +204,14 @@ def test_rejects_force_flag():
     argv = build_nwipe_argv(req)
     argv.insert(-1, "--force")
     with pytest.raises(SafetyError, match="force"):
+        validate_argv(argv, req)
+
+
+def test_rejects_missing_anonymized_logging_flag():
+    req = _request()
+    argv = build_nwipe_argv(req)
+    argv.remove("--quiet")
+    with pytest.raises(SafetyError, match="quiet"):
         validate_argv(argv, req)
 
 
@@ -981,4 +990,3 @@ def test_rejects_empty_argv_as_safety_error():
     req = _request()
     with pytest.raises(SafetyError, match="First argument"):
         validate_argv([], req)
-

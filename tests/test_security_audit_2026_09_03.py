@@ -214,6 +214,9 @@ def test_qemu_gate_has_no_unverified_or_host_binary_fallback():
     assert "still usable" not in script.casefold()
     assert "MODEL,SERIAL" not in script
     assert "debsecan --suite bookworm --only-fixed" in script
+    assert "--quiet" in script
+    assert "required libparted2 dependency missing from ISO: dmidecode" in script
+    assert "unsafe dmidecode helper permissions" in script
     assert '[[ "$nwipe_code" == 0 ]]' in script
     assert '[[ "$bad_code" != 0 ]]' in script
 

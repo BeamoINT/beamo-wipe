@@ -256,6 +256,7 @@ def build_nwipe_argv(request: WipeRequest) -> List[str]:
         "--autonuke",
         "--nogui",
         "--nowait",
+        "--quiet",
         f"--method={spec.nwipe_method}",
         f"--verify={spec.verify}",
         f"--rounds={str(int(spec.rounds))}",
@@ -293,7 +294,13 @@ def validate_argv(argv: List[str], request: WipeRequest) -> None:
         raise SafetyError("Refusing to pass --force to nwipe.")
     if "--autonuke" not in argv or "--nogui" not in argv:
         raise SafetyError("Non-interactive nwipe flags required.")
-    for required in ("--autonuke", "--nogui", "--nowait", "--PDFreportpath=noPDF"):
+    for required in (
+        "--autonuke",
+        "--nogui",
+        "--nowait",
+        "--quiet",
+        "--PDFreportpath=noPDF",
+    ):
         if argv.count(required) != 1:
             raise SafetyError(f"Exactly one {required} flag is required.")
     for prefix in ("--method=", "--verify=", "--rounds=", "--logfile=", "--exclude="):
@@ -337,7 +344,7 @@ def validate_argv(argv: List[str], request: WipeRequest) -> None:
 
 
 def _nwipe_flag_allowed(flag: str) -> bool:
-    if flag in {"--autonuke", "--nogui", "--nowait", "--noblank"}:
+    if flag in {"--autonuke", "--nogui", "--nowait", "--quiet", "--noblank"}:
         return True
     if flag == "--PDFreportpath=noPDF":
         return True
