@@ -63,6 +63,7 @@ install_qemu_deps() {
     file \
     sudo \
     python3 \
+    python3-pytest \
     git \
     procps \
     util-linux \

@@ -188,6 +188,13 @@ def test_hosted_python_tests_install_git_for_fail_closed_manifest():
     assert "    git \\\n" in test_deps
 
 
+def test_qemu_phase_installs_pytest_for_fake_disk_gate():
+    """Cloud Build step containers cannot share the earlier pip install."""
+    hosted = (ROOT / "scripts" / "ci-hosted.sh").read_text(encoding="utf-8")
+    qemu_deps = hosted.split("install_qemu_deps() {", 1)[1].split("\n}", 1)[0]
+    assert "    python3-pytest \\\n" in qemu_deps
+
+
 def test_iso_build_requires_and_always_generates_provenance():
     build = (ROOT / "scripts" / "build-iso.sh").read_text(encoding="utf-8")
     assert "for tool in docker awk git python3 sha256sum" in build
