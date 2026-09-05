@@ -73,6 +73,7 @@ steps:
     entrypoint: bash
     env:
       - SKIP_ISO=${_SKIP_ISO}
+      - BUILD_ID=$BUILD_ID
       - BEAMO_WIPE_VERSION=0.2.2
     args:
       - -ceu

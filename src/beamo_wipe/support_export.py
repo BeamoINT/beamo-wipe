@@ -349,7 +349,8 @@ def select_export_volume(
             raise SafetyError("The new device is not identified as a removable USB.")
         new_usb.append(node)
     if len(new_usb) != 1:
-        raise SafetyError("Insert exactly one new FAT32 report USB, then try again.")
+        detail = "No new report USB found." if not new_usb else "More than one new report USB found."
+        raise SafetyError(detail + " Insert exactly one new FAT32 report USB, then try again.")
 
     parent_node = new_usb[0]
     parent = _fingerprint_node(parent_node, export_parent=True)
@@ -659,6 +660,50 @@ def export_to_new_usb(
     baseline_without_rdev = baseline_fingerprints(
         discovery.disks, required_paths=required_paths
     )
+    return _export_prepared(evidence, baseline_without_rdev, target_rdev=target_rdev,
+                            boot_rdev=boot_rdev, scan=scan, run=run)
+
+
+def capture_diagnostic_baseline(*, scan=run_lsblk) -> tuple[DeviceFingerprint, ...]:
+    """Protect all existing roots before insertion; re-establish boot identity."""
+    try:
+        first_payload = scan()
+        from beamo_wipe.discover import discover
+        from beamo_wipe.safety import assert_boot_excluded
+        boot_scan = discover(lsblk_payload=first_payload)
+        assert_boot_excluded(boot_scan)
+        if not boot_scan.boot_identified or boot_scan.boot is None or boot_scan.error:
+            raise SafetyError("Boot identity unavailable.")
+        roots = _root_disks(first_payload)
+        if not roots or len(roots) > 256:
+            raise SafetyError("No bounded baseline available.")
+        first = _baseline_with_rdev(tuple(_fingerprint_node(node) for node in roots))
+        if boot_scan.boot.path not in {item.path for item in first}:
+            raise SafetyError("Boot identity is absent from the baseline.")
+        _protected_rdevs(first_payload, first)
+        second_payload = scan()
+        second = _baseline_with_rdev(tuple(_fingerprint_node(node) for node in _root_disks(second_payload)))
+        if first != second or _protected_rdevs(first_payload, first) != _protected_rdevs(second_payload, second):
+            raise SafetyError("Unstable baseline.")
+        return first
+    except Exception as exc:
+        raise SafetyError("Cannot verify the boot USB and connected disks. Diagnostic export is blocked. Leave existing disks connected and try Prepare again.") from exc
+
+
+def export_diagnostic_to_new_usb(*, data: bytes, baseline: Sequence[DeviceFingerprint],
+                                 scan=run_lsblk, run=subprocess.run) -> ExportReceipt:
+    from beamo_wipe.diagnostic_report import verified_report
+    report = verified_report(data)
+    if not baseline or any(not item.required or item.rdev <= 0 for item in baseline):
+        raise SafetyError("Prepare a protected disk baseline before inserting the report USB.")
+    for item in baseline:
+        if _block_rdev(item.path) != item.rdev:
+            raise SafetyError("A connected disk changed. Remove the report USB and Prepare again.")
+    return _export_prepared(report, baseline, scan=scan, run=run)
+
+
+def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence[DeviceFingerprint],
+                     *, target_rdev=0, boot_rdev=0, scan=run_lsblk, run=subprocess.run) -> ExportReceipt:
     first_payload = scan()
     _emit_export_marker("BEAMO_WIPE_EXPORT_SCAN_ONE")
     try:
@@ -678,6 +723,8 @@ def export_to_new_usb(
         raise SafetyError("The report USB changed during discovery. Try again.")
     _emit_export_marker("BEAMO_WIPE_EXPORT_CONTROLLER_SELECTED")
     baseline = _baseline_with_rdev(baseline_without_rdev)
+    if any(old.rdev and old.rdev != new.rdev for old, new in zip(baseline_without_rdev, baseline)):
+        raise SafetyError("A connected disk identity changed before export.")
     protected_rdevs = set(_protected_rdevs(second_payload, baseline_without_rdev))
     protected_rdevs.update(item.rdev for item in baseline if item.rdev > 0)
     protected_rdevs.update(value for value in (target_rdev, boot_rdev) if value > 0)
@@ -787,8 +834,9 @@ def _full_write(fd: int, data: bytes) -> None:
 
 
 def _write_exclusive(directory_fd: int, name: str, data: bytes) -> None:
+    temporary = "." + name + ".partial"
     fd = os.open(
-        name,
+        temporary,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
         0o600,
         dir_fd=directory_fd,
@@ -798,26 +846,43 @@ def _write_exclusive(directory_fd: int, name: str, data: bytes) -> None:
         os.fsync(fd)
     finally:
         os.close(fd)
+    # Session directory is new and exclusively owned by this export attempt.
+    os.rename(temporary, name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
 
 
-def _read_at(directory_fd: int, name: str) -> bytes:
-    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+def _read_at(directory_fd: int, name: str, *, limit: int = MAX_REQUEST_BYTES) -> bytes:
+    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,100}", name) or name in {".", ".."}:
+        raise SafetyError("Invalid report filename.")
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
     try:
         opened = os.fstat(fd)
-        if not stat.S_ISREG(opened.st_mode):
+        if not stat.S_ISREG(opened.st_mode) or opened.st_size > limit:
             raise SafetyError("The exported report contains an unsafe file.")
         chunks: list[bytes] = []
-        while True:
-            chunk = os.read(fd, 65536)
+        remaining = limit + 1
+        while remaining:
+            chunk = os.read(fd, min(65536, remaining))
             if not chunk:
                 break
             chunks.append(chunk)
+            remaining -= len(chunk)
+        if remaining == 0:
+            raise SafetyError("The exported report exceeded its size limit.")
         return b"".join(chunks)
     finally:
         os.close(fd)
 
 
 def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str, bytes]:
+    try:
+        diagnostic = json.loads(evidence).get("report_type") == "startup_diagnostic"
+    except (ValueError, AttributeError):
+        diagnostic = False
+    if diagnostic:
+        from beamo_wipe.diagnostic_report import validate_report, TITLE, NOTICE
+        validate_report(evidence)
+        if log_data or log_status != "unavailable":
+            raise SafetyError("Diagnostic reports cannot include raw logs.")
     evidence_hash = hashlib.sha256(evidence).hexdigest()
     files: dict[str, bytes] = {
         "result.json": evidence,
@@ -841,6 +906,11 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
         f"nwipe log: {log_status}.\r\n"
         "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
     ).encode("utf-8")
+    if diagnostic:
+        files = {"diagnostic.json": evidence,
+                 "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}
+        readme = (TITLE + "\r\n" + NOTICE + "\r\n"
+                  "Calendar time is unverified. COMPLETE authenticates contents only; it does not mean safe to remove.\r\n").encode()
     files["README.txt"] = readme
     manifest = {
         "manifest_scope": "content_only",
@@ -925,17 +995,23 @@ def write_report_bundle(
 def verify_report_bundle(mountpoint: Path, session_name: str, files: Mapping[str, bytes]) -> None:
     if not SESSION_RE.fullmatch(session_name):
         raise SafetyError("The report receipt contains an invalid directory name.")
-    path = mountpoint / REPORTS_DIR / session_name
-    directory_fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    mount_fd = os.open(str(mountpoint), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    reports_fd = directory_fd = -1
     try:
+        reports_fd = os.open(REPORTS_DIR, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=mount_fd)
+        directory_fd = os.open(session_name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=reports_fd)
         names = sorted(os.listdir(directory_fd))
         if names != sorted(files):
             raise SafetyError("The exported report file set changed.")
         for name, expected in files.items():
-            if _read_at(directory_fd, name) != expected:
+            if _read_at(directory_fd, name, limit=len(expected)) != expected:
                 raise SafetyError("The exported report did not pass read-back verification.")
     finally:
-        os.close(directory_fd)
+        if directory_fd >= 0:
+            os.close(directory_fd)
+        if reports_fd >= 0:
+            os.close(reports_fd)
+        os.close(mount_fd)
 
 
 def _mount_record(mountpoint: Path) -> Optional[tuple[str, str, str, frozenset[str]]]:
@@ -1065,6 +1141,15 @@ def _decode_worker_request(
     evidence_hash = hashlib.sha256(evidence_data).hexdigest()
     if payload.get("evidence_sha256") != evidence_hash:
         raise SafetyError("Report request checksum mismatch.")
+    try:
+        is_diagnostic = json.loads(evidence_data).get("report_type") == "startup_diagnostic"
+    except (ValueError, AttributeError):
+        is_diagnostic = False
+    if is_diagnostic:
+        from beamo_wipe.diagnostic_report import validate_report
+        validate_report(evidence_data)
+        if log_data or log_status != "unavailable":
+            raise SafetyError("Diagnostic reports cannot include raw logs.")
     if log_status not in {"complete", "tail", "unavailable"}:
         raise SafetyError("Malformed report log status.")
     if (log_status == "unavailable") != (not log_data):

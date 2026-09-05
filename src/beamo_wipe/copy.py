@@ -118,10 +118,56 @@ ADVANCED_LEAD = (
     "These are the nwipe names. For technicians. The other screens stay simple."
 )
 
-ADVANCED_LOG_NOTE = (
-    "After the wipe finishes, use Save report to USB. Insert one separate "
-    "FAT32 USB only when the Finished screen asks for it."
+REPORT_HELP_TITLE = "Need a report?"
+REPORT_WANTED = "I want to save a report"
+REPORT_VOLATILE = (
+    "Any unsaved report is lost when this live session shuts down or loses power."
 )
+REPORT_HELP_SECTIONS = (
+    "Saving a report is optional. You need a separate removable FAT32 USB device, "
+    "with one writable, unmounted volume. It must be different from the Beamo boot USB and "
+    "the disk you erase. exFAT, NTFS, FAT12 and FAT16 are not supported. "
+    "Beamo Wipe does not format or repair report media.",
+    "Keep the report USB unplugged while choosing the erase target, confirming, "
+    "and erasing. Only after the erase has stopped and the result screen offers "
+    "Save report to USB, insert exactly one report USB, then choose Save report to USB. "
+    "Leave the Beamo boot USB and selected erase disk connected.",
+    "If you already inserted the report USB before erasing, remove only that "
+    "report USB. Leave the boot USB and erase disk connected. Choose Check disks "
+    "again, then choose and confirm the erase target again. Do not guess which "
+    "disk to unplug or erase.",
+    REPORT_VOLATILE + " This checkbox remembers only your preference for this "
+    "session. It does not choose media, save a report, or prevent shutdown. "
+    "A report is available only if the operation produced eligible evidence. "
+    "Erase reports include disk identifiers; review them before sharing.",
+    "Wait for the saved and safe-to-remove message before removing the report USB. "
+    "If saving fails, follow the displayed error and retry while this session is "
+    "still running. Never remove report media while saving.",
+    "If the wipe cannot start, Diagnostic report has a separate flow: keep the "
+    "report USB unplugged for Prepare and insert it only when prompted. "
+    "Diagnostics are not erase evidence and do not establish that an erase ran.",
+)
+REPORT_HELP_TEXT = "\n\n".join(REPORT_HELP_SECTIONS)
+REPORT_INSERT = (
+    "No erase is running. Leave the boot USB and selected disk connected. "
+    "Insert one separate FAT32 USB, then choose Save report to USB. "
+    "The report includes disk identifiers."
+)
+ADVANCED_LOG_NOTE = (
+    "Keep the separate FAT32 report USB unplugged until the erase has stopped "
+    "and Save report to USB is offered. Then insert it before choosing Save. "
+    "Leave the boot USB and selected disk connected. "
+    + REPORT_VOLATILE + " Open Need a report? for requirements and safe removal."
+)
+
+
+def report_aftercare(*, can_save: bool, status: str, message: str) -> str:
+    """No insertion prompt unless the existing evidence gate allows saving."""
+    if status == "saved":
+        return message
+    detail = message or (REPORT_INSERT if can_save else "Report export is unavailable.")
+    return detail + " " + REPORT_VOLATILE
+
 
 ADVANCED_LOG_LABEL = "Log file (never on the disk you erase): "
 

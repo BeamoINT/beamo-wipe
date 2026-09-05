@@ -857,3 +857,83 @@ def test_screen_reader_switch_unavailable_during_erase(ui, monkeypatch):
     wiz.screen = Screen.WORKING
     app._click_accessible()
     assert not app._accessible_requested and wiz.screen == Screen.WORKING
+
+
+@pytest.mark.parametrize("screen", [Screen.PICK_EMPTY, Screen.PICK_BLOCKED, Screen.LAST_CHANCE])
+def test_startup_diagnostic_path_renders_and_returns_without_wipe(ui, screen):
+    wiz, app = ui(size=MIN_WINDOW)
+    wiz.preview = False
+    wiz.screen = screen
+    wiz.error = "The safety checks prevented startup."
+    app._draw()
+    app.root.update_idletasks()
+    assert wiz.can_open_diagnostic
+    wiz.open_diagnostic()
+    app._draw()
+    app.root.update_idletasks()
+    assert wiz.screen == Screen.DIAGNOSTIC
+    assert _clipping_problems(app) == []
+    assert _button_named(app, "Prepare")
+    app._on_escape()
+    app.root.update_idletasks()
+    assert wiz.screen == screen and wiz._wipe_request is None
+
+
+@pytest.mark.parametrize("wanted", [True, False])
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("origin", [Screen.WHAT, Screen.METHOD, Screen.ADVANCED])
+def test_report_help_rendered_preference_and_layout(ui, wanted, size, origin):
+    from beamo_wipe import copy as C
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, origin, size)
+
+    def widgets(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from widgets(child)
+
+    link = next(w for w in widgets(app.root) if isinstance(w, tk.Button) and w.cget('text') == C.REPORT_HELP_TITLE)
+    link.invoke()
+    app.root.update_idletasks()
+    reader = next(w for w in widgets(app.root) if isinstance(w, tk.Text))
+    assert reader.get('1.0', 'end-1c') == C.REPORT_HELP_TEXT
+    checkbox = next(w for w in widgets(app.root) if isinstance(w, tk.Checkbutton))
+    assert not wiz.report_wanted
+    if wanted:
+        checkbox.invoke()
+    assert wiz.report_wanted is wanted
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    reader.yview_moveto(1.0)
+    app.root.update_idletasks()
+    assert reader.yview()[1] == 1.0
+    wiz.back()
+    app._draw()
+    assert wiz.screen == origin and not wiz.runner.started
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize('message', ['No new report USB found. Insert exactly one new FAT32 report USB, then try again.',
+                                    'Use a FAT32 report USB. Other filesystems are not mounted.',
+                                    'The report USB was removed.'])
+def test_report_aftercare_errors_and_lifetime_at_minimum_size(ui, tmp_path, message):
+    from beamo_wipe import copy as C
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+    _, app = ui(size=MIN_WINDOW)
+    wiz = _done_wizard(_success_receipt, tmp_path)
+    wiz.report_status = 'error'
+    wiz.report_message = message
+    app.w = wiz
+    app._draw()
+    app.root.update_idletasks()
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    rendered = []
+    def visit(w):
+        if isinstance(w, tk.Label):
+            rendered.append(w.cget('text'))
+        for child in w.winfo_children():
+            visit(child)
+    visit(app.root)
+    assert any(message in value and C.REPORT_VOLATILE in value for value in rendered)

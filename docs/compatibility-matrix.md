@@ -334,6 +334,7 @@ BEAMO_WIPE_VERSION=0.2.2 ./scripts/qemu-verify.sh
 | **1.0** | 2026-09-01 | 0.1.1 | Initial publish: firmware/BIOS/UEFI, USB, NVMe/SATA/multi, missing/duplicate, unusual controllers, resolutions, keyboard, boot-media, safety gates, supported/degraded/unsupported, BF-001..009 |
 | **1.1** | 2026-09-02 | 0.1.1 | First complete audit: wizard (`BF-010` rediscover crash fix), docs (`BF-011` no-fallback), CI (`BF-012` ruff non-blocking), release (`BF-013` sidecar `cd dist`); full evidence in `docs/audit-2026-09-02.md` |
 | **1.2** | 2026-09-03 | 0.2.1 | Security audit hardening: device identity rechecks, metadata sanitization, private files, verified provenance, fixed kiosk boundary, content-addressed CI, isolated shipped-engine QEMU, and explicit no-overwrite publication gate. |
+| **1.4** | 2026-09-05 | 0.2.2 | Startup diagnostic reporting separated from wipe evidence; support runbook 1.1 defines privacy and blocked-export handling. Build and hardware validation remain required. |
 | **1.3** | 2026-09-05 | 0.2.2 | Canonical method and evidence wording, explicit storage limits, excluded inventory, fresh authorization, and the GTK screen-reader view. |
 
 ---

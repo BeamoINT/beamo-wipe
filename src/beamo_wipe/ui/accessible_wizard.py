@@ -16,7 +16,8 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
-from beamo_wipe import copy as C, inventory, storage_limits  # noqa: E402
+from beamo_wipe import copy as C  # noqa: E402
+from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
 from beamo_wipe.models import Screen  # noqa: E402
 from beamo_wipe.wizard import Wizard, format_progress_percent  # noqa: E402
@@ -201,7 +202,20 @@ class AccessibleWizard:
                     else None,
                 )
             self.button(storage_limits.BUTTON, self.w.open_limits)
+            self.button(C.BTN_ADVANCED, self.w.open_advanced)
             self.button(C.BTN_CONTINUE, self.w.continue_method)
+        elif screen == Screen.REPORT_HELP:
+            heading.set_text(C.REPORT_HELP_TITLE)
+            self.reader(C.REPORT_HELP_TEXT)
+            choice = Gtk.CheckButton.new_with_label(C.REPORT_WANTED)
+            choice.set_active(self.w.report_wanted)
+            choice.connect(
+                "toggled",
+                lambda widget: self.w.set_report_wanted(widget.get_active())
+                if generation == self.generation
+                else None,
+            )
+            self.body.pack_start(choice, False, False, 4)
         elif screen == Screen.LIMITS:
             heading.set_text(storage_limits.TITLE)
             self.reader(storage_limits.full_text())
@@ -255,8 +269,15 @@ class AccessibleWizard:
             report = self.w.report_view
             if report.evidence_error:
                 self.label(f"Evidence was not saved: {report.evidence_error}")
-            if report.message:
-                self.label(report.message)
+            self.label(self.w.result_view.next_step)
+            if not self.w.preview:
+                self.label(
+                    C.report_aftercare(
+                        can_save=report.can_save,
+                        status=report.status,
+                        message=report.message,
+                    )
+                )
             if self.w.preview:
                 self.button(C.BTN_RUN_AGAIN, self.w.reset_for_preview)
             else:
@@ -268,6 +289,19 @@ class AccessibleWizard:
             self.button(
                 "Close preview" if self.w.preview else "Shut down", self.w.shutdown
             )
+        elif screen == Screen.DIAGNOSTIC:
+            view = self.w.diagnostic_view
+            heading.set_text(D.TITLE)
+            self.label(D.NOTICE)
+            self.label(D.PREPARE)
+            self.label(view.message, focusable=True)
+            self.button(
+                "Save diagnostic report" if view.ready else "Prepare",
+                lambda: self.w.diagnostic_action(background=True),
+                enabled=not view.busy,
+            )
+            self.button("Back", self.w.close_diagnostic, enabled=not view.busy)
+            self.button("Shut down", self.w.shutdown, enabled=not view.busy)
         elif screen == Screen.REFRESHING:
             heading.set_text(
                 "Checking disks again. Previous confirmations have been cleared."
@@ -277,6 +311,10 @@ class AccessibleWizard:
                 "The current screen could not be confirmed. Contact support."
             )
         self.error_label = self.label(self.w.error or "", focusable=True)
+        if self.w.can_open_diagnostic:
+            self.button("Diagnostic report", self.w.open_diagnostic)
+        if self.w.can_open_report_help:
+            self.button(C.REPORT_HELP_TITLE, self.w.open_report_help)
         if self.w.can_refresh:
             self.button("Check disks again (F5)", self.w.refresh_disks)
         if screen in {
@@ -288,6 +326,7 @@ class AccessibleWizard:
             Screen.METHOD,
             Screen.LAST_CHANCE,
             Screen.LIMITS,
+            Screen.REPORT_HELP,
             Screen.ADVANCED,
         }:
             self.button(C.BTN_BACK, self.w.back)

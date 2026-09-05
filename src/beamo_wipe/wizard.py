@@ -68,6 +68,14 @@ class ReportView:
 
 
 @dataclass(frozen=True)
+class DiagnosticView:
+    revision: int
+    message: str
+    ready: bool
+    busy: bool
+
+
+@dataclass(frozen=True)
 class _ReportExportClaim:
     """Evidence/result identity captured before an export worker starts."""
 
@@ -115,6 +123,8 @@ class Wizard:
             os.environ.setdefault("BEAMO_WIPE_DRY_RUN", "1")
         self.preview = False
         self.screen = Screen.SPLASH
+        self.report_wanted = False
+        self._report_help_from: Optional[Screen] = None
         self.owner_ok = False
         self.selected: Optional[Disk] = None
         self.confirm_input = ""
@@ -154,6 +164,14 @@ class Wizard:
         self._report_revision = 0
         self._active_report_claim: Optional[_ReportExportClaim] = None
         self._lock = threading.RLock()
+        self.startup_error_code = discovery.error_code
+        self.diagnostic_ui = "graphical"
+        self._session_started = time.monotonic()
+        self.diagnostic_message = ""
+        self._diagnostic_baseline = ()
+        self._diagnostic_busy = False
+        self._diagnostic_from = Screen.PICK_BLOCKED
+        self._startup_blocked = False
 
     @property
     def now(self) -> float:
@@ -284,6 +302,8 @@ class Wizard:
         duration = float(getattr(self.runner, "duration_s", 8.0))
         self.runner = DryRunRunner(duration_s=duration, fail=fail)
         self.screen = Screen.SPLASH
+        self.report_wanted = False
+        self._report_help_from = None
         self.owner_ok = False
         self.selected = None
         self.confirm_input = ""
@@ -313,6 +333,8 @@ class Wizard:
 
     def shutdown(self) -> None:
         with self._lock:
+            if self._diagnostic_busy:
+                return
             if self._report_exporting:
                 self._set_report_state_locked(
                     message="Wait for the report USB to finish before shutting down."
@@ -354,6 +376,9 @@ class Wizard:
             self._enter_pick()
 
     def _enter_pick(self) -> None:
+        if self._startup_blocked:
+            self.screen = Screen.PICK_BLOCKED
+            return
         self._done_keyboard_armed = False
         if not self.discovery.boot_identified or self.discovery.error:
             self.screen = Screen.PICK_BLOCKED
@@ -389,8 +414,8 @@ class Wizard:
         return self.screen in {
             Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.PICK_EMPTY,
             Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD,
-            Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS,
-        } and self._wipe_request is None and not self.wants_shutdown
+            Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP,
+        } and self._wipe_request is None and not self.wants_shutdown and not self._startup_blocked and not self._diagnostic_busy
 
     def refresh_disks(self) -> bool:
         # Claim the transition before doing I/O. A simultaneous start either
@@ -406,6 +431,7 @@ class Wizard:
             self.method = DEFAULT_METHOD
             self._erase_until = None
             self._advanced_from = None
+            self._report_help_from = None
             self._done_keyboard_armed = False
             self.error = None
         try:
@@ -420,9 +446,10 @@ class Wizard:
         except Exception as exc:
             from beamo_wipe.diagnostics import log_diag
             log_diag("discover", "refresh_failed", type(exc).__name__)
-            fresh = DiscoveryResult(error=REDISCOVER_ERROR, boot_identified=False)
+            fresh = DiscoveryResult(error=REDISCOVER_ERROR, boot_identified=False, error_code="refresh_failed")
         with self._lock:
             self.discovery = fresh
+            self.startup_error_code = fresh.error_code
             self.error = fresh.error
             # WHAT -> OWNER -> PICK requires all acknowledgements again.
             self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.WHAT
@@ -523,20 +550,26 @@ class Wizard:
             if not self.dry_run and not self.preview:
                 try:
                     discovery = (self._rediscover or discover)()
-                except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError, AttributeError) as exc:
-                    self.error = f"Could not re-read disks: {exc}"
+                    if not isinstance(discovery, DiscoveryResult):
+                        raise TypeError("Invalid discovery result")
+                except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError, AttributeError):
+                    self.error = "Could not re-read disks. Erase did not start."
+                    self.startup_error_code = "rediscovery_failed"
                     return
-                except Exception as exc:  # noqa: BLE001 — fail closed on any rediscover error
-                    self.error = f"Could not re-read disks: {exc}"
+                except Exception:  # noqa: BLE001 — fail closed on any rediscover error
+                    self.error = "Could not re-read disks. Erase did not start."
+                    self.startup_error_code = "rediscovery_failed"
                     return
                 if not discovery.boot_identified or discovery.boot is None:
                     self.error = REDISCOVER_ERROR
+                    self.startup_error_code = "rediscovery_failed"
                     return
                 try:
                     assert_boot_excluded(discovery)
                     assert_disk_identity(disk, discovery)
-                except SafetyError as exc:
-                    self.error = str(exc)
+                except SafetyError:
+                    self.error = "Disk identity could not be confirmed. Check disks again."
+                    self.startup_error_code = "identity_rejected"
                     return
                 self.discovery = discovery
                 try:
@@ -547,6 +580,7 @@ class Wizard:
                     )
                 except StopIteration:
                     self.error = "Selected disk is not in the safe list."
+                    self.startup_error_code = "identity_rejected"
                     return
                 self.selected = disk
             try:
@@ -561,16 +595,24 @@ class Wizard:
                 build_nwipe_argv(request)
                 self.runner.start(request)
             except SafetyError as exc:
-                self.error = str(exc)
+                self.error = ("Confirm token does not match." if str(exc) == "Confirm token does not match." else
+                              "The safety checks prevented startup. Check disks again or save a diagnostic report.")
+                self.startup_error_code = "preflight_rejected"
                 return
             except OSError as exc:
                 from beamo_wipe.outcomes import VIEWS
                 from beamo_wipe.diagnostics import log_diag
 
                 self.error = VIEWS["start_failed"].announcement
+                self.startup_error_code = "engine_start_failed"
                 log_diag("nwipe", "start_failed", f"{type(exc).__name__}; errno={exc.errno}")
                 return
+            except Exception:
+                self.error = "Startup could not be confirmed. Save a diagnostic report for support."
+                self.startup_error_code = "unexpected_startup_failure"
+                return
             self.error = None
+            self.startup_error_code = ""
             self._wipe_request = request
             self._cancel_requested = False
             self._evidence_written_for = None
@@ -1154,6 +1196,93 @@ class Wizard:
         return True
 
     @property
+    def diagnostic_view(self) -> DiagnosticView:
+        with self._lock:
+            return DiagnosticView(self._report_revision, self.diagnostic_message,
+                                  bool(self._diagnostic_baseline), self._diagnostic_busy)
+
+    @property
+    def can_open_diagnostic(self) -> bool:
+        return (not self.preview and self._wipe_request is None and self.wipe_result is None
+                and not self.wants_shutdown and not self._diagnostic_busy
+                and (self.screen in {Screen.PICK_BLOCKED, Screen.PICK_EMPTY}
+                     or (self.screen == Screen.LAST_CHANCE and bool(self.error))
+                     or (self.screen == Screen.WHAT and self.startup_error_code == "graphical_unavailable")))
+
+    def open_diagnostic(self) -> None:
+        with self._lock:
+            if not self.can_open_diagnostic:
+                return
+            self._diagnostic_from = self.screen
+            self.screen = Screen.DIAGNOSTIC
+            self.diagnostic_message = ""
+            self._diagnostic_baseline = ()
+            self._report_revision += 1
+
+    def close_diagnostic(self) -> None:
+        with self._lock:
+            if self.screen == Screen.DIAGNOSTIC and not self._diagnostic_busy:
+                self.screen = self._diagnostic_from
+                self._diagnostic_baseline = ()
+
+    def diagnostic_action(self, *, background: bool = False) -> bool:
+        """Prepare BEFORE insertion; the next explicit action saves to new media."""
+        with self._lock:
+            if self.screen != Screen.DIAGNOSTIC or self._diagnostic_busy or self._wipe_request is not None:
+                return False
+            self._diagnostic_busy = True
+            baseline = self._diagnostic_baseline
+            self.diagnostic_message = "Saving and verifying. Leave the USB connected." if baseline else "Checking connected disks."
+            self._report_revision += 1
+        def perform():
+            try:
+                from beamo_wipe import support_export as export
+                from beamo_wipe.diagnostic_report import create_report
+                if self.dry_run:
+                    raise SafetyError("Diagnostic USB export is unavailable in preview or dry-run.")
+                if not baseline:
+                    prepared = export.capture_diagnostic_baseline()
+                    with self._lock:
+                        self._diagnostic_baseline = prepared
+                        self.diagnostic_message = "Baseline checked. Now insert one new removable FAT32 USB and choose Save diagnostic report."
+                else:
+                    code = self.startup_error_code or (
+                        "no_eligible_disks" if self._diagnostic_from == Screen.PICK_EMPTY else "boot_unidentified")
+                    data = create_report(code, self.discovery, ui=self.diagnostic_ui, session_started=self._session_started)
+                    receipt = export.export_diagnostic_to_new_usb(data=data, baseline=baseline)
+                    import hashlib
+                    if (receipt.ok is not True or receipt.safe_to_remove is not True
+                            or receipt.code != "saved_verified_unmounted"
+                            or receipt.evidence_sha256 != hashlib.sha256(data).hexdigest()
+                            or re.fullmatch(r"report-[0-9a-f]{24}", receipt.session_name) is None):
+                        raise SafetyError("Diagnostic report was not saved and verified. Shut down before removing the USB.")
+                    with self._lock:
+                        self.diagnostic_message = "Diagnostic report saved and verified. Report USB is safe to remove. This is not erase evidence."
+                        self._diagnostic_baseline = ()
+            except SafetyError as exc:
+                with self._lock:
+                    self.diagnostic_message = str(exc)
+            except Exception:
+                with self._lock:
+                    self.diagnostic_message = "Diagnostic export failed. Shut down before removing the USB."
+            finally:
+                with self._lock:
+                    self._diagnostic_busy = False
+                    self._report_revision += 1
+        if background:
+            try:
+                threading.Thread(target=perform, name="beamo-diagnostic-export", daemon=True).start()
+            except Exception:
+                with self._lock:
+                    self._diagnostic_busy = False
+                    self.diagnostic_message = "Diagnostic export could not start. Try again."
+                    self._report_revision += 1
+                return False
+        else:
+            perform()
+        return True
+
+    @property
     def done_ok(self) -> bool:
         return self.result_view.success
 
@@ -1163,6 +1292,27 @@ class Wizard:
         if self.preview:
             return preview_view(bool(self.wipe_result and self.wipe_result.ok))
         return present_evidence(None if self.evidence_error else self.evidence)
+
+    @property
+    def can_open_report_help(self) -> bool:
+        return self.screen in {Screen.WHAT, Screen.METHOD, Screen.ADVANCED} and self._wipe_request is None
+
+    def open_report_help(self) -> None:
+        with self._lock:
+            if self.can_open_report_help:
+                self._report_help_from = self.screen
+                self.screen = Screen.REPORT_HELP
+
+    def set_report_wanted(self, wanted: bool) -> None:
+        with self._lock:
+            if self.screen == Screen.REPORT_HELP and type(wanted) is bool:
+                self.report_wanted = wanted
+
+    def close_report_help(self) -> None:
+        with self._lock:
+            if self.screen == Screen.REPORT_HELP:
+                self.screen = self._report_help_from or Screen.WHAT
+                self._report_help_from = None
 
     def open_limits(self) -> None:
         with self._lock:
@@ -1183,7 +1333,7 @@ class Wizard:
 
     def open_advanced(self) -> None:
         with self._lock:
-            if self.screen in (Screen.SPLASH, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING):
+            if self.screen in (Screen.SPLASH, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
                 return
             self._advanced_from = self.screen
             self.screen = Screen.ADVANCED
@@ -1202,6 +1352,12 @@ class Wizard:
         # Without this, a back-out landing mid-confirm leaves the UI on
         # METHOD while nwipe is already running.
         with self._lock:
+            if self.screen == Screen.REPORT_HELP:
+                self.close_report_help()
+                return
+            if self.screen == Screen.DIAGNOSTIC:
+                self.close_diagnostic()
+                return
             mapping = {
                 Screen.OWNER: Screen.WHAT,
                 Screen.PICK: Screen.OWNER,

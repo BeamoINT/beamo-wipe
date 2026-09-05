@@ -10,6 +10,7 @@ import time
 import textwrap
 
 from beamo_wipe import copy as C
+from beamo_wipe import diagnostic_report as D
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
 from beamo_wipe.models import MethodId, Screen
@@ -34,7 +35,17 @@ class _InventoryRefreshed(Exception):
 def _answer(wizard: Wizard, prompt: str) -> str:
     if wizard.can_refresh:
         print("Type CHECK DISKS AGAIN to refresh and clear all confirmations.")
+    if wizard.can_open_diagnostic:
+        print("Type DIAGNOSTIC for a diagnostic report (not erase evidence).")
+    if wizard.can_open_report_help:
+        print("Type REPORT for Need a report? (optional).")
     answer = input(prompt)
+    if wizard.can_open_report_help and answer.strip().upper() == "REPORT":
+        wizard.open_report_help()
+        raise _InventoryRefreshed
+    if wizard.can_open_diagnostic and answer.strip().upper() == "DIAGNOSTIC":
+        wizard.open_diagnostic()
+        raise _InventoryRefreshed
     if wizard.can_refresh and answer.strip().upper() == "CHECK DISKS AGAIN":
         wizard.refresh_disks()
         raise _InventoryRefreshed
@@ -76,6 +87,20 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if wizard.preview:
             print(C.PREVIEW_BANNER)
         print("=" * 60)
+        if screen == Screen.DIAGNOSTIC:
+            print(D.TITLE)
+            print(D.NOTICE)
+            print(D.PREPARE)
+            print(wizard.diagnostic_message)
+            action = "SAVE" if wizard._diagnostic_baseline else "PREPARE"
+            answer = input(f"Type {action}, BACK, or SHUTDOWN: ").strip().upper()
+            if answer == action:
+                wizard.diagnostic_action()
+            elif answer == "BACK":
+                wizard.close_diagnostic()
+            elif answer == "SHUTDOWN":
+                wizard.shutdown()
+            continue
         if screen == Screen.SPLASH:
             print(C.SPLASH_TAGLINE)
             _answer(wizard, "Press Enter… ")
@@ -153,7 +178,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(limits.BUTTON)
             for card in C.METHOD_CARDS.values():
                 print(f"{card['key']} {card['title']}: {card['blurb']} {card['pace']}")
-            choice = _answer(wizard, "Choice [1], or L for storage limits: ").strip()
+            choice = _answer(wizard, "Choice [1], L for storage limits, A for Advanced: ").strip()
+            if choice.lower() == "a":
+                wizard.open_advanced()
+                continue
             if choice.lower() == "l":
                 wizard.open_limits()
                 continue
@@ -221,22 +249,29 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     wizard.reset_for_preview()
             else:
                 print(wizard.result_view.next_step)
+                print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
                 if report.can_save:
-                    print(
-                        report.message
-                        or "Leave the Beamo USB and selected disk connected. Insert exactly "
-                        "one FAT32 USB if you need a report."
-                    )
                     prompt = "Type SAVE to save the report, or SHUTDOWN: "
                 else:
-                    if report.message:
-                        print(report.message)
                     prompt = "Type SHUTDOWN: "
                 action = _answer(wizard, prompt).strip().upper()
                 if action == "SAVE" and report.can_save:
                     wizard.save_report_to_usb()
                 elif action == "SHUTDOWN":
                     wizard.shutdown()
+            continue
+        if screen == Screen.REPORT_HELP:
+            print(C.REPORT_HELP_TITLE)
+            for paragraph in C.REPORT_HELP_SECTIONS:
+                print(textwrap.fill(paragraph, 76))
+                _answer(wizard, "Enter for more… ")
+            print(f"{C.REPORT_WANTED}: {'yes' if wizard.report_wanted else 'no'}")
+            action = _answer(wizard, "YES to want a report, NO to clear, BACK to return: ").strip().upper()
+            if action in {"YES", "NO"}:
+                wizard.set_report_wanted(action == "YES")
+                wizard.close_report_help()
+            elif action == "BACK":
+                wizard.close_report_help()
             continue
         if screen == Screen.LIMITS:
             print(limits.TITLE)
@@ -247,6 +282,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.close_limits()
             continue
         if screen == Screen.ADVANCED:
+            print(C.ADVANCED_LEAD)
+            print(textwrap.fill(C.ADVANCED_LOG_NOTE, 76))
             _answer(wizard, "Press Enter to go back… ")
             wizard.close_advanced()
             continue
@@ -319,6 +356,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.other_devices:
                 _add(stdscr, min(h - 3, y), 0, "Other detected devices (O): read reasons; not selectable.")
             _add(stdscr, min(h - 2, y + 1), 0, "Up/Down then Enter. Esc back.")
+        elif wizard.screen == Screen.DIAGNOSTIC:
+            y = _wrap(stdscr, y, D.TITLE + "\n" + D.NOTICE, w)
+            y = _wrap(stdscr, y + 1, D.PREPARE, w)
+            _wrap(stdscr, y + 1, wizard.diagnostic_message, w)
+            action = "save diagnostic report" if wizard._diagnostic_baseline else "prepare baseline"
+            _add(stdscr, h - 2, 0, "R: " + action + "    Esc: back    S: shut down")
         elif wizard.screen == Screen.PICK_BLOCKED:
             _wrap(stdscr, y, wizard.error or C.IDENTIFY_ERROR, w)
             _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
@@ -362,15 +405,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 star = ">" if wizard.method == method else " "
                 card = C.METHOD_CARDS[method]
                 y = _wrap(stdscr, y, f"{star} {i} {card['title']}: {card['blurb']} {card['pace']}", w) + 1
-            _add(stdscr, y, 0, "L: storage limits. 1/2/3: choose. Enter: continue.")
-        elif wizard.screen == Screen.LIMITS:
-            lines = [line for paragraph in limits.full_text().split("\n")
+            _add(stdscr, y, 0, "L: limits. A: Advanced. 1/2/3: choose. Enter: continue.")
+        elif wizard.screen in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED}:
+            content = limits.full_text() if wizard.screen == Screen.LIMITS else C.ADVANCED_LOG_NOTE
+            if wizard.screen == Screen.REPORT_HELP:
+                _add(stdscr, y, 0, f"[{'X' if wizard.report_wanted else ' '}] {C.REPORT_WANTED}")
+                y += 2
+                content = C.REPORT_HELP_TITLE + "\n\n" + C.REPORT_HELP_TEXT
+            lines = [line for paragraph in content.split("\n")
                      for line in (textwrap.wrap(paragraph, max(10, w - 2)) or [""])]
             limits_offset = min(limits_offset, max(0, len(lines) - (h - y - 2)))
             for line in lines[limits_offset:limits_offset + max(1, h - y - 2)]:
                 _add(stdscr, y, 0, line)
                 y += 1
-            _add(stdscr, h - 1, 0, "Up/Down, PgUp/PgDn: read. Esc: back.")
+            _add(stdscr, h - 1, 0, "Arrows/Pg: read. Space: report preference. Esc: back." if wizard.screen == Screen.REPORT_HELP else "Up/Down, PgUp/PgDn: read. Esc: back.")
         elif wizard.screen == Screen.LAST_CHANCE:
             y = _wrap(stdscr, y, wizard.erase_label(), w)
             y = _wrap(stdscr, y + 1, wizard.method_summary, w)
@@ -400,15 +448,21 @@ def _loop(stdscr, wizard: Wizard) -> int:
             report = wizard.report_view
             y = _wrap(stdscr, y, wizard.method_summary, w)
             y = _wrap(stdscr, y, wizard.method_result, w)
-            _wrap(
-                stdscr,
-                y,
-                wizard.result_view.next_step,
-                w,
-            )
+            content = wizard.result_view.next_step
+            if not wizard.preview:
+                content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
+            if report.evidence_error:
+                content += "\nEvidence was not saved: " + report.evidence_error
+            lines = [line for paragraph in content.split("\n")
+                     for line in (textwrap.wrap(paragraph, max(10, w - 2)) or [""])]
+            page_size = max(1, h - y - 3)
+            limits_offset = min(limits_offset, max(0, len(lines) - page_size))
+            for row, line in enumerate(lines[limits_offset:limits_offset + page_size], y):
+                _add(stdscr, row, 0, line)
+            _add(stdscr, h - 1, 0, "Up/Down, PgUp/PgDn: read aftercare.")
             _add(
                 stdscr,
-                y + 4,
+                h - 2,
                 0,
                 "Enter: run again    C: close"
                 if wizard.preview
@@ -418,18 +472,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     else "Enter: shut down"
                 ),
             )
-            if report.evidence_error:
-                _wrap(stdscr, y + 6, f"Evidence was not saved: {report.evidence_error}", w)
-            elif not wizard.preview:
-                message = report.message
-                if not message and report.can_save:
-                    message = "Leave the Beamo USB and selected disk connected while saving."
-                if message:
-                    _wrap(stdscr, y + 6, message, w)
-        if wizard.can_refresh and not inventory_open:
+        if wizard.can_open_report_help and not inventory_open:
+            _add(stdscr, h - 2, 0, "R: Need a report? (optional)")
+        if wizard.can_refresh and not inventory_open and wizard.screen != Screen.REPORT_HELP:
             _add(stdscr, h - 1, 0, "F5: Check disks again (clears all confirmations)")
+        if wizard.can_open_diagnostic:
+            _add(stdscr, h - 3, 0, "D: Diagnostic report (not erase evidence)")
         stdscr.refresh()
         ch = stdscr.getch()
+        if wizard.can_open_diagnostic and ch in (ord("d"), ord("D")):
+            wizard.open_diagnostic()
+            continue
+        if wizard.screen == Screen.DIAGNOSTIC and ch in (ord("r"), ord("R")):
+            _confirm_diagnostic_action(stdscr, wizard)
+            continue
         if ch == curses.KEY_F5 and wizard.can_refresh:
             wizard.refresh_disks()
             inventory_open = False
@@ -475,12 +531,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
             enter_held = True
             enter_quiet_since = None
             continue
-        if wizard.screen == Screen.LIMITS and ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE):
+        if wizard.screen in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED, Screen.DONE} and ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE):
             delta = {curses.KEY_UP: -1, curses.KEY_DOWN: 1,
                      curses.KEY_PPAGE: -(h - 5), curses.KEY_NPAGE: h - 5}[ch]
             limits_offset = max(0, limits_offset + delta)
             continue
-        if wizard.screen != Screen.LIMITS:
+        if wizard.screen not in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED, Screen.DONE}:
             limits_offset = 0
         _handle(wizard, ch)
     return 0
@@ -504,6 +560,24 @@ def _advance_enter_quiet(
     return False, None, True
 
 
+def _confirm_diagnostic_action(stdscr, wizard: Wizard) -> None:
+    if wizard._diagnostic_busy:
+        return
+    h, _ = stdscr.getmaxyx()
+    action = "SAVE" if wizard._diagnostic_baseline else "PREPARE"
+    _add(stdscr, h - 2, 0, f"Type {action} for diagnostic report, then Enter (anything else cancels):")
+    stdscr.refresh()
+    stdscr.timeout(-1)
+    curses.echo()
+    try:
+        answer = stdscr.getstr(h - 1, 0, 16).decode("ascii", errors="replace").strip()
+        if answer == action:
+            wizard.diagnostic_action(background=True)
+    finally:
+        curses.noecho()
+        stdscr.timeout(100)
+
+
 def _confirm_report_save(stdscr, wizard: Wizard) -> None:
     """A held R cannot confirm an export; the owner must type literal SAVE."""
     h, _w = stdscr.getmaxyx()
@@ -523,6 +597,21 @@ def _confirm_report_save(stdscr, wizard: Wizard) -> None:
 
 
 def _handle(wizard: Wizard, ch: int) -> None:
+    if wizard.can_open_report_help and ch in (ord("r"), ord("R")):
+        wizard.open_report_help()
+        return
+    if wizard.screen == Screen.REPORT_HELP:
+        if ch == ord(" "):
+            wizard.set_report_wanted(not wizard.report_wanted)
+        elif ch in (27, curses.KEY_ENTER, 10, 13):
+            wizard.close_report_help()
+        return
+    if wizard.screen == Screen.ADVANCED and ch in (curses.KEY_ENTER, 10, 13):
+        wizard.close_advanced()
+        return
+    if wizard.screen == Screen.METHOD and ch in (ord("a"), ord("A")):
+        wizard.open_advanced()
+        return
     if wizard.screen == Screen.METHOD and ch in (ord("l"), ord("L")):
         wizard.open_limits()
         return
@@ -544,7 +633,7 @@ def _handle(wizard: Wizard, ch: int) -> None:
     if ch == 27:
         wizard.back()
         return
-    if ch in (ord("s"), ord("S")) and wizard.screen == Screen.WHAT:
+    if ch in (ord("s"), ord("S")) and wizard.screen in {Screen.WHAT, Screen.DIAGNOSTIC}:
         wizard.shutdown()
         return
     if ch in (curses.KEY_ENTER, 10, 13):

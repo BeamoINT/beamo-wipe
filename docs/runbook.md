@@ -1,6 +1,6 @@
 # Beamo Wipe — Production support and incident runbook
 
-> **Version 1.0 — 2026-09-02 | Owner: Accountable senior engineer (this checkout) | Next review 2026-12-02**
+> **Version 1.1 — 2026-09-05 | Owner: Accountable senior engineer (this checkout) | Next review 2026-12-05**
 > Pinned wrapper `0.2.2` / `nwipe v0.42` commit `6082bde060091e66365d852a1877f2ee80c67105` at `/usr/lib/beamo-wipe/nwipe`
 > Wrapper GPL-3.0-or-later; nwipe GPL-2.0. See `docs/storage-and-controller-limits.md`, `docs/compatibility-matrix.md`.
 
@@ -41,12 +41,15 @@ Escalation: L1→On-call→Release Manager. Handoffs are recorded in the ticket 
 
 ## 3. What to collect — evidence checklist (privacy-safe)
 
+For a wipe that cannot start, collect only the [startup diagnostic report](startup-diagnostics.md). The disk-identifying evidence and raw inventory rows below do not apply to startup diagnostics. If boot identity cannot be re-established, report export stays blocked; do not bypass it.
+
 Collect in order shown. Redaction is mandatory before leaving the support queue.
 
 | Evidence | Where | Redaction | Notes |
 |---|---|---|---|
 | Ticket summary | Customer words | No disk serials unless customer volunteered | Symptom in customer's language |
 | Photo of screen | Customer phone photo of wizard or `PICK_EMPTY/BLOCKED` | Blur any serial if posted publicly | Must show step label (Step X of 8) + message |
+| `diagnostic.json` + `.sha256` + `COMPLETE` | Blocked/empty/start-failure screen: **Diagnostic report** → Prepare → insert one new FAT32 USB → Save | Fixed codes, exact application/build identity, discovery status, unverified UTC and monotonic session time; no disk identifiers or raw logs | Startup support only; not erase evidence. See [startup diagnostics](startup-diagnostics.md). |
 | `result.json` + `result.json.sha256` | Live USB `/tmp/beamo-wipe/` (tmpfs, not target), then the Finished-screen **Save report to USB** workflow | Already redacted: contains `device.realpath/serial/wwn/vendor`, `method`, `boot_device`, `outcome`, `failure_reason`, `verification`, `log_checksum_sha256`, `provenance.evidence_file` — no hostname/IP/user | The USB bundle is accepted only after a completion marker, read-only remount verification, and final unmount. |
 | `nwipe.log` or `nwipe-tail.log` + `.sha256` | Same private bundle; only the exact authenticated log suffix recorded in terminal evidence is exported, and a suffix shorter than the current file is explicitly marked as a tail | Contains the engine markers used by `evaluate_nwipe_completion`: `is reported as IN USE`, `Nwipe was aborted`, `Unable to open device`, `No sane device geometry`, `>>> FAILURE! <<<`, `| Erased |`, `SIGUSR1` progress | Never copy to target disk; see `FORBIDDEN_LOG_ROOTS`. Missing, changed, or unsafe logs are recorded as unavailable rather than silently trusted. |
 | `lsblk` JSON snapshot | Live: run `lsblk -J -b -o NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,WWN,RM,HOTPLUG,MOUNTPOINTS,LABEL,FSTYPE,VENDOR,PKNAME,UUID` into a file on the second USB | Contains serials — treat as PII, keep in ticket private field | For L1 to file a fake fixture that reproduces without hardware (see §8) |
@@ -169,8 +172,13 @@ proves coverage of inaccessible or remapped storage. Missing or inconsistent
 completion evidence remains indeterminate, separate from confirmed cancellation
 and interruption. Do not automatically re-run an erase or edit evidence into success.
 
-Leave the boot USB and target attached. Use **Save report to USB** on Finished
-when available, inserting exactly one new FAT32 USB as requested. Logs remain
+Keep report media unplugged during target selection, confirmation, and erasing.
+After the erase has stopped and **Save report to USB** is available, leave the
+boot USB and target attached, insert exactly one new FAT32 USB, then choose Save.
+Any unsaved report is lost when the live session shuts down or loses power.
+The optional **Need a report?** preference does not export or prevent shutdown.
+See [Advanced report guidance](ADVANCED.md#logs) for early insertion, refresh,
+unsupported filesystems, and safe removal. Logs remain
 under `/tmp/beamo-wipe/`. The guarded exporter excludes all original devices,
 writes a unique bundle, syncs, unmounts, remounts read-only, verifies exact bytes,
 and unmounts again. Its `COMPLETE` file authenticates bundle contents; only the
@@ -202,7 +210,7 @@ Use these verbatim or close; they contain no bypass instruction.
 
 *Token mismatch:* "That screen wants the numbers/4 characters under the name on that row (size label or last 4 of serial). Capitals don't matter; type it exactly. Continue stays off until it matches — that's the gate."
 
-*Interrupted / Failed:* "`The erase did not finish. Files may still be on the disk.` There's no resume. Before shutting down, leave the Beamo USB and selected disk attached, insert exactly one FAT32 USB, and choose **Save report to USB**. Wait for `Report saved and verified` before removing it. That report lets support match the exact failure (`IN USE`, `No sane device geometry`, `Unable to open device`, failure row, or non-zero exit)."
+*Interrupted / Failed:* "`The erase did not finish. Files may still be on the disk.` There's no resume. If Save report to USB is available after the erase has stopped, leave the Beamo USB and selected disk attached, insert exactly one FAT32 USB, and choose **Save report to USB**. Wait for `Report saved and verified` before removing it. That report lets support match the exact failure (`IN USE`, `No sane device geometry`, `Unable to open device`, failure row, or non-zero exit)."
 
 *SSD certificate request:* "This USB does an overwrite pass with nwipe. On a hard disk that's usually what people want. On an SSD the drive's controller decides where writes land, so spare area can still hold old copies. We don't call that certified. If your contract needs spare-area guarantees, use the drive maker's erase tool for that model, or destroy the drive — details at `docs/storage-and-controller-limits.md` §5. Your `result.json` only records overwrite evidence (`verified` vs `completed`) not a lab certificate."
 
@@ -381,7 +389,7 @@ All three spies prove no real nwipe on the support host: `NwipeRunner.start` rai
 
 ## 11. Change control for this runbook
 
-This doc is versioned with the wrapper (`1.0` for `0.2.2`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
+This doc is versioned with the wrapper (`1.1` for `0.2.2`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
 
 ---
 

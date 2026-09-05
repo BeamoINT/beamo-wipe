@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import signal
 import sys
@@ -245,34 +244,43 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         wizard = _build_wizard(args)
-    except SafetyError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except (ValueError, json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    except Exception as exc:  # startup remains fail-closed, but support stays reachable
+        from beamo_wipe.diagnostic_report import exception_code
+        from beamo_wipe.models import DiscoveryResult
+        startup_code = exception_code(exc)
+        discovery = DiscoveryResult(error="Startup was blocked. Save a diagnostic report for support.",
+                                    error_code=startup_code)
+        wizard = Wizard(discovery, DryRunRunner(), dry_run=not running_on_live_usb())
+        wizard._startup_blocked = True
+        wizard.screen = Screen.PICK_BLOCKED
+        wizard.error = discovery.error
+        print(f"Startup blocked ({startup_code}).", file=sys.stderr)
 
     windowed = args.demo and not args.fullscreen
     use_console = args.plain_console or args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
+    wizard.diagnostic_ui = "console" if use_console else "graphical"
+    if use_console and os.environ.get("BEAMO_WIPE_GRAPHICAL_UNAVAILABLE") == "1" and not wizard.startup_error_code:
+        wizard.startup_error_code = "graphical_unavailable"
     if not use_console:
         try:
             if args.accessible or os.environ.get("BEAMO_WIPE_UI") == "accessible":
+                wizard.diagnostic_ui = "accessible"
                 from beamo_wipe.ui.accessible_wizard import run_accessible
                 code = run_accessible(wizard, fullscreen=args.fullscreen or not windowed)
             else:
                 from beamo_wipe.ui.tk_wizard import run_tk
                 code = run_tk(wizard, fullscreen=args.fullscreen or not windowed)
                 if code == 4:
+                    wizard.diagnostic_ui = "accessible"
                     from beamo_wipe.ui.accessible_wizard import run_accessible
                     code = run_accessible(wizard, fullscreen=args.fullscreen or not windowed)
             if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
                 _shutdown()
             return code
-        except Exception as exc:  # noqa: BLE001 — fall back to console
-            print(f"Graphical UI failed ({exc}). Using keyboard screens.", file=sys.stderr)
+        except Exception:  # noqa: BLE001 — fall back to console
+            print("Graphical UI unavailable. Using keyboard screens.", file=sys.stderr)
+            if getattr(wizard, "_wipe_request", None) is None and not getattr(wizard, "startup_error_code", ""):
+                wizard.startup_error_code = "graphical_unavailable"
             if not args.demo and not wizard.dry_run:
                 # Under startx, running the console here leaves X owning tty1
                 # and hides the fallback. Exit so the kiosk supervisor can
@@ -294,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 3
             use_console = True
 
+    wizard.diagnostic_ui = "console"
     from beamo_wipe.ui.console_wizard import run_console
 
     if args.plain_console:

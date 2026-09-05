@@ -44,10 +44,34 @@ vendor secure erase or physical destruction, see
 
 ## Logs
 
-Export a log only to a **second** USB that is not the target and not the
-Beamo boot stick. The Advanced screen shows the temporary log path. After the
-wipe reaches Finished, choose **Save report to USB**, leave the Beamo boot USB
-and selected disk connected, and insert exactly one separate FAT32 USB. Beamo
-Wipe writes a unique report directory, verifies it after a read-only remount,
-and only then says that the report USB is safe to remove. It never formats or
-repairs the report USB.
+Before choosing a target, **Need a report?** explains the optional report flow.
+It is also available at method selection and in Advanced, and as `REPORT` in
+the plain console (`R` in the menu console). The unchecked **I want to save a
+report** box records only a preference for this live session. It neither selects
+media nor exports, creates evidence, or prevents shutdown. Refresh preserves
+this preference but clears target selection and every erase confirmation.
+
+Keep the report USB unplugged while selecting, confirming, and erasing. If
+inserted early, remove only the intended report USB, leave the boot USB and
+erase disk attached, and choose **Check disks again** before choosing and
+confirming the target again. Do not guess which device to remove.
+
+Only after the erase has stopped and the result screen offers **Save report to
+USB**, insert exactly one separate removable FAT32 USB, then choose **Save
+report to USB**. Leave the Beamo boot USB and selected erase disk connected.
+The report USB must have one writable, unmounted FAT32 volume; exFAT, NTFS,
+FAT12 and FAT16 are unsupported. Beamo Wipe never formats or repairs it.
+The exporter rejects devices present in the final pre-erase inventory, including
+a report USB inserted too early. Final target rediscovery and confirmation
+remain mandatory; report intent does not authorize any disk operation.
+
+Any unsaved report is lost when the live session shuts down or loses power.
+Reports include disk identifiers; review them before sharing. The exporter
+writes a unique directory and verifies it after a read-only remount. Only the
+saved-and-safe-to-remove message confirms safe removal after final unmount.
+Never remove report media while saving. On failure, follow the error and retry
+while the session remains running; media is not automatically formatted.
+
+When a wipe cannot start, use the separate [diagnostic report](startup-diagnostics.md)
+flow: Prepare with report media disconnected, then insert only when prompted.
+Diagnostics are not erase evidence and do not establish that an erase ran.

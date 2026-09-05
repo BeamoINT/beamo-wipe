@@ -56,6 +56,7 @@ from tkinter import font as tkfont
 from typing import Callable, List, Optional
 
 from beamo_wipe import copy as C
+from beamo_wipe import diagnostic_report as D
 from beamo_wipe.diagnostics import emit_serial_marker
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe import storage_limits as limits
@@ -1079,7 +1080,7 @@ class TkWizard:
                 return
             if self.w.screen != prev:
                 self._draw()
-            elif self.w.screen == Screen.DONE and (
+            elif self.w.screen in {Screen.DONE, Screen.DIAGNOSTIC} and (
                 self.w.report_view.revision != self._shown_report_revision
             ):
                 self._draw()
@@ -1139,6 +1140,7 @@ class TkWizard:
         self._match_pill = None
         screen = self.w.screen
         report_view = self.w.report_view if screen == Screen.DONE else None
+        diagnostic_view = self.w.diagnostic_view if screen == Screen.DIAGNOSTIC else None
         self._sync_chrome(screen == Screen.SPLASH)
         self._body.configure(bg=BG)
         dispatch = {
@@ -1154,15 +1156,20 @@ class TkWizard:
             Screen.WORKING: self._working,
             Screen.ADVANCED: self._advanced,
             Screen.LIMITS: self._limits,
+            Screen.REPORT_HELP: self._report_help,
             Screen.REFRESHING: lambda: self._status_screen("info", "Checking disks again", "Previous selections and confirmations have been cleared."),
         }
         if report_view is not None:
             self._done(report_view)
+        elif diagnostic_view is not None:
+            self._diagnostic(diagnostic_view)
         else:
             dispatch[screen]()
         self._draw_header()
         self._draw_strip()
         self._shown = screen
+        if diagnostic_view is not None:
+            self._shown_report_revision = diagnostic_view.revision
         if report_view is not None:
             # Record the exact snapshot rendered above. If a worker published
             # a newer revision mid-draw, _tick will render it on the next pass.
@@ -1425,11 +1432,17 @@ class TkWizard:
         body. Buttons pack into ``row._left`` / ``row._right``."""
         assert self._footer is not None
         col = self._column(self._footer, fill_height=False)
+        if self.w.can_open_diagnostic:
+            tk.Button(col, text="Diagnostic report", font=self.font_s,
+                      command=self._nav(self.w.open_diagnostic), takefocus=True).pack(anchor="w", pady=(0, 3))
         if self.w.can_refresh:
             modes = tk.Frame(col, bg=BG)
             modes.pack(fill=tk.X, pady=(0, 3))
             tk.Button(modes, text="Check disks again (F5)", font=self.font_s,
                       command=self._click_refresh, takefocus=True).pack(side=tk.LEFT)
+            if self.w.can_open_report_help:
+                tk.Button(modes, text=C.REPORT_HELP_TITLE, font=self.font_s,
+                          command=self._nav(self.w.open_report_help), takefocus=True).pack(side=tk.LEFT, padx=8)
             if sys.platform.startswith("linux"):
                 tk.Button(modes, text="Screen-reader view (F8)", font=self.font_s,
                           command=self._click_accessible, takefocus=True).pack(side=tk.LEFT, padx=8)
@@ -1904,6 +1917,20 @@ class TkWizard:
         if self._primary is not None:
             self._primary.focus_set()
 
+    def _diagnostic(self, view) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, D.TITLE, D.NOTICE)
+        self._p(col, D.PREPARE, font=self.font_s).pack(fill=tk.X, pady=8)
+        self._p(col, view.message, font=self.font_s).pack(fill=tk.X, pady=8)
+        row = self._footer_shell("No operation outcome is recorded in this report.")
+        self._secondary_btn(row, "Back", self.w.close_diagnostic, enabled=not view.busy)
+        self._primary_btn(row, "Save diagnostic report" if view.ready else "Prepare",
+                          self._click_diagnostic_action,
+                          enabled=not view.busy)
+
+    def _click_diagnostic_action(self) -> None:
+        self.w.diagnostic_action(background=True)
+
     def _confirm(self) -> None:
         disk = self.w.selected
         assert disk is not None
@@ -2115,6 +2142,26 @@ class TkWizard:
         if self._primary is not None:
             self._primary.focus_set()
 
+    def _report_help(self) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, C.REPORT_HELP_TITLE, "Optional. Read before inserting report media.", compact=True)
+        frame = tk.Frame(col, bg=BG)
+        frame.pack(fill=tk.BOTH, expand=True)
+        text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
+                       height=10, bg=SURFACE, fg=INK)
+        scrollbar = tk.Scrollbar(frame, command=text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text.configure(yscrollcommand=scrollbar.set)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        text.insert("1.0", C.REPORT_HELP_TEXT)
+        text.configure(state=tk.DISABLED)
+        choice = tk.BooleanVar(value=self.w.report_wanted)
+        tk.Checkbutton(col, text=C.REPORT_WANTED, variable=choice, bg=BG,
+                       font=self.font_s, takefocus=True,
+                       command=lambda: self.w.set_report_wanted(choice.get())).pack(anchor="w", pady=8)
+        self._back_btn(self._footer_shell("Enter or Esc returns. Nothing is saved here."))
+        text.focus_set()
+
     def _limits(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, limits.TITLE, "Up/Down or Page Up/Page Down to read. Esc returns.", compact=True)
@@ -2304,14 +2351,11 @@ class TkWizard:
                 anchor="center",
                 fg=DANGER,
             ).pack(fill=tk.X, pady=(12, 0))
-        elif not self.w.preview and (report.message or report.can_save):
-            instruction = (
-                "Leave the Beamo USB and selected disk connected. Insert exactly one "
-                "separate FAT32 USB to save the report. The report includes disk identifiers."
-            )
+        if not self.w.preview:
+            instruction = C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             self._p(
                 col,
-                report.message or instruction,
+                instruction,
                 font=self.font_s_bold,
                 wraplength=700,
                 justify=tk.CENTER,
@@ -2517,6 +2561,8 @@ class TkWizard:
             self.w.accept_done_keyboard()
         elif screen == Screen.ADVANCED:
             self.w.close_advanced()
+        elif screen == Screen.REPORT_HELP:
+            self.w.close_report_help()
         elif screen == Screen.LIMITS:
             self.w.close_limits()
         elif screen in (Screen.PICK_BLOCKED, Screen.PICK_EMPTY):

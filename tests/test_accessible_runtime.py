@@ -389,3 +389,53 @@ def test_reader_lifecycle_owns_only_its_child(monkeypatch, live):
         ]
     else:
         assert calls == []
+
+
+def test_accessible_startup_diagnostic_path(ui):
+    w = make_demo_wizard()
+    w.preview = False
+    w.screen = Screen.PICK_BLOCKED
+    app = ui(w)
+    assert "Diagnostic report" in app.actions
+    w.open_diagnostic()
+    app.render()
+    drain()
+    assert "Support diagnostics only" in text(app)
+    assert "Prepare" in app.actions
+    assert w.evidence is None and not w.can_save_report
+
+
+@pytest.mark.parametrize("wanted", [True, False])
+def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
+    from beamo_wipe import copy as C
+
+    w = make_demo_wizard()
+    w.skip_splash()
+    app = ui(w)
+    app.actions[C.REPORT_HELP_TITLE].clicked()
+    drain()
+    reader = next(
+        item for item in widgets(app.window) if isinstance(item, Gtk.TextView)
+    )
+    assert reader.get_accessible().get_name() == C.REPORT_HELP_TEXT
+    choice = next(
+        item for item in widgets(app.window) if isinstance(item, Gtk.CheckButton)
+    )
+    assert not choice.get_active()
+    choice.set_active(wanted)
+    assert w.report_wanted is wanted
+    fresh = w.discovery
+    w._rediscover = lambda: fresh
+    app.actions["Check disks again (F5)"].clicked()
+    drain()
+    assert w.report_wanted is wanted and w.screen == Screen.WHAT
+    assert w.selected is None and not w.owner_ok and not w.confirm_input
+    app.actions[C.REPORT_HELP_TITLE].clicked()
+    drain()
+    choice = next(
+        item for item in widgets(app.window) if isinstance(item, Gtk.CheckButton)
+    )
+    assert choice.get_active() is wanted
+    app.actions[C.BTN_BACK].clicked()
+    drain()
+    assert w.screen == Screen.WHAT and not w.runner.started

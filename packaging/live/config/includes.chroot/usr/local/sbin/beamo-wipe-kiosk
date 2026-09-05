@@ -28,7 +28,7 @@ run_ui() {
       return 0
     fi
   fi
-  /usr/local/bin/beamo-wipe --console
+  BEAMO_WIPE_GRAPHICAL_UNAVAILABLE=1 /usr/local/bin/beamo-wipe --console
 }
 
 while :; do

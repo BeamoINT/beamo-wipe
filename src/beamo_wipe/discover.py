@@ -1174,7 +1174,8 @@ def discover(
         except Exception:
             pass
         diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()
-        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic)
+        from beamo_wipe.diagnostic_report import exception_code
+        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic, error_code=exception_code(exc))
     except Exception as exc:  # noqa: BLE001 — catch unexpected, still fail-closed
         try:
             from beamo_wipe.diagnostics import log_diag
@@ -1183,4 +1184,5 @@ def discover(
         except Exception:
             pass
         diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()
-        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic)
+        from beamo_wipe.diagnostic_report import exception_code
+        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic, error_code=exception_code(exc))

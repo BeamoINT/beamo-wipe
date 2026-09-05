@@ -97,6 +97,9 @@ def gallery_html() -> str:
         "otherDevices": {"happy": inventory.full_text(result.excluded),
                          "empty": inventory.full_text(discovery_for_scenario("empty").excluded)},
         "limitsTitle": limits.TITLE,
+        "reportHelpTitle": C.REPORT_HELP_TITLE,
+        "reportHelpText": C.REPORT_HELP_TEXT,
+        "reportWanted": C.REPORT_WANTED,
         "limitsButton": limits.BUTTON,
         "limitsText": limits.full_text(),
         "previewBanner": C.PREVIEW_BANNER,
@@ -424,6 +427,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <script>
 const P = __PAYLOAD__;
 let screen = "splash";
+let reportWanted = false;
+let reportHelpFrom = "what";
 let owner = false;
 let selected = null;
 let token = "";
@@ -482,6 +487,8 @@ function renderHint(text) {
 }
 
 function boot(m) {
+  reportWanted = false;
+  reportHelpFrom = "what";
   mode = m;
   fail = (m === "fail");
   if (m === "fail") mode = "happy";
@@ -576,6 +583,7 @@ function diskCard(d) {
   </div>`;
 }
 function refreshPreview() {
+  reportHelpFrom = "what";
   if (["working", "done", "splash"].includes(screen)) return;
   if (timer) clearInterval(timer);
   timer = null; selected = null; token = ""; owner = false;
@@ -717,6 +725,13 @@ function draw() {
     renderHint(P.hints.method);
     btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
     btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
+  } else if (screen === "report_help") {
+    main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" role="region" aria-label="Report requirements" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:43vh"></div>
+      <label style="margin-top:12px"><input type="checkbox" id="report-wanted" ${reportWanted ? "checked" : ""}> ${P.reportWanted}</label>`;
+    main.querySelector("#report-text").textContent = P.reportHelpText;
+    main.querySelector("#report-wanted").onchange = e => { reportWanted = e.target.checked; };
+    btnsL.append(btn(P.buttons.back, () => { screen = reportHelpFrom; draw(); }));
+    renderHint("Nothing is saved here. Esc returns.");
   } else if (screen === "limits") {
     main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" role="region" aria-label="Supported storage limits" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
     main.querySelector("#limits-text").textContent = P.limitsText;
@@ -780,11 +795,17 @@ function draw() {
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
   }
+  if (["what", "method", "advanced"].includes(screen)) {
+    btnsL.append(btn(P.reportHelpTitle, () => { reportHelpFrom = screen; screen = "report_help"; draw(); }));
+  }
   if (!["working", "done", "splash"].includes(screen)) {
     btnsL.append(btn("Check disks again", refreshPreview));
   }
 }
 document.addEventListener("keydown", e => {
+  if (screen === "report_help" && e.key === "Escape") {
+    e.preventDefault(); screen = reportHelpFrom; draw(); return;
+  }
   if (e.key === "F5" && !["working", "done", "splash"].includes(screen)) {
     e.preventDefault(); refreshPreview(); return;
   }
@@ -843,6 +864,7 @@ function applyHash() {
   if (q.get("method")) method = q.get("method");
   if (q.get("ready") === "1") tLeft = 0;
   if (q.get("pct")) demoPct = parseInt(q.get("pct"), 10);
+  reportWanted = q.get("report") === "1";
   const s = q.get("s");
   if (s) { screen = s; draw(); }
 }

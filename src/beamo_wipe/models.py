@@ -34,8 +34,10 @@ class Screen(str, Enum):
     WORKING = "working"
     DONE = "done"
     ADVANCED = "advanced"
+    REPORT_HELP = "report_help"
     LIMITS = "limits"
     REFRESHING = "refreshing"
+    DIAGNOSTIC = "diagnostic"
 
 
 @dataclass(frozen=True)
@@ -107,12 +109,12 @@ class DiscoveryResult:
     boot: Optional[Disk] = None
     error: Optional[str] = None
     boot_identified: bool = False
-    # Safe, truncated diagnostic for maintainers (never contains secrets).
-    # UI shows `error` (generic, actionable); `diagnostic` is for advanced/
-    # support export and diagnostics.log.
+    # Legacy local troubleshooting detail, excluded from startup reports.
+    # UI shows `error`; startup support exports only the allowlisted error_code.
     diagnostic: Optional[str] = None
     # Display-only inventory. Never a source of selectable Disk objects.
     excluded: Tuple[ExcludedDevice, ...] = ()
+    error_code: str = ""
 
 
 @dataclass(frozen=True)

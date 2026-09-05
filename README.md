@@ -203,3 +203,15 @@ At method selection, **Storage limits (L)** opens the supported limits offline.
 The warning includes inaccessible, remapped, over-provisioned, and controller-managed
 flash areas and explains why additional overwrite passes do not fix those limits.
 See [the full limits](docs/storage-and-controller-limits.md).
+
+When a wipe cannot start, use the separately labeled [diagnostic report](docs/startup-diagnostics.md) path. Diagnostic reports are not erase evidence.
+
+### Planning to save a report
+
+Open **Need a report?** before choosing an erase target (also available at method
+selection and in Advanced). Keep a separate supported FAT32 report USB unplugged
+until the erase has stopped and Save report to USB is offered; then insert it
+before choosing Save. Keep the boot USB and erase disk connected. Any unsaved
+report is lost on live-session shutdown or power loss. The optional preference
+only records intent for this session; it does not save anything or prevent shutdown.
+See [the exact media, refresh and safe-removal requirements](docs/ADVANCED.md#logs).

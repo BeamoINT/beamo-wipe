@@ -12,7 +12,7 @@ def _lower(rel: str) -> str:
 
 def test_runbook_exists_and_is_versioned():
     text = _lower("docs/runbook.md")
-    assert "version 1.0" in text
+    assert "version 1.1" in text
     assert "next review" in text
     assert "owner" in text
     assert "beamo wipe" in text
@@ -153,3 +153,9 @@ def test_runbook_matches_fail_closed_completion_and_authenticated_log_export():
     assert "log over 8 mib" not in text
     assert "explicit successful completion marker" in text
     assert "authenticated log suffix" in text
+
+
+def test_startup_reports_are_separate_and_minimal():
+    text = _lower("docs/runbook.md")
+    assert "diagnostic.json" in text and "not erase evidence" in text
+    assert "do not apply to startup diagnostics" in text
