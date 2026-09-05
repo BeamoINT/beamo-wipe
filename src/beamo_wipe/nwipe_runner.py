@@ -547,7 +547,7 @@ def _target_reported_success(log_text: str, device: str) -> bool:
 
 
 def evaluate_nwipe_outcome(
-    exit_code: int, log_text: str, device: str
+    exit_code: Optional[int], log_text: str, device: str
 ) -> tuple[bool, str, str]:
     """Map nwipe's process exit to owner-facing success.
 
@@ -581,7 +581,7 @@ def evaluate_nwipe_outcome(
     return False, "nwipe exited without wiping", "completion_missing"
 
 
-def evaluate_nwipe_completion(exit_code: int, log_text: str, device: str) -> tuple[bool, str]:
+def evaluate_nwipe_completion(exit_code: Optional[int], log_text: str, device: str) -> tuple[bool, str]:
     ok, detail, _reason = evaluate_nwipe_outcome(exit_code, log_text, device)
     return ok, detail
 

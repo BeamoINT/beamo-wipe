@@ -82,7 +82,7 @@ class SessionStore:
             Path(directory) if directory is not None else Path("/tmp/beamo-wipe")
         )
         self.fd = self.owner = self.quiescent = -1
-        self.record = None
+        self.record: dict | None = None
         self.previous = False
         self.invalid = False
         self.boot = boot

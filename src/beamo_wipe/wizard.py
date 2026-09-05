@@ -14,7 +14,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
 from beamo_wipe.copy import REDISCOVER_ERROR, confirm_warning, erase_now_label
 from beamo_wipe.methods import DEFAULT_METHOD, METHODS
@@ -39,6 +39,10 @@ from beamo_wipe.safety import (
     token_matches,
 )
 from beamo_wipe.nwipe_runner import NwipeRunner, build_nwipe_argv
+
+
+if TYPE_CHECKING:
+    from beamo_wipe.session_recovery import SessionStore
 
 
 class Runner(Protocol):
@@ -178,7 +182,7 @@ class Wizard:
         self._diagnostic_busy = False
         self._diagnostic_from = Screen.PICK_BLOCKED
         self._startup_blocked = False
-        self._session_store = None
+        self._session_store: Optional[SessionStore] = None
         self._recovered = False
 
     def enable_session_recovery(self, store) -> None:
@@ -1177,7 +1181,11 @@ class Wizard:
                 boot_rdev = self._wipe_request.boot_rdev
             else:
                 target = self.selected.path if self.selected is not None else ""
-                context = self._session_store.record["context"] if self._recovered else {}
+                context = (
+                    self._session_store.record["context"]
+                    if self._recovered and self._session_store is not None
+                    and self._session_store.record is not None else {}
+                )
                 target_rdev = context.get("target_rdev", 0)
                 boot_rdev = context.get("boot_rdev", 0)
 
