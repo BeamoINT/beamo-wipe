@@ -137,7 +137,8 @@ REPORT_HELP_SECTIONS = (
     "again, then choose and confirm the erase target again. Do not guess which "
     "disk to unplug or erase.",
     REPORT_VOLATILE + " This checkbox remembers only your preference for this "
-    "session. It does not choose media, save a report, or prevent shutdown. "
+    "session. It does not choose media or save a report. If you request a report "
+    "and no verified export has completed, Shut down asks before discarding it. "
     "A report is available only if the operation produced eligible evidence. "
     "Erase reports include disk identifiers; review them before sharing.",
     "Wait for the saved and safe-to-remove message before removing the report USB. "
@@ -191,8 +192,17 @@ HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
 HINT_METHOD = "Press 1, 2, or 3 to choose. L: storage limits. Enter continues."
 HINT_CONFIRM = "Type exactly what we ask for, then Enter."
 HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
-HINT_BLOCKED = "Enter shuts down.  Esc goes back."
-HINT_DONE = "Save the report first if you need it. Enter shuts down."
+HINT_BLOCKED = "Enter requests shutdown. Esc goes back."
+HINT_DONE = "Enter requests shutdown."
+SHUTDOWN_TITLE = "Shut down without saving?"
+SHUTDOWN_LOSS = (
+    "You asked to save a report, but no verified export of the current report "
+    "has been confirmed. Shutting down will lose any unsaved report held in memory. "
+    "It cannot be recovered after shutdown or power loss."
+)
+SHUTDOWN_KEEP = "Keep session open"
+SHUTDOWN_DISCARD = "Shut down without saving"
+SHUTDOWN_HINT = "Nothing is saved automatically."
 HINT_WORKING = "Leave this USB in until you see Finished."
 HINT_SPLASH = "Press any key to continue."
 

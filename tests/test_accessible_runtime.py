@@ -454,3 +454,43 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     app.actions[C.BTN_BACK].clicked()
     drain()
     assert w.screen == Screen.WHAT and not w.runner.started
+
+
+@pytest.mark.parametrize("origin", [Screen.DONE, Screen.PICK_BLOCKED, Screen.WHAT])
+def test_accessible_unsaved_report_close_escape_and_stale_actions(ui, origin):
+    from beamo_wipe import copy as C
+    from types import SimpleNamespace
+
+    w = make_demo_wizard()
+    w.screen, w.report_wanted = origin, True
+    app = ui(w)
+    app._close()
+    drain()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM and not app.closed
+    assert C.SHUTDOWN_TITLE in text(app) and C.SHUTDOWN_LOSS in text(app)
+    assert list(app.actions) == [C.SHUTDOWN_KEEP, C.SHUTDOWN_DISCARD]
+    for button in app.actions.values():
+        assert button.get_allocation().height > 0 and button.get_can_focus()
+    stale = app.actions[C.SHUTDOWN_DISCARD]
+    app._key_press(app.window, SimpleNamespace(keyval=Gdk.KEY_Escape))
+    app._key_release(app.window, SimpleNamespace(keyval=Gdk.KEY_Escape))
+    assert w.screen == origin and not w.wants_shutdown
+    app._close()
+    stale.clicked()
+    assert not w.wants_shutdown
+    app.actions[C.SHUTDOWN_DISCARD].clicked()
+    assert w.wants_shutdown and app.closed
+
+
+@pytest.mark.parametrize("wanted,saved", [(False, False), (True, True), (True, False)])
+def test_accessible_finished_shutdown_receipt_state(ui, tmp_path, wanted, saved):
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+
+    w = _done_wizard(_success_receipt, tmp_path)
+    w.report_wanted = wanted
+    if saved:
+        w.save_report_to_usb()
+    app = ui(w)
+    app.actions["Shut down"].clicked()
+    assert app.closed is (not wanted or saved)
+    assert w.wants_shutdown is app.closed

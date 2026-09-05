@@ -1157,7 +1157,12 @@ class TkWizard:
             Screen.ADVANCED: self._advanced,
             Screen.LIMITS: self._limits,
             Screen.REPORT_HELP: self._report_help,
-            Screen.REFRESHING: lambda: self._status_screen("info", "Checking disks again", "Previous selections and confirmations have been cleared."),
+            Screen.SHUTDOWN_CONFIRM: self._shutdown_confirm,
+            Screen.REFRESHING: lambda: self._status_screen(
+                "info",
+                "Checking disks again",
+                "Previous selections and confirmations have been cleared.",
+            ),
         }
         if report_view is not None:
             self._done(report_view)
@@ -2142,6 +2147,24 @@ class TkWizard:
         if self._primary is not None:
             self._primary.focus_set()
 
+    def _shutdown_confirm(self) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, C.SHUTDOWN_TITLE, C.SHUTDOWN_LOSS)
+        if self.w.report_recovery_warning:
+            self._p(col, self.w.report_recovery_warning, font=self.font_s).pack(
+                fill=tk.X
+            )
+        row = self._footer_shell(C.SHUTDOWN_HINT)
+        generation = self.w.shutdown_generation
+        self._secondary_btn(
+            row,
+            C.SHUTDOWN_DISCARD,
+            lambda: self.w.confirm_shutdown_without_saving(generation),
+        )
+        self._primary_btn(row, C.SHUTDOWN_KEEP, self.w.keep_report_session)
+        if self._primary is not None:
+            self._primary.focus_set()
+
     def _report_help(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.REPORT_HELP_TITLE, "Optional. Read before inserting report media.", compact=True)
@@ -2153,12 +2176,29 @@ class TkWizard:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.configure(yscrollcommand=scrollbar.set)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        text.insert("1.0", C.REPORT_HELP_TEXT)
+        text.insert("1.0", C.REPORT_HELP_TEXT + ("\n\n" + self.w.report_recovery_warning if self.w.report_recovery_warning else ""))
         text.configure(state=tk.DISABLED)
         choice = tk.BooleanVar(value=self.w.report_wanted)
-        tk.Checkbutton(col, text=C.REPORT_WANTED, variable=choice, bg=BG,
-                       font=self.font_s, takefocus=True,
-                       command=lambda: self.w.set_report_wanted(choice.get())).pack(anchor="w", pady=8)
+
+        def set_preference():
+            previous = self.w.report_recovery_warning
+            self.w.set_report_wanted(choice.get())
+            if previous != self.w.report_recovery_warning:
+                text.configure(state=tk.NORMAL)
+                text.delete("1.0", tk.END)
+                text.insert("1.0", C.REPORT_HELP_TEXT + ("\n\n" + self.w.report_recovery_warning if self.w.report_recovery_warning else ""))
+                text.configure(state=tk.DISABLED)
+                text.see(tk.END)
+
+        tk.Checkbutton(
+            col,
+            text=C.REPORT_WANTED,
+            variable=choice,
+            bg=BG,
+            font=self.font_s,
+            takefocus=True,
+            command=set_preference,
+        ).pack(anchor="w", pady=8)
         self._back_btn(self._footer_shell("Enter or Esc returns. Nothing is saved here."))
         text.focus_set()
 
@@ -2543,7 +2583,9 @@ class TkWizard:
         self._return_held = True
         screen = self.w.screen
         before = screen
-        if screen == Screen.SPLASH:
+        if screen == Screen.SHUTDOWN_CONFIRM:
+            self.w.keep_report_session()
+        elif screen == Screen.SPLASH:
             self.w.skip_splash()
         elif screen == Screen.WHAT:
             self.w.accept_what()

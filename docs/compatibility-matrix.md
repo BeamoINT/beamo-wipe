@@ -1,5 +1,13 @@
 # Beamo Wipe — Boot and Hardware Compatibility Matrix
 
+Shutdown actions described below now request the shared shutdown decision:
+when a report was requested but no current verified export is confirmed,
+**Shut down without saving?** requires a separate choice. **Keep session open**
+is the safe default. Tk Enter/Escape returns; Tab and Space select an action.
+The screen-reader view exposes Keep first and both native buttons. See
+[the state, console, and recovery rules](report-shutdown.md). No report survives
+live-session shutdown or power loss unless it has been exported.
+
 > **Matrix v1.3 — for Beamo Wipe 0.2.2 (nwipe 0.42)**
 > Date: 2026-09-03
 > Author: Accountable senior engineer (this checkout)

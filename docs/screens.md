@@ -14,6 +14,7 @@ Every interface uses the same Wizard authorization and validated result model.
 | Working | Keep device identity and progress visible. Confirmed cancellation, interruption and inability to confirm a stop remain distinct. |
 | Finished | Use validated evidence and the canonical explanation in `outcomes.py`. Quick zero completion explicitly says verification was not performed. Provide the guarded separate-USB report workflow where available. |
 | Advanced | Technician information and the report workflow guidance. |
+| Shut down without saving? | Shown when a report was requested but no current verified export is confirmed. Keep session open returns; explicit discard authorizes shutdown. [State and recovery rules](report-shutdown.md). |
 
 ## Method operations
 

@@ -124,6 +124,12 @@ class Wizard:
         self.preview = False
         self.screen = Screen.SPLASH
         self.report_wanted = False
+        self._intent_store = None
+        self.report_recovery_warning = ""
+        self._shutdown_from: Optional[Screen] = None
+        self.shutdown_generation = 0
+        self._saved_report_claim: Optional[_ReportExportClaim] = None
+        self._saved_diagnostic_context: Optional[tuple[str, DiscoveryResult]] = None
         self._report_help_from: Optional[Screen] = None
         self.owner_ok = False
         self.selected: Optional[Disk] = None
@@ -303,6 +309,10 @@ class Wizard:
         self.runner = DryRunRunner(duration_s=duration, fail=fail)
         self.screen = Screen.SPLASH
         self.report_wanted = False
+        self._shutdown_from = None
+        self.shutdown_generation += 1
+        self._saved_report_claim = None
+        self._saved_diagnostic_context = None
         self._report_help_from = None
         self.owner_ok = False
         self.selected = None
@@ -333,6 +343,11 @@ class Wizard:
 
     def shutdown(self) -> None:
         with self._lock:
+            if self.wants_shutdown or self.screen in {
+                Screen.WORKING,
+                Screen.REFRESHING,
+            }:
+                return
             if self._diagnostic_busy:
                 return
             if self._report_exporting:
@@ -340,7 +355,69 @@ class Wizard:
                     message="Wait for the report USB to finish before shutting down."
                 )
                 return
+            if self.screen == Screen.SHUTDOWN_CONFIRM:
+                return
+            if self.report_wanted and not self._has_verified_export_locked():
+                self._shutdown_from = self.screen
+                self.shutdown_generation += 1
+                self.screen = Screen.SHUTDOWN_CONFIRM
+                self._done_keyboard_armed = False
+                return
             self.wants_shutdown = True
+
+    def _has_verified_export_locked(self) -> bool:
+        # Only the constrained exporter can publish these receipts. Button
+        # history, local evidence, recovery and manual/sharing copies cannot.
+        claim = self._saved_report_claim
+        if self.wipe_result is not None:
+            return bool(
+                claim is not None
+                and claim.evidence_write_seq == self._evidence_write_seq
+                and str(claim.evidence_path) == self.evidence_path
+                and claim.wipe_result == self.wipe_result
+                and claim.discovery == self.discovery
+            )
+        return (
+            self._wipe_request is None
+            and self._saved_diagnostic_context is not None
+            and self._saved_diagnostic_context == self._diagnostic_context()
+        )
+
+    def _diagnostic_context(self) -> tuple[str, DiscoveryResult]:
+        return (self.startup_error_code, copy.deepcopy(self.discovery))
+
+    def keep_report_session(self) -> None:
+        with self._lock:
+            if self.screen != Screen.SHUTDOWN_CONFIRM or self.wants_shutdown:
+                return
+            self.screen = self._shutdown_from or Screen.WHAT
+            self._shutdown_from = None
+            self._done_keyboard_armed = False
+
+    def confirm_shutdown_without_saving(self, generation: int) -> None:
+        with self._lock:
+            if (
+                self.screen != Screen.SHUTDOWN_CONFIRM
+                or self._shutdown_from is None
+                or generation != self.shutdown_generation
+                or self.wants_shutdown
+                or self._report_exporting
+                or self._diagnostic_busy
+            ):
+                return
+            self.wants_shutdown = True
+
+    def enable_report_intent_recovery(self, store) -> None:
+        """Recover preference only, never erase authorization or export success."""
+        with self._lock:
+            self._intent_store = store
+            try:
+                self.report_wanted = store.load()
+            except Exception:
+                self.report_wanted = True  # Unreadable state must not discard intent.
+                self.report_recovery_warning = "Report preference could not be recovered. Shutdown will ask before discarding reports."
+            if self.report_wanted and not self.report_recovery_warning:
+                self.report_recovery_warning = "Report preference recovered for this live session. Previous export success could not be confirmed."
 
     def arm_done_keyboard(self) -> None:
         """Allow Enter on Done / empty / blocked after the confirming key is up."""
@@ -533,7 +610,7 @@ class Wizard:
             if self.screen == Screen.WORKING and self._wipe_request is not None:
                 self.error = "A wipe is already running."
                 return
-            if self.screen != Screen.LAST_CHANCE:
+            if self.wants_shutdown or self.screen != Screen.LAST_CHANCE:
                 return
             if not self.erase_enabled or self.selected is None:
                 return
@@ -593,6 +670,8 @@ class Wizard:
                     method=self.method,
                 )
                 build_nwipe_argv(request)
+                self._saved_diagnostic_context = None
+                self._saved_report_claim = None
                 self.runner.start(request)
             except SafetyError as exc:
                 self.error = ("Confirm token does not match." if str(exc) == "Confirm token does not match." else
@@ -936,6 +1015,7 @@ class Wizard:
         path = self.evidence_path
         if (
             self.preview
+            or self.wants_shutdown
             or self.screen != Screen.DONE
             or result is None
             or self.evidence_error
@@ -1105,6 +1185,7 @@ class Wizard:
                 and safe
                 and code == "saved_verified_unmounted"
                 and receipt_hash == claim.evidence_sha256
+                and getattr(receipt, "log_status", None) in {"complete", "tail", "unavailable"}
                 and re.fullmatch(r"report-[0-9a-f]{24}", session) is not None
             ):
                 final_status = "saved"
@@ -1151,6 +1232,8 @@ class Wizard:
                 # Publish the terminal UI state and re-enable Shutdown in one
                 # lock transition so Tk cannot render a permanently disabled
                 # button between two state changes.
+                if final_status == "saved":
+                    self._saved_report_claim = claim
                 self._active_report_claim = None
                 self._set_report_state_locked(
                     exporting=False,
@@ -1228,10 +1311,16 @@ class Wizard:
     def diagnostic_action(self, *, background: bool = False) -> bool:
         """Prepare BEFORE insertion; the next explicit action saves to new media."""
         with self._lock:
-            if self.screen != Screen.DIAGNOSTIC or self._diagnostic_busy or self._wipe_request is not None:
+            if (
+                self.wants_shutdown
+                or self.screen != Screen.DIAGNOSTIC
+                or self._diagnostic_busy
+                or self._wipe_request is not None
+            ):
                 return False
             self._diagnostic_busy = True
             baseline = self._diagnostic_baseline
+            context = self._diagnostic_context()
             self.diagnostic_message = "Saving and verifying. Leave the USB connected." if baseline else "Checking connected disks."
             self._report_revision += 1
         def perform():
@@ -1257,6 +1346,11 @@ class Wizard:
                             or re.fullmatch(r"report-[0-9a-f]{24}", receipt.session_name) is None):
                         raise SafetyError("Diagnostic report was not saved and verified. Shut down before removing the USB.")
                     with self._lock:
+                        if context != self._diagnostic_context():
+                            raise SafetyError(
+                                "Startup status changed. Save a new diagnostic report before shutting down."
+                            )
+                        self._saved_diagnostic_context = context
                         self.diagnostic_message = "Diagnostic report saved and verified. Report USB is safe to remove. This is not erase evidence."
                         self._diagnostic_baseline = ()
             except SafetyError as exc:
@@ -1307,6 +1401,12 @@ class Wizard:
         with self._lock:
             if self.screen == Screen.REPORT_HELP and type(wanted) is bool:
                 self.report_wanted = wanted
+                if self._intent_store is not None:
+                    try:
+                        self._intent_store.save(wanted)
+                        self.report_recovery_warning = ""
+                    except Exception:
+                        self.report_recovery_warning = "Report preference recovery is unavailable. Keep this session open until you save the report."
 
     def close_report_help(self) -> None:
         with self._lock:
@@ -1352,6 +1452,9 @@ class Wizard:
         # Without this, a back-out landing mid-confirm leaves the UI on
         # METHOD while nwipe is already running.
         with self._lock:
+            if self.screen == Screen.SHUTDOWN_CONFIRM:
+                self.keep_report_session()
+                return
             if self.screen == Screen.REPORT_HELP:
                 self.close_report_help()
                 return

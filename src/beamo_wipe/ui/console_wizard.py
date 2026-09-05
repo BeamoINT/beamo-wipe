@@ -24,7 +24,7 @@ ENTER_RELEASE_QUIET_S = 1.0
 def run_console(wizard: Wizard) -> int:
     try:
         return curses.wrapper(lambda stdscr: _loop(stdscr, wizard))
-    except curses.error:
+    except (curses.error, KeyboardInterrupt):
         return _plain_loop(wizard)
 
 
@@ -60,7 +60,15 @@ def _plain_loop(wizard: Wizard) -> int:
         except _InventoryRefreshed:
             continue
         except EOFError:
+            if wizard.screen == Screen.WORKING:
+                wizard.cancel_wipe(origin="system")
             wizard.shutdown()
+            if not wizard.wants_shutdown:
+                if wizard.screen == Screen.SHUTDOWN_CONFIRM:
+                    print(C.SHUTDOWN_TITLE)
+                    print(C.SHUTDOWN_LOSS)
+                print("Console input unavailable. Shutdown was not authorized.")
+                return 3
             return 0
         except KeyboardInterrupt:
             # Ctrl-C when SIGINT is not ignored (desktop fallback). A running
@@ -74,8 +82,12 @@ def _plain_loop(wizard: Wizard) -> int:
                 if wizard.wants_shutdown:
                     return 0
                 continue
-            wizard.shutdown()
-            return 0
+            if wizard.screen == Screen.SHUTDOWN_CONFIRM:
+                wizard.keep_report_session()
+            else:
+                wizard.shutdown()
+            if wizard.wants_shutdown:
+                return 0
 
 
 def _plain_loop_body(wizard: Wizard) -> int:
@@ -87,6 +99,19 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if wizard.preview:
             print(C.PREVIEW_BANNER)
         print("=" * 60)
+        if screen == Screen.SHUTDOWN_CONFIRM:
+            print(C.SHUTDOWN_TITLE)
+            print(textwrap.fill(C.SHUTDOWN_LOSS, 76))
+            print(wizard.report_recovery_warning)
+            generation = wizard.shutdown_generation
+            answer = input(
+                "Type SHUT DOWN WITHOUT SAVING to discard; Enter keeps session open: "
+            )
+            if answer == "SHUT DOWN WITHOUT SAVING":
+                wizard.confirm_shutdown_without_saving(generation)
+            else:
+                wizard.keep_report_session()
+            continue
         if screen == Screen.DIAGNOSTIC:
             print(D.TITLE)
             print(D.NOTICE)
@@ -262,6 +287,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.REPORT_HELP:
             print(C.REPORT_HELP_TITLE)
+            print(wizard.report_recovery_warning)
             for paragraph in C.REPORT_HELP_SECTIONS:
                 print(textwrap.fill(paragraph, 76))
                 _answer(wizard, "Enter for more… ")
@@ -269,6 +295,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             action = _answer(wizard, "YES to want a report, NO to clear, BACK to return: ").strip().upper()
             if action in {"YES", "NO"}:
                 wizard.set_report_wanted(action == "YES")
+                if wizard.report_recovery_warning:
+                    print(wizard.report_recovery_warning)
                 wizard.close_report_help()
             elif action == "BACK":
                 wizard.close_report_help()
@@ -356,6 +384,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.other_devices:
                 _add(stdscr, min(h - 3, y), 0, "Other detected devices (O): read reasons; not selectable.")
             _add(stdscr, min(h - 2, y + 1), 0, "Up/Down then Enter. Esc back.")
+        elif wizard.screen == Screen.SHUTDOWN_CONFIRM:
+            y = _wrap(stdscr, y, C.SHUTDOWN_TITLE, w)
+            y = _wrap(stdscr, y + 1, C.SHUTDOWN_LOSS, w)
+            _wrap(stdscr, y + 1, wizard.report_recovery_warning, w)
+            _add(stdscr, h - 2, 0, "Enter/Esc: keep session open")
+            _add(stdscr, h - 1, 0, "D: shut down without saving (type confirmation)")
         elif wizard.screen == Screen.DIAGNOSTIC:
             y = _wrap(stdscr, y, D.TITLE + "\n" + D.NOTICE, w)
             y = _wrap(stdscr, y + 1, D.PREPARE, w)
@@ -411,7 +445,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.screen == Screen.REPORT_HELP:
                 _add(stdscr, y, 0, f"[{'X' if wizard.report_wanted else ' '}] {C.REPORT_WANTED}")
                 y += 2
-                content = C.REPORT_HELP_TITLE + "\n\n" + C.REPORT_HELP_TEXT
+                content = (
+                    C.REPORT_HELP_TITLE
+                    + "\n\n"
+                    + C.REPORT_HELP_TEXT
+                    + "\n\n"
+                    + wizard.report_recovery_warning
+                )
             lines = [line for paragraph in content.split("\n")
                      for line in (textwrap.wrap(paragraph, max(10, w - 2)) or [""])]
             limits_offset = min(limits_offset, max(0, len(lines) - (h - y - 2)))
@@ -480,6 +520,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, h - 3, 0, "D: Diagnostic report (not erase evidence)")
         stdscr.refresh()
         ch = stdscr.getch()
+        if wizard.screen == Screen.SHUTDOWN_CONFIRM and ch in (ord("d"), ord("D")):
+            _confirm_report_discard(stdscr, wizard)
+            continue
         if wizard.can_open_diagnostic and ch in (ord("d"), ord("D")):
             wizard.open_diagnostic()
             continue
@@ -578,6 +621,27 @@ def _confirm_diagnostic_action(stdscr, wizard: Wizard) -> None:
         stdscr.timeout(100)
 
 
+def _confirm_report_discard(stdscr, wizard: Wizard) -> None:
+    generation = wizard.shutdown_generation
+    h, _ = stdscr.getmaxyx()
+    stdscr.nodelay(False)
+    curses.echo()
+    curses.curs_set(1)
+    try:
+        _add(stdscr, h - 2, 0, "Type SHUT DOWN WITHOUT SAVING; anything else returns:")
+        _add(stdscr, h - 1, 0, " " * 55)
+        stdscr.refresh()
+        answer = stdscr.getstr(h - 1, 0, 32).decode("ascii", errors="replace")
+        if answer == "SHUT DOWN WITHOUT SAVING":
+            wizard.confirm_shutdown_without_saving(generation)
+        else:
+            wizard.keep_report_session()
+    finally:
+        curses.noecho()
+        curses.curs_set(0)
+        stdscr.nodelay(True)
+
+
 def _confirm_report_save(stdscr, wizard: Wizard) -> None:
     """A held R cannot confirm an export; the owner must type literal SAVE."""
     h, _w = stdscr.getmaxyx()
@@ -597,6 +661,10 @@ def _confirm_report_save(stdscr, wizard: Wizard) -> None:
 
 
 def _handle(wizard: Wizard, ch: int) -> None:
+    if wizard.screen == Screen.SHUTDOWN_CONFIRM:
+        if ch in (27, curses.KEY_ENTER, 10, 13):
+            wizard.keep_report_session()
+        return
     if wizard.can_open_report_help and ch in (ord("r"), ord("R")):
         wizard.open_report_help()
         return

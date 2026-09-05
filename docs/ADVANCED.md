@@ -48,7 +48,8 @@ Before choosing a target, **Need a report?** explains the optional report flow.
 It is also available at method selection and in Advanced, and as `REPORT` in
 the plain console (`R` in the menu console). The unchecked **I want to save a
 report** box records only a preference for this live session. It neither selects
-media nor exports, creates evidence, or prevents shutdown. Refresh preserves
+media nor exports or creates evidence. If requested reports have not been exported
+and verified, shutdown requires an explicit **Shut down without saving?** decision. Refresh preserves
 this preference but clears target selection and every erase confirmation.
 
 Keep the report USB unplugged while selecting, confirming, and erasing. If
@@ -66,6 +67,8 @@ a report USB inserted too early. Final target rediscovery and confirmation
 remain mandatory; report intent does not authorize any disk operation.
 
 Any unsaved report is lost when the live session shuts down or loses power.
+Choose **Keep session open** to return and save or retry. A verified export needs
+no extra shutdown decision, even after safe USB removal. See [shutdown protection](report-shutdown.md).
 Reports include disk identifiers; review them before sharing. The exporter
 writes a unique directory and verifies it after a read-only remount. Only the
 saved-and-safe-to-remove message confirms safe removal after final unmount.

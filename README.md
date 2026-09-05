@@ -213,5 +213,7 @@ selection and in Advanced). Keep a separate supported FAT32 report USB unplugged
 until the erase has stopped and Save report to USB is offered; then insert it
 before choosing Save. Keep the boot USB and erase disk connected. Any unsaved
 report is lost on live-session shutdown or power loss. The optional preference
-only records intent for this session; it does not save anything or prevent shutdown.
+records intent for this session. It does not save anything. If a report was requested
+and no verified export completed, shutdown asks **Shut down without saving?**
+with **Keep session open** as the safe default. See [shutdown protection](docs/report-shutdown.md).
 See [the exact media, refresh and safe-removal requirements](docs/ADVANCED.md#logs).

@@ -163,7 +163,8 @@ def test_plain_console_report_choice_is_optional_rendered_and_paged(
             raise EOFError from None
 
     monkeypatch.setattr("builtins.input", answer)
-    assert console._plain_loop(w) == 0
+    assert console._plain_loop(w) == (3 if wanted else 0)
+    assert w.wants_shutdown is (not wanted)
     text = " ".join(capsys.readouterr().out.split())
     for paragraph in C.REPORT_HELP_SECTIONS:
         assert " ".join(paragraph.split()) in text

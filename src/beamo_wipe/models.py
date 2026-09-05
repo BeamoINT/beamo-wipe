@@ -35,6 +35,7 @@ class Screen(str, Enum):
     DONE = "done"
     ADVANCED = "advanced"
     REPORT_HELP = "report_help"
+    SHUTDOWN_CONFIRM = "shutdown_confirm"
     LIMITS = "limits"
     REFRESHING = "refreshing"
     DIAGNOSTIC = "diagnostic"

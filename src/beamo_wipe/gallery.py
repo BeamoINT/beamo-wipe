@@ -92,14 +92,24 @@ def gallery_html() -> str:
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
-        "previewResults": {"ok": preview_view(True).payload(), "failed": preview_view(False).payload()},
+        "previewResults": {
+            "ok": preview_view(True).payload(),
+            "failed": preview_view(False).payload(),
+        },
         "otherTitle": inventory.TITLE,
-        "otherDevices": {"happy": inventory.full_text(result.excluded),
-                         "empty": inventory.full_text(discovery_for_scenario("empty").excluded)},
+        "otherDevices": {
+            "happy": inventory.full_text(result.excluded),
+            "empty": inventory.full_text(discovery_for_scenario("empty").excluded),
+        },
         "limitsTitle": limits.TITLE,
         "reportHelpTitle": C.REPORT_HELP_TITLE,
         "reportHelpText": C.REPORT_HELP_TEXT,
         "reportWanted": C.REPORT_WANTED,
+        "shutdownTitle": C.SHUTDOWN_TITLE,
+        "shutdownLoss": C.SHUTDOWN_LOSS,
+        "shutdownKeep": C.SHUTDOWN_KEEP,
+        "shutdownDiscard": C.SHUTDOWN_DISCARD,
+        "shutdownHint": C.SHUTDOWN_HINT,
         "limitsButton": limits.BUTTON,
         "limitsText": limits.full_text(),
         "previewBanner": C.PREVIEW_BANNER,
@@ -429,6 +439,7 @@ const P = __PAYLOAD__;
 let screen = "splash";
 let reportWanted = false;
 let reportHelpFrom = "what";
+let shutdownFrom = "what";
 let owner = false;
 let selected = null;
 let token = "";
@@ -529,6 +540,9 @@ function btn(label, fn, cls, disabled) {
   return b;
 }
 function closePreview() {
+  if (reportWanted && screen !== "shutdown_confirm") {
+    shutdownFrom = screen; screen = "shutdown_confirm"; draw(); return;
+  }
   alert("Preview only. Close this tab when you are done.");
 }
 function tokenOk() {
@@ -725,6 +739,13 @@ function draw() {
     renderHint(P.hints.method);
     btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
     btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
+  } else if (screen === "shutdown_confirm") {
+    main.innerHTML = `<h1>${P.shutdownTitle}</h1><p>${P.shutdownLoss}</p>`;
+    btnsL.append(btn(P.shutdownDiscard, () => alert("Preview only. Close this tab when you are done.")));
+    const keep = btn(P.shutdownKeep, () => { screen = shutdownFrom; draw(); }, "primary");
+    btnsR.append(keep);
+    renderHint(P.shutdownHint);
+    keep.focus();
   } else if (screen === "report_help") {
     main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" role="region" aria-label="Report requirements" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:43vh"></div>
       <label style="margin-top:12px"><input type="checkbox" id="report-wanted" ${reportWanted ? "checked" : ""}> ${P.reportWanted}</label>`;
@@ -798,15 +819,18 @@ function draw() {
   if (["what", "method", "advanced"].includes(screen)) {
     btnsL.append(btn(P.reportHelpTitle, () => { reportHelpFrom = screen; screen = "report_help"; draw(); }));
   }
-  if (!["working", "done", "splash"].includes(screen)) {
+  if (!["working", "done", "splash", "shutdown_confirm"].includes(screen)) {
     btnsL.append(btn("Check disks again", refreshPreview));
   }
 }
 document.addEventListener("keydown", e => {
+  if (screen === "shutdown_confirm" && ["Escape", "Enter"].includes(e.key)) {
+    e.preventDefault(); screen = shutdownFrom; draw(); return;
+  }
   if (screen === "report_help" && e.key === "Escape") {
     e.preventDefault(); screen = reportHelpFrom; draw(); return;
   }
-  if (e.key === "F5" && !["working", "done", "splash"].includes(screen)) {
+  if (e.key === "F5" && !["working", "done", "splash", "shutdown_confirm"].includes(screen)) {
     e.preventDefault(); refreshPreview(); return;
   }
   if (screen === "method" && e.key.toLowerCase() === "l") {

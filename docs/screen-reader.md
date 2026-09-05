@@ -1,5 +1,13 @@
 # Screen-reader operation
 
+Shutdown actions described below now request the shared shutdown decision:
+when a report was requested but no current verified export is confirmed,
+**Shut down without saving?** requires a separate choice. **Keep session open**
+is the safe default. Tk Enter/Escape returns; Tab and Space select an action.
+The screen-reader view exposes Keep first and both native buttons. See
+[the state, console, and recovery rules](report-shutdown.md). No report survives
+live-session shutdown or power loss unless it has been exported.
+
 The live USB offers a GTK 3 view using standard AT-SPI controls and Orca.
 Press F8 in the graphical wizard before erasure, or choose **Screen-reader
 view (F8)**. This checks disks again and clears the selected target, ownership

@@ -55,3 +55,9 @@ If firmware, the kernel, Python imports, or both display and console fail
 before these interfaces can run, the application cannot generate a report.
 Record the visible fixed error message and the distributed build identity
 manually. No report can be recovered after shutdown unless it was exported.
+
+If you requested a report, an unsaved diagnostic requires the explicit
+**Shut down without saving?** decision. **Keep session open** returns to the
+diagnostic screen to save or retry. Only a verified diagnostic export for the
+current startup/discovery status removes this extra decision. It never
+qualifies as completed-wipe evidence. See [shutdown protection](report-shutdown.md).

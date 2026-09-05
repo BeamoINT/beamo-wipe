@@ -256,6 +256,11 @@ def main(argv: list[str] | None = None) -> int:
         wizard.error = discovery.error
         print(f"Startup blocked ({startup_code}).", file=sys.stderr)
 
+    if not args.demo and not wizard.dry_run and running_on_live_usb():
+        from beamo_wipe.report_intent import ReportIntentStore
+
+        wizard.enable_report_intent_recovery(ReportIntentStore())
+
     windowed = args.demo and not args.fullscreen
     use_console = args.plain_console or args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
     wizard.diagnostic_ui = "console" if use_console else "graphical"

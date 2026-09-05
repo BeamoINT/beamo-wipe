@@ -211,14 +211,32 @@ class AccessibleWizard:
             self.button(C.BTN_CONTINUE, self.w.continue_method)
         elif screen == Screen.REPORT_HELP:
             heading.set_text(C.REPORT_HELP_TITLE)
-            self.reader(C.REPORT_HELP_TEXT)
+            reader = self.reader(
+                C.REPORT_HELP_TEXT
+                + (
+                    "\n\n" + self.w.report_recovery_warning
+                    if self.w.report_recovery_warning
+                    else ""
+                )
+            )
+
+            def set_preference(widget):
+                if generation != self.generation:
+                    return
+                self.w.set_report_wanted(widget.get_active())
+                content = C.REPORT_HELP_TEXT + (
+                    "\n\n" + self.w.report_recovery_warning
+                    if self.w.report_recovery_warning
+                    else ""
+                )
+                reader.get_buffer().set_text(content)
+                reader.get_accessible().set_name(content)
+
             choice = Gtk.CheckButton.new_with_label(C.REPORT_WANTED)
             choice.set_active(self.w.report_wanted)
             choice.connect(
                 "toggled",
-                lambda widget: self.w.set_report_wanted(widget.get_active())
-                if generation == self.generation
-                else None,
+                set_preference,
             )
             self.body.pack_start(choice, False, False, 4)
         elif screen == Screen.LIMITS:
@@ -293,6 +311,18 @@ class AccessibleWizard:
                 )
             self.button(
                 "Close preview" if self.w.preview else "Shut down", self.w.shutdown
+            )
+        elif screen == Screen.SHUTDOWN_CONFIRM:
+            heading.set_text(C.SHUTDOWN_TITLE)
+            self.label(C.SHUTDOWN_LOSS)
+            self.label(C.SHUTDOWN_HINT)
+            if self.w.report_recovery_warning:
+                self.label(self.w.report_recovery_warning)
+            self.button(C.SHUTDOWN_KEEP, self.w.keep_report_session)
+            generation = self.w.shutdown_generation
+            self.button(
+                C.SHUTDOWN_DISCARD,
+                lambda: self.w.confirm_shutdown_without_saving(generation),
             )
         elif screen == Screen.DIAGNOSTIC:
             view = self.w.diagnostic_view
@@ -434,6 +464,8 @@ class AccessibleWizard:
             self.w.shutdown()
             if self.w.wants_shutdown:
                 self.close()
+            else:
+                self.render()
         return True
 
     def close(self):

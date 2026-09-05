@@ -176,12 +176,14 @@ Keep report media unplugged during target selection, confirmation, and erasing.
 After the erase has stopped and **Save report to USB** is available, leave the
 boot USB and target attached, insert exactly one new FAT32 USB, then choose Save.
 Any unsaved report is lost when the live session shuts down or loses power.
-The optional **Need a report?** preference does not export or prevent shutdown.
+The optional **Need a report?** preference does not export. If requested reports
+remain unsaved, shutdown asks **Shut down without saving?**; **Keep session open**
+returns without saving or discarding. See [shutdown protection](report-shutdown.md).
 See [Advanced report guidance](ADVANCED.md#logs) for early insertion, refresh,
 unsupported filesystems, and safe removal. Logs remain
 under `/tmp/beamo-wipe/`. The guarded exporter excludes all original devices,
 writes a unique bundle, syncs, unmounts, remounts read-only, verifies exact bytes,
-and unmounts again. Its `COMPLETE` file authenticates bundle contents; only the
+and unmounts again. Its `COMPLETE` file records checksums for bundle contents; only the
 live success message after final unmount confirms safe removal. No formatting,
 repair, force-unmount or lazy-unmount is offered.
 
@@ -206,7 +208,7 @@ Use these verbatim or close; they contain no bypass instruction.
 
 *PICK_EMPTY / hidden eMMC:* "This machine's only internal storage is soldered eMMC; the 4 MB `mmcblk0boot0` area is intentionally not shown and not wiped. That's expected degraded behavior — see `docs/storage-and-controller-limits.md` §3. For soldered boards, the recommendation is vendor erase or destruction per §5."
 
-*PICK_BLOCKED / uncertain USB:* "We refuse to list disks when we can't tell which is this USB — that's fail-closed and correct. Please unplug every USB except this stick and restart. If it still says that, we need the screen photo plus `lsblk -J -b` contents saved to a second USB (kept private) so we can file a fixture without asking you to hand-type a device name."
+*PICK_BLOCKED / uncertain USB:* "We refuse to list disks when we can't tell which is this USB — that's fail-closed and correct. Use Diagnostic report for support. Keep report media disconnected for Prepare, then insert one separate supported FAT32 USB only when prompted. Do not send raw inventories or logs. Diagnostics do not establish that an erase ran."
 
 *Token mismatch:* "That screen wants the numbers/4 characters under the name on that row (size label or last 4 of serial). Capitals don't matter; type it exactly. Continue stays off until it matches — that's the gate."
 

@@ -937,3 +937,58 @@ def test_report_aftercare_errors_and_lifetime_at_minimum_size(ui, tmp_path, mess
             visit(child)
     visit(app.root)
     assert any(message in value and C.REPORT_VOLATILE in value for value in rendered)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("origin", [Screen.DONE, Screen.PICK_BLOCKED, Screen.WHAT])
+def test_unsaved_report_decision_renders_and_defaults_to_keep(ui, size, origin):
+    from beamo_wipe import copy as C
+
+    w, app = ui(size=size)
+    w.screen, w.report_wanted = origin, True
+    app._close()
+    app.root.update()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM and not w.wants_shutdown
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert app.root.focus_get() == app._primary
+    assert app._primary.itemcget(app._primary._label, "text") == C.SHUTDOWN_KEEP
+    app._on_return()
+    assert w.screen == origin and not w.wants_shutdown and w.report_wanted
+    app._release_return()
+    app._close()
+    app._on_escape()
+    assert w.screen == origin and not w.wants_shutdown
+
+
+def test_tk_unsaved_report_discard_requires_new_focused_space(ui):
+    from beamo_wipe import copy as C
+
+    w, app = ui(size=MIN_WINDOW)
+    w.screen, w.report_wanted = Screen.DONE, True
+    w.preview = False
+    w.arm_done_keyboard()
+    app._on_return()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM and not w.wants_shutdown
+    app._on_return()
+    assert not w.wants_shutdown
+    app._release_return()
+    discard = _button_named(app, C.SHUTDOWN_DISCARD)
+    discard.focus_set()
+    discard._key()
+    assert w.wants_shutdown
+
+
+@pytest.mark.parametrize("wanted,saved", [(False, False), (True, True), (True, False)])
+def test_tk_finished_shutdown_uses_receipt_not_history(ui, tmp_path, wanted, saved):
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+
+    _, app = ui(size=MIN_WINDOW)
+    app.w = w = _done_wizard(_success_receipt, tmp_path)
+    w.report_wanted = wanted
+    if saved:
+        w.save_report_to_usb()
+    app._close()
+    assert w.wants_shutdown is (not wanted or saved)
+    if not w.wants_shutdown:
+        assert w.screen == Screen.SHUTDOWN_CONFIRM
