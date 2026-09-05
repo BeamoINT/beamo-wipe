@@ -625,6 +625,26 @@ def identify_boot_path(
                 mount_hits.append(resolved)
         else:
             unresolved_sources.append(source)
+    if unresolved_sources:
+        from beamo_wipe.diagnostics import emit_serial_marker
+
+        emit_serial_marker("BEAMO_WIPE_BOOT_SOURCE_UNRESOLVED")
+        for source in unresolved_sources:
+            if source.startswith("/dev/loop"):
+                marker = "BEAMO_WIPE_BOOT_SOURCE_LOOP"
+            elif _split_typed_source(source):
+                marker = "BEAMO_WIPE_BOOT_SOURCE_TYPED"
+            elif source.startswith("/dev/"):
+                marker = "BEAMO_WIPE_BOOT_SOURCE_DEVICE"
+            elif source == "overlay":
+                marker = "BEAMO_WIPE_BOOT_SOURCE_OVERLAY"
+            else:
+                marker = "BEAMO_WIPE_BOOT_SOURCE_OTHER"
+            emit_serial_marker(marker)
+    if len(mount_hits) > 1:
+        from beamo_wipe.diagnostics import emit_serial_marker
+
+        emit_serial_marker("BEAMO_WIPE_BOOT_SOURCE_CONFLICT")
     # Every observed live source must have a known physical owner. A known
     # source does not establish the owner of a second UUID or loop mount.
     if unresolved_sources or len(mount_hits) > 1:
@@ -991,7 +1011,13 @@ def read_mount_sources(paths: Sequence[str] = LIVE_MOUNTS) -> List[str]:
             proc = None
         if proc is not None:
             if proc.returncode == 0:
-                _add((proc.stdout or "").strip())
+                rows = [row for row in (proc.stdout or "").splitlines() if row.strip()]
+                if len(rows) > 1:
+                    from beamo_wipe.diagnostics import emit_serial_marker
+
+                    emit_serial_marker("BEAMO_WIPE_BOOT_FINDMNT_MULTIROW")
+                for row in rows:
+                    _add(row)
             elif proc.returncode != 0:
                 # Non-zero findmnt (not a mountpoint) is expected; only log if stderr present
                 detail = (getattr(proc, "stderr", "") or "")[:200].replace("\n", " ").strip()

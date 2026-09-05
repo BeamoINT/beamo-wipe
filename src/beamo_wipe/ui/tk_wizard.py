@@ -1183,6 +1183,18 @@ class TkWizard:
         # bounded markers let the isolated QEMU gate synchronize with the real
         # shipped Tk workflow without exposing disk identifiers or log data.
         emit_serial_marker(f"BEAMO_WIPE_SCREEN_{screen.name}")
+        if screen == Screen.PICK_BLOCKED:
+            # Diagnostics may contain identifiers; only established code
+            # values may cross the serial/hosted-log boundary.
+            code = "boot_unidentified"
+            for candidate in (
+                getattr(self.w, "startup_error_code", ""),
+                getattr(self.w.discovery, "error_code", ""),
+            ):
+                if isinstance(candidate, str) and candidate in D.CODES:
+                    code = candidate
+                    break
+            emit_serial_marker(f"BEAMO_WIPE_DISCOVERY_{code.upper()}")
         if report_view is not None:
             emit_serial_marker(f"BEAMO_WIPE_REPORT_{report_view.status.upper()}")
 
