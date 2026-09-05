@@ -212,8 +212,8 @@ def _shutdown() -> bool:
     return False
 
 
-def _main(argv: list[str] | None = None, *, session_store=None) -> int:
-    args = _parser().parse_args(argv)
+def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> int:
+    args = args if args is not None else _parser().parse_args(argv)
     if args.empty or args.blocked or args.fail_demo or args.scenario != "happy":
         args.demo = True
     apply_live_session_overrides(args)
@@ -324,15 +324,17 @@ def _main(argv: list[str] | None = None, *, session_store=None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Help, version and invalid arguments must not create a recovery session.
+    args = _parser().parse_args(argv)
     if not running_on_live_usb():
-        return _main(argv)
+        return _main(argv, args=args)
     from beamo_wipe.session_recovery import SessionStore
     store = SessionStore()
     try:
         # Acquire interface ownership and persist preflight before discovery.
         # A failed journal/identity/ownership check must never reach runner startup.
         store.open()
-        return _main(argv, session_store=store)
+        return _main(argv, session_store=store, args=args)
     except (OSError, SafetyError, ValueError):
         print("Session recovery or interface ownership is unavailable. Erase startup is blocked.", file=sys.stderr)
         return 3

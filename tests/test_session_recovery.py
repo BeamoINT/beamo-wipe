@@ -584,3 +584,18 @@ def test_diagnostic_recovery_report_does_not_claim_engine_never_started(session)
     payload = validate_report(data)
     assert payload["title"] == "Diagnostic report — previous result unavailable"
     assert "identifiers" in payload["notice"] and payload["raw_logs"] == "omitted"
+
+
+@pytest.mark.parametrize("flag", ["--version", "--help"])
+def test_informational_cli_does_not_create_a_session(monkeypatch, flag):
+    from beamo_wipe import app, session_recovery
+
+    monkeypatch.setattr(app, "running_on_live_usb", lambda: True)
+
+    def forbidden():
+        pytest.fail("Informational invocation touched session ownership")
+
+    monkeypatch.setattr(session_recovery, "SessionStore", forbidden)
+    with pytest.raises(SystemExit) as result:
+        app.main([flag])
+    assert result.value.code == 0
