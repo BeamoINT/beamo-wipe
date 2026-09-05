@@ -29,6 +29,7 @@ install_test_deps() {
     xvfb \
     xauth \
     python3-tk \
+    python3-gi gir1.2-gtk-3.0 librsvg2-common python3-pyatspi at-spi2-core dbus-x11 orca speech-dispatcher speech-dispatcher-espeak-ng pulseaudio \
     python3-pip \
     python3-setuptools \
     git \
@@ -104,7 +105,7 @@ run_pytest() {
     log "skipping two live-image tests that need 'lb config' artifacts"
     PYTEST_ARGS=(-k "not test_iso_build_uses_https_debian_mirrors and not test_live_config_xinit_cannot_hijack_kiosk")
   fi
-  xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest "${PYTEST_ARGS[@]}"
+  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest "${PYTEST_ARGS[@]}"
 }
 
 run_preview() {
@@ -156,7 +157,7 @@ PY
 
 inspect_iso() {
   local iso version size magic
-  version="${BEAMO_WIPE_VERSION:-0.2.1}"
+  version="${BEAMO_WIPE_VERSION:-0.2.2}"
   iso="$ROOT/dist/beamo-wipe-${version}-amd64.iso"
   [ -f "$iso" ] || {
     printf 'ISO missing: %s\n' "$iso" >&2
@@ -199,7 +200,7 @@ run_qemu() {
     return 0
   fi
   log "controlled QEMU verification (disposable qcow2, TCG where KVM absent)"
-  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.1}" ./scripts/qemu-verify.sh
+  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.2}" ./scripts/qemu-verify.sh
   # Copy private temporary evidence into the ignored workspace directory for
   # the explicit post-QEMU publisher. Verification-only builds discard it.
   evidence_source="$(cat "$ROOT/qemu-evidence/PATH" 2>/dev/null || true)"

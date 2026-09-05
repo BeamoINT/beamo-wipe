@@ -36,10 +36,10 @@ Cursor Cloud Agent VMs for this repo are **x86_64 Ubuntu**, not the Apple silico
 Python gate on Cloud Agents: Tk layout tests scale with X DPI. The VNC desktop is `DISPLAY=:1` at 96 DPI and fails clipping tests. Use 72 DPI:
 
 ```bash
-xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest
+dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest
 ```
 
-`.cursor/start.sh` launches Xvfb on `:99` at 72 DPI, so `DISPLAY=:99 python3 -m pytest` works. Do not replace `:1` (computer-use / VNC).
+`.cursor/start.sh` launches Xvfb on `:99` at 72 DPI, so `DISPLAY=:99 dbus-run-session -- python3 -m pytest` works. Do not replace `:1` (computer-use / VNC).
 
 `packaging/live/config/{bootstrap,binary}` are gitignored live-build outputs. Two tests in `tests/test_live_image.py` fail until `lb config` has been run inside `./scripts/build-iso.sh`. That is expected on a fresh checkout.
 

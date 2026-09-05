@@ -592,7 +592,7 @@ def test_matrix_gallery_and_helper_share_tokens():
 def test_matrix_pinned_nwipe_version_and_commit():
     from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
 
-    assert __version__ == "0.2.1"
+    assert __version__ == "0.2.2"
     assert NWIPE_PINNED_VERSION == "0.42"
     assert NWIPE_PINNED_COMMIT == "6082bde060091e66365d852a1877f2ee80c67105"
 

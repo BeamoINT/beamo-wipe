@@ -14,7 +14,7 @@ Neither gate ever wipes a host disk.
 ```bash
 python3 -m pytest                          # fast checkout (fake lsblk, no nwipe)
 ./scripts/test-all.sh
-xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest  # 72 DPI like the live USB
+dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest  # 72 DPI like the live USB
 BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 ./scripts/build-iso.sh                       # amd64 live image (prefer Cloud Build on this Mac)
 ./scripts/ci-cloud.sh                        # or: gcloud builds submit --project=beamo-wipe
@@ -57,7 +57,7 @@ Cloud Build bills the `beamo-wipe` project (free tier covers 120 build-minutes/d
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `TclError: no display name and no $DISPLAY` | Runner not using `xvfb-run … 72 DPI` | Use `xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"`; never use VNC `DISPLAY=:1` at 96 DPI. |
+| `TclError: no display name and no $DISPLAY` | Runner not using `xvfb-run … 72 DPI` | Use `dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"`; never use VNC `DISPLAY=:1` at 96 DPI. |
 | `test_iso_build_uses_https_debian_mirrors` / `test_live_config_xinit… FileNotFoundError` | `lb config` not run | Skipped automatically when `packaging/live/config/{bootstrap,binary}` are absent; run `./scripts/build-iso.sh` to generate them and cover those tests. |
 | `test_manifest_*` fail with `untraceable source state` | Build workspace has no `.git` | `.gcloudignore` must not exclude `.git/` (locked by `test_cloud_submit_uploads_git_metadata`). |
 | `test_manifest_*` fail with `missing checksum: ISO not found` | Manufacturing ISO absent | Those tests skip without `dist/beamo-wipe-0.1.0-amd64.iso`; build it or fetch the release artifact. |

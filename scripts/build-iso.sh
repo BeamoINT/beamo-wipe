@@ -5,7 +5,7 @@ set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${BEAMO_WIPE_VERSION:-0.2.1}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.2}"
 case "$VERSION" in
   ''|*[!0-9.]*|.*|*..*|*.) echo "Invalid BEAMO_WIPE_VERSION" >&2; exit 2 ;;
 esac

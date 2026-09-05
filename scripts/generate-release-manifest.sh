@@ -3,7 +3,7 @@
 set -eu
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${BEAMO_WIPE_VERSION:-0.2.1}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.2}"
 DEST="${1:-dist/beamo-wipe-${VERSION}-amd64.manifest.json}"
 EXPECTED_DEST="dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 case "$VERSION" in

@@ -30,7 +30,7 @@ fi
 BOOT_WAIT_SECONDS=120
 if [[ ! -r /dev/kvm ]]; then BOOT_WAIT_SECONDS=300; fi
 
-VERSION="${BEAMO_WIPE_VERSION:-0.2.1}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.2}"
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "ABORT: invalid BEAMO_WIPE_VERSION" >&2
   exit 2
@@ -273,9 +273,19 @@ else
   exit 2
 fi
 log "live filesystem package and permission policy verified"
-for helper in mount umount unshare sync; do
+# Import the actual shipped GTK runtime from the read-only image. No device
+# nodes or host filesystem are mounted into this dependency check.
+{ sudo chroot "$SQUASH_MOUNT" /usr/bin/python3 -B -sP -c '
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+from beamo_wipe.ui.accessible_wizard import AccessibleWizard
+assert Gtk.get_major_version() == 3
+print("Shipped GTK 3 and accessible wizard import passed")
+'; } >"$EVIDENCE_DIR/accessible-runtime.txt"
+for helper in mount umount unshare sync orca pulseaudio dbus-run-session; do
   [[ -x "$SQUASH_MOUNT/usr/bin/$helper" ]] || {
-    echo "report export helper missing from ISO: $helper" >&2
+    echo "required runtime helper missing from ISO: $helper" >&2
     exit 2
   }
 done

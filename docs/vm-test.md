@@ -31,7 +31,7 @@ Two disks: the ISO (live) and a 10G target.
 ```bash
 qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
 qemu-system-x86_64 -m 2048 \
-  -cdrom dist/beamo-wipe-0.2.1-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.2-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 \
   -boot order=d
 ```

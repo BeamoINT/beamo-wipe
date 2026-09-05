@@ -231,3 +231,21 @@ def test_macos_preview_uses_modern_tk_without_changing_dry_run(tmp_path):
     assert result.stdout.splitlines() == [
         "dry=1 demo=1", "-m", "beamo_wipe", "--preview", "--console",
     ]
+
+
+def test_accessible_cli_and_tk_switch_share_wizard(monkeypatch):
+    import sys
+    import types
+    from beamo_wipe import app
+    from beamo_wipe.demo import make_demo_wizard
+
+    wizard = make_demo_wizard()
+    calls = []
+    monkeypatch.setattr(app, "_build_wizard", lambda _args: wizard)
+    module = types.ModuleType("beamo_wipe.ui.accessible_wizard")
+    module.run_accessible = lambda w, **kw: calls.append(w) or 0
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setattr("beamo_wipe.ui.tk_wizard.run_tk", lambda *a, **kw: 4)
+    assert app.main(["--demo", "--accessible"]) == 0
+    assert app.main(["--demo"]) == 0
+    assert calls == [wizard, wizard]

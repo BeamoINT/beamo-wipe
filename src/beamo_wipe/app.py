@@ -68,6 +68,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--plain-console", action="store_true", help="Use sequential text prompts without curses screen redraws.")
     p.add_argument("--console", action="store_true", help="Use the keyboard console UI.")
+    p.add_argument("--accessible", action="store_true", help="Use the Linux GTK screen-reader view.")
     p.add_argument("--fullscreen", action="store_true", help="Fill the screen (live USB).")
     p.add_argument("--dry-run", action="store_true", help="Do not invoke nwipe.")
     p.add_argument("--lsblk-json", help="Read disks from an lsblk JSON file.")
@@ -258,9 +259,15 @@ def main(argv: list[str] | None = None) -> int:
     use_console = args.plain_console or args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
     if not use_console:
         try:
-            from beamo_wipe.ui.tk_wizard import run_tk
-
-            code = run_tk(wizard, fullscreen=args.fullscreen or not windowed)
+            if args.accessible or os.environ.get("BEAMO_WIPE_UI") == "accessible":
+                from beamo_wipe.ui.accessible_wizard import run_accessible
+                code = run_accessible(wizard, fullscreen=args.fullscreen or not windowed)
+            else:
+                from beamo_wipe.ui.tk_wizard import run_tk
+                code = run_tk(wizard, fullscreen=args.fullscreen or not windowed)
+                if code == 4:
+                    from beamo_wipe.ui.accessible_wizard import run_accessible
+                    code = run_accessible(wizard, fullscreen=args.fullscreen or not windowed)
             if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
                 _shutdown()
             return code

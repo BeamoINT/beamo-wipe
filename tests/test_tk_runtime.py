@@ -828,3 +828,32 @@ def test_graphical_refresh_restarts_full_authorization(ui, screen):
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
     assert not wiz.runner.started
     assert not _clipping_problems(app)
+
+
+@pytest.mark.parametrize("fresh_ok", [True, False])
+def test_screen_reader_switch_clears_authorization(ui, monkeypatch, fresh_ok):
+    wiz, app = ui()
+    monkeypatch.setattr("beamo_wipe.ui.tk_wizard.sys.platform", "linux")
+    wiz.skip_splash()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    if not fresh_ok:
+        def fail():
+            raise OSError("fake discovery failure")
+        wiz._rediscover = fail
+    app._click_accessible()
+    assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
+    assert app._accessible_requested  # Both successful and blocked refreshes use the reader view.
+    assert wiz.screen == (Screen.WHAT if fresh_ok else Screen.PICK_BLOCKED)
+
+
+def test_screen_reader_switch_unavailable_during_erase(ui, monkeypatch):
+    wiz, app = ui()
+    monkeypatch.setattr("beamo_wipe.ui.tk_wizard.sys.platform", "linux")
+    wiz.screen = Screen.WORKING
+    app._click_accessible()
+    assert not app._accessible_requested and wiz.screen == Screen.WORKING

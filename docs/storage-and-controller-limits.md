@@ -1,8 +1,8 @@
-# Storage, controller, and certification limits — Beamo Wipe 0.2.1 (nwipe 0.42)
+# Storage, controller, and certification limits — Beamo Wipe 0.2.2 (nwipe 0.42)
 
 > **Version 1.0 — 2026-09-02 | Owner: Accountable senior engineer (this checkout) | Next review 2026-12-02**
 > Pinned engine: `nwipe v0.42` commit `6082bde060091e66365d852a1877f2ee80c67105` at `/usr/lib/beamo-wipe/nwipe`
-> Wrapper `0.2.1` GPL-3.0-or-later; nwipe GPL-2.0. See `THIRD_PARTY.md`.
+> Wrapper `0.2.2` GPL-3.0-or-later; nwipe GPL-2.0. See `THIRD_PARTY.md`.
 
 Beamo Wipe is a guided `nwipe` front-end. It does not implement a wipe engine, a sanitizer, or a certificate. This page separates **verified behavior** (code, pinned build, tests) from **recommendations** and **unknowns** (hardware-dependent), and gives honest guidance for SSDs, hidden areas, encryption, RAID, damaged drives, and when to use vendor tools or physical destruction instead.
 

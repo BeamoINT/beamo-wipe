@@ -7,6 +7,10 @@
 
 This matrix proves keyboard-only operation, visible focus, contrast, wrapping, warning comprehension, error recovery, progress, and color-independent meaning on the low-resolution and older displays that retiring machines actually have. It does not weaken safety gates. Every destructive path still requires ownership checkbox, type-to-confirm, 5 s countdown, no auto-start, boot exclusion, pinned nwipe.
 
+Current screen-reader behavior and limitations are documented in
+[screen-reader operation](screen-reader.md). The matrix below is historical
+evidence for its stated commit, not an AT-SPI claim about Tk 8.6.
+
 Related: `docs/compatibility-matrix.md` (boot/hardware), `docs/boot-exclusion-signals.md`, `docs/screens.md`, `docs/claims.md`.
 
 ---

@@ -3,7 +3,7 @@
 # Builds on the container's own disk so debootstrap can mknod.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-ISO_NAME="${BEAMO_WIPE_ISO_NAME:-beamo-wipe-${BEAMO_WIPE_VERSION:-0.2.1}-amd64.iso}"
+ISO_NAME="${BEAMO_WIPE_ISO_NAME:-beamo-wipe-${BEAMO_WIPE_VERSION:-0.2.2}-amd64.iso}"
 if [[ ! "$ISO_NAME" =~ ^beamo-wipe-[0-9]+\.[0-9]+\.[0-9]+-amd64\.iso$ ]]; then
   echo "invalid ISO output name" >&2
   exit 2

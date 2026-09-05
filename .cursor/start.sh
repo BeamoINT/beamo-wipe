@@ -24,6 +24,8 @@ start_dockerd() {
   else
     # Nested Cloud VMs often have no systemd; run dockerd directly.
     # Log under /tmp — /var/log/dockerd.log is not writable for this user.
+    # The calling user owns this temporary log; only dockerd needs root.
+    # shellcheck disable=SC2024
     sudo dockerd >>"$LOG_DIR/dockerd.log" 2>&1 &
   fi
   for _ in $(seq 1 30); do

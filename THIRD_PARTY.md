@@ -27,7 +27,8 @@ link against nwipe. That keeps this wrapper under GPL-3.0-or-later
 while nwipe stays GPL-2.0.
 
 Debian `live-boot`, `live-config`, GNU/Linux, Xorg, Python 3, and
-Tkinter in the live image keep their own licenses (GPL, LGPL, MIT,
+Tkinter, GTK, PyGObject, AT-SPI, Orca, Speech Dispatcher, and PulseAudio
+in the live image keep their own licenses (GPL, LGPL, MIT,
 Apache, and others as shipped by Debian). Offer those sources the
 same way Debian does: the live USB `SOURCE.txt` points here, and
 Debian source packages are available from `deb.debian.org`.

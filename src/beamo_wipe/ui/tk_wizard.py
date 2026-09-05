@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import math
 import re
+import sys
 from functools import partial
 import tkinter as tk
 from pathlib import Path
@@ -894,6 +895,7 @@ class TkWizard:
         self._space_release_after: Optional[str] = None
         self._space_action_active = False
         self._fatal_ui = False
+        self._accessible_requested = False
         # Optional extra detail (device path, bus) on existing screens.
         # One flag for the session; not a new wizard step.
         self._show_more = False
@@ -1424,8 +1426,13 @@ class TkWizard:
         assert self._footer is not None
         col = self._column(self._footer, fill_height=False)
         if self.w.can_refresh:
-            tk.Button(col, text="Check disks again (F5)", font=self.font_s,
-                      command=self._click_refresh, takefocus=True).pack(anchor="w", pady=(0, 3))
+            modes = tk.Frame(col, bg=BG)
+            modes.pack(fill=tk.X, pady=(0, 3))
+            tk.Button(modes, text="Check disks again (F5)", font=self.font_s,
+                      command=self._click_refresh, takefocus=True).pack(side=tk.LEFT)
+            if sys.platform.startswith("linux"):
+                tk.Button(modes, text="Screen-reader view (F8)", font=self.font_s,
+                          command=self._click_accessible, takefocus=True).pack(side=tk.LEFT, padx=8)
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
         row = tk.Frame(col, bg=BG)
         row.pack(fill=tk.X, pady=(12, 16))
@@ -2533,6 +2540,9 @@ class TkWizard:
             self._draw()
 
     def _on_key(self, event) -> Optional[str]:
+        if event.keysym == "F8" and sys.platform.startswith("linux") and self.w.can_refresh:
+            self._click_accessible()
+            return "break"
         if event.keysym == "F5" and self.w.can_refresh:
             self._click_refresh()
             return "break"
@@ -2601,7 +2611,16 @@ class TkWizard:
 
     def run(self) -> int:
         self.root.mainloop()
-        return 3 if self._fatal_ui else 0
+        return 3 if self._fatal_ui else (4 if self._accessible_requested else 0)
+
+    def _click_accessible(self) -> None:
+        if not sys.platform.startswith("linux") or not self.w.can_refresh:
+            return
+        if self.w.refresh_disks():
+            self._accessible_requested = True
+            self._teardown()
+        else:
+            self._draw()
 
 
 def run_tk(wizard: Wizard, fullscreen: bool = False) -> int:

@@ -16,7 +16,7 @@ def test_runbook_exists_and_is_versioned():
     assert "next review" in text
     assert "owner" in text
     assert "beamo wipe" in text
-    assert "0.2.1" in text
+    assert "0.2.2" in text
     assert "nwipe v0.42" in text
     assert "6082bde" in text
 

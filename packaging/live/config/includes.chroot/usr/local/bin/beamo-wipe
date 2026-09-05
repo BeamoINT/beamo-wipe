@@ -18,4 +18,7 @@ cd /
 # -s: ignore user site-packages. -P: do not prepend cwd (Python 3.11+, bookworm).
 # "$@" is only --console / --fullscreen from the kiosk profile. app.py still
 # strips preview/gallery/boot-device flags if this binary is invoked by hand.
+if [ -n "${DISPLAY:-}" ] && [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+  exec dbus-run-session -- python3 -sP -m beamo_wipe --fullscreen "$@"
+fi
 exec python3 -sP -m beamo_wipe --fullscreen "$@"

@@ -53,7 +53,7 @@ The gate fails unless all of these pass:
    timeout is a failure, never `SKIP` or a tolerated timeout.
 
 ```sh
-BEAMO_WIPE_VERSION=0.2.1 ./scripts/qemu-verify.sh
+BEAMO_WIPE_VERSION=0.2.2 ./scripts/qemu-verify.sh
 evidence_dir=$(cat qemu-evidence/PATH)
 find "$evidence_dir" -maxdepth 1 -type f -print
 ```

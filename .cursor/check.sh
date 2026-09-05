@@ -4,7 +4,7 @@
 # Never execs nwipe on a real disk. Does not build or boot the live ISO.
 set -euo pipefail
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 export BEAMO_WIPE_DRY_RUN=1
@@ -81,7 +81,7 @@ fi
 
 # Tk layout tests are DPI-sensitive. Never use VNC DISPLAY=:1 (96 DPI).
 note "pytest (fake lsblk; xvfb 72 DPI)"
-if xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest "${pytest_k[@]}"; then
+if dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest "${pytest_k[@]}"; then
   ok "pytest"
 else
   bad "pytest"

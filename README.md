@@ -22,16 +22,22 @@ cd "/path/to/Beamo Wiper"   # this repo
 ./preview --empty           # no other disks
 ./preview --blocked         # cannot identify the USB
 ./preview --fail            # finished screen after a failed wipe
+./preview --accessible      # Linux GTK view for Orca / AT-SPI
 ./preview --console         # keyboard screens in the terminal
 ./preview --plain-console   # sequential text prompts, without screen redraws
 ```
 
 `make preview` and `make preview-web` are the same commands.
 
-The Tk window is the real app. The browser page is a click-through so you can
+The native windows are the real app. The browser page is a click-through so you can
 see the flow in Safari or Chrome without installing anything extra.
 
 If `./preview` cannot open a window (no Tk), it falls back to `--console`.
+
+On the live USB, press **F8** before erasure to open the screen-reader view
+with Orca. Switching views clears all previous confirmations and checks disks
+again. Use Tab and Shift+Tab to move, Space to activate controls, and the
+standard Orca reading commands for text. See [screen-reader operation](docs/screen-reader.md).
 
 Before erasure, **Check disks again** (F5, or `CHECK DISKS AGAIN` at a text
 prompt) reads the inventory again and identifies the boot device again. It
@@ -44,7 +50,7 @@ erase is starting or running.
 device cannot be selected. In the keyboard console, press O to read and scroll
 these explanations. No excluded row offers an erase action or bypass.
 
-Results use the same evidence-based explanation in both interfaces and report
+Results use the same evidence-based explanation in the native interfaces and report
 exports. “Erase completed; verification passed” requires validated completion
 evidence for a method with read-back verification. Quick zero instead says
 “Erase completed; verification was not performed.” Read-back checks exposed
@@ -79,7 +85,7 @@ You need Docker (amd64 image; on Apple silicon Docker emulates it).
 ./scripts/build-iso.sh
 ```
 
-The ISO lands in `dist/beamo-wipe-0.2.1-amd64.iso`. If Docker or live-build
+The ISO lands in `dist/beamo-wipe-0.2.2-amd64.iso`. If Docker or live-build
 packages are missing, the script prints the missing pieces and exits non-zero.
 
 `make iso` is the same command.
@@ -98,7 +104,7 @@ packages are missing, the script prints the missing pieces and exits non-zero.
 ```bash
 qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
 qemu-system-x86_64 -m 2048 -enable-kvm \
-  -cdrom dist/beamo-wipe-0.2.1-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.2-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 \
   -boot d
 ```
@@ -114,7 +120,7 @@ cp /usr/share/OVMF/OVMF_VARS.fd /tmp/beamo-ovmf-vars.fd
 qemu-system-x86_64 -m 2048 \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/beamo-ovmf-vars.fd \
-  -cdrom dist/beamo-wipe-0.2.1-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.2-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
 # No vars template (older OVMF_CODE.fd-only layout): -bios /usr/share/OVMF/OVMF_CODE.fd
 ```
@@ -128,7 +134,7 @@ real Windows disk.
 
 ```bash
 # Linux (double-check the device name)
-sudo dd if=dist/beamo-wipe-0.2.1-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=dist/beamo-wipe-0.2.2-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
 
 # Or Raspberry Pi Imager / balenaEtcher: pick the ISO, pick the USB, flash.
 ```

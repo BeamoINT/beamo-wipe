@@ -7,6 +7,15 @@ linux-image-amd64
 systemd-sysv
 python3
 python3-tk
+python3-gi
+gir1.2-gtk-3.0
+librsvg2-common
+at-spi2-core
+dbus-x11
+orca
+speech-dispatcher-espeak-ng
+speech-dispatcher
+pulseaudio
 python3-minimal
 xserver-xorg
 xserver-xorg-core

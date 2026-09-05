@@ -7,7 +7,7 @@
 # daemons, and never runs nwipe on a disk. Apple Silicon / macOS are out of scope.
 set -euo pipefail
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 if [ "$(uname -s)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then
@@ -67,6 +67,15 @@ REQUIRED_PKGS=(
   python3-pip
   python3-venv
   python3-tk
+  python3-gi
+  gir1.2-gtk-3.0 librsvg2-common
+  python3-pyatspi
+  at-spi2-core
+  dbus-x11
+  orca
+  speech-dispatcher
+  speech-dispatcher-espeak-ng
+  pulseaudio
   xvfb
   xauth
   fonts-dejavu-core
