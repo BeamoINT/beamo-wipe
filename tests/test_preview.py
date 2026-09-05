@@ -191,3 +191,29 @@ def test_splash_escape_skips_splash():
     source = inspect.getsource(TkWizard._on_escape)
     assert "skip_splash" in source
 
+
+
+def test_macos_preview_uses_modern_tk_without_changing_dry_run(tmp_path):
+    import os
+    import subprocess
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uname = fake_bin / "uname"
+    uname.write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+    uname.chmod(0o755)
+    python = fake_bin / "python3.14"
+    python.write_text(
+        '#!/bin/sh\nif [ "$1" = -c ]; then exit 0; fi\n'
+        'printf "dry=%s demo=%s\\n" "$BEAMO_WIPE_DRY_RUN" "$BEAMO_WIPE_DEMO"\n'
+        'printf "%s\\n" "$@"\n'
+    )
+    python.chmod(0o755)
+    root = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "PATH": f"{fake_bin}:/usr/bin:/bin"}
+    env.pop("BEAMO_WIPE_PREVIEW_PYTHON", None)
+    result = subprocess.run([str(root / "preview"), "--console"], env=env,
+                            text=True, capture_output=True, check=True)
+    assert result.stdout.splitlines() == [
+        "dry=1 demo=1", "-m", "beamo_wipe", "--preview", "--console",
+    ]

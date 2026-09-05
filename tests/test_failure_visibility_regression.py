@@ -10,10 +10,6 @@ from __future__ import annotations
 
 import errno
 import os
-import stat
-import subprocess
-import sys
-import time
 from pathlib import Path
 from unittest import mock
 
@@ -285,7 +281,6 @@ def test_dryrun_never_shows_100_on_fail_or_cancel():
 def test_nwipe_runner_poll_gates_100_to_verified_success(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.nwipe_runner import NwipeRunner
-    import stat as _stat
 
     script = tmp_path / "fake_nwipe_ok"
     script.write_text("#!/bin/sh\n" "echo '/dev/vda: 100.00%, round 1 of 1, pass 1 of 1' >> \"$4\"\n" "exit 0\n", encoding="utf-8")

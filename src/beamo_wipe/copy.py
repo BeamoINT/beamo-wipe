@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """User-facing strings. 8th-grade English. No forbidden claims."""
 
-from beamo_wipe.models import Disk, DiskKind, MethodId
+from beamo_wipe.models import Disk, DiskKind
+from beamo_wipe.methods import METHODS
+from beamo_wipe.storage_limits import OVERWRITE_LIMITS
 
 APP_NAME = "Beamo Wipe"
 
@@ -11,7 +13,7 @@ TITLE_WHAT = "Here's what happens"
 TITLE_OWNER = "Is this your computer?"
 TITLE_PICK = "Which disk should we erase?"
 TITLE_CONFIRM = "Make sure this is the right disk"
-TITLE_METHOD = "How thorough"
+TITLE_METHOD = "Choose an erase method"
 TITLE_ADVANCED = "Advanced"
 TITLE_LAST = "Last chance to stop"
 TITLE_WORKING = "Erasing now"
@@ -65,7 +67,7 @@ EMPTY_DISKS = (
     "and start from this USB again."
 )
 
-SSD_FOOTER = "On an SSD, the drive's controller decides what remains. Not a formal certificate."
+SSD_FOOTER = OVERWRITE_LIMITS + " Not a formal certificate."
 
 WORKING_PULSE = "Leave the USB in. Do not turn the PC off."
 
@@ -102,32 +104,18 @@ CONFIRM_MATCH_OK = "That matches. You can continue."
 COUNTDOWN_CAPTION = "seconds until you can press Erase"
 COUNTDOWN_READY = "You can press Erase now."
 
-METHOD_LEAD = "Everyday is usually right."
+METHOD_LEAD = "Compare overwrite and read-back passes."
 
 LAST_LEAD = "If this is the wrong disk, go back."
 
 METHOD_CARDS = {
-    MethodId.EVERYDAY: {
-        "title": "Everyday",
-        "blurb": "Good for selling or recycling a home PC. Usually the right choice.",
-        "pace": "Often a few hours. Leave it until Finished.",
-        "key": "1",
-    },
-    MethodId.EXTRA: {
-        "title": "Extra thorough",
-        "blurb": (
-            "Does the erase more times. Much slower. Use if a workplace "
-            "asked for more than a normal erase."
-        ),
-        "pace": "Several hours, sometimes longer. Leave it until Finished.",
-        "key": "2",
-    },
-    MethodId.QUICK_ZERO: {
-        "title": "Quick zero",
-        "blurb": "The fastest option. Not as thorough on some SSDs.",
-        "pace": "Faster. Still wait for Finished.",
-        "key": "3",
-    },
+    method: {
+        "title": spec.title,
+        "blurb": spec.overwrite_description,
+        "pace": spec.verification_description,
+        "key": str(index),
+    }
+    for index, (method, spec) in enumerate(METHODS.items(), 1)
 }
 
 ADVANCED_LEAD = (
@@ -158,7 +146,7 @@ PREVIEW_BANNER = "PREVIEW on this computer — fake disks — nothing is erased"
 HINT_DEFAULT = "Enter continues.  Esc goes back."
 HINT_PICK = "Click a disk, or use Up/Down.  Enter continues.  Esc goes back."
 HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
-HINT_METHOD = "Press 1, 2, or 3 to choose.  Enter continues."
+HINT_METHOD = "Press 1, 2, or 3 to choose. L: storage limits. Enter continues."
 HINT_CONFIRM = "Type exactly what we ask for, then Enter."
 HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
 HINT_BLOCKED = "Enter shuts down.  Esc goes back."

@@ -15,19 +15,16 @@ See docs/confirmation-gates.md for the state model.
 
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
 from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.discover import discover, load_lsblk_json_text
-from beamo_wipe.models import Disk, MethodId, Screen, WipeRequest
-from beamo_wipe.nwipe_runner import DryRunRunner
+from beamo_wipe.models import MethodId, Screen, WipeRequest
 from beamo_wipe.safety import SafetyError
-from beamo_wipe.wizard import COUNTDOWN_S, Wizard
+from beamo_wipe.wizard import Wizard
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -217,7 +214,7 @@ def test_ownership_rapid_clicks_and_focus_do_not_bypass(tmp_path, monkeypatch):
 def test_token_must_be_exact_case_insensitive_but_trimmed(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock, spy = _wiz_with_clock(clock=Clock())
-    target = _drive_to_last_chance(wiz, clock, tmp_path)
+    _drive_to_last_chance(wiz, clock, tmp_path)
     # At this point confirm already passed, but we can go back and test token gates
     wiz.back()
     assert wiz.screen == Screen.METHOD
@@ -255,7 +252,7 @@ def test_token_must_be_exact_case_insensitive_but_trimmed(tmp_path, monkeypatch)
 def test_token_paste_and_key_repeat_do_not_bypass(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock, spy = _wiz_with_clock(clock=Clock())
-    target = _drive_to_last_chance(wiz, clock, tmp_path)
+    _drive_to_last_chance(wiz, clock, tmp_path)
     # Simulate paste of huge string via trace: directly set _confirm_var would go via set_confirm_input
     # Use wizard API: set_confirm_input with pasted oversized
     wiz.back()
@@ -278,7 +275,6 @@ def test_token_bound_to_device_identity_snapshot(tmp_path, monkeypatch):
     """Switching disk after CONFIRM must invalidate token."""
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     # Use multi-disk fixture to have two same-size disks requiring serial token
-    from beamo_wipe.discover import discover
 
     payload = _load("lsblk_same_size.json")
     disc = discover(lsblk_payload=payload, boot_path="/dev/sdb", mount_sources=[], cmdline="", env={"BEAMO_WIPE_DRY_RUN": "1"})
@@ -692,7 +688,7 @@ def test_no_accessibility_or_preview_path_can_invoke_nwipe(tmp_path, monkeypatch
     assert "Preview" in (wiz.error or "")
     assert wiz._wipe_request is None
     # Even if someone calls runner.start directly with a fake request, require_real_live_for_nwipe should block
-    from beamo_wipe.models import MethodId, WipeRequest
+    from beamo_wipe.models import WipeRequest
 
     fake_req = WipeRequest(device="/dev/sda", method=MethodId.EVERYDAY, boot_device="/dev/sdb", logfile=str(tmp_path / "nwipe-sda.log"))
     with pytest.raises(SafetyError):

@@ -5,11 +5,8 @@ subsystems. Fake lsblk JSON, isolated tmp_path, deterministic clocks, no host di
 
 from __future__ import annotations
 
-import json
 import os
-import stat
 import threading
-import time
 from pathlib import Path
 from unittest import mock
 
@@ -27,7 +24,6 @@ from beamo_wipe.discover import (
 from beamo_wipe.evidence import (
     EVIDENCE_PREFIX,
     OUTCOME_COMPLETED,
-    OUTCOME_FAILED,
     OUTCOME_INTERRUPTED,
     OUTCOME_STARTED,
     OUTCOME_VERIFIED,
@@ -35,13 +31,11 @@ from beamo_wipe.evidence import (
     verify_evidence_checksum,
     write_evidence_atomic,
 )
-from beamo_wipe.methods import DEFAULT_METHOD, METHODS
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen, WipeRequest, WipeResult
 from beamo_wipe.nwipe_runner import DryRunRunner, build_nwipe_argv, evaluate_nwipe_completion, validate_argv
 from beamo_wipe.safety import (
     SafetyError,
     assert_log_not_on_target,
-    assert_not_boot,
     block_rdev,
     is_protected_mountpoint,
     is_wipeable_disk,
@@ -294,7 +288,7 @@ def test_build_nwipe_argv_all_methods_single_device(tmp_path, monkeypatch):
         assert "--autonuke" in argv and "--nogui" in argv and "--nowait" in argv
         assert "--force" not in argv
         assert "--PDFreportpath=noPDF" in argv
-        assert f"--exclude=/dev/sr0" in argv
+        assert "--exclude=/dev/sr0" in argv
         assert f"--logfile={req.logfile}" in argv
         # exactly one of each prefix
         for prefix in ("--method=", "--verify=", "--rounds=", "--logfile=", "--exclude="):

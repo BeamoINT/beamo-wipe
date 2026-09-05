@@ -34,6 +34,7 @@ class Screen(str, Enum):
     WORKING = "working"
     DONE = "done"
     ADVANCED = "advanced"
+    LIMITS = "limits"
 
 
 @dataclass(frozen=True)

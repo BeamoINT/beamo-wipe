@@ -11,9 +11,9 @@ Beamo Wipe never implements its own overwrite. It only execs `nwipe`.
 
 | Wizard choice | nwipe | Notes |
 | --- | --- | --- |
-| Everyday (default) | `--method=prng --rounds=1 --verify=last --noblank` | One PRNG overwrite, verify the last pass. Recommended default for HDDs in this project. |
-| Extra thorough | `--method=dodshort --rounds=1 --verify=last --noblank` | nwipe’s 3-pass short DoD *method*. This is not a DoD certificate. |
-| Quick zero | `--method=zero --rounds=1 --verify=off --noblank` | Fastest. Weaker on some SSDs. |
+| Everyday (default) | `--method=prng --rounds=1 --verify=last --noblank` | One random-data overwrite, then one separate read-back verification pass. |
+| Three overwrites | `--method=dodshort --rounds=1 --verify=last --noblank` | Three overwrite passes: a pattern, its inverse, then random data; one separate read-back verification pass after the final overwrite. This is not a DoD certificate. |
+| Quick zero | `--method=zero --rounds=1 --verify=off --noblank` | One zero overwrite. Verification is not performed; no read-back pass. |
 
 Always passed:
 
@@ -33,7 +33,10 @@ excluded. autonuke with no device is forbidden.
 
 ## SSD note
 
-On SSDs the controller decides what remains. Overwrite methods are not a
+At method selection, choose **Storage limits (L)** to read the full supported
+limits offline, without leaving or advancing the erase confirmation flow.
+
+Read-back checks only accessible storage against the final overwrite. It does not prove that inaccessible or remapped SSD storage was erased. Extra overwrites do not reach those areas. On SSDs the controller decides what remains. Overwrite methods are not a
 formal certificate. Do not tell customers otherwise. For NVMe/SATA controller
 behavior, hidden areas, encryption, RAID, damaged media, and when to use
 vendor secure erase or physical destruction, see

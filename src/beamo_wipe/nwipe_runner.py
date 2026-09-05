@@ -12,7 +12,7 @@ import stat
 import subprocess
 import threading
 import time
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from beamo_wipe import NWIPE_PINNED_PATH, NWIPE_PINNED_VERSION
 from beamo_wipe.methods import (
@@ -651,7 +651,7 @@ class NwipeRunner:
             self._last_sigusr1 = 0.0
             self._sigusr1_armed = False
             self._last_logfile = request.logfile
-            popen_kwargs = {
+            popen_kwargs: dict[str, Any] = {
                 "stdin": subprocess.DEVNULL,
                 "stdout": subprocess.DEVNULL,
                 "stderr": subprocess.DEVNULL,

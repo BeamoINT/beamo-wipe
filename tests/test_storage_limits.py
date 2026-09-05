@@ -107,9 +107,12 @@ def test_ssd_footer_is_plain_language_and_not_a_certificate():
     assert "certified" not in C.SSD_FOOTER.lower() or "not a" in C.SSD_FOOTER.lower()
 
 
-def test_quick_zero_blurb_warns_on_ssd():
-    blurb = C.METHOD_CARDS[MethodId.QUICK_ZERO]["blurb"].lower()
-    assert "ssd" in blurb
+def test_every_method_shares_specific_ssd_limits():
+    from beamo_wipe.storage_limits import notice, OVERWRITE_LIMITS
+    assert OVERWRITE_LIMITS in notice(DiskKind.SSD)
+    for term in ("inaccessible", "remapped", "over-provisioned", "controller-managed"):
+        assert term in notice(DiskKind.SSD)
+    assert "Additional overwrite passes do not fix" in notice(DiskKind.SSD)
 
 
 def test_evidence_warning_matches_ssd_footer_language():
@@ -146,7 +149,8 @@ def test_evidence_warning_matches_ssd_footer_language():
     )
     warns = " ".join(ev.get("warnings") or []).lower()
     assert "controller" in warns
-    assert "not a formal certificate" in warns
+    from beamo_wipe.storage_limits import notice
+    assert notice(DiskKind.SSD).lower() in warns
 
 
 def test_claims_doc_mentions_vendor_and_destruction():

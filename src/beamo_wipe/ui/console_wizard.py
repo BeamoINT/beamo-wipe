@@ -7,8 +7,10 @@ import curses
 import select
 import sys
 import time
+import textwrap
 
 from beamo_wipe import copy as C
+from beamo_wipe import storage_limits as limits
 from beamo_wipe.models import MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.wizard import Wizard, format_progress_percent
@@ -128,9 +130,15 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.continue_confirm()
             continue
         if screen == Screen.METHOD:
-            print("1 Everyday  2 Extra thorough  3 Quick zero")
-            print(C.SSD_FOOTER)
-            choice = input("Choice [1]: ").strip()
+            print(C.TITLE_METHOD)
+            print(wizard.storage_notice)
+            print(limits.BUTTON)
+            for card in C.METHOD_CARDS.values():
+                print(f"{card['key']} {card['title']}: {card['blurb']} {card['pace']}")
+            choice = input("Choice [1], or L for storage limits: ").strip()
+            if choice.lower() == "l":
+                wizard.open_limits()
+                continue
             mapping = {"1": MethodId.EVERYDAY, "2": MethodId.EXTRA, "3": MethodId.QUICK_ZERO}
             if not choice:
                 wizard.continue_method()
@@ -142,6 +150,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.LAST_CHANCE:
             print(wizard.erase_label())
+            print(wizard.method_summary)
             if wizard.error:
                 print(wizard.error)
             while wizard.countdown_left > 0:
@@ -179,6 +188,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.DONE:
             report = wizard.report_view
+            print(wizard.method_summary)
+            print(wizard.method_result)
             if report.evidence_error:
                 print(f"Evidence was not saved: {report.evidence_error}")
             if wizard.preview:
@@ -207,6 +218,14 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 elif action == "SHUTDOWN":
                     wizard.shutdown()
             continue
+        if screen == Screen.LIMITS:
+            print(limits.TITLE)
+            for title, body in limits.SECTIONS:
+                print(title)
+                print(textwrap.fill(body, 76))
+                input("Enter for more… ")
+            wizard.close_limits()
+            continue
         if screen == Screen.ADVANCED:
             input("Press Enter to go back… ")
             wizard.close_advanced()
@@ -221,6 +240,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
     curses.use_default_colors()
     enter_held = False
     enter_quiet_since = None
+    limits_offset = 0
     while not wizard.wants_shutdown:
         wizard.tick()
         stdscr.erase()
@@ -300,14 +320,23 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 wizard.set_confirm_input(wizard.confirm_input + chr(ch))
             continue
         elif wizard.screen == Screen.METHOD:
+            y = _wrap(stdscr, y, wizard.storage_notice, w) + 1
             for i, method in enumerate((MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO), 1):
                 star = ">" if wizard.method == method else " "
                 card = C.METHOD_CARDS[method]
-                _add(stdscr, y, 0, f"{star} {i} {card['title']} — {card['blurb']}"[: w - 1])
-                y += 2
-            _wrap(stdscr, y, C.SSD_FOOTER, w)
+                y = _wrap(stdscr, y, f"{star} {i} {card['title']}: {card['blurb']} {card['pace']}", w) + 1
+            _add(stdscr, y, 0, "L: storage limits. 1/2/3: choose. Enter: continue.")
+        elif wizard.screen == Screen.LIMITS:
+            lines = [line for paragraph in limits.full_text().split("\n")
+                     for line in (textwrap.wrap(paragraph, max(10, w - 2)) or [""])]
+            limits_offset = min(limits_offset, max(0, len(lines) - (h - y - 2)))
+            for line in lines[limits_offset:limits_offset + max(1, h - y - 2)]:
+                _add(stdscr, y, 0, line)
+                y += 1
+            _add(stdscr, h - 1, 0, "Up/Down, PgUp/PgDn: read. Esc: back.")
         elif wizard.screen == Screen.LAST_CHANCE:
-            _wrap(stdscr, y, wizard.erase_label(), w)
+            y = _wrap(stdscr, y, wizard.erase_label(), w)
+            y = _wrap(stdscr, y + 1, wizard.method_summary, w)
             if wizard.error:
                 _wrap(stdscr, y + 2, wizard.error, w)
             _add(stdscr, y + 3, 0, f"Wait {wizard.countdown_display}s" if not wizard.erase_enabled else "Enter to erase.")
@@ -332,6 +361,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, y + 7, 0, "Esc: cancel erase (interrupted)")
         elif wizard.screen == Screen.DONE:
             report = wizard.report_view
+            y = _wrap(stdscr, y, wizard.method_summary, w)
+            y = _wrap(stdscr, y, wizard.method_result, w)
             _wrap(
                 stdscr,
                 y,
@@ -391,6 +422,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
             enter_held = True
             enter_quiet_since = None
             continue
+        if wizard.screen == Screen.LIMITS and ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE):
+            delta = {curses.KEY_UP: -1, curses.KEY_DOWN: 1,
+                     curses.KEY_PPAGE: -(h - 5), curses.KEY_NPAGE: h - 5}[ch]
+            limits_offset = max(0, limits_offset + delta)
+            continue
+        if wizard.screen != Screen.LIMITS:
+            limits_offset = 0
         _handle(wizard, ch)
     return 0
 
@@ -432,6 +470,9 @@ def _confirm_report_save(stdscr, wizard: Wizard) -> None:
 
 
 def _handle(wizard: Wizard, ch: int) -> None:
+    if wizard.screen == Screen.METHOD and ch in (ord("l"), ord("L")):
+        wizard.open_limits()
+        return
     if wizard.screen == Screen.SPLASH:
         wizard.skip_splash()
         return

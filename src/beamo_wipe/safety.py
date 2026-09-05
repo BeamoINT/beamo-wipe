@@ -8,7 +8,7 @@ import re
 import stat
 import time
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Iterable, Optional, Sequence, Tuple, Mapping
 
 from beamo_wipe.copy import IDENTIFY_ERROR, confirm_type_chars, confirm_type_four, confirm_type_size
 from beamo_wipe.models import ConfirmSpec, Disk, DiscoveryResult, WipeRequest
@@ -90,7 +90,7 @@ class SafetyError(Exception):
     """Abort. Do not wipe."""
 
 
-def is_preview_env(env: Optional[dict] = None) -> bool:
+def is_preview_env(env: Optional[Mapping[str, str]] = None) -> bool:
     if env is None:
         env = os.environ
     return env.get("BEAMO_WIPE_DRY_RUN") == "1" or env.get("BEAMO_WIPE_DEMO") == "1"
@@ -132,7 +132,7 @@ def is_remote_disk(disk: Disk) -> bool:
 
 def is_live_environment(
     *,
-    env: Optional[dict] = None,
+    env: Optional[Mapping[str, str]] = None,
     cmdline: str = "",
     paths_exist: Optional[Sequence[str]] = None,
     live_medium_mounted: Optional[bool] = None,
@@ -159,7 +159,7 @@ def is_live_environment(
     return live_medium_is_mounted(text=mountinfo_text)
 
 
-def running_on_live_usb(env: Optional[dict] = None) -> bool:
+def running_on_live_usb(env: Optional[Mapping[str, str]] = None) -> bool:
     """True on the real live USB even if a preview env var was injected.
 
     A fake Finished screen on the kiosk is a safety bug: operators will
@@ -173,7 +173,7 @@ def running_on_live_usb(env: Optional[dict] = None) -> bool:
 
 
 def require_live_or_dry_run(
-    env: Optional[dict] = None,
+    env: Optional[Mapping[str, str]] = None,
     cmdline: Optional[str] = None,
     live_medium_mounted: Optional[bool] = None,
 ) -> None:
@@ -194,7 +194,7 @@ def require_live_or_dry_run(
     )
 
 
-def require_real_live_for_nwipe(env: Optional[dict] = None) -> None:
+def require_real_live_for_nwipe(env: Optional[Mapping[str, str]] = None) -> None:
     """nwipe may run only on the live USB, never in preview/dry-run."""
     if env is None:
         env = os.environ

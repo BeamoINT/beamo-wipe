@@ -93,7 +93,7 @@ def test_shutdown_uses_clean_env(monkeypatch):
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: Path("/tmp/beamo-wipe"))
     # Should try all cmds then log and print, not leak env
-    with mock.patch("beamo_wipe.diagnostics.log_diag") as lg:
+    with mock.patch("beamo_wipe.diagnostics.log_diag"):
         app_mod._shutdown()
         # Every attempt should have env=CLEAN_SUBPROCESS_ENV and shell=False
         assert calls["kwargs"].get("env") is not None

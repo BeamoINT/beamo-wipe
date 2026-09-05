@@ -9,7 +9,7 @@ import re
 import subprocess
 import unicodedata
 from dataclasses import replace
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Mapping, Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from beamo_wipe.copy import IDENTIFY_ERROR as CANNOT_IDENTIFY
 from beamo_wipe.models import Disk, DiskKind, DiscoveryResult
@@ -851,7 +851,7 @@ def run_lsblk() -> Dict[str, Any]:
             except Exception:
                 pass
             raise
-        except subprocess.TimeoutExpired as exc:
+        except subprocess.TimeoutExpired:
             try:
                 from beamo_wipe.diagnostics import log_diag
 
@@ -1104,7 +1104,7 @@ def discover(
     boot_path: Optional[str] = None,
     mount_sources: Optional[Sequence[str]] = None,
     cmdline: Optional[str] = None,
-    env: Optional[Dict[str, str]] = None,
+    env: Optional[Mapping[str, str]] = None,
 ) -> DiscoveryResult:
     if env is None:
         env = os.environ

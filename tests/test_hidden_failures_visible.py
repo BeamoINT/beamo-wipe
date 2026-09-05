@@ -9,7 +9,6 @@ actionable, without leaking secrets or retrying a destructive action.
 from __future__ import annotations
 
 import subprocess
-import tempfile
 from pathlib import Path
 from unittest import mock
 
@@ -134,7 +133,6 @@ def test_nwipe_log_open_permission_is_logged(tmp_path, monkeypatch):
 def test_nwipe_cancel_logs_terminate_failure(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.nwipe_runner import NwipeRunner
-    from beamo_wipe.models import MethodId, WipeRequest
 
     # Fake proc that raises on terminate
     class BadProc:

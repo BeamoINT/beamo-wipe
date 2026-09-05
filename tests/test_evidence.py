@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import stat
@@ -12,24 +11,20 @@ from pathlib import Path
 import pytest
 
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
-from beamo_wipe.discover import discover, load_lsblk_json_text
+from beamo_wipe.discover import load_lsblk_json_text
 from beamo_wipe.evidence import (
     ALLOWED_OUTCOMES,
     EVIDENCE_PREFIX,
     OUTCOME_COMPLETED,
     OUTCOME_FAILED,
     OUTCOME_INTERRUPTED,
-    OUTCOME_RUNNING,
     OUTCOME_STARTED,
     OUTCOME_VERIFIED,
     build_evidence,
-    export_evidence,
-    load_evidence,
     verify_evidence_checksum,
     write_evidence_atomic,
 )
-from beamo_wipe.methods import DEFAULT_METHOD, METHODS
-from beamo_wipe.models import Disk, MethodId, Screen, WipeRequest, WipeResult
+from beamo_wipe.models import MethodId, Screen, WipeRequest, WipeResult
 from beamo_wipe.nwipe_runner import DryRunRunner, evaluate_nwipe_completion
 from beamo_wipe.safety import SafetyError
 from beamo_wipe.wizard import Wizard, make_demo_wizard
@@ -167,7 +162,6 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
 
     # failed: nonzero exit without markers
     from beamo_wipe.evidence import build_evidence
-    from beamo_wipe.models import DiscoveryResult
 
     disc = wiz.discovery
     disk = wiz.selected
@@ -318,7 +312,6 @@ def test_preserve_through_restart_and_export_failure(tmp_path, monkeypatch):
     assert Path(path_before).exists()  # type: ignore[arg-type]
     assert wiz.evidence_path == path_before
     # Export failure (dest on target) must not delete evidence
-    import tempfile
 
     # Create a fake target mount: use target path as dest (should be blocked)
     with pytest.raises(SafetyError):

@@ -7,7 +7,6 @@ CI/boot/recovery/hardware use, so they are left in place.
 
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 

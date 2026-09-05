@@ -19,6 +19,7 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
 from beamo_wipe.methods import METHODS
+from beamo_wipe.storage_limits import VERIFICATION_SCOPE, notice
 from beamo_wipe.models import Disk, MethodId, WipeRequest, WipeResult
 import beamo_wipe.safety as safety
 from beamo_wipe.safety import SafetyError, assert_log_not_on_target
@@ -108,10 +109,7 @@ def _warnings_for(disk: Optional[Disk], selectable: Sequence[Disk]) -> List[str]
     warns: List[str] = []
     if disk is None:
         return warns
-    # SSD note — honest per docs/claims.md
-    kind_val = disk.kind.value if hasattr(disk.kind, "value") else str(disk.kind)
-    if kind_val in ("SSD", "NVMe"):
-        warns.append("SSD results depend on the drive's controller. Not a formal certificate.")
+    warns.append(notice(disk.kind))
     # Same-size hint
     if disk and selectable:
         labels = [d.size_gb_label for d in selectable]
@@ -304,6 +302,7 @@ def build_evidence(
         "nwipe_commit": NWIPE_PINNED_COMMIT,
         "outcome": outcome,
         "failure_reason": failure_reason,
+        "result_description": spec.result_description(outcome, verified=verified),
         "device": device_dict,
         "method": {
             "id": method.value,
@@ -312,6 +311,10 @@ def build_evidence(
             "verify": spec.verify,
             "noblank": spec.noblank,
             "docs_name": spec.docs_name,
+            "title": spec.title,
+            "overwrite_passes": spec.overwrite_passes,
+            "verification_passes": spec.verification_passes,
+            "description": spec.description,
         },
         "boot_device": boot_path,
         "timestamps": {
@@ -332,6 +335,7 @@ def build_evidence(
         "verification": {
             "requested": verification_requested,
             "verified": verified,
+            "scope": VERIFICATION_SCOPE,
         },
         "warnings": warnings,
         "interruption": {

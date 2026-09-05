@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION
+from beamo_wipe import NWIPE_PINNED_COMMIT
 from beamo_wipe import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -195,7 +195,6 @@ def test_manifest_fails_on_placeholder(monkeypatch, tmp_path):
 
     # Create a temp file with placeholder and make live_build_inputs see it
     # Instead, patch PLACEHOLDER_RE to match our fake file content
-    orig = (ROOT / "src" / "beamo_wipe" / "__init__.py").read_text()
     # Simulate placeholder by patching the file read inside generate_manifest
     # Use monkeypatch to make live_build_inputs return a placeholder-containing entry
     # Simpler: patch the file itself temporarily

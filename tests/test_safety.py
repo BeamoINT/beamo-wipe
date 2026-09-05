@@ -196,7 +196,6 @@ def test_live_size_check_still_refuses_sysfs_mismatch(monkeypatch):
 
 def test_empty_confirm_token_never_matches():
     from beamo_wipe.models import ConfirmSpec
-    from beamo_wipe.safety import token_matches
 
     spec = ConfirmSpec(token="", prompt="x")
     assert not token_matches("", spec)

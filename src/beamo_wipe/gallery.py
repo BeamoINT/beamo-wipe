@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from beamo_wipe import copy as C
+from beamo_wipe import storage_limits as limits
 from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
@@ -70,6 +71,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "size": disk.size_phrase,
                 "kind": disk.kind.value,
                 "kindLabel": C.kind_label(disk.kind),
+                "storageNotice": limits.notice(disk.kind),
                 "bus": disk.bus,
                 "serial": disk.serial or "no serial",
                 "isBoot": disk.is_boot,
@@ -86,6 +88,9 @@ def gallery_html() -> str:
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
+        "limitsTitle": limits.TITLE,
+        "limitsButton": limits.BUTTON,
+        "limitsText": limits.full_text(),
         "previewBanner": C.PREVIEW_BANNER,
         "splash": C.SPLASH_TAGLINE,
         "titles": {
@@ -162,6 +167,8 @@ def gallery_html() -> str:
                 "key": C.METHOD_CARDS[mid]["key"],
                 "docs": METHODS[mid].docs_name,
                 "nwipe": METHODS[mid].nwipe_method,
+                "summary": METHODS[mid].summary,
+                "result": METHODS[mid].result_description("preview"),
             }
             for mid in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO)
         },
@@ -494,7 +501,7 @@ function stepInfo() {
   const map = {splash:[0,"",""], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
     pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
     confirm:[4,"Step 4 of 8",P.titles.confirm], method:[5,"Step 5 of 8",P.titles.method],
-    advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
+    limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
     working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk]};
   return map[screen] || [0,"",""];
 }
@@ -667,7 +674,7 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p><p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
@@ -688,10 +695,16 @@ function draw() {
       el.onclick = pick;
       el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
     });
+    main.querySelector("#limits").onclick = () => { screen = "limits"; draw(); };
     main.querySelector("#adv").onclick = () => { screen = "advanced"; draw(); };
     renderHint(P.hints.method);
     btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
     btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
+  } else if (screen === "limits") {
+    main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" role="region" aria-label="Supported storage limits" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
+    main.querySelector("#limits-text").textContent = P.limitsText;
+    main.querySelector("#limits-text").focus();
+    btnsL.append(btn(P.buttons.back, () => { screen = "method"; draw(); main.querySelector("#limits").focus(); }));
   } else if (screen === "advanced") {
     let html = `<h1 class="compact sub">${P.titles.advanced}</h1><p class="subtitle" style="margin-bottom:6px">${P.advancedLead}</p><div class="cz"><div class="czc"><div class="card hero" style="padding:12px 20px">`;
     ["everyday","extra","quick_zero"].forEach(id => {
@@ -709,7 +722,7 @@ function draw() {
     const CIRC = 2 * Math.PI * 81;
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = ready ? "var(--ok)" : "var(--primary)";
-    main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>${panel("danger", selected.eraseLabel)}
+    main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>${panel("danger", selected.eraseLabel)}<p>${P.methods[method].summary}</p>
       <div class="cz"><div class="czc"><div class="ringwrap"><div style="position:relative;width:190px;height:190px">
         <svg width="190" height="190" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
@@ -742,6 +755,7 @@ function draw() {
     main.innerHTML = `<div class="centerstage"><div class="status ${ok ? "ok" : "bad"}"><div class="core">${ok ? "✓" : "✕"}</div></div>
       <h1>${ok?P.titles.doneOk:P.titles.doneFail}</h1>
       <p class="statustext" style="color:var(--ink)">${ok?P.doneOk:P.doneFail}</p>
+      <p>${P.methods[method].summary}</p><p>${P.methods[method].result}</p>
       <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div>
       ${moreLink()}</div>`;
     bindMore();
@@ -749,6 +763,13 @@ function draw() {
     btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
   }
 }
+document.addEventListener("keydown", e => {
+  if (screen === "method" && e.key.toLowerCase() === "l") {
+    e.preventDefault(); screen = "limits"; draw();
+  } else if (screen === "limits" && e.key === "Escape") {
+    e.preventDefault(); screen = "method"; draw(); main.querySelector("#limits").focus();
+  }
+});
 function startCount() {
   if (timer) clearInterval(timer);
   timer = setInterval(() => {

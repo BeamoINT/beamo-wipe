@@ -27,7 +27,7 @@ All rows are asserted by code, the pinned build, or a fake-disk test. No physica
 |---|---|---|---|
 | Engine identity | Only `nwipe v0.42` at `/usr/lib/beamo-wipe/nwipe` is ever exec'd. Checked as root-owned ELF `7F 45 4C 46`, not writable by group/other, no symlink, `nwipe -V` prints `nwipe version 0.42` line (not substring), `--force` never passed. Stub `/usr/local/bin/nwipe` refuses direct use. | `src/beamo_wipe/__init__.py: NWIPE_PINNED_*`, `packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot` (tag+commit, `GIT_CONFIG_NOSYSTEM=1`), `src/beamo_wipe/nwipe_runner.py: assert_nwipe_binary_safe()`, `resolve_nwipe_binary()`, `test_nwipe_runner.py`, `test_security_hardening.py` | `cat /usr/share/doc/beamo-wipe/NWIPE_VERSION` on live USB; `502-patched negative test` in `docs/ci.md` |
 | How to invoke | Always `nwipe --autonuke --nogui --nowait --method=<prng\|dodshort\|zero> --verify=<last\|off> --rounds=1 --exclude=<boot> --logfile=/tmp/beamo-wipe/... --PDFreportpath=noPDF --noblank <target>` with exactly one `/dev/` target last, exactly one `--exclude` of the boot device, target size re-checked via `block_rdev` + `assert_size_unchanged` before `Popen`, `pass_fds` lock, `cwd="/"`, `shell=False`, `start_new_session True`. | `src/beamo_wipe/methods.py`, `src/beamo_wipe/nwipe_runner.py: build_nwipe_argv()`, `validate_argv()`, `docs/ADVANCED.md` | `python -m pytest tests/test_nwipe_runner.py -k validate` |
-| What overwrite does | `nwipe` writes sequentially through the block device (`write(2)` on the opened `/dev/` node). For `prng`: one PRNG pass; `dodshort`: three deterministic passes (nwipe's DoD short); `zero`: one zero pass. `verify=last` reads back the last pass; `verify=off` skips verification; `noblank` skips final blank. No ATA/NVMe sanitize command is issued. | nwipe 0.42 `src/nwipe.c` + `src/method.c` (upstream), `src/beamo_wipe/nwipe_runner.py` comment `--method=prng --rounds=1 --verify=last --noblank` etc., `docs/ADVANCED.md` mapping | `nwipe --help` on live image (shows methods), `grep verify src/beamo_wipe/methods.py` |
+| What overwrite does | `nwipe` writes sequentially through the block device (`write(2)` on the opened `/dev/` node). For `prng`: one PRNG pass; `dodshort`: three passes: a pattern, its inverse, then random data (nwipe's DoD short); `zero`: one zero pass. `verify=last` reads back the last pass; `verify=off` skips verification; `noblank` skips final blank. No ATA/NVMe sanitize command is issued. | nwipe 0.42 `src/nwipe.c` + `src/method.c` (upstream), `src/beamo_wipe/nwipe_runner.py` comment `--method=prng --rounds=1 --verify=last --noblank` etc., `docs/ADVANCED.md` mapping | `nwipe --help` on live image (shows methods), `grep verify src/beamo_wipe/methods.py` |
 | HDD best case | On a healthy 7200rpm HDD with no reallocated sectors and no HPA/DCO, a verified overwrite pass traverses the exposed LBA range and `verify=last` will detect short writes. The evidence outcome `verified` requires `verify=last` + exit 0 + `| Erased |` row or 100% of last pass. | `src/beamo_wipe/nwipe_runner.py: evaluate_nwipe_completion()`, `src/beamo_wipe/evidence.py: OUTCOME_VERIFIED` | `tests/test_nwipe_runner.py`, `tests/test_evidence.py` |
 | SSD footer surfaces | Every SSD/NVMe selection shows the plain-language footer on the pick screen and the same warning in evidence `warnings[]` and the browser gallery. | `src/beamo_wipe/copy.py: SSD_FOOTER`, `src/beamo_wipe/evidence.py: _warnings_for()`, `src/beamo_wipe/ui/tk_wizard.py: _pick()`, `src/beamo_wipe/gallery.py`, `tests/test_accessibility_lowres.py`, `tests/test_storage_limits.py` | `grep SSD_FOOTER src/beamo_wipe/copy.py` |
 | Evidence truthfulness | JSON under `/tmp/beamo-wipe/result-*.json` with `schema_version=1`, `beamo_wipe_version`, `nwipe_version/commit`, `device` (realpath+serial+wwn+vendor), `method`, `boot_device`, `timestamps`, `nwipe.argv_redacted`, `exit_evidence`, `verification{requested,verified}`, `warnings`, `outcome` in `{started,running,completed,verified,failed,interrupted}` (never `certified`/`sanitized`), `failure_reason`, `log_checksum_sha256`, `provenance{evidence_file,written_at_wall}` + atomic `.sha256` sidecar, `O_NOFOLLOW` `0o600`, `assert_log_not_on_target`. `verify_evidence_checksum()` checks sidecar. | `src/beamo_wipe/evidence.py`, `tests/test_evidence.py` | `BEAMO_WIPE_DRY_RUN=1 python3 -m pytest tests/test_evidence.py -v` |
@@ -89,7 +89,7 @@ Use this decision table in support. Do not down-sell from it to make a sale.
 | **HDD with reallocated/pending sectors, or damaged/UNC errors, or unknown HPA/DCO, or customer asks for certificate** | **Do not claim overwrite.** Offer to attempt Beamo and then destroy if `failed`, or go straight to **physical destruction**. | If attempted and failed, show `failed` + `No sane device geometry` / `could not open` + log. |
 | **Any SSD/NVMe/eMMC/UFS/SD where contract says "no prior LBA can be read from spare area"** | **Vendor controller erase** first: **NVMe** `nvme format --ses=1|2` (Crypto/Block) or `nvme sanitize` per vendor+model; **SATA SSD** `hdparm --security-set-pass` + `--security-erase` or vendor toolkit; **eMMC** `mmc-utils` per vendor; verify via vendor tool, then optionally overwrite for belts-and-suspenders. | Vendor tool's own attestation, not Beamo JSON. Beamo can still run for an additional overwrite pass, but do not present the Beamo JSON as the SSD sanitization certificate. |
 | **RAID / RST / SED-l Locked / OPAL-locked / T2** | **Not supported** — do not overwrite the virtual disk and call it done. Break array / disable encryption per vendor or **destroy** drives individually; for T2 boards, destroy the board. | No Beamo JSON for the member if not enumerated. Provide destruction manifest per device. |
-| **Hidden areas / namespaces** | If HPA/DCO or hidden NVMe namespace is known or suspected, **vendor sanitize** covers the whole die or **destroy**. | Vendor sanitize log; not Beamo overwrite. |
+| **Hidden areas / namespaces** | If HPA/DCO or hidden NVMe namespace is known or suspected, **vendor guidance** must establish the supported coverage or **destroy**. | Vendor sanitize log; not Beamo overwrite. |
 | **Regulated / lab-certificate required (government, healthcare, finance)** | **Destruction** or a certified facility. Beamo is explicitly **not a lab certificate** and never a Blancco replacement. | Beamo JSON is owner-operated evidence (who/when/what), not third-party certification. Point to destruction receipt. |
 
 How to say it on the phone (plain language, from `src/beamo_wipe/copy.py`):
@@ -130,9 +130,9 @@ Any surface (wizard, gallery, README, helper, evidence, dist `README.txt`, Amazo
 
 | Say | Do not say |
 |---|---|
-| "overwrite," "write-over pass," "everyday / extra thorough / quick zero" with nwipe names in Advanced | "sanitize," "purge," "secure erase" (unless naming a vendor tool), "certified," "DoD 5220.22-M / NIST 800-88 certified," "NSA," "military grade," "guaranteed unrecoverable," "impossible to recover," "plug and play," "any laptop / any computer / any Mac," "Apple Silicon supported," "Blancco replacement," "we invented the wipe" |
+| "overwrite," "write-over pass," "Everyday / Three overwrites / Quick zero" with nwipe names in Advanced | "sanitize," "purge," "secure erase" (unless naming a vendor tool), "certified," "DoD 5220.22-M / NIST 800-88 certified," "NSA," "military grade," "guaranteed unrecoverable," "impossible to recover," "plug and play," "any laptop / any computer / any Mac," "Apple Silicon supported," "Blancco replacement," "we invented the wipe" |
 | "SSD results depend on the drive's controller. Not a formal certificate." | "SSD is fully erased / sanitized" |
-| "On an SSD, the drive's controller decides what remains. Not a formal certificate." (wizard footer) | "SSD overwrite is certified" |
+| "Overwriting reaches only storage the device exposes. It cannot guarantee coverage of inaccessible, remapped, over-provisioned (spare), or controller-managed flash areas. Additional overwrite passes do not fix these limitations." (method selection and report warning) | "SSD overwrite is certified" |
 | "Overwrite is not a lab certificate. Do not tell customers otherwise." (ADVANCED) | "This SSD is now certified" |
 | "HDD overwrite via nwipe. SSD results depend on the drive's controller. Not a Blancco-style certificate." (claims) | "Works with any SSD guarantee" |
 | `evidence.outcome` in `{completed, verified, failed, interrupted}` + `verification.verified` boolean | Any `certificate`, `sanitized`, `compliant` field |
@@ -181,3 +181,32 @@ Physically proving wear-leveling / OP retention requires a sacrificial SSD + ven
 ---
 
 *Verification before merge: every SSD/encryption/RAID row above has a recommendation, every claim has a source row, no file in `src/ docs/ helper/` contains a forbidden badge term outside its "forbidden" list, and the three preview paths still use fake disks only.*
+
+
+<!-- BEGIN CANONICAL OFFLINE LIMITS -->
+## Offline supported storage limits
+
+What this tool supports
+Beamo Wipe uses pinned nwipe v0.42 to overwrite a selected whole disk exposed to the operating system. It does not issue controller secure-erase or sanitize commands. It does not support Apple Silicon Macs, Chromebooks, or erasing the running Windows disk.
+
+SSD and flash storage
+Overwriting reaches only storage the device exposes. It cannot guarantee coverage of inaccessible, remapped, over-provisioned (spare), or controller-managed flash areas. Additional overwrite passes do not fix these limitations.
+
+Read-back verification
+Read-back verification checks exposed storage against the final overwrite. It does not prove that hidden copies were erased.
+
+Hard disks, hidden areas, and damaged media
+Hidden HPA/DCO areas, remapped or unreadable sectors, and unexposed NVMe namespaces are outside the overwrite guarantee. A drive can report completion while hidden data remains. Read or write errors, missing completion evidence, and interruption must not be treated as success.
+
+Unknown devices and controllers
+A missing device type stays unknown. A USB bridge or RAID controller may hide the media type, physical members, caches, or capacity. An exposed virtual disk does not establish coverage of every physical member. Do not use a displayed SSD or HDD label as proof that hidden areas are absent.
+
+Encryption and locked devices
+Beamo Wipe does not unlock BitLocker, OPAL, ATA security, or other locked devices; extract keys; reset passwords; or bypass Secure Boot. Overwriting an exposed encrypted device is not proof of key destruction or coverage of hidden encrypted copies. Mapped volumes and partitions are not whole-disk targets.
+
+When to use a different process
+If you need coverage beyond exposed storage, consult the drive maker's guidance for the exact model and firmware. Vendor secure erase support and validation vary; this USB does not perform or certify that process. For required assurance that cannot be established, use a qualified destruction service. Beamo reports are not a formal certificate.
+
+Ownership and safety
+Erase only disks you own or have written permission to erase. Confirm the device identity and keep backups. Destructive-action warnings, boot exclusion, the confirmation token, and the five-second delay still apply. If identity is uncertain, stop; do not bypass the safety gates.
+<!-- END CANONICAL OFFLINE LIMITS -->

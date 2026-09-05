@@ -154,8 +154,8 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
     if use_dry:
         runner = DryRunRunner(duration_s=3.0, fail=args.fail_demo)
         return Wizard(discovery, runner, dry_run=True)
-    runner = NwipeRunner()
-    return Wizard(discovery, runner, dry_run=False)
+    live_runner = NwipeRunner()
+    return Wizard(discovery, live_runner, dry_run=False)
 
 
 def _shutdown() -> bool:

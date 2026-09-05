@@ -7,21 +7,14 @@ isolated x86_64 VM."""
 from __future__ import annotations
 
 import os
-import stat
 import subprocess
 import threading
 import time
-from pathlib import Path
-from unittest import mock
 
 import pytest
 
 from beamo_wipe.discover import (
-    LIVE_NAME_RE,
-    HIDDEN_NAME_RE,
-    HIDDEN_TYPES,
     _clean,
-    _path_aliases,
     _udev_decode,
     discover,
     load_lsblk_json_text,
@@ -29,22 +22,17 @@ from beamo_wipe.discover import (
     parse_mountinfo,
     should_hide,
 )
-from beamo_wipe.diagnostics import _sanitize_detail, log_diag
-from beamo_wipe.models import Disk, DiskKind, MethodId, Screen, WipeRequest, WipeResult
+from beamo_wipe.diagnostics import _sanitize_detail
+from beamo_wipe.models import Disk, DiskKind, MethodId, Screen, WipeRequest
 from beamo_wipe.nwipe_runner import (
-    CLEAN_SUBPROCESS_ENV,
     NwipeRunner,
     _target_geometry_failed,
-    _target_open_failed,
     _target_reported_failure,
-    build_nwipe_argv,
     evaluate_nwipe_completion,
     target_skipped_busy,
 )
 from beamo_wipe.safety import (
     CLEAN_SUBPROCESS_ENV as SAFETY_CLEAN_ENV,
-    PROTECTED_MOUNT_PREFIXES,
-    WHOLE_DISK_RE,
     SafetyError,
     assert_disk_identity,
     block_rdev,
@@ -260,7 +248,6 @@ def test_concurrent_rediscover_and_cancel_not_lost(tmp_path, monkeypatch):
 
     wiz = base  # demo wizard already has discovery
     # Replace runner/clock for deterministic concurrency
-    wiz2 = wiz  # reuse but patch runner
     from beamo_wipe.wizard import Wizard
 
     wiz_conc = Wizard(wiz.discovery, DryRunRunner(duration_s=0.4, clock=clock), clock=clock, dry_run=True)
@@ -361,9 +348,7 @@ def test_sigusr1_not_sent_before_ready_and_throttled(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.nwipe_runner.assert_not_boot", lambda *a, **k: None)
     monkeypatch.setattr("beamo_wipe.nwipe_runner.block_rdev", lambda p: 123)
     # flaky lock
-    import fcntl
 
-    orig_acquire = runner._acquire_wipe_lock
     monkeypatch.setattr(runner, "_acquire_wipe_lock", lambda r: None)
     monkeypatch.setattr(runner, "_release_wipe_lock", lambda: None)
     runner.start(req)

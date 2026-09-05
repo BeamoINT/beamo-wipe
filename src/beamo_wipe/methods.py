@@ -15,7 +15,63 @@ class NwipeMethodSpec:
     rounds: int
     verify: str
     noblank: bool
-    docs_name: str
+
+    @property
+    def overwrite_passes(self) -> int:
+        return {"prng": 1, "dodshort": 3, "zero": 1}[
+            self.nwipe_method
+        ] * self.rounds + (not self.noblank)
+
+    @property
+    def verification_passes(self) -> int:
+        return {"off": 0, "last": 1, "all": self.overwrite_passes}[self.verify]
+
+    @property
+    def title(self) -> str:
+        return {
+            "prng": "Everyday",
+            "dodshort": "Three overwrites",
+            "zero": "Quick zero",
+        }[self.nwipe_method]
+
+    @property
+    def overwrite_description(self) -> str:
+        pattern = {
+            "prng": "random data",
+            "dodshort": "a pattern, its inverse, then random data",
+            "zero": "zeros",
+        }[self.nwipe_method]
+        count = self.overwrite_passes
+        return f"{count} overwrite {'pass' if count == 1 else 'passes'}: {pattern}."
+
+    @property
+    def verification_description(self) -> str:
+        if self.verify == "off":
+            return "Verification is not performed. No read-back pass."
+        return f"{self.verification_passes} separate read-back verification pass after the final overwrite."
+
+    @property
+    def description(self) -> str:
+        return f"{self.overwrite_description} {self.verification_description}"
+
+    @property
+    def summary(self) -> str:
+        return f"{self.title}: {self.description}"
+
+    @property
+    def docs_name(self) -> str:
+        return self.description
+
+    def result_description(self, outcome: str, *, verified: bool = False) -> str:
+        if outcome == "preview":
+            return "Preview only. No overwrite or verification was performed."
+        if outcome == "verified" and verified and self.verify != "off":
+            return "nwipe reported overwrite and read-back verification success for accessible storage."
+        if outcome == "completed" and self.verify == "off":
+            return (
+                "nwipe reported overwrite completion. Verification was not performed."
+            )
+        return "Overwrite completion and verification success are not confirmed."
 
 
 # Everyday default: one PRNG overwrite (nwipe's own default method family)
@@ -27,7 +83,6 @@ METHODS = {
         rounds=1,
         verify="last",
         noblank=True,
-        docs_name="prng / one pass / verify last / no blank",
     ),
     MethodId.EXTRA: NwipeMethodSpec(
         method_id=MethodId.EXTRA,
@@ -35,7 +90,6 @@ METHODS = {
         rounds=1,
         verify="last",
         noblank=True,
-        docs_name="dodshort (3-pass) / verify last / no blank",
     ),
     MethodId.QUICK_ZERO: NwipeMethodSpec(
         method_id=MethodId.QUICK_ZERO,
@@ -43,7 +97,6 @@ METHODS = {
         rounds=1,
         verify="off",
         noblank=True,
-        docs_name="zero / verify off / no blank",
     ),
 }
 

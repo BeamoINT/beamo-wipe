@@ -11,12 +11,15 @@ import time
 
 import pytest
 
-tk = pytest.importorskip("tkinter")
-
 from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.models import Screen
+from beamo_wipe.methods import METHODS
 from beamo_wipe.support_export import ExportReceipt
-from beamo_wipe.ui.tk_wizard import TkWizard, _Button
+try:
+    import tkinter as tk
+    from beamo_wipe.ui.tk_wizard import TkWizard, _Button
+except ImportError:
+    pytest.skip("tkinter not available", allow_module_level=True)
 
 try:
     import tkinter as _tk_probe  # noqa: F401
@@ -668,3 +671,78 @@ def test_needs_display_skips_when_tk_raises(monkeypatch):
     monkeypatch.setattr(_tkmod, "Tk", _boom)
     with pytest.raises(pytest.skip.Exception):
         _needs_display()
+
+
+@pytest.mark.parametrize("method", list(METHODS))
+@pytest.mark.parametrize("screen", [Screen.METHOD, Screen.LAST_CHANCE, Screen.DONE])
+def test_method_facts_render_for_every_choice(ui, method, screen):
+    from beamo_wipe.methods import METHODS
+
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.METHOD)
+    wiz.set_method(method)
+    if screen != Screen.METHOD:
+        wiz.continue_method()
+    if screen == Screen.DONE:
+        wiz.screen = Screen.DONE  # preview only; never starts a runner
+    app._draw()
+    app.root.update()
+    texts = []
+    def visit(widget):
+        if widget.winfo_ismapped() and widget.winfo_class() == "Label":
+            texts.append(str(widget.cget("text")))
+        for child in widget.winfo_children():
+            visit(child)
+    visit(app.root)
+    text = " ".join(texts)
+    if screen == Screen.METHOD:
+        for spec in METHODS.values():
+            assert spec.overwrite_description in text
+            assert spec.verification_description in text
+    else:
+        assert METHODS[method].summary in text
+    if screen == Screen.DONE:
+        assert wiz.method_result in text
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize("kind", ["SSD", "HDD", "Unknown"])
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_storage_limits_visible_and_keyboard_reachable(ui, kind, size):
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from beamo_wipe.models import DiskKind
+    from beamo_wipe import storage_limits as limits
+
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, Screen.METHOD)
+    wiz.selected = replace(wiz.selected, kind=DiskKind(kind))
+    selected = wiz.selected
+    method = wiz.method
+    app._draw()
+    app.root.update()
+    texts = []
+    def visit(widget):
+        if widget.winfo_ismapped() and widget.winfo_class() == "Label":
+            texts.append(str(widget.cget("text")))
+        for child in widget.winfo_children():
+            visit(child)
+    visit(app.root)
+    assert limits.notice(selected.kind) in texts
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    app._on_key(SimpleNamespace(keysym="l", char="l"))
+    app.root.update()
+    assert wiz.screen == Screen.LIMITS
+    reader = app.root.focus_get()
+    assert reader.winfo_class() == "Text"
+    assert reader.get("1.0", "end-1c") == limits.full_text()
+    reader.event_generate("<Next>")
+    app.root.update()
+    assert reader.yview()[0] > 0 or reader.yview()[1] == 1.0
+    app._on_escape()
+    assert wiz.screen == Screen.METHOD
+    assert wiz.selected == selected
+    assert wiz.method == method
+    assert not wiz.runner.started

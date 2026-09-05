@@ -517,7 +517,6 @@ def test_matrix_wizard_no_auto_start_and_countdown(tmp_path, monkeypatch):
 
 def test_matrix_wizard_boot_never_selectable(tmp_path, monkeypatch):
     from beamo_wipe.demo import make_demo_wizard
-    from beamo_wipe.models import Screen
 
     wiz = make_demo_wizard()
     wiz.skip_splash()

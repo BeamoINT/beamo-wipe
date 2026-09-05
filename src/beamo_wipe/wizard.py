@@ -877,6 +877,7 @@ class Wizard:
             result = self.wipe_result
             assert result is not None
             discovery_snapshot = copy.deepcopy(self.discovery)
+            assert self.evidence is not None
             expected_payload = dict(self.evidence)
             expected_provenance = dict(expected_payload.get("provenance", {}))
             # ``verified`` is a post-write UI convenience; it is not present
@@ -922,6 +923,7 @@ class Wizard:
             if (
                 self._report_exporting
                 or not self._can_save_report_locked()
+                or self.evidence is None
                 or self._evidence_write_seq != evidence_write_seq
                 or self.evidence_path != str(path)
                 or self.wipe_result != result
@@ -1077,6 +1079,21 @@ class Wizard:
     def done_ok(self) -> bool:
         return bool(self.wipe_result and self.wipe_result.ok)
 
+    def open_limits(self) -> None:
+        if self.screen == Screen.METHOD:
+            self.screen = Screen.LIMITS
+
+    def close_limits(self) -> None:
+        if self.screen == Screen.LIMITS:
+            self.screen = Screen.METHOD
+
+    @property
+    def storage_notice(self) -> str:
+        from beamo_wipe.models import DiskKind
+        from beamo_wipe.storage_limits import notice
+
+        return notice(self.selected.kind if self.selected else DiskKind.UNKNOWN)
+
     def open_advanced(self) -> None:
         if self.screen in (Screen.SPLASH, Screen.WORKING, Screen.ADVANCED):
             return
@@ -1105,6 +1122,7 @@ class Wizard:
                 Screen.METHOD: Screen.CONFIRM,
                 Screen.LAST_CHANCE: Screen.METHOD,
                 Screen.ADVANCED: self._advanced_from or Screen.METHOD,
+                Screen.LIMITS: Screen.METHOD,
             }
             if self.screen in mapping:
                 self.screen = mapping[self.screen]
@@ -1116,6 +1134,17 @@ class Wizard:
         if self.selected is None:
             return ""
         return confirm_warning(self.selected)
+
+    @property
+    def method_summary(self) -> str:
+        return METHODS[self.method].summary
+
+    @property
+    def method_result(self) -> str:
+        evidence = self.evidence or {}
+        outcome = "preview" if self.preview else evidence.get("outcome", "unknown")
+        verified = evidence.get("verification", {}).get("verified") is True
+        return METHODS[self.method].result_description(outcome, verified=verified)
 
     def erase_label(self) -> str:
         if self.selected is None:

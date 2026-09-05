@@ -157,3 +157,16 @@ Cursor Cloud Agents boot from `.cursor/environment.json` (`install.sh` / `start.
 
 Default everyday method is nwipe `prng`, one round, verify last, no blank pass.
 Details: [docs/ADVANCED.md](docs/ADVANCED.md).
+
+### macOS preview runtime
+
+The desktop `./preview` launcher prefers an installed modern Python/Tk on macOS.
+Python 3.10.0 with Tk 8.6.11 can abort when closing a native window. Python
+3.14.7 with Tk 9.0.4 was verified to close cleanly. An explicit runtime can be
+selected with `BEAMO_WIPE_PREVIEW_PYTHON=python3.14 ./preview`. This affects only
+the fake-device desktop preview, not the live Linux launcher.
+
+At method selection, **Storage limits (L)** opens the supported limits offline.
+The warning includes inaccessible, remapped, over-provisioned, and controller-managed
+flash areas and explains why additional overwrite passes do not fix those limits.
+See [the full limits](docs/storage-and-controller-limits.md).
