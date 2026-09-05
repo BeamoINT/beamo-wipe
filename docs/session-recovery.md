@@ -122,7 +122,7 @@ Readback failures are no longer suppressed. A final recovery-checkpoint failure
 retains the verified local filename; retry revalidates it before finalizing,
 without generating another report. Other failed attempts may leave orphaned
 private files; they are never searched for a successful outcome or exported.
-The retry limit bounds new files. No automated cleanup or permission repair runs.
+The retry limit bounds new files. No automated cleanup or evidence-file permission repair runs.
 
 The UI distinguishes unwritable/read-only storage, exhausted space/quota,
 invalid evidence, recognized I/O errors, and unconfirmed finalization using fixed

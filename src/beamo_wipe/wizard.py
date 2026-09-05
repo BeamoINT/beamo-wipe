@@ -1117,7 +1117,7 @@ class Wizard:
             if provenance.get("evidence_file") != str(path):
                 raise SafetyError("Foreign evidence provenance")
             expected["provenance"] = provenance
-            if written != expected:
+            if json.dumps(written, sort_keys=True, allow_nan=False) != json.dumps(expected, sort_keys=True, allow_nan=False):
                 raise SafetyError("Contradictory evidence readback")
             with self._lock:
                 if seq != self._evidence_write_seq:

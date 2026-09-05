@@ -378,3 +378,25 @@ def test_menu_console_retry_key_never_starts_runner(tmp_path, monkeypatch):
     monkeypatch.setattr(w, 'begin_evidence_retry', lambda: called.append(True))
     _handle(w, ord('E'))
     assert called == [True] and w.screen == Screen.DONE
+
+
+def test_readback_rejects_boolean_integer_type_confusion(tmp_path, monkeypatch):
+    w, clock = start(tmp_path, monkeypatch)
+    loader = evidence.load_evidence
+    def corrupted(path, **kwargs):
+        record = loader(path, **kwargs)
+        record['schema_version'] = True  # Python considers True == 1.
+        return record
+    monkeypatch.setattr(evidence, 'load_evidence', corrupted)
+    complete(w, clock)
+    assert w.evidence_error_code == 'invalid_data'
+    assert not w.can_save_report
+
+
+def test_private_readback_rejects_duplicate_keys(tmp_path):
+    from beamo_wipe.safety import SafetyError
+    path = tmp_path / 'duplicate.json'
+    path.write_text('{"schema_version": 2, "schema_version": 1}')
+    path.chmod(0o600)
+    with pytest.raises(SafetyError, match='Duplicate'):
+        evidence.load_evidence(path, private=True)

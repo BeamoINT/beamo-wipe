@@ -424,8 +424,20 @@ def write_evidence_atomic(
     return path
 
 
+def _unique_evidence_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise SafetyError("Duplicate evidence field")
+        result[key] = value
+    return result
+
+
 def load_evidence(path: Path, *, private: bool = False) -> dict[str, Any]:
-    return json.loads(_read_regular_nofollow(Path(path), private=private).decode("utf-8"))
+    return json.loads(
+        _read_regular_nofollow(Path(path), private=private).decode("utf-8"),
+        object_pairs_hook=_unique_evidence_fields if private else dict,
+    )
 
 
 def recover_result(path: Path):
