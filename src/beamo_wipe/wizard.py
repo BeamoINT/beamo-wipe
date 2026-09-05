@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import errno
 import json
 import math
 import os
@@ -14,7 +15,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from beamo_wipe.copy import REDISCOVER_ERROR, confirm_warning, erase_now_label
 from beamo_wipe.methods import DEFAULT_METHOD, METHODS
@@ -56,6 +57,7 @@ class Runner(Protocol):
 
 COUNTDOWN_S = 5.0
 SPLASH_S = 3.0
+EVIDENCE_RETRIES = 3
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,10 @@ class ReportView:
     exporting: bool
     can_save: bool
     evidence_error: Optional[str]
+    saving_evidence: bool = False
+    can_retry_evidence: bool = False
+    retries_remaining: int = 0
+    evidence_status: str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -166,6 +172,12 @@ class Wizard:
         # interrupt to an engine outcome.
         self._evidence_flag_hint: dict[str, tuple[bool, bool]] = {}
         self._evidence_write_seq = 0
+        self.evidence_status = "unknown"  # unknown | saving | saved | failed
+        self.evidence_error_code = ""
+        self._evidence_saving = False
+        self._evidence_retries = 0
+        self._pending_evidence: Optional[tuple[dict[str, Any], Any, Optional[WipeResult], Optional[str]]] = None
+        self._pending_evidence_path: Optional[Path] = None
         self._report_exporter = report_exporter
         self.report_status = "idle"  # idle | saving | saved | error
         self.report_message = ""
@@ -226,21 +238,28 @@ class Wizard:
                     raise SafetyError("No terminal evidence")
                 path, evidence = store.terminal()
             except (OSError, SafetyError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
-                from beamo_wipe.evidence import build_evidence, write_evidence_atomic, load_evidence
-                # Unknown exit status stays null; never invent a process exit or
-                # assert that an orphan completed merely because its lock is free.
-                evidence = build_evidence(
+                # Commit the unknown operation state before attempting its save.
+                # A failed recovery save must not be retried by timer ticks.
+                from beamo_wipe.outcomes import VIEWS
+                self.wipe_result = WipeResult(False, None, VIEWS["indeterminate"].message, "")
+                self.screen = Screen.DONE
+                self.error = None
+                inputs = dict(
                     disk=target, discovery=discovery, method=self.method,
                     request=None, result=None, started_at_wall=None, ended_at_wall=None,
                     started_mono=None, ended_mono=None, argv=[], log_text="", interrupted=True)
-                evidence["recovery"] = {"status": "indeterminate", "interface_restarted": True}
-                path = write_evidence_atomic(evidence, log_dir=store.directory,
-                                             device_path=target.path, target_device=target.path)
-                evidence = load_evidence(path)
+                self._evidence_write_seq += 1
+                self._pending_evidence = (copy.deepcopy(inputs), self._evidence_context(),
+                                          self.wipe_result, self._result_evidence_key(self.wipe_result))
+                self._evidence_saving = True
+                self.evidence_status = "saving"
+                self._persist_evidence(self._evidence_write_seq)
+                return
             from beamo_wipe.outcomes import present_evidence
             view = present_evidence(evidence)
             self.evidence = evidence
             self.evidence_path = str(path)
+            self.evidence_status = "saved"
             self.evidence["provenance"]["verified"] = True
             self.wipe_result = WipeResult(view.success, evidence["exit_evidence"]["exit_code"],
                                           view.message, evidence["logfile"])
@@ -416,6 +435,11 @@ class Wizard:
         self._evidence_argv = None
         self._evidence_written_for = None
         self._evidence_flag_hint = {}
+        self._evidence_write_seq += 1
+        self._pending_evidence = None
+        self._pending_evidence_path = None
+        self._evidence_saving = False
+        self._evidence_retries = 0
         with self._lock:
             self._active_report_claim = None
             self._set_report_state_locked(
@@ -432,7 +456,7 @@ class Wizard:
                 Screen.REFRESHING,
             }:
                 return
-            if self._diagnostic_busy:
+            if self._diagnostic_busy or self._evidence_saving:
                 return
             if self._report_exporting:
                 self._set_report_state_locked(
@@ -807,7 +831,7 @@ class Wizard:
         # (prevents deadlock if evidence write calls back into wizard)
         self._write_evidence(result=None, cancelled=False, interrupted=False)
 
-    def _finish(self, result: WipeResult) -> None:
+    def _finish(self, result: WipeResult, *, cancelled: bool = False, interrupted: bool = False) -> None:
         # Guard against double-finish from concurrent tick/cancel
         with self._lock:
             if self.screen == Screen.DONE and self.wipe_result is not None:
@@ -821,7 +845,7 @@ class Wizard:
                 status="idle", message="", session="", exporting=False
             )
         # Persist auditable evidence (atomic, off-target, truthful outcome)
-        self._write_evidence(result=result, cancelled=False, interrupted=False)
+        self._write_evidence(result=result, cancelled=cancelled, interrupted=interrupted)
 
     def cancel_wipe(self, *, origin: str = "user") -> None:
         """User or system interruption. Produce interrupted evidence."""
@@ -880,10 +904,7 @@ class Wizard:
                 cancelled = origin == "user" and observed is not None and not observed.ok
             # _write_evidence and _finish outside lock to avoid I/O under lock
             need_evidence = res
-        self._write_evidence(
-            result=need_evidence, cancelled=cancelled, interrupted=interrupted
-        )
-        self._finish(need_evidence)
+        self._finish(need_evidence, cancelled=cancelled, interrupted=interrupted)
         self.arm_done_keyboard()
 
     def _write_evidence(
@@ -911,9 +932,13 @@ class Wizard:
                 cancelled, interrupted = prev
             self._evidence_write_seq += 1
             write_seq = self._evidence_write_seq
+            self._evidence_saving = True
+            self.evidence_status = "saving"
+            self._evidence_retries = 0
+            self._pending_evidence = None
+            self._pending_evidence_path = None
+            self._touch_report_locked()
         try:
-            from beamo_wipe.evidence import build_evidence, write_evidence_atomic
-
             # Gather log tail for checksum (best effort, off-target)
             log_text = ""
             try:
@@ -994,94 +1019,194 @@ class Wizard:
                         pass
                     argv = []
 
-            ev = build_evidence(
-                disk=self.selected,
-                discovery=self.discovery,
-                method=self.method,
-                request=self._wipe_request,
-                result=result,
-                started_at_wall=start_wall,
-                ended_at_wall=end_wall if result is not None else "",
-                started_mono=start_mono,
-                ended_mono=end_mono,
-                argv=argv,
-                log_text=log_text or "",
-                interrupted=interrupted,
-                cancelled=cancelled,
+            # Freeze the observation once. A save retry never reads a runner,
+            # mutable log, wall clock or current device inventory.
+            inputs: dict[str, Any] = dict(
+                disk=copy.deepcopy(self.selected), discovery=copy.deepcopy(self.discovery),
+                method=self.method, request=copy.deepcopy(self._wipe_request), result=result,
+                started_at_wall=start_wall, ended_at_wall=end_wall if result is not None else "",
+                started_mono=start_mono, ended_mono=end_mono, argv=copy.deepcopy(argv),
+                log_text=log_text or "", interrupted=interrupted, cancelled=cancelled,
             )
-            target = self._wipe_request.device if self._wipe_request else ""
-            # Use the same log dir that produced the request (monkeypatched in tests)
-            try:
-                import beamo_wipe.safety as _safety
-
-                log_dir = _safety.default_log_dir()
-            except Exception:
-                log_dir = None
-            path = write_evidence_atomic(ev, log_dir=log_dir, device_path=target or (self.selected.path if self.selected else ""), target_device=target)
-            # Reload provenance from file to ensure evidence_file matches written file
-            try:
-                from beamo_wipe.evidence import load_evidence
-
-                written = load_evidence(path)
-                ev["provenance"] = written.get("provenance", ev["provenance"])
-            except Exception as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("wizard", "provenance_reload_failed", type(exc).__name__)
-                except Exception:
-                    pass
-                ev["provenance"]["evidence_file"] = str(path)
-            # Also expose checksum for UI (already in evidence, but handy)
-            try:
-                from beamo_wipe.evidence import verify_evidence_checksum
-
-                ev["provenance"]["verified"] = verify_evidence_checksum(path)
-            except Exception as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("wizard", "checksum_verify_failed", type(exc).__name__)
-                except Exception:
-                    pass
             with self._lock:
                 if write_seq != self._evidence_write_seq:
                     return
-                if self._session_store is not None and result is not None:
-                    self._session_store.finish(path)
-                self.evidence = ev
+                self._pending_evidence = (inputs, self._evidence_context(), result, key)
+            self._persist_evidence(write_seq)
+        except Exception as exc:
+            self._evidence_failed(exc, "data", write_seq)
+
+    def _evidence_context(self):
+        return copy.deepcopy((self.selected, self.discovery, self.method, self._wipe_request))
+
+    def _evidence_failed(self, exc: Exception, stage: str, seq: int) -> None:
+        # Exceptions can contain disk identifiers, paths and customer data.
+        # Only fixed descriptions and errno categories may reach any UI/log.
+        from beamo_wipe.evidence import EvidenceFinalizationError
+        error: BaseException = exc
+        seen = set()
+        number = None
+        while id(error) not in seen:
+            seen.add(id(error))
+            if isinstance(error, OSError) and error.errno is not None:
+                number = error.errno
+                break
+            cause = error.__cause__
+            if cause is None:
+                break
+            error = cause
+        if number in {errno.EACCES, errno.EPERM, errno.EROFS}:
+            code, message = "permissions", "Temporary storage is not writable."
+        elif number in {errno.ENOSPC, errno.EDQUOT}:
+            code, message = "storage_full", "Temporary storage has no available space."
+        elif stage == "finalization" or isinstance(exc, EvidenceFinalizationError):
+            code, message = "finalization", "Report finalization could not be confirmed."
+        elif isinstance(exc, (SafetyError, ValueError, TypeError, KeyError)):
+            code, message = "invalid_data", "Report evidence did not pass validation."
+        elif number in {errno.EIO, errno.EAGAIN, errno.EINTR, errno.ETIMEDOUT}:
+            code, message = "transient_io", "Temporary storage reported an I/O error."
+        else:
+            code, message = "io", "Temporary storage could not be read or written."
+        with self._lock:
+            if seq != self._evidence_write_seq:
+                return
+            self.evidence_error_code = code
+            self.evidence_error = message
+            self.evidence_status = "failed"
+            self._evidence_saving = False
+            self._touch_report_locked()
+        try:
+            from beamo_wipe.diagnostics import log_diag
+            log_diag("wizard", "evidence_save_failed", f"{code}; stage={stage}; errno={number}")
+        except Exception:
+            pass
+
+    def _persist_evidence(self, seq: int) -> bool:
+        stage = "data"
+        try:
+            from beamo_wipe.evidence import build_evidence, write_evidence_atomic, load_evidence, verify_evidence_checksum
+            with self._lock:
+                pending = self._pending_evidence
+                if pending is None or seq != self._evidence_write_seq:
+                    return False
+                inputs, context, result, key = copy.deepcopy(pending)
+                if context != self._evidence_context():
+                    raise SafetyError("Changed evidence context")
+                path = self._pending_evidence_path
+            ev = build_evidence(**inputs)
+            if self._recovered:
+                ev["recovery"] = {"status": "indeterminate", "interface_restarted": True}
+            # Reject non-finite numbers or non-JSON input before any write.
+            json.dumps(ev, allow_nan=False)
+            target = inputs["disk"].path if inputs["disk"] else ""
+            stage = "write"
+            if path is None:
+                import beamo_wipe.safety as safety
+                directory = self._session_store.directory if self._session_store else safety.default_log_dir()
+                path = write_evidence_atomic(ev, log_dir=directory, device_path=target, target_device=target)
+            stage = "readback"
+            written = load_evidence(path, private=True)
+            from beamo_wipe.evidence import _read_regular_nofollow
+            _read_regular_nofollow(Path(str(path) + ".sha256"), private=True)
+            if not verify_evidence_checksum(path):
+                raise SafetyError("Unverified evidence")
+            # Compare the actual bytes' meaning to the frozen observation;
+            # provenance is the only information supplied by the writer.
+            expected = copy.deepcopy(ev)
+            provenance = written.get("provenance", {})
+            if provenance.get("evidence_file") != str(path):
+                raise SafetyError("Foreign evidence provenance")
+            expected["provenance"] = provenance
+            if written != expected:
+                raise SafetyError("Contradictory evidence readback")
+            with self._lock:
+                if seq != self._evidence_write_seq:
+                    return False
+                if context != self._evidence_context() or (result is not None and self.wipe_result != result):
+                    raise SafetyError("Changed terminal state")
+                self._pending_evidence_path = path
+            stage = "finalization"
+            if self._session_store is not None and result is not None and not self._recovered:
+                self._session_store.finish(path)
+            with self._lock:
+                if seq != self._evidence_write_seq:
+                    return False
+                if context != self._evidence_context() or (result is not None and self.wipe_result != result):
+                    raise SafetyError("Changed terminal state")
+                written["provenance"]["verified"] = True
+                self.evidence = written
                 self.evidence_path = str(path)
                 self.evidence_error = None
-                if key is not None:
-                    self._evidence_written_for = key
+                self.evidence_error_code = ""
+                self.evidence_status = "saved"
+                self._evidence_saving = False
+                self._evidence_written_for = key
                 self._touch_report_locked()
-        except SafetyError as exc:
-            with self._lock:
-                if write_seq == self._evidence_write_seq:
-                    self.evidence_error = str(exc)
-                    self._touch_report_locked()
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("wizard", "evidence_safety_error", str(exc)[:120])
-            except Exception:
-                pass
+            return True
         except Exception as exc:
-            with self._lock:
-                if write_seq == self._evidence_write_seq:
-                    self.evidence_error = f"Could not write evidence: {exc}"
-                    self._touch_report_locked()
-            try:
-                from beamo_wipe.diagnostics import log_diag
+            self._evidence_failed(exc, stage, seq)
+            return False
 
-                log_diag("wizard", "evidence_write_failed", f"{type(exc).__name__}: {str(exc)[:120]}")
-            except Exception:
-                pass
+    def _can_retry_evidence_locked(self) -> bool:
+        pending = self._pending_evidence
+        return bool(
+            self.screen == Screen.DONE and self.wipe_result is not None
+            and self.evidence_error and not self._evidence_saving
+            and self._evidence_retries < EVIDENCE_RETRIES and pending is not None
+            and pending[1] == self._evidence_context()
+            and pending[2] == self.wipe_result
+            and not self.wants_shutdown and not self._report_exporting
+            and not self._diagnostic_busy and not self._recovery_busy()
+        )
+
+    @property
+    def can_retry_evidence(self) -> bool:
+        with self._lock:
+            return self._can_retry_evidence_locked()
+
+    def _claim_evidence_retry(self) -> Optional[int]:
+        with self._lock:
+            if not self._can_retry_evidence_locked():
+                return None
+            self._evidence_retries += 1
+            self._evidence_saving = True
+            self.evidence_status = "saving"
+            self._touch_report_locked()
+            return self._evidence_write_seq
+
+    def retry_evidence_save(self) -> bool:
+        """One explicit bounded save attempt. No runner methods are reachable."""
+        seq = self._claim_evidence_retry()
+        return self._persist_evidence(seq) if seq is not None else False
+
+    def begin_evidence_retry(self) -> bool:
+        seq = self._claim_evidence_retry()
+        if seq is None:
+            return False
+        try:
+            threading.Thread(target=self._persist_evidence, args=(seq,), daemon=True).start()
+        except Exception as exc:
+            self._evidence_failed(exc, "io", seq)
+            return False
+        return True
+
+    @property
+    def evidence_warning(self) -> str:
+        with self._lock:
+            if not self.evidence_error:
+                return ""
+            if self.screen == Screen.WORKING:
+                return "Report evidence is not being saved. " + self.evidence_error + " The erase is still running."
+            if self._evidence_saving:
+                return "Saving report evidence… The erase result is unchanged."
+            remaining = max(0, EVIDENCE_RETRIES - self._evidence_retries)
+            action = f" Retry save ({remaining} left)." if self._can_retry_evidence_locked() else " Keep this session open and contact support."
+            return self.evidence_error + action + " Temporary evidence is lost at shutdown or power loss."
 
     def export_evidence(self, dest_dir: str) -> str:
         """Copy evidence JSON + sidecar to a second USB directory. Returns dest path or raises."""
-        if not self.evidence_path:
-            raise SafetyError("No evidence to export")
+        if not self.can_save_report or not self.evidence_path:
+            raise SafetyError("No current verified evidence to export")
         from pathlib import Path
 
         from beamo_wipe.evidence import export_evidence as _export
@@ -1109,6 +1234,7 @@ class Wizard:
             or self.screen != Screen.DONE
             or result is None
             or self.evidence_error
+            or self._evidence_saving
             or not path
             or not isinstance(evidence, dict)
             or self._report_exporting
@@ -1149,6 +1275,10 @@ class Wizard:
                 exporting=self._report_exporting,
                 can_save=self._can_save_report_locked(),
                 evidence_error=self.evidence_error,
+                saving_evidence=self._evidence_saving,
+                can_retry_evidence=self._can_retry_evidence_locked(),
+                retries_remaining=max(0, EVIDENCE_RETRIES - self._evidence_retries),
+                evidence_status=self.evidence_status,
             )
 
     def _claim_report_export(self) -> Optional[_ReportExportClaim]:
@@ -1482,7 +1612,19 @@ class Wizard:
         from beamo_wipe.outcomes import present_evidence, preview_view
         if self.preview:
             return preview_view(bool(self.wipe_result and self.wipe_result.ok))
-        view = present_evidence(None if self.evidence_error else self.evidence)
+        view = present_evidence(None if self.evidence_error or self._evidence_saving else self.evidence)
+        if self.evidence_error and self.wipe_result is not None and not self._recovered:
+            from dataclasses import replace
+            inputs = self._pending_evidence[0] if self._pending_evidence else {}
+            if inputs.get("cancelled"):
+                message = "The erase was stopped by you"
+            elif inputs.get("interrupted"):
+                message = "The erase was interrupted"
+            elif self.wipe_result.ok:
+                message = "The erase process reported completion; report evidence is not saved"
+            else:
+                message = "The erase did not finish; report evidence is not saved"
+            view = replace(view, message=message)
         if self._recovered:
             from dataclasses import replace
             from beamo_wipe.session_recovery import NOTICE

@@ -506,3 +506,31 @@ def test_recovered_result_is_announced_without_confirmation(ui):
     assert "No erase was restarted or resumed" in text(app)
     assert "power loss" in text(app)
     assert "Check disks again (F5)" not in app.actions
+
+
+def test_accessible_evidence_failure_retry(ui, tmp_path, monkeypatch):
+    from beamo_wipe import evidence
+    from test_evidence_retry import start, complete, fail
+    writer = evidence.write_evidence_atomic
+    monkeypatch.setattr(evidence, 'write_evidence_atomic', fail)
+    w, clock = start(tmp_path, monkeypatch)
+    app = ui(w)
+    assert w.evidence_warning in text(app)
+    assert app.actions['Cancel erase'].get_sensitive()
+    assert 'Retry evidence save' not in app.actions
+    complete(w, clock)
+    app.render()
+    assert w.evidence_warning in text(app)
+    retry = app.actions['Retry evidence save']
+    assert retry.get_sensitive() and retry.get_can_focus()
+    assert retry.get_accessible().get_name() == 'Retry evidence save'
+    assert not app.actions['Save report to USB'].get_sensitive()
+    monkeypatch.setattr(evidence, 'write_evidence_atomic', writer)
+    retry.clicked()
+    deadline = time.monotonic() + 3
+    while w.report_view.saving_evidence and time.monotonic() < deadline:
+        drain()
+        time.sleep(.01)
+    app.tick()
+    assert not w.evidence_error and w.can_save_report
+    assert 'Retry evidence save' not in app.actions

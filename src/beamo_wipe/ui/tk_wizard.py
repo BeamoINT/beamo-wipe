@@ -1080,7 +1080,7 @@ class TkWizard:
                 return
             if self.w.screen != prev:
                 self._draw()
-            elif self.w.screen in {Screen.DONE, Screen.DIAGNOSTIC} and (
+            elif self.w.screen in {Screen.DONE, Screen.DIAGNOSTIC, Screen.WORKING} and (
                 self.w.report_view.revision != self._shown_report_revision
             ):
                 self._draw()
@@ -2305,6 +2305,7 @@ class TkWizard:
         self._set_primary_enabled(self.w.erase_enabled)
 
     def _working(self) -> None:
+        self._shown_report_revision = self.w.report_view.revision
         col = self._column(self._body, fill_height=True)
         disk = self.w.selected
         self._title_block(col, C.TITLE_WORKING)
@@ -2329,6 +2330,8 @@ class TkWizard:
         # owner knows the disk may still be erasing (never fail silently).
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+        if self.w.evidence_warning:
+            self._p(col, self.w.evidence_warning, font=self.font_s_bold).pack(fill=tk.X, pady=(8, 0))
         # Cancel is a secondary action: visible but not primary to avoid
         # accidental clicks. Always shown so interruption is reachable.
         row = self._footer_shell(C.HINT_WORKING)
@@ -2396,14 +2399,14 @@ class TkWizard:
         if report.evidence_error:
             self._p(
                 col,
-                f"Evidence was not saved: {report.evidence_error}",
+                self.w.evidence_warning,
                 font=self.font_s_bold,
                 wraplength=700,
                 justify=tk.CENTER,
                 anchor="center",
                 fg=DANGER,
             ).pack(fill=tk.X, pady=(12, 0))
-        if not self.w.preview:
+        if not self.w.preview and not report.evidence_error:
             instruction = C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             self._p(
                 col,
@@ -2423,6 +2426,9 @@ class TkWizard:
             self._secondary_btn(row, C.BTN_CLOSE_PREVIEW, self._click_shutdown)
             self._primary_btn(row, C.BTN_RUN_AGAIN, self.w.reset_for_preview)
         else:
+            if report.evidence_error:
+                self._secondary_btn(row, "Retry evidence save", self._click_retry_evidence,
+                                    enabled=report.can_retry_evidence)
             self._secondary_btn(
                 row,
                 C.BTN_SAVE_REPORT,
@@ -2433,7 +2439,7 @@ class TkWizard:
                 row,
                 C.BTN_SHUTDOWN,
                 self._click_shutdown,
-                enabled=not report.exporting,
+                enabled=not report.exporting and not report.saving_evidence,
             )
         if self._primary is not None:
             self._primary.focus_set()
@@ -2567,6 +2573,9 @@ class TkWizard:
             except Exception:
                 pass
         self._draw()
+
+    def _click_retry_evidence(self) -> None:
+        self.w.begin_evidence_retry()
 
     def _click_save_report(self) -> None:
         if self.w.begin_report_export():

@@ -1006,3 +1006,36 @@ def test_recovered_done_warning_and_actions_fit(ui, size, case):
     assert "power loss" in wizard.result_view.next_step
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize('size', [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize('phase', ['working', 'done', 'exhausted'])
+def test_evidence_failure_warning_and_retry_layout(ui, tmp_path, monkeypatch, size, phase):
+    from beamo_wipe import evidence
+    from test_evidence_retry import start, complete, fail
+    _, app = ui(size=size)
+    monkeypatch.setattr(evidence, 'write_evidence_atomic', fail)
+    w, clock = start(tmp_path, monkeypatch)
+    app.w = w
+    if phase != 'working':
+        complete(w, clock)
+    if phase == 'exhausted':
+        for _ in range(3):
+            w.retry_evidence_save()
+    app._draw()
+    app.root.update_idletasks()
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    def walk(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from walk(child)
+    text = '\n'.join(str(x.cget('text')) for x in walk(app.root) if x.winfo_class() == 'Label')
+    assert w.evidence_warning in text
+    if phase == 'working':
+        assert app._progress_label is not None
+        assert w.screen == Screen.WORKING
+    else:
+        buttons = [x for x in walk(app.root) if isinstance(x, _Button)]
+        retry = next(x for x in buttons if x.itemcget(x._label, 'text') == 'Retry evidence save')
+        assert retry._enabled == (phase == 'done')

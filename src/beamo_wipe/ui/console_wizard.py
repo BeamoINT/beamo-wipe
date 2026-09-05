@@ -240,7 +240,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             if wizard.error:
                 print(wizard.error)
             if wizard.evidence_error:
-                print(f"Note: {wizard.evidence_error}")
+                print(wizard.evidence_warning)
             if wizard.selected:
                 print(
                     wizard.selected.display_name,
@@ -266,7 +266,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(wizard.method_summary)
             print(wizard.method_result)
             if report.evidence_error:
-                print(f"Evidence was not saved: {report.evidence_error}")
+                print(wizard.evidence_warning)
             if wizard.preview:
                 print(wizard.result_view.next_step)
                 ans = _answer(wizard, "Enter to run again, or q to close… ").strip().lower()
@@ -277,12 +277,16 @@ def _plain_loop_body(wizard: Wizard) -> int:
             else:
                 print(wizard.result_view.next_step)
                 print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
-                if report.can_save:
+                if report.can_retry_evidence:
+                    prompt = "Type RETRY to save evidence again, or SHUTDOWN: "
+                elif report.can_save:
                     prompt = "Type SAVE to save the report, or SHUTDOWN: "
                 else:
                     prompt = "Type SHUTDOWN: "
                 action = _answer(wizard, prompt).strip().upper()
-                if action == "SAVE" and report.can_save:
+                if action == "RETRY" and report.can_retry_evidence:
+                    wizard.retry_evidence_save()
+                elif action == "SAVE" and report.can_save:
                     wizard.save_report_to_usb()
                 elif action == "SHUTDOWN":
                     wizard.shutdown()
@@ -483,9 +487,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 )
             # A failed cancel stays on WORKING with wizard.error set: show it
             # so the owner knows the disk may still be erasing.
+            message_y = y + 6
             if wizard.error:
-                _wrap(stdscr, y + 6, wizard.error, w)
-            _add(stdscr, y + 7, 0, "Esc: cancel erase (interrupted)")
+                message_y = _wrap(stdscr, message_y, wizard.error, w)
+            if wizard.evidence_warning:
+                message_y = _wrap(stdscr, message_y, wizard.evidence_warning, w)
+            _add(stdscr, message_y + 1, 0, "Esc: cancel erase (interrupted)")
         elif wizard.screen == Screen.DONE:
             report = wizard.report_view
             y = _wrap(stdscr, y, wizard.method_summary, w)
@@ -494,7 +501,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if not wizard.preview:
                 content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             if report.evidence_error:
-                content += "\nEvidence was not saved: " + report.evidence_error
+                content += "\n" + wizard.evidence_warning
             lines = [line for paragraph in content.split("\n")
                      for line in (textwrap.wrap(paragraph, max(10, w - 2)) or [""])]
             page_size = max(1, h - y - 3)
@@ -511,7 +518,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 else (
                     "R: save report to one FAT32 USB    Enter: shut down"
                     if report.can_save
-                    else "Enter: shut down"
+                    else ("E: retry evidence save    Enter: shut down" if report.can_retry_evidence else "Enter: shut down")
                 ),
             )
         if wizard.can_open_report_help and not inventory_open:
@@ -663,6 +670,9 @@ def _confirm_report_save(stdscr, wizard: Wizard) -> None:
 
 
 def _handle(wizard: Wizard, ch: int) -> None:
+    if wizard.screen == Screen.DONE and ch in (ord("e"), ord("E")):
+        wizard.begin_evidence_retry()
+        return
     if wizard.screen == Screen.SHUTDOWN_CONFIRM:
         if ch in (27, curses.KEY_ENTER, 10, 13):
             wizard.keep_report_session()

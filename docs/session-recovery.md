@@ -95,3 +95,47 @@ Tk and GTK tests check recovery wording and result actions. The prescribed
 local Python gates and hosted lint, fake-device tests, preview, negative safety,
 amd64 ISO and isolated QEMU gates still apply. No physical host disks are used
 for recovery tests. No release is authorized by these checks.
+
+## Evidence-save failure and retry
+
+The engine's result and evidence persistence are independent. Started evidence
+is attempted after engine startup; terminal evidence is attempted once after a
+proved stop, exit, or cancellation. There is no periodic progress checkpoint
+and no inference of completion from a percentage. A failure to record evidence
+leaves the Working screen, progress, cancellation and runner ownership intact.
+Tk, GTK and both console views show a separate, nonmodal warning. Engine startup
+still fails closed if the earlier armed recovery checkpoint cannot be committed.
+
+After the operation stops, **Retry evidence save** offers at most three explicit
+attempts per interface instance (plain console: `RETRY`; menu console: `E`).
+Clicks during a save are ignored, rather than queued. Graphical retries run in a
+worker; export and application-requested shutdown are blocked until it finishes.
+No retry calls the runner, rebuilds a runnable request, rereads mutable logs,
+changes a verdict, or refreshes the original inventory. Inputs, interruption
+flags and operation timestamps are retained from the first terminal observation.
+A changed target, method, discovery, request or result invalidates the retry.
+
+Success requires atomic JSON and checksum publication, private-file readback,
+exact equality with the captured report (apart from writer provenance), checksum
+verification and, for an original live run, the terminal recovery checkpoint.
+Readback failures are no longer suppressed. A final recovery-checkpoint failure
+retains the verified local filename; retry revalidates it before finalizing,
+without generating another report. Other failed attempts may leave orphaned
+private files; they are never searched for a successful outcome or exported.
+The retry limit bounds new files. No automated cleanup or permission repair runs.
+
+The UI distinguishes unwritable/read-only storage, exhausted space/quota,
+invalid evidence, recognized I/O errors, and unconfirmed finalization using fixed
+messages. It never displays raw exception text, paths or disk identifiers from
+an exception. An I/O error does not promise that a later retry will succeed.
+After exhaustion or an invalidated snapshot, keep the session open and contact
+support. Unknown evidence remains unconfirmed, even if the engine reported
+completion. A saved local report is distinct from a verified USB export.
+
+An indeterminate recovery result is established before its evidence-save attempt.
+Failure therefore reaches Done with the same bounded retry controls; timer ticks
+do not continually retry writes. Recovery retains a null exit status and empty
+log, and cannot change into a successful erase through a save retry. Corrupt or
+foreign recovery context still blocks this path. There is no schema migration.
+Temporary evidence and retry state do not survive shutdown, power loss, or loss
+of the kiosk's private temporary filesystem.

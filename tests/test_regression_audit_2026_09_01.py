@@ -345,8 +345,8 @@ def test_back_during_confirm_keeps_screen_truthful(tmp_path, monkeypatch):
 def test_cancel_flags_survive_transient_evidence_failure(tmp_path, monkeypatch):
     """A failed first evidence write must not downgrade interrupt to engine outcome.
 
-    cancel_wipe writes (cancelled=True, interrupted=True); _finish rewrites
-    the same result. First-writer-wins flags keep the retry truthful.
+    A failed cancel receipt stays failed until an explicit bounded retry.
+    The frozen interruption flags keep that retry truthful.
     """
     from beamo_wipe.demo import make_demo_wizard
     from beamo_wipe.nwipe_runner import DryRunRunner
@@ -383,6 +383,9 @@ def test_cancel_flags_survive_transient_evidence_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(evidence_mod, "write_evidence_atomic", fail_once)
     wiz.cancel_wipe()
     assert wiz.screen.value == "done"
+    assert calls["n"] == 1 and wiz.evidence_error
+    assert wiz.retry_evidence_save()
+    assert calls["n"] == 2
     assert wiz.evidence is not None
     assert wiz.evidence["outcome"] == "interrupted"
     assert wiz.evidence["interruption"] == {"interrupted": True, "cancelled": True, "origin": "user"}

@@ -380,7 +380,7 @@ def test_export_post_rename_fsync_failure_is_retryable(tmp_path, monkeypatch):
         return original_fsync(fd)
 
     monkeypatch.setattr(evidence.os, "fsync", fail_directory_sync)
-    with pytest.raises(OSError, match="directory sync"):
+    with pytest.raises(evidence.EvidenceFinalizationError, match="finalization"):
         export_evidence(src, dest)
     assert not (dest / src.name).exists()
     assert not Path(str(dest / src.name) + ".sha256").exists()
@@ -453,18 +453,19 @@ def test_delayed_started_evidence_cannot_replace_terminal_evidence(tmp_path, mon
         def cancel(self):
             return None
 
-    def fake_write(ev, **_kwargs):
-        outcome = ev["outcome"]
-        if outcome == "started":
+    writer = evidence.write_evidence_atomic
+    terminal_paths = []
+    def fake_write(ev, **kwargs):
+        if ev["outcome"] == "started":
             entered.set()
             assert release.wait(5)
-        path = tmp_path / f"{outcome}.json"
-        path.write_text(json.dumps(ev), encoding="utf-8")
+        path = writer(ev, **kwargs)
+        if ev["outcome"] != "started":
+            terminal_paths.append(path)
         return path
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     monkeypatch.setattr(evidence, "write_evidence_atomic", fake_write)
-    monkeypatch.setattr(evidence, "verify_evidence_checksum", lambda _p: True)
     base = make_demo_wizard()
     wizard = Wizard(base.discovery, Runner(), dry_run=True)
     thread = threading.Thread(target=lambda: _drive_to_working(wizard))
@@ -476,7 +477,7 @@ def test_delayed_started_evidence_cannot_replace_terminal_evidence(tmp_path, mon
     thread.join(5)
     assert not thread.is_alive()
     assert wizard.evidence["outcome"] == "verified"
-    assert Path(wizard.evidence_path).name == "verified.json"
+    assert Path(wizard.evidence_path) == terminal_paths[0]
 
 
 def test_countdown_display_uses_true_ceiling():

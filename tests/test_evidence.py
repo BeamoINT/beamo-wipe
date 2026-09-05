@@ -668,17 +668,8 @@ def test_recovery_after_failed_write_then_success(tmp_path, monkeypatch):
     wiz.confirm_erase()
     assert wiz.evidence_error is not None
     assert wiz.screen == Screen.WORKING
-    # Now fix and complete
-    monkeypatch.setattr("beamo_wipe.evidence.write_evidence_atomic", lambda ev, **k: tmp_path / "recovered.json")  # type: ignore[assignment]
-
-    # Simulate poll completion
-    def fake_write(ev, **kw):
-        p = tmp_path / "recovered2.json"
-        p.write_text(json.dumps(ev), encoding="utf-8")
-        (tmp_path / "recovered2.json.sha256").write_text("fake", encoding="utf-8")
-        return p
-
-    monkeypatch.setattr("beamo_wipe.evidence.write_evidence_atomic", fake_write)
+    # Complete using the real atomic writer, including a valid sidecar.
+    monkeypatch.setattr("beamo_wipe.evidence.write_evidence_atomic", write_evidence_atomic)
     clock.add(0.6)
     wiz.tick()
     assert wiz.screen == Screen.DONE

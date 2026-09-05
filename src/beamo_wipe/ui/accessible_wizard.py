@@ -258,6 +258,8 @@ class AccessibleWizard:
             self.identity()
             self.label(self.w.method_summary)
             self.progress_label = self.label("")
+            if self.w.evidence_warning:
+                self.label(self.w.evidence_warning)
             self.button("Cancel erase", self.w.cancel_wipe)
         elif screen == Screen.DONE:
             result = self.w.result_view
@@ -291,9 +293,9 @@ class AccessibleWizard:
             self.label(self.w.method_summary)
             report = self.w.report_view
             if report.evidence_error:
-                self.label(f"Evidence was not saved: {report.evidence_error}")
+                self.label(self.w.evidence_warning)
             self.label(self.w.result_view.next_step)
-            if not self.w.preview:
+            if not self.w.preview and not report.evidence_error:
                 self.label(
                     C.report_aftercare(
                         can_save=report.can_save,
@@ -304,13 +306,17 @@ class AccessibleWizard:
             if self.w.preview:
                 self.button(C.BTN_RUN_AGAIN, self.w.reset_for_preview)
             else:
+                if report.evidence_error:
+                    self.button("Retry evidence save", self.w.begin_evidence_retry,
+                                enabled=report.can_retry_evidence)
                 self.button(
                     C.BTN_SAVE_REPORT,
                     self.w.begin_report_export,
                     enabled=report.can_save,
                 )
             self.button(
-                "Close preview" if self.w.preview else "Shut down", self.w.shutdown
+                "Close preview" if self.w.preview else "Shut down", self.w.shutdown,
+                enabled=not report.exporting and not report.saving_evidence,
             )
         elif screen == Screen.SHUTDOWN_CONFIRM:
             heading.set_text(C.SHUTDOWN_TITLE)

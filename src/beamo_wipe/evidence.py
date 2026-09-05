@@ -8,6 +8,7 @@ always FAILED, never COMPLETED/VERIFIED. No hostname, IP, or user details.
 from __future__ import annotations
 
 import datetime
+import errno
 import hashlib
 import json
 import os
@@ -382,7 +383,7 @@ def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     path = Path(path)
     directory = path.parent
     directory.mkdir(parents=True, exist_ok=True)
-    blob = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    blob = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False) + "\n"
     _atomic_write_bytes(path, blob.encode("utf-8"))
 
 
@@ -423,8 +424,8 @@ def write_evidence_atomic(
     return path
 
 
-def load_evidence(path: Path) -> dict[str, Any]:
-    return json.loads(_read_regular_nofollow(Path(path)).decode("utf-8"))
+def load_evidence(path: Path, *, private: bool = False) -> dict[str, Any]:
+    return json.loads(_read_regular_nofollow(Path(path), private=private).decode("utf-8"))
 
 
 def recover_result(path: Path):
@@ -457,7 +458,7 @@ def recover_result(path: Path):
         return present_evidence(None)
 
 
-def _read_regular_nofollow(path: Path) -> bytes:
+def _read_regular_nofollow(path: Path, *, private: bool = False) -> bytes:
     try:
         fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except OSError as exc:
@@ -468,6 +469,8 @@ def _read_regular_nofollow(path: Path) -> bytes:
             raise SafetyError("Evidence path is not a regular file")
         if opened.st_uid != os.getuid():
             raise SafetyError("Evidence file has the wrong owner")
+        if private and (stat.S_IMODE(opened.st_mode) != 0o600 or opened.st_nlink != 1):
+            raise PermissionError(errno.EPERM, "Unsafe evidence permissions")
         chunks: list[bytes] = []
         while True:
             chunk = os.read(fd, 65536)
@@ -477,6 +480,10 @@ def _read_regular_nofollow(path: Path) -> bytes:
         return b"".join(chunks)
     finally:
         os.close(fd)
+
+
+class EvidenceFinalizationError(OSError):
+    """Publication occurred but its final filesystem synchronization failed."""
 
 
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
@@ -515,7 +522,7 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
         try:
             os.unlink(tmp_name, dir_fd=dir_fd)
             os.fsync(dir_fd)
-        except BaseException:
+        except BaseException as exc:
             # linkat() already made the destination visible. If durability
             # cannot be proved, remove the entry created by this call so a
             # retry is not permanently blocked by an orphan without its
@@ -528,6 +535,8 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
                 os.fsync(dir_fd)
             except OSError:
                 pass
+            if isinstance(exc, Exception):
+                raise EvidenceFinalizationError("Evidence finalization failed") from exc
             raise
     finally:
         if fd >= 0:
