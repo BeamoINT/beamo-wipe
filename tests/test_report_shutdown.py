@@ -432,7 +432,10 @@ def test_intent_write_failure_visible_and_current_process_guarded(store, monkeyp
 def test_live_graphical_failure_recovers_intent_and_power_action_is_once(
     store, monkeypatch
 ):
-    from beamo_wipe import app, report_intent
+    from beamo_wipe import app, report_intent, session_recovery
+    real_store = session_recovery.SessionStore
+    monkeypatch.setattr(session_recovery, "SessionStore", lambda: real_store(
+        store.directory, boot="00000000-0000-0000-0000-000000000001", build="a" * 64))
 
     w = make_demo_wizard()
     w.dry_run, w.preview = False, False

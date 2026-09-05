@@ -212,7 +212,7 @@ def _shutdown() -> bool:
     return False
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main(argv: list[str] | None = None, *, session_store=None) -> int:
     args = _parser().parse_args(argv)
     if args.empty or args.blocked or args.fail_demo or args.scenario != "happy":
         args.demo = True
@@ -260,6 +260,9 @@ def main(argv: list[str] | None = None) -> int:
         from beamo_wipe.report_intent import ReportIntentStore
 
         wizard.enable_report_intent_recovery(ReportIntentStore())
+
+    if session_store is not None:
+        wizard.enable_session_recovery(session_store)
 
     windowed = args.demo and not args.fullscreen
     use_console = args.plain_console or args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
@@ -318,6 +321,23 @@ def main(argv: list[str] | None = None) -> int:
     if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
         _shutdown()
     return code
+
+
+def main(argv: list[str] | None = None) -> int:
+    if not running_on_live_usb():
+        return _main(argv)
+    from beamo_wipe.session_recovery import SessionStore
+    store = SessionStore()
+    try:
+        # Acquire interface ownership and persist preflight before discovery.
+        # A failed journal/identity/ownership check must never reach runner startup.
+        store.open()
+        return _main(argv, session_store=store)
+    except (OSError, SafetyError, ValueError):
+        print("Session recovery or interface ownership is unavailable. Erase startup is blocked.", file=sys.stderr)
+        return 3
+    finally:
+        store.close()
 
 
 # Referenced by packaging so the ISO banner can print the engine version.

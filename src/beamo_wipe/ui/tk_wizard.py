@@ -1916,7 +1916,7 @@ class TkWizard:
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
 
     def _blocked(self) -> None:
-        self._status_screen("warn", C.TITLE_BLOCKED, self.w.error or C.IDENTIFY_ERROR)
+        self._status_screen("warn", "Session recovery" if self.w._recovered else C.TITLE_BLOCKED, self.w.error or C.IDENTIFY_ERROR)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -1936,7 +1936,7 @@ class TkWizard:
 
     def _diagnostic(self, view) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, D.TITLE, D.NOTICE)
+        self._title_block(col, D.report_title(self.w.startup_error_code), D.NOTICE)
         self._p(col, D.PREPARE, font=self.font_s).pack(fill=tk.X, pady=8)
         self._p(col, view.message, font=self.font_s).pack(fill=tk.X, pady=8)
         row = self._footer_shell("No operation outcome is recorded in this report.")

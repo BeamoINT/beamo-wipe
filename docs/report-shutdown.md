@@ -56,3 +56,7 @@ wiping. Follow [Advanced](ADVANCED.md#logs) for insertion after the erase stops,
 or [Diagnostic report](startup-diagnostics.md) for Prepare-before-insertion.
 Returning from the shutdown decision never bypasses final rediscovery,
 confirmation, the ownership checkbox, or the five-second delay.
+
+Same-boot evidence recovery is now provided separately from report preference
+recovery. See [session recovery](session-recovery.md) for validation, runner
+ownership, rejected records, constrained export and the private-tmp boundary.

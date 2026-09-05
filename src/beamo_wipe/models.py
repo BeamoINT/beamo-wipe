@@ -97,7 +97,7 @@ class WipeRequest:
 @dataclass(frozen=True)
 class WipeResult:
     ok: bool
-    exit_code: int
+    exit_code: Optional[int]
     summary: str
     logfile: str
     reason: str = ""

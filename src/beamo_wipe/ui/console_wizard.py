@@ -113,7 +113,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.keep_report_session()
             continue
         if screen == Screen.DIAGNOSTIC:
-            print(D.TITLE)
+            print(D.report_title(wizard.startup_error_code))
             print(D.NOTICE)
             print(D.PREPARE)
             print(wizard.diagnostic_message)
@@ -393,7 +393,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, h - 2, 0, "Enter/Esc: keep session open")
             _add(stdscr, h - 1, 0, "D: shut down without saving (type confirmation)")
         elif wizard.screen == Screen.DIAGNOSTIC:
-            y = _wrap(stdscr, y, D.TITLE + "\n" + D.NOTICE, w)
+            y = _wrap(stdscr, y, D.report_title(wizard.startup_error_code) + "\n" + D.NOTICE, w)
             y = _wrap(stdscr, y + 1, D.PREPARE, w)
             _wrap(stdscr, y + 1, wizard.diagnostic_message, w)
             action = "save diagnostic report" if wizard._diagnostic_baseline else "prepare baseline"

@@ -178,6 +178,82 @@ class Wizard:
         self._diagnostic_busy = False
         self._diagnostic_from = Screen.PICK_BLOCKED
         self._startup_blocked = False
+        self._session_store = None
+        self._recovered = False
+
+    def enable_session_recovery(self, store) -> None:
+        """Restore evidence only. No request, confirmation, PID or runner state."""
+        self._session_store = store
+        if not store.previous and not store.invalid:
+            return
+        from beamo_wipe.session_recovery import NOTICE
+        self._recovered = True
+        self._startup_blocked = True
+        self.report_wanted = True
+        self.owner_ok = False
+        self.confirm_input = ""
+        self._erase_until = None
+        self._wipe_request = None
+        self.screen = Screen.PICK_BLOCKED
+        self.startup_error_code = "recovery_indeterminate"
+        self.error = "The previous result could not be confirmed. " + NOTICE
+        self.report_recovery_warning = NOTICE
+        self._recover_when_quiescent()
+
+    def _recover_when_quiescent(self) -> None:
+        store = self._session_store
+        if not self._recovered or store is None or self.wipe_result is not None:
+            return
+        try:
+            if not store.is_quiescent():
+                self.error = "The erase may still be running. Keep disks connected. Contact support. "
+                self.error += "No erase was restarted or resumed."
+                return
+            if store.invalid or store.record is None or store.record["context"] is None:
+                from beamo_wipe.session_recovery import NOTICE
+                self.error = "The previous result could not be confirmed. " + NOTICE
+                return
+            context, discovery, target = store.context()
+            self.discovery = discovery  # historical baseline protects every old disk
+            self.selected = target
+            self.method = MethodId(context["method"])
+            try:
+                if store.record["phase"] != "terminal":
+                    raise SafetyError("No terminal evidence")
+                path, evidence = store.terminal()
+            except (OSError, SafetyError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
+                from beamo_wipe.evidence import build_evidence, write_evidence_atomic, load_evidence
+                # Unknown exit status stays null; never invent a process exit or
+                # assert that an orphan completed merely because its lock is free.
+                evidence = build_evidence(
+                    disk=target, discovery=discovery, method=self.method,
+                    request=None, result=None, started_at_wall=None, ended_at_wall=None,
+                    started_mono=None, ended_mono=None, argv=[], log_text="", interrupted=True)
+                evidence["recovery"] = {"status": "indeterminate", "interface_restarted": True}
+                path = write_evidence_atomic(evidence, log_dir=store.directory,
+                                             device_path=target.path, target_device=target.path)
+                evidence = load_evidence(path)
+            from beamo_wipe.outcomes import present_evidence
+            view = present_evidence(evidence)
+            self.evidence = evidence
+            self.evidence_path = str(path)
+            self.evidence["provenance"]["verified"] = True
+            self.wipe_result = WipeResult(view.success, evidence["exit_evidence"]["exit_code"],
+                                          view.message, evidence["logfile"])
+            self._evidence_written_for = self._result_evidence_key(self.wipe_result)
+            self.screen = Screen.DONE
+            self.error = None
+            self._touch_report_locked()
+        except (OSError, SafetyError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
+            self.error = "Recovery evidence is unavailable. The previous result could not be confirmed."
+
+    def _recovery_busy(self) -> bool:
+        if not self._recovered or self._session_store is None:
+            return False
+        try:
+            return not self._session_store.is_quiescent()
+        except (OSError, SafetyError):
+            return True
 
     @property
     def now(self) -> float:
@@ -274,6 +350,8 @@ class Wizard:
         self._report_revision += 1
 
     def tick(self) -> None:
+        with self._lock:
+            self._recover_when_quiescent()
         if (
             self.screen == Screen.SPLASH
             and not self.preview
@@ -343,6 +421,8 @@ class Wizard:
 
     def shutdown(self) -> None:
         with self._lock:
+            if self._recovery_busy():
+                return
             if self.wants_shutdown or self.screen in {
                 Screen.WORKING,
                 Screen.REFRESHING,
@@ -603,6 +683,8 @@ class Wizard:
 
     def confirm_erase(self) -> None:
         with self._lock:
+            if self._recovered or self._startup_blocked:
+                return
             # Double-start guard first: a second caller blocked on _lock
             # arrives after the first moved to WORKING. Refuse it with a
             # visible error (checking LAST_CHANCE first would silently
@@ -672,6 +754,8 @@ class Wizard:
                 build_nwipe_argv(request)
                 self._saved_diagnostic_context = None
                 self._saved_report_claim = None
+                if self._session_store is not None:
+                    self._session_store.arm(discovery, request)
                 self.runner.start(request)
             except SafetyError as exc:
                 self.error = ("Confirm token does not match." if str(exc) == "Confirm token does not match." else
@@ -959,6 +1043,8 @@ class Wizard:
             with self._lock:
                 if write_seq != self._evidence_write_seq:
                     return
+                if self._session_store is not None and result is not None:
+                    self._session_store.finish(path)
                 self.evidence = ev
                 self.evidence_path = str(path)
                 self.evidence_error = None
@@ -1035,7 +1121,8 @@ class Wizard:
         exit_evidence = evidence.get("exit_evidence")
         if (
             not isinstance(exit_evidence, dict)
-            or type(exit_evidence.get("exit_code")) is not int
+            or (type(exit_evidence.get("exit_code")) is not int
+                and not (self._recovered and exit_evidence.get("exit_code") is None))
             or exit_evidence["exit_code"] != result.exit_code
         ):
             return False
@@ -1090,8 +1177,9 @@ class Wizard:
                 boot_rdev = self._wipe_request.boot_rdev
             else:
                 target = self.selected.path if self.selected is not None else ""
-                target_rdev = 0
-                boot_rdev = 0
+                context = self._session_store.record["context"] if self._recovered else {}
+                target_rdev = context.get("target_rdev", 0)
+                boot_rdev = context.get("boot_rdev", 0)
 
         try:
             from beamo_wipe.support_export import prepare_terminal_evidence
@@ -1286,7 +1374,7 @@ class Wizard:
 
     @property
     def can_open_diagnostic(self) -> bool:
-        return (not self.preview and self._wipe_request is None and self.wipe_result is None
+        return (not self._recovery_busy() and not self.preview and self._wipe_request is None and self.wipe_result is None
                 and not self.wants_shutdown and not self._diagnostic_busy
                 and (self.screen in {Screen.PICK_BLOCKED, Screen.PICK_EMPTY}
                      or (self.screen == Screen.LAST_CHANCE and bool(self.error))
@@ -1313,6 +1401,7 @@ class Wizard:
         with self._lock:
             if (
                 self.wants_shutdown
+                or self._recovery_busy()
                 or self.screen != Screen.DIAGNOSTIC
                 or self._diagnostic_busy
                 or self._wipe_request is not None
@@ -1385,7 +1474,12 @@ class Wizard:
         from beamo_wipe.outcomes import present_evidence, preview_view
         if self.preview:
             return preview_view(bool(self.wipe_result and self.wipe_result.ok))
-        return present_evidence(None if self.evidence_error else self.evidence)
+        view = present_evidence(None if self.evidence_error else self.evidence)
+        if self._recovered:
+            from dataclasses import replace
+            from beamo_wipe.session_recovery import NOTICE
+            return replace(view, next_step=NOTICE + " " + view.next_step)
+        return view
 
     @property
     def can_open_report_help(self) -> bool:

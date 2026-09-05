@@ -494,3 +494,15 @@ def test_accessible_finished_shutdown_receipt_state(ui, tmp_path, wanted, saved)
     app.actions["Shut down"].clicked()
     assert app.closed is (not wanted or saved)
     assert w.wants_shutdown is app.closed
+
+
+def test_recovered_result_is_announced_without_confirmation(ui):
+    wizard, _, _ = case_evidence(CASES[0])
+    wizard._recovered = True
+    wizard.owner_ok = False
+    wizard.confirm_input = ""
+    wizard._wipe_request = None
+    app = ui(wizard)
+    assert "No erase was restarted or resumed" in text(app)
+    assert "power loss" in text(app)
+    assert "Check disks again (F5)" not in app.actions

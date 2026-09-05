@@ -992,3 +992,17 @@ def test_tk_finished_shutdown_uses_receipt_not_history(ui, tmp_path, wanted, sav
     assert w.wants_shutdown is (not wanted or saved)
     if not w.wants_shutdown:
         assert w.screen == Screen.SHUTDOWN_CONFIRM
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("case", [RESULT_CASES[0], RESULT_CASES[1]])
+def test_recovered_done_warning_and_actions_fit(ui, size, case):
+    wizard, _, _ = case_evidence(case)
+    _, app = ui(size=size)
+    app.w = wizard
+    wizard._recovered = True
+    app._draw()
+    app.root.update_idletasks()
+    assert "power loss" in wizard.result_view.next_step
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)

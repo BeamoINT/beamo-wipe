@@ -164,7 +164,7 @@ class AccessibleWizard:
             self._inventory()
         elif screen in (Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             heading.set_text(
-                C.TITLE_EMPTY if screen == Screen.PICK_EMPTY else C.IDENTIFY_ERROR
+                C.TITLE_EMPTY if screen == Screen.PICK_EMPTY else ("Session recovery" if self.w._recovered else C.IDENTIFY_ERROR)
             )
             self.label(
                 C.EMPTY_DISKS
@@ -326,7 +326,7 @@ class AccessibleWizard:
             )
         elif screen == Screen.DIAGNOSTIC:
             view = self.w.diagnostic_view
-            heading.set_text(D.TITLE)
+            heading.set_text(D.report_title(self.w.startup_error_code))
             self.label(D.NOTICE)
             self.label(D.PREPARE)
             self.label(view.message, focusable=True)

@@ -22,6 +22,7 @@ MAX_EVENTS = 32
 BUILD_PATH = Path("/usr/share/beamo-wipe/build-identity.json")
 CODES = frozenset(
     {
+        "recovery_indeterminate",
         "startup_refused",
         "dependency_missing",
         "permission_denied",
@@ -50,6 +51,12 @@ PREPARE = (
     "Leave all existing disks connected. Remove the report USB, then choose "
     "Prepare. After the baseline is checked, insert one separate removable FAT32 USB."
 )
+
+
+def report_title(code: str) -> str:
+    if code == "recovery_indeterminate":
+        return "Diagnostic report — previous result unavailable"
+    return TITLE
 
 
 def exception_code(exc: Exception) -> str:
@@ -187,7 +194,7 @@ def create_report(code: str, discovery, *, ui: str, session_started: float) -> b
     payload = {
         "schema_version": 1,
         "report_type": "startup_diagnostic",
-        "title": TITLE,
+        "title": report_title(code),
         "notice": NOTICE,
         "application": application_identity(),
         "error_code": code,
@@ -237,7 +244,7 @@ def validate_report(data: bytes) -> dict:
             type(p["schema_version"]) is not int
             or p["schema_version"] != 1
             or p["report_type"] != "startup_diagnostic"
-            or p["title"] != TITLE
+            or p["title"] != report_title(p["error_code"])
             or p["notice"] != NOTICE
             or p["raw_logs"] != "omitted"
             or p["error_code"] not in CODES
