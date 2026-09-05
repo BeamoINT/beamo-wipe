@@ -119,44 +119,68 @@ Confirm screen type-to-confirm does not enable Continue
 Never: "paste mtab" or "temporarily bypass token."
 ```
 
-### 4.f Interrupted wipes — power loss, close, cancel, signal
+### 4.f Interrupted wipes
 
-```
-Working → unexpected shutdown or close
-  ├─ Evidence outcome is interrupted (wizard `cancel_wipe` → WipeResult exit 143 summary "interrupted", `outcome interrupted`, `log_checksum` of last 8 KiB)
-  ├─ Guidance: the erase did not finish; files may still be on the disk (copy.py DONE_FAIL). Re-boot and retry from scratch — there is no "resume at 40%."
-  ├─ If customer closed lid during Working — expected: `_close()` blocks WM_DELETE on working non-preview (tk_wizard.py) except via kill; log `Nwipe was aborted by the user`. Collect log tail, sidecar.
-  └─ If power loss on live USB → evidence may be empty (tmpfs lost). That's an interrupted without file; do not claim sanitized.
-```
+A confirmed user cancellation is “Stopped by you.” System interruption, inability
+to confirm termination, and missing completion evidence have different outcomes
+in the table below. A closed lid or power loss does not establish which part of
+an erase completed. If temporary evidence was lost, the result is indeterminate.
+Save available evidence and contact support. Do not resume from a percentage or
+automatically retry an erase.
 
-### 4.g nwipe errors — exit code / signals / log markers (verbatim, upstream 0.42)
+### 4.g nwipe errors — structured outcomes and safe next steps
 
-```
-Any wipe result is interpreted via `src/beamo_wipe/nwipe_runner.py: evaluate_nwipe_completion()` and shown via `src/beamo_wipe/evidence.py: _outcome_for()` → outcome never upgrades failed to verified.
+`nwipe_runner.py` interprets process termination and target-specific log evidence.
+`outcomes.py` then maps validated evidence to the following visible explanations.
+Technical codes and bounded diagnostics remain available for support. Never
+infer success from exit 0 or a progress percentage alone. Successful completion
+requires an explicit successful completion marker accepted by the validator,
+consistent method/verification facts, and no conflicting failure or interruption.
 
-  ├─ `is reported as IN USE` / `is IN USE but --force is not set, not wiping it` → target was busy/mounted. Wizard correctly logged "nwipe skipped the disk because it is in use", outcome failed. Guidance: target had a mount (`has_any_mount`, protected mountpoint at `/`), unlock or add `--force` is FORBIDDEN (never pass --force). Reboot without mounting.
-  ├─ `Nwipe was aborted by the user` → outcome failed, "nwipe was aborted" (even if exit 0, percent logged). Guidance: retry.
-  ├─ `Unable to open device '/dev/...'` → outcome failed, "nwipe could not open the disk" (BitLocker/SED locked, or damage). Do NOT attempt password reset/SAM. Guidance: unlock per vendor before retry or use vendor sanitize (§5 of storage-and-controller-limits).
-  ├─ `No sane device geometry` → outcome failed, "nwipe could not use the disk" (media geometry unsane, damaged). Guidance: destruction.
-  ├─ `>>> FAILURE! <<<` / `|-FAILED-|` / `|UABORTED|` / `|INSANITY|` / or `| Erased |` vs not → outcome failed unless `| Erased |` with exit 0 and verification. Guidance: if `| Erased |` present with exit 0 and `verify=last` → verified; otherwise failed.
-  ├─ Progress showed 100% mid-wipe on dodshort (3 passes) → not Finished until 100% on last pass of last round (`_target_reached_last_pass`). Guidance: keep Waiting until Done; intermediate 100% is pass 1/3.
-  ├─ SIGUSR1 progress: log "/dev/vda: 045.23%, round 1 of 1, pass 1 of 1" is not Finished; only `| Erased |` or final-pass 100% with exit 0 is verified.
-  └─ Non-zero exit N → "nwipe exited N" failed; `exit_evidence {exit_code, signal}` records signal if negative.
-  For all above, collect `result-*.json`, sidecar, full nwipe log, lsblk snapshot, manifest hash, and classify per storage limits §3 (wear/OP/RAID/damaged/encryption). Never transcribe serials to public issue.
-```
+| Code | Visible explanation and safe next step |
+| --- | --- |
+| `start_failed` | The erase could not start. Keep the disks connected and contact support. Do not bypass protection. |
+| `verified` | Erase completed; verification passed. Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. |
+| `unverified` | Erase completed; verification was not performed. The erase was not checked by a read-back pass. Save the report if needed. |
+| `occupied` | The disk is in use. The erase did not complete. Save the report and ask support what is using the disk. Do not force access. |
+| `open_failed` | The disk could not be opened. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `geometry_unusable` | The disk could not be used safely. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `verification_failed` | Read-back verification failed. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `interrupted` | The erase was interrupted. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `cancelled` | Stopped by you. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `completion_missing` | Erase completion could not be confirmed. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `process_failed` | The erase did not finish. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `engine_failed` | The disk reported an erase error. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `indeterminate` | The result could not be confirmed. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `stop_unconfirmed` | The erase may still be running. Keep the disk and Beamo USB connected. Do not start another erase. Contact support. |
+
+Diagnostic markers include `is reported as IN USE`, `Nwipe was aborted by the user`,
+`Unable to open device`, `No sane device geometry`, `>>> FAILURE! <<<`, and the
+selected target's `| Erased |` row. SIGUSR1 progress is not an independent
+verification result. Use the structured record and validator instead of asking
+an operator to reinterpret isolated log lines. Never add `--force` or bypass a
+lock, identity check, or confirmation.
 
 ### 4.h Ambiguous results — result interpretation & log collection
 
-```
-Done shows Finished vs The erase did not finish. Files may still be on the disk.
-  ├─ `evidence.outcome` is one of `completed` (verify=off, exit 0, and an explicit successful completion marker) vs `verified` (verify=last + Erased or final-pass 100%) vs `failed`/`interrupted`/`started`/`running` — never certified/sanitized. Exit 0 without a valid target completion marker remains failed. `verification.requested` is prng/dodshort-> last, zero-> off; `verified` is boolean truthful.
-  ├─ Customer says Done but wants certificate → explain: overwrite is not a formal certificate on SSD spare area (storage-and-controller-limits §8 table: say "Not a formal certificate." never "certified"). Provide JSON + log_checksum; for regulated need, vendor sanitize or destroy per §5.
-  ├─ Log collection: evidence lives under `/tmp/beamo-wipe/` on tmpfs (live) with `0o600` `O_NOFOLLOW` atomic writes. On Finished, leave the boot USB and selected disk attached, insert exactly one new FAT32 USB, then choose **Save report to USB**. The private-namespace helper excludes every original disk and its partitions by path/stable identity/block identity, writes a unique content-manifested bundle with `O_EXCL`, syncs, unmounts, remounts read-only, verifies exact bytes, and unmounts again. The on-disk `COMPLETE` file authenticates report contents only and explicitly does not claim safe removal; only the live success message appears after final unmount. The helper never formats, repairs, force-unmounts, or lazy-unmounts media.
-  └─ If evidence missing (power loss) → outcome cannot be verified; do not mint a certificate. Re-run entirely.
+`completed` means successful erasure without verification; `verified` means the
+requested read-back verification passed according to validated evidence. Neither
+proves coverage of inaccessible or remapped storage. Missing or inconsistent
+completion evidence remains indeterminate, separate from confirmed cancellation
+and interruption. Do not automatically re-run an erase or edit evidence into success.
 
-Privacy-safe log snippet to paste when asking for help (example, not a template to fill with customer serial):
-  `nwipe --method=prng --verify=last → outcome failed, failure_reason: "nwipe could not open the disk", verification.requested: last, verified: false, log_checksum: abc...`
-```
+Leave the boot USB and target attached. Use **Save report to USB** on Finished
+when available, inserting exactly one new FAT32 USB as requested. Logs remain
+under `/tmp/beamo-wipe/`. The guarded exporter excludes all original devices,
+writes a unique bundle, syncs, unmounts, remounts read-only, verifies exact bytes,
+and unmounts again. Its `COMPLETE` file authenticates bundle contents; only the
+live success message after final unmount confirms safe removal. No formatting,
+repair, force-unmount or lazy-unmount is offered.
+
+Reports are not a formal certificate. Collect available `result-*.json`, checksum
+sidecars, authenticated log suffix, and image manifest. Keep device serials out
+of public issues. If power loss removed the temporary evidence, preserve any
+remaining records and contact support; do not infer a successful erase.
 
 ### 4.i Quarantine cue — when to stop instead of help the customer continue
 
@@ -274,7 +298,7 @@ The support-intended operator is **L1 Support** (on-boarded via this doc + `docs
 
 *Scenario:* Small business retires 10 Samsung 970 EVOs, runs `quick zero --verify=off` for speed, gets `Done` with `outcome completed` and asks for a certificate for the auditor.
 
-*T+0:00* L1 receives `result.json` rows: `method id quick_zero`, `verification requested off, verified false`, `outcome completed`. Explains per §4.h: `completed` is not `verified`; `zero` trades verification for speed; and §5 table: any SSD/NVMe where contract says "no prior LBA can be read from spare area" is not sufficient with overwrite — use vendor `nvme format --ses=2`/`nvme sanitize` per model, then optionally Beamo for an extra pass. Vendor attestation is the certificate, not Beamo JSON.
+*T+0:00* L1 receives `result.json` rows: `method id quick_zero`, `verification requested off, verified false`, `outcome completed`. Explains per §4.h: `completed` is not `verified`; `zero` trades verification for speed; and §5 table: any SSD/NVMe where contract says "no prior LBA can be read from spare area" is not sufficient with overwrite — consult the manufacturer about supported coverage for the exact model, or use qualified destruction if required assurance cannot be established. Additional Beamo passes do not fix inaccessible flash coverage, and Beamo does not certify a vendor process.
 *T+0:15* Customer pushes: "Just say certified sanitized." L1 uses consistent-language table §8 of `docs/storage-and-controller-limits.md`: must say "overwrite … Not a formal certificate" and must not say "sanitize/certified/DoD/NIST …" (pinned by `tests/test_storage_limits.py` + `tests/test_ui_system.py`). Escalates to release manager only to record the stop-request, not to issue a certificate.
 *T+0:25* Customer agrees to destroy the batch instead; L1 provides destruction manifest suggestion and notes physical destruction row in §5.
 *Gap found & fixed:* Follow-up added to this doc's §4.h snippet showing the exact `verification.requested: off, verified: false, outcome: completed` line to paste. Also added reminder in §9 that a "please certify my quick-zero NVMe batch" request is never a certificate issuance — stop-ship does not apply (no release defect) but the language quarantine does: no staff may hand-edit `result.json` to add `certificate`.
@@ -301,7 +325,7 @@ A release is suspect if any of:
 1. **Quarantine.** Mark the GitHub release `prerelease`/`draft` and add note "Do not flash — pending verification." Do not delete the `gs://…` objects immediately; they are evidence. Add a `QUARANTINE.txt` alongside with `BUILD_ID` + reason hash.
 2. **Stop-ship.** Hold `scripts/build-iso.sh` / `cloudbuild.yaml` promotion until the accountable engineer clears the manifested diff (`git diff HEAD packaging/live/config/{bootstrap,binary} src/beamo_wipe/__init__.py`).
 3. **Notify.** Post to the shared checkout channel and to the support queue header: "Beamo Wipe <version> quarantined — do not guide customers to flash it. Support follows this runbook §4.i and only uses the prior SHA until cleared."
-4. **Rollback.** The prior manufacturing ISO is `dist/beamo-wipe-0.1.0-amd64.iso` hash `8a531d35c437d858512ccbba20913cd7dbd9237cc9a2e2a1b7935ba9d9781c55` (420 M) mirrored in the release manifest's `prior stable` row and `docs/release-verification.md`. Guidance to customers reverts to that hash. The rollback is `git revert <quarantined commit>` or `git checkout <prior tag>` + fresh Cloud Build `BEAMO_WIPE_VERSION=... ./scripts/build-iso.sh` with manifest regeneration `scripts/generate-release-manifest.sh`. Verification: `sha256sum -c dist/*.sha256`, `isoinfo -d` `CD001`, `verify_evidence_checksum()`, full `pytest -q -k "not tk_runtime"` (see §10).
+4. **Rollback.** The designated prior stable ISO is `beamo-wipe-0.2.0-amd64.iso` hash `62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74` mirrored in the release manifest's `prior stable` row and `docs/release-verification.md`. Guidance to customers reverts to that hash. The rollback is `git revert <quarantined commit>` or `git checkout <prior tag>` + fresh Cloud Build `BEAMO_WIPE_VERSION=... ./scripts/build-iso.sh` with manifest regeneration `scripts/generate-release-manifest.sh`. Verification: `sha256sum -c dist/*.sha256`, `isoinfo -d` `CD001`, `verify_evidence_checksum()`, full `pytest -q -k "not tk_runtime"` (see §10).
 5. **Post-mortem.** After clearing, append a backlog finding `BF-0xx` row to `docs/compatibility-matrix.md` §11 exactly as the existing `BF-001…009` are recorded, with symptom, hash, and fix commit.
 
 ### 8.c Stop-ship release criteria (what must be true before the next promo)

@@ -260,3 +260,20 @@ def test_evidence_never_has_certificate_field():
     assert "certificate" not in blob
     assert "sanitized" not in blob
     assert "compliant" not in blob
+
+
+def test_active_support_docs_match_canonical_methods_and_outcomes():
+    from beamo_wipe.methods import METHODS
+    from beamo_wipe.outcomes import VIEWS
+
+    screens = _read("docs/screens.md")
+    runbook = _read("docs/runbook.md")
+    for spec in METHODS.values():
+        assert spec.summary in screens
+    for view in VIEWS.values():
+        assert view.announcement in runbook
+    for path in ("docs/screens.md", "docs/runbook.md", "docs/storage-and-controller-limits.md"):
+        text = _lower(path)
+        for obsolete in ("not as thorough", "extra thorough", "how thorough", "belts-and-suspenders", "then optionally beamo for an extra pass"):
+            assert obsolete not in text, (path, obsolete)
+    assert "A reported write failure never becomes successful completion" in _read("docs/storage-and-controller-limits.md")
