@@ -29,6 +29,11 @@ class AccessibleWizard:
         self.failed = False
         self.closed = False
         self.window = Gtk.Window(title="Beamo Wipe — screen-reader view")
+        # GtkLabel needs selectable text to accept keyboard focus, but its
+        # default select-all-on-focus emits text-selection-changed first.
+        # Orca can consume that event and suppress the real focus announcement.
+        # Keep manual selection available without selecting text on arrival.
+        self.window.get_settings().set_property("gtk-label-select-on-focus", False)
         self.window.set_default_size(800, 600)
         if fullscreen:
             self.window.fullscreen()

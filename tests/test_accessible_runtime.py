@@ -209,6 +209,19 @@ print(json.dumps(names))
     assert app.w.result_view.code == "unverified"
 
 
+@pytest.mark.parametrize("case", CASES, ids=[case[0] for case in CASES])
+def test_result_focus_does_not_create_a_text_selection(ui, case):
+    wizard, _, _ = case_evidence(case)
+    app = ui(wizard)
+    heading = app.window.get_focus()
+    assert isinstance(heading, Gtk.Label)
+    assert heading.get_text() == wizard.result_view.announcement
+    assert heading.get_can_focus()
+    assert heading.get_selectable()
+    has_selection, start, end = heading.get_selection_bounds()
+    assert not has_selection and start == end
+
+
 def test_low_resolution_footer_and_focus(ui):
     for screen in (
         Screen.WHAT,
@@ -297,14 +310,14 @@ sys.exit(entry['main']())
         stderr=subprocess.DEVNULL,
     )
 
-    def wait_for(phrase):
+    def wait_for(phrase, *, since=0):
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             drain()
             content = logfile.read_text(errors="replace") if logfile.exists() else ""
             if any(
                 "SPEECH OUTPUT:" in line and phrase in line
-                for line in content.splitlines()
+                for line in content[since:].splitlines()
             ):
                 # Finish the current AT-SPI event before replacing its widgets.
                 # This models a reader finishing a screen before navigation.
@@ -331,11 +344,13 @@ sys.exit(entry['main']())
         for case in CASES:
             wizard, _, _ = case_evidence(case)
             app.w = wizard
+            checkpoint = len(logfile.read_text(errors="replace"))
             app.render()
-            wait_for(wizard.result_view.message)
+            wait_for(wizard.result_view.message, since=checkpoint)
         wizard.evidence = None
+        checkpoint = len(logfile.read_text(errors="replace"))
         app.render()
-        wait_for(VIEWS["indeterminate"].message)
+        wait_for(VIEWS["indeterminate"].message, since=checkpoint)
         app.close()
     finally:
         reader.terminate()
