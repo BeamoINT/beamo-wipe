@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """User-facing strings. 8th-grade English. No forbidden claims."""
 
+from beamo_wipe.inventory import EMPTY_STEPS
+from beamo_wipe.outcomes import VIEWS
 from beamo_wipe.models import Disk, DiskKind
 from beamo_wipe.methods import METHODS
 from beamo_wipe.storage_limits import OVERWRITE_LIMITS
@@ -62,21 +64,15 @@ IDENTIFY_ERROR = (
 
 REDISCOVER_ERROR = "Could not check the disks again. Erase did not start."
 
-EMPTY_DISKS = (
-    "We cannot find another disk. Shut down, plug in the drive you want to erase, "
-    "and start from this USB again."
-)
+EMPTY_DISKS = EMPTY_STEPS
 
 SSD_FOOTER = OVERWRITE_LIMITS + " Not a formal certificate."
 
 WORKING_PULSE = "Leave the USB in. Do not turn the PC off."
 
-DONE_OK = "Done. You can shut down and take out the USB."
+DONE_OK = VIEWS["verified"].message
 
-DONE_FAIL = (
-    "The erase did not finish. Files may still be on the disk. "
-    "Shut down and start from this USB again, or use another computer."
-)
+DONE_FAIL = VIEWS["engine_failed"].announcement
 
 NOT_LIVE_ERROR = (
     "Beamo Wipe only erases disks after you start the computer from this USB. "

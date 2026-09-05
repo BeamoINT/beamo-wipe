@@ -58,6 +58,7 @@ from beamo_wipe import copy as C
 from beamo_wipe.diagnostics import emit_serial_marker
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe import storage_limits as limits
+from beamo_wipe import inventory
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.wizard import COUNTDOWN_S, ReportView, Wizard, format_progress_percent
@@ -133,6 +134,7 @@ _STEP_ORDER = {
     Screen.METHOD: (5, "Step 5 of 8", C.TITLE_METHOD),
     Screen.ADVANCED: (5, C.TITLE_ADVANCED, C.TITLE_ADVANCED),
     Screen.LIMITS: (5, limits.TITLE, limits.TITLE),
+    Screen.REFRESHING: (0, "", "Checking disks again"),
     Screen.LAST_CHANCE: (6, "Step 6 of 8", C.TITLE_LAST),
     Screen.WORKING: (7, "Step 7 of 8", C.TITLE_WORKING),
     Screen.DONE: (8, "Step 8 of 8", C.TITLE_DONE_OK),
@@ -1095,7 +1097,7 @@ class TkWizard:
                 pass
             if self.w.screen == Screen.WORKING:
                 try:
-                    self.w.cancel_wipe()
+                    self.w.cancel_wipe(origin="system")
                 except Exception as cancel_exc:
                     try:
                         from beamo_wipe.diagnostics import log_diag
@@ -1150,6 +1152,7 @@ class TkWizard:
             Screen.WORKING: self._working,
             Screen.ADVANCED: self._advanced,
             Screen.LIMITS: self._limits,
+            Screen.REFRESHING: lambda: self._status_screen("info", "Checking disks again", "Previous selections and confirmations have been cleared."),
         }
         if report_view is not None:
             self._done(report_view)
@@ -1420,6 +1423,9 @@ class TkWizard:
         body. Buttons pack into ``row._left`` / ``row._right``."""
         assert self._footer is not None
         col = self._column(self._footer, fill_height=False)
+        if self.w.can_refresh:
+            tk.Button(col, text="Check disks again (F5)", font=self.font_s,
+                      command=self._click_refresh, takefocus=True).pack(anchor="w", pady=(0, 3))
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
         row = tk.Frame(col, bg=BG)
         row.pack(fill=tk.X, pady=(12, 16))
@@ -1739,7 +1745,7 @@ class TkWizard:
             widget.bind("<Button-5>", _wheel)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
-        items: List = sorted(self.w.listed_disks, key=lambda d: (d.is_boot, d.path))
+        items: List = sorted(self.w.selectable, key=lambda d: d.path)
         for disk in items:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
             self._pick_cards[disk.path] = self._disk_row(cards, disk, selected)
@@ -1758,6 +1764,7 @@ class TkWizard:
         canvas.after(30, lambda: self._pick_restore_tick(gen))
         canvas.after(90, lambda: self._pick_restore_tick(gen))
         canvas.after(180, lambda: self._pick_restore_tick(gen, final=True))
+        self._other_devices(col, before=list_wrap)
         row = self._footer_shell(C.HINT_PICK)
         back = self._back_btn(row)
         can = self.w.selected is not None and not self.w.selected.is_boot
@@ -1765,6 +1772,31 @@ class TkWizard:
         # Always land keyboard focus somewhere sensible: the obvious next
         # action when a disk is chosen, otherwise the safe way out.
         (self._primary if can and self._primary is not None else back).focus_set()
+
+    def _other_devices(self, col, *, before=None) -> None:
+        if not self.w.other_devices:
+            return
+        section = tk.Frame(col, bg=BG)
+        section.pack(fill=tk.X, before=before)
+        self._p(section, inventory.TITLE, font=self.font_s_bold).pack(fill=tk.X)
+        frame = tk.Frame(section, bg=BG)
+        frame.pack(fill=tk.X, pady=(4, 8))
+        reader = tk.Text(frame, height=4, wrap=tk.WORD, font=self.font_s,
+                         takefocus=True, bg=SURFACE, fg=INK)
+        setattr(reader, "_beamo_inventory", True)
+        def read_key(event):
+            delta = {"Up": -1, "Down": 1, "Prior": -3, "Next": 3}.get(event.keysym, 0)
+            if delta:
+                reader.yview_scroll(delta, "units")
+            return "break"
+        for key in ("Up", "Down", "Prior", "Next", "Return", "KP_Enter", "space"):
+            reader.bind(f"<{key}>", read_key)
+        scroll = tk.Scrollbar(frame, command=reader.yview)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        reader.configure(yscrollcommand=scroll.set)
+        reader.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        reader.insert("1.0", inventory.full_text(self.w.other_devices))
+        reader.configure(state=tk.DISABLED)
 
     def _pick_restore_scroll(self) -> None:
         """Keep the rebuilt list where the user left it.
@@ -1855,7 +1887,10 @@ class TkWizard:
             self._primary.focus_set()
 
     def _empty(self) -> None:
-        self._status_screen("info", C.TITLE_EMPTY, C.EMPTY_DISKS)
+        col = self._column(self._body, fill_height=True)
+        _icon_badge(col, "info", 40).pack(anchor="w")
+        self._title_block(col, C.TITLE_EMPTY, C.EMPTY_DISKS)
+        self._other_devices(col)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2235,25 +2270,23 @@ class TkWizard:
 
     def _done(self, report: ReportView) -> None:
         col = self._column(self._body, fill_height=True)
-        ok = self.w.done_ok
-        title = C.TITLE_DONE_OK if ok else C.TITLE_DONE_FAIL
+        result = self.w.result_view
+        title = "Finished" if result.success else "Erase result"
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
-        icon = _icon_status(col, ok, 96)
+        icon = (_icon_status(col, True, 96) if result.icon == "check"
+                else _icon_badge(col, result.icon, 96))
         icon.configure(bg=BG)
         icon.pack()
         heading = self._h(col, title)
         heading.configure(anchor="center", justify=tk.CENTER)
         heading.pack(fill=tk.X, pady=(22, 8))
-        if self.w.preview:
-            msg = C.DONE_OK_PREVIEW if ok else C.DONE_FAIL_PREVIEW
-        else:
-            msg = C.DONE_OK if ok else C.DONE_FAIL
+        msg = result.message
         # The badge carries the state color; the message stays readable ink.
         self._p(
             col, msg, font=self.font_b, wraplength=700, justify=tk.CENTER, anchor="center"
         ).pack(fill=tk.X)
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
-        self._p(col, self.w.method_result, font=self.font_s).pack(fill=tk.X)
+        self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
         if report.evidence_error:
             self._p(
                 col,
@@ -2492,7 +2525,17 @@ class TkWizard:
             self._draw()
         return "break"
 
+    def _click_refresh(self) -> None:
+        # Synchronous, bounded discovery keeps all Tk calls on the UI thread.
+        if self.w.refresh_disks():
+            self._show_more = False
+            self._pick_scroll = 0.0
+            self._draw()
+
     def _on_key(self, event) -> Optional[str]:
+        if event.keysym == "F5" and self.w.can_refresh:
+            self._click_refresh()
+            return "break"
         if event.keysym in ("Return", "KP_Enter", "Escape", "Tab"):
             return None
         if event.keysym == "space" and not self._claim_space_press():
@@ -2506,6 +2549,8 @@ class TkWizard:
             self._owner_var.set(1 if self.w.owner_ok else 0)
             self._draw()
             return "break"
+        if getattr(self.root.focus_get(), "_beamo_inventory", False):
+            return None
         if self.w.screen == Screen.PICK and event.keysym in ("Up", "Down"):
             self._pick_ensure_visible = True
             self.w.move_selection(-1 if event.keysym == "Up" else 1)

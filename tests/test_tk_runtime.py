@@ -10,6 +10,7 @@ minimum size) and broken keyboard flows that source inspection cannot see.
 import time
 
 import pytest
+from test_result_presentations import CASES as RESULT_CASES, case_evidence
 
 from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.models import Screen
@@ -746,3 +747,84 @@ def test_storage_limits_visible_and_keyboard_reachable(ui, kind, size):
     assert wiz.selected == selected
     assert wiz.method == method
     assert not wiz.runner.started
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_other_devices_read_only_and_keyboard_isolated(ui, size):
+    from types import SimpleNamespace
+    from beamo_wipe.inventory import full_text
+
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, Screen.PICK)
+    readers = []
+    def visit(widget):
+        if getattr(widget, "_beamo_inventory", False):
+            readers.append(widget)
+        for child in widget.winfo_children():
+            visit(child)
+    visit(app.root)
+    assert len(readers) == 1
+    reader = readers[0]
+    assert reader.winfo_ismapped()
+    assert reader.cget("state") == "disabled"
+    assert reader.get("1.0", "end-1c") == full_text(wiz.other_devices)
+    assert set(app._pick_cards) == {d.path for d in wiz.selectable}
+    before = wiz.selected
+    reader.focus_force()
+    app.root.update()
+    app._on_key(SimpleNamespace(keysym="Down", char=""))
+    reader.event_generate("<Return>")
+    app.root.update()
+    assert wiz.screen == Screen.PICK
+    assert wiz.selected == before
+    assert not _off_window_problems(app)
+    assert not _clipping_problems(app)
+    assert not wiz.runner.started
+
+
+
+
+@pytest.mark.parametrize("case", RESULT_CASES, ids=[c[0] for c in RESULT_CASES])
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_every_terminal_result_renders_consistent_text(ui, case, size):
+    _, app = ui(size=size)
+    wiz, evidence, _ = case_evidence(case)
+    app.w = wiz
+    app._draw()
+    app.root.update()
+    texts = []
+    colors = []
+    def visit(widget):
+        if widget.winfo_ismapped() and widget.winfo_class() == "Label":
+            texts.append(str(widget.cget("text")))
+        if widget.winfo_class() == "Canvas":
+            for item in widget.find_all():
+                try:
+                    colors.append(widget.itemcget(item, "fill"))
+                except tk.TclError:
+                    pass
+        for child in widget.winfo_children():
+            visit(child)
+    visit(app.root)
+    assert wiz.result_view.message in texts
+    assert wiz.result_view.next_step in texts
+    assert evidence["presentation"]["announcement"] == wiz.result_view.announcement
+    from beamo_wipe.ui.tk_wizard import OK, WARN, DANGER
+    tone = {"ok": OK, "warn": WARN, "danger": DANGER}[wiz.result_view.tone]
+    assert tone in colors
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize("screen", [Screen.PICK, Screen.PICK_EMPTY, Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE])
+def test_graphical_refresh_restarts_full_authorization(ui, screen):
+    from types import SimpleNamespace
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    wiz.screen = screen
+    app._draw()
+    app._on_key(SimpleNamespace(keysym="F5", char=""))
+    assert wiz.screen == Screen.WHAT
+    assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
+    assert not wiz.runner.started
+    assert not _clipping_problems(app)

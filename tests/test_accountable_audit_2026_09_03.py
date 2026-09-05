@@ -537,6 +537,7 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
         preview=False,
         progress=None,
         evidence_error=None,
+        error=None,
         selected=None,
         tick=lambda: None,
     )

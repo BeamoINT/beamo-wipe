@@ -278,6 +278,20 @@ def build_evidence(
             outcome = OUTCOME_RUNNING
         failure_reason = None
 
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome
+    from beamo_wipe.outcomes import present_evidence
+
+    validated = False
+    reason = "indeterminate"
+    if result is not None:
+        completion_ok, _detail, reason = evaluate_nwipe_outcome(result.exit_code, log_text or "", device_path)
+        validated = not completion_ok or result.ok
+    if interrupted or cancelled:
+        verified = False
+        reason = "cancelled" if cancelled else "interrupted"
+        # Cancellation cannot be inferred from a successful process result.
+        validated = result is not None and (not cancelled or not result.ok)
+
     # Redacted argv
     argv_redacted = _sanitize_argv(argv or [])
     # Ensure no /dev/…/.. or control chars leaked beyond validation
@@ -301,8 +315,8 @@ def build_evidence(
         "nwipe_version": NWIPE_PINNED_VERSION,
         "nwipe_commit": NWIPE_PINNED_COMMIT,
         "outcome": outcome,
+        "completion": {"validated": validated, "reason": reason},
         "failure_reason": failure_reason,
-        "result_description": spec.result_description(outcome, verified=verified),
         "device": device_dict,
         "method": {
             "id": method.value,
@@ -341,6 +355,7 @@ def build_evidence(
         "interruption": {
             "interrupted": bool(interrupted or cancelled),
             "cancelled": bool(cancelled),
+            "origin": "user" if cancelled else ("system" if interrupted else "none"),
         },
         "logfile": (result.logfile if result and result.logfile else (request.logfile if request else "")),
         "log_checksum_sha256": log_checksum,
@@ -353,6 +368,10 @@ def build_evidence(
             "written_at_wall": "",
         },
     }
+
+    presentation = present_evidence(evidence)
+    evidence["presentation"] = presentation.payload()
+    evidence["result_description"] = presentation.message
 
     # Never claim certified: we do not add a "certificate" field. Only verified/completed as above.
     return evidence
@@ -406,6 +425,36 @@ def write_evidence_atomic(
 
 def load_evidence(path: Path) -> dict[str, Any]:
     return json.loads(_read_regular_nofollow(Path(path)).decode("utf-8"))
+
+
+def recover_result(path: Path):
+    """Recover a report explanation; never resume erasure or infer success.
+
+    Authenticate the saved JSON and, for a successful record, independently
+    recheck its exact log snapshot. Missing/replaced evidence stays indeterminate.
+    """
+    from beamo_wipe.outcomes import present_evidence
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome
+    try:
+        evidence = json.loads(_verified_evidence_bytes(Path(path)))
+        view = present_evidence(evidence)
+        if view.success:
+            from beamo_wipe.support_export import read_export_log
+
+            snapshot, status = read_export_log(
+                evidence["logfile"],
+                expected_sha256=evidence["log_checksum_sha256"],
+                expected_size_bytes=evidence["log_snapshot_size_bytes"],
+            )
+            if status not in {"complete", "tail"}:
+                return present_evidence(None)
+            ok, _detail, reason = evaluate_nwipe_outcome(
+                evidence["exit_evidence"]["exit_code"], snapshot.decode("utf-8"), evidence["device"]["path"])
+            if not ok or reason != "completed":
+                return present_evidence(None)
+        return view
+    except (OSError, SafetyError, ValueError, KeyError, TypeError, AttributeError):
+        return present_evidence(None)
 
 
 def _read_regular_nofollow(path: Path) -> bytes:

@@ -829,7 +829,13 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
         files[f"{log_name}.sha256"] = (
             f"{hashlib.sha256(log_data).hexdigest()}  {log_name}\n".encode("ascii")
         )
+    from beamo_wipe.outcomes import present_evidence
+    try:
+        result_view = present_evidence(json.loads(evidence))
+    except (ValueError, UnicodeDecodeError):
+        result_view = present_evidence(None)
     readme = (
+        f"{result_view.announcement}\r\n"
         "Beamo Wipe report\r\n"
         "result.json records the wipe outcome and disk identifiers.\r\n"
         f"nwipe log: {log_status}.\r\n"

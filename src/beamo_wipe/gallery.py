@@ -10,6 +10,8 @@ from urllib.parse import quote
 
 from beamo_wipe import copy as C
 from beamo_wipe import storage_limits as limits
+from beamo_wipe import inventory
+from beamo_wipe.outcomes import preview_view
 from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
@@ -59,10 +61,11 @@ def _favicon_uri() -> str:
 def _disks_payload(scenario: str = "happy") -> list[dict]:
     result = discovery_for_scenario(scenario)  # type: ignore[arg-type]
     peers = listed_disks(result)
+    eligible_paths = {disk.path for disk in result.selectable}
     out = []
     for disk in result.disks:
         spec = None
-        if not disk.is_boot:
+        if disk.path in eligible_paths:
             spec = confirm_spec(disk, peers)
         out.append(
             {
@@ -75,6 +78,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "bus": disk.bus,
                 "serial": disk.serial or "no serial",
                 "isBoot": disk.is_boot,
+                "eligible": disk.path in eligible_paths,
                 "token": spec.token if spec else "",
                 "prompt": spec.prompt if spec else "",
                 "warning": "" if disk.is_boot else C.confirm_warning(disk),
@@ -88,6 +92,10 @@ def gallery_html() -> str:
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
+        "previewResults": {"ok": preview_view(True).payload(), "failed": preview_view(False).payload()},
+        "otherTitle": inventory.TITLE,
+        "otherDevices": {"happy": inventory.full_text(result.excluded),
+                         "empty": inventory.full_text(discovery_for_scenario("empty").excluded)},
         "limitsTitle": limits.TITLE,
         "limitsButton": limits.BUTTON,
         "limitsText": limits.full_text(),
@@ -168,7 +176,7 @@ def gallery_html() -> str:
                 "docs": METHODS[mid].docs_name,
                 "nwipe": METHODS[mid].nwipe_method,
                 "summary": METHODS[mid].summary,
-                "result": METHODS[mid].result_description("preview"),
+                "result": preview_view(True).message,
             }
             for mid in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO)
         },
@@ -496,7 +504,7 @@ function disks() {
   list.sort((a, b) => (a.isBoot - b.isBoot) || a.path.localeCompare(b.path));
   return list;
 }
-function selectable() { return disks().filter(d => !d.isBoot); }
+function selectable() { return disks().filter(d => d.eligible); }
 function stepInfo() {
   const map = {splash:[0,"",""], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
     pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
@@ -567,6 +575,13 @@ function diskCard(d) {
     </div>
   </div>`;
 }
+function refreshPreview() {
+  if (["working", "done", "splash"].includes(screen)) return;
+  if (timer) clearInterval(timer);
+  timer = null; selected = null; token = ""; owner = false;
+  method = "everyday"; tLeft = 5; showMore = false; screen = "what";
+  draw();
+}
 function draw() {
   const info = stepInfo();
   const stepEl = document.getElementById("step");
@@ -624,6 +639,7 @@ function draw() {
   } else if (screen === "empty") {
     main.innerHTML = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
       <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p></div>`;
+    renderOtherDevices();
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
     btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "pick") {
@@ -632,9 +648,10 @@ function draw() {
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd)}</div>`;
     html += moreLink();
     html += `<div class="disklist">`;
-    disks().forEach(d => { html += diskCard(d); });
+    selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
+    renderOtherDevices();
     bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => { selected = disks().find(d => d.path === el.dataset.path); draw(); };
@@ -752,24 +769,43 @@ function draw() {
   } else if (screen === "done") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
-    main.innerHTML = `<div class="centerstage"><div class="status ${ok ? "ok" : "bad"}"><div class="core">${ok ? "✓" : "✕"}</div></div>
-      <h1>${ok?P.titles.doneOk:P.titles.doneFail}</h1>
-      <p class="statustext" style="color:var(--ink)">${ok?P.doneOk:P.doneFail}</p>
-      <p>${P.methods[method].summary}</p><p>${P.methods[method].result}</p>
+    const result = P.previewResults[ok ? "ok" : "failed"];
+    main.innerHTML = `<div class="centerstage"><div class="status" aria-hidden="true"><div class="core">i</div></div>
+      <h1>${result.message}</h1>
+      <p class="statustext" style="color:var(--ink)">${result.next_step}</p>
+      <p>${P.methods[method].summary}</p><p role="status" aria-live="polite">${result.announcement}</p>
       <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div>
       ${moreLink()}</div>`;
     bindMore();
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
   }
+  if (!["working", "done", "splash"].includes(screen)) {
+    btnsL.append(btn("Check disks again", refreshPreview));
+  }
 }
 document.addEventListener("keydown", e => {
+  if (e.key === "F5" && !["working", "done", "splash"].includes(screen)) {
+    e.preventDefault(); refreshPreview(); return;
+  }
   if (screen === "method" && e.key.toLowerCase() === "l") {
     e.preventDefault(); screen = "limits"; draw();
   } else if (screen === "limits" && e.key === "Escape") {
     e.preventDefault(); screen = "method"; draw(); main.querySelector("#limits").focus();
   }
 });
+function renderOtherDevices() {
+  const section = document.createElement("section");
+  section.setAttribute("aria-label", P.otherTitle);
+  const heading = document.createElement("h2");
+  heading.textContent = P.otherTitle;
+  const text = document.createElement("div");
+  text.tabIndex = 0;
+  text.style.cssText = "white-space:pre-wrap;overflow:auto;max-height:120px";
+  text.textContent = P.otherDevices[mode === "empty" ? "empty" : "happy"];
+  section.append(heading, text);
+  main.append(section);
+}
 function startCount() {
   if (timer) clearInterval(timer);
   timer = setInterval(() => {

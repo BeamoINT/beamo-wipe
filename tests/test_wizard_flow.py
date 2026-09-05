@@ -620,7 +620,7 @@ def test_cancel_wipe_failure_stays_working_with_error(monkeypatch, tmp_path):
     wiz.runner.cancel = boom  # type: ignore[method-assign]
     wiz.cancel_wipe()
     assert wiz.screen == Screen.WORKING
-    assert wiz.error and "Could not stop the wipe" in wiz.error
+    assert wiz.error and "The erase may still be running" in wiz.error
     assert wiz.wipe_result is None
     # No interrupted evidence for a wipe that may still run.
     assert wiz.evidence is None or wiz.evidence.get("outcome") != "interrupted"
@@ -632,11 +632,13 @@ def test_cancel_wipe_retry_succeeds_after_failure(monkeypatch, tmp_path):
     wiz, clock = _wiz()
     _drive_to_working(wiz, clock)
     calls = []
+    confirmed_cancel = wiz.runner.cancel
 
     def flaky() -> None:
         calls.append(1)
         if len(calls) == 1:
             raise OSError(1, "Operation not permitted")
+        confirmed_cancel()
 
     wiz.runner.cancel = flaky  # type: ignore[method-assign]
     wiz.cancel_wipe()
@@ -645,6 +647,18 @@ def test_cancel_wipe_retry_succeeds_after_failure(monkeypatch, tmp_path):
     assert wiz.screen == Screen.DONE
     assert wiz.wipe_result is not None and not wiz.wipe_result.ok
     assert "interrupted" in wiz.wipe_result.summary
+
+
+def test_cancel_without_confirmed_process_result_stays_working(monkeypatch, tmp_path):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz()
+    _drive_to_working(wiz, clock)
+    wiz.runner.cancel = lambda: None
+    wiz.cancel_wipe()
+    assert wiz.screen == Screen.WORKING
+    assert wiz.wipe_result is None
+    assert "The erase may still be running" in wiz.error
+    assert not wiz._cancel_requested
 
 
 def test_confirm_erase_second_start_reports_already_running(monkeypatch, tmp_path):
@@ -674,4 +688,3 @@ def test_working_screens_render_cancel_failure():
     console_src = inspect.getsource(_loop)
     working_block = console_src.split("Screen.WORKING", 1)[1].split("Screen.DONE", 1)[0]
     assert "wizard.error" in working_block
-

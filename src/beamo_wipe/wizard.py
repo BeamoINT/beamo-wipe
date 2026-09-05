@@ -169,6 +169,17 @@ class Wizard:
         return safety_listed_disks(self.discovery)
 
     @property
+    def other_devices(self):
+        # Never display inventory when boot identity failed closed.
+        if not self.discovery.boot_identified or self.discovery.error or self.discovery.boot is None:
+            return ()
+        if self.discovery.excluded:
+            return self.discovery.excluded
+        from beamo_wipe.inventory import excluded_device
+        eligible = {d.path for d in self.selectable}
+        return tuple(excluded_device(d) for d in self.discovery.disks if d.path not in eligible)
+
+    @property
     def confirm(self) -> Optional[ConfirmSpec]:
         if self.selected is None:
             return None
@@ -261,8 +272,9 @@ class Wizard:
             self._finish(should_finish)
 
     def skip_splash(self) -> None:
-        if self.screen == Screen.SPLASH:
-            self.screen = Screen.WHAT
+        with self._lock:
+            if self.screen == Screen.SPLASH:
+                self.screen = Screen.WHAT
 
     def reset_for_preview(self) -> None:
         """Start the wizard over. Preview only — never used on a live wipe."""
@@ -325,17 +337,21 @@ class Wizard:
             self.shutdown()
 
     def accept_what(self) -> None:
-        if self.screen != Screen.WHAT:
-            return
-        self.screen = Screen.OWNER
+        with self._lock:
+            if self.screen != Screen.WHAT:
+                return
+            self.screen = Screen.OWNER
 
     def set_owner(self, checked: bool) -> None:
-        self.owner_ok = bool(checked)
+        with self._lock:
+            if self.screen != Screen.REFRESHING:
+                self.owner_ok = bool(checked)
 
     def continue_owner(self) -> None:
-        if self.screen != Screen.OWNER or not self.owner_ok:
-            return
-        self._enter_pick()
+        with self._lock:
+            if self.screen != Screen.OWNER or not self.owner_ok:
+                return
+            self._enter_pick()
 
     def _enter_pick(self) -> None:
         self._done_keyboard_armed = False
@@ -368,67 +384,118 @@ class Wizard:
             return
         self.screen = Screen.PICK
 
+    @property
+    def can_refresh(self) -> bool:
+        return self.screen in {
+            Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.PICK_EMPTY,
+            Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD,
+            Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS,
+        } and self._wipe_request is None and not self.wants_shutdown
+
+    def refresh_disks(self) -> bool:
+        # Claim the transition before doing I/O. A simultaneous start either
+        # wins the lock first (refresh refuses) or sees REFRESHING and refuses.
+        with self._lock:
+            if not self.can_refresh:
+                return False
+            self.screen = Screen.REFRESHING
+            self.discovery = DiscoveryResult(error="Checking disks again.", boot_identified=False)
+            self.selected = None
+            self.owner_ok = False
+            self.confirm_input = ""
+            self.method = DEFAULT_METHOD
+            self._erase_until = None
+            self._advanced_from = None
+            self._done_keyboard_armed = False
+            self.error = None
+        try:
+            if self._rediscover is None and (self.dry_run or self.preview):
+                raise SafetyError("A fresh fake-device discovery source is required.")
+            fresh = (self._rediscover or discover)()
+            if not isinstance(fresh, DiscoveryResult):
+                raise SafetyError("Discovery returned an invalid inventory.")
+            assert_boot_excluded(fresh)
+            if not fresh.boot_identified or fresh.boot is None or fresh.error:
+                raise SafetyError("Boot device could not be identified.")
+        except Exception as exc:
+            from beamo_wipe.diagnostics import log_diag
+            log_diag("discover", "refresh_failed", type(exc).__name__)
+            fresh = DiscoveryResult(error=REDISCOVER_ERROR, boot_identified=False)
+        with self._lock:
+            self.discovery = fresh
+            self.error = fresh.error
+            # WHAT -> OWNER -> PICK requires all acknowledgements again.
+            self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.WHAT
+        return True
+
     def select_disk(self, path: str) -> None:
-        if self.screen != Screen.PICK:
-            return
-        want = os.path.realpath(path)
-        boot = self.discovery.boot
-        if boot is not None and os.path.realpath(boot.path) == want:
-            return
-        for disk in self.selectable:
-            if os.path.realpath(disk.path) == want:
-                self.selected = disk
+        with self._lock:
+            if self.screen != Screen.PICK:
                 return
+            want = os.path.realpath(path)
+            boot = self.discovery.boot
+            if boot is not None and os.path.realpath(boot.path) == want:
+                return
+            for disk in self.selectable:
+                if os.path.realpath(disk.path) == want:
+                    self.selected = disk
+                    return
 
     def move_selection(self, delta: int) -> None:
         """Move the pick-list highlight. First Up/Down chooses an edge disk."""
-        if self.screen != Screen.PICK:
-            return
-        selectable = sorted(self.selectable, key=lambda d: d.path)
-        if not selectable:
-            return
-        paths = [d.path for d in selectable]
-        if self.selected is None or self.selected.path not in paths:
-            idx = 0 if delta >= 0 else len(paths) - 1
-        else:
-            idx = paths.index(self.selected.path) + delta
-            idx = max(0, min(len(paths) - 1, idx))
-        self.select_disk(paths[idx])
+        with self._lock:
+            if self.screen != Screen.PICK:
+                return
+            selectable = sorted(self.selectable, key=lambda d: d.path)
+            if not selectable:
+                return
+            paths = [d.path for d in selectable]
+            if self.selected is None or self.selected.path not in paths:
+                idx = 0 if delta >= 0 else len(paths) - 1
+            else:
+                idx = paths.index(self.selected.path) + delta
+                idx = max(0, min(len(paths) - 1, idx))
+            self.select_disk(paths[idx])
 
     def continue_pick(self) -> None:
-        if self.screen != Screen.PICK or self.selected is None or self.selected.is_boot:
-            return
-        want = os.path.realpath(self.selected.path)
-        if want not in {os.path.realpath(d.path) for d in self.selectable}:
-            return
-        if self.discovery.boot is not None:
-            if want == os.path.realpath(self.discovery.boot.path):
+        with self._lock:
+            if self.screen != Screen.PICK or self.selected is None or self.selected.is_boot:
                 return
-        self.confirm_input = ""
-        self.screen = Screen.CONFIRM
+            want = os.path.realpath(self.selected.path)
+            if want not in {os.path.realpath(d.path) for d in self.selectable}:
+                return
+            if self.discovery.boot is not None:
+                if want == os.path.realpath(self.discovery.boot.path):
+                    return
+            self.confirm_input = ""
+            self.screen = Screen.CONFIRM
 
     def set_confirm_input(self, text: str) -> None:
-        if self.screen != Screen.CONFIRM:
-            return
-        self.confirm_input = text
+        with self._lock:
+            if self.screen != Screen.CONFIRM:
+                return
+            self.confirm_input = text
 
     def continue_confirm(self) -> None:
-        if self.screen != Screen.CONFIRM or not self.token_ok:
-            return
-        self.screen = Screen.METHOD
+        with self._lock:
+            if self.screen != Screen.CONFIRM or not self.token_ok:
+                return
+            self.screen = Screen.METHOD
 
     def set_method(self, method: MethodId) -> None:
-        if self.screen != Screen.METHOD:
-            return
-        if method not in METHODS:
-            return
-        self.method = method
+        with self._lock:
+            if self.screen != Screen.METHOD:
+                return
+            if method not in METHODS:
+                return
+            self.method = method
 
     def continue_method(self) -> None:
-        if self.screen != Screen.METHOD:
-            return
-        self.screen = Screen.LAST_CHANCE
-        self._erase_until = self.now + COUNTDOWN_S
+        with self._lock:
+            if self.screen != Screen.METHOD:
+                return
+            self.screen = Screen.LAST_CHANCE
+            self._erase_until = self.now + COUNTDOWN_S
 
     def confirm_erase(self) -> None:
         with self._lock:
@@ -497,7 +564,11 @@ class Wizard:
                 self.error = str(exc)
                 return
             except OSError as exc:
-                self.error = f"Could not start nwipe: {exc}"
+                from beamo_wipe.outcomes import VIEWS
+                from beamo_wipe.diagnostics import log_diag
+
+                self.error = VIEWS["start_failed"].announcement
+                log_diag("nwipe", "start_failed", f"{type(exc).__name__}; errno={exc.errno}")
                 return
             self.error = None
             self._wipe_request = request
@@ -543,7 +614,7 @@ class Wizard:
         # Persist auditable evidence (atomic, off-target, truthful outcome)
         self._write_evidence(result=result, cancelled=False, interrupted=False)
 
-    def cancel_wipe(self) -> None:
+    def cancel_wipe(self, *, origin: str = "user") -> None:
         """User or system interruption. Produce interrupted evidence."""
         with self._lock:
             if self._wipe_request is None or self.screen != Screen.WORKING:
@@ -569,7 +640,8 @@ class Wizard:
             # WORKING so tick() can still deliver the real outcome (or the
             # user can retry), and surface the failure instead of writing a
             # clean 'interrupted' outcome for a wipe that may still run.
-            self.error = f"Could not stop the wipe: {exc}"
+            from beamo_wipe.outcomes import VIEWS
+            self.error = VIEWS["stop_unconfirmed"].announcement
             return
         # Hold lock while checking and transitioning to avoid race with
         # tick()->_finish.
@@ -579,6 +651,11 @@ class Wizard:
             from beamo_wipe.models import WipeResult as _WR
 
             observed = getattr(self.runner, "result", None)
+            if observed is None:
+                from beamo_wipe.outcomes import VIEWS
+                self._cancel_requested = False
+                self.error = VIEWS["stop_unconfirmed"].announcement
+                return
             if observed is not None and (
                 observed.ok
                 or (observed.summary or "").strip().casefold()
@@ -590,7 +667,8 @@ class Wizard:
                 cancelled = interrupted = False
             else:
                 res = _WR(ok=False, exit_code=143, summary="interrupted", logfile=self._wipe_request.logfile)
-                cancelled = interrupted = True
+                interrupted = True
+                cancelled = origin == "user" and observed is not None and not observed.ok
             # _write_evidence and _finish outside lock to avoid I/O under lock
             need_evidence = res
         self._write_evidence(
@@ -1077,15 +1155,24 @@ class Wizard:
 
     @property
     def done_ok(self) -> bool:
-        return bool(self.wipe_result and self.wipe_result.ok)
+        return self.result_view.success
+
+    @property
+    def result_view(self):
+        from beamo_wipe.outcomes import present_evidence, preview_view
+        if self.preview:
+            return preview_view(bool(self.wipe_result and self.wipe_result.ok))
+        return present_evidence(None if self.evidence_error else self.evidence)
 
     def open_limits(self) -> None:
-        if self.screen == Screen.METHOD:
-            self.screen = Screen.LIMITS
+        with self._lock:
+            if self.screen == Screen.METHOD:
+                self.screen = Screen.LIMITS
 
     def close_limits(self) -> None:
-        if self.screen == Screen.LIMITS:
-            self.screen = Screen.METHOD
+        with self._lock:
+            if self.screen == Screen.LIMITS:
+                self.screen = Screen.METHOD
 
     @property
     def storage_notice(self) -> str:
@@ -1095,15 +1182,17 @@ class Wizard:
         return notice(self.selected.kind if self.selected else DiskKind.UNKNOWN)
 
     def open_advanced(self) -> None:
-        if self.screen in (Screen.SPLASH, Screen.WORKING, Screen.ADVANCED):
-            return
-        self._advanced_from = self.screen
-        self.screen = Screen.ADVANCED
+        with self._lock:
+            if self.screen in (Screen.SPLASH, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING):
+                return
+            self._advanced_from = self.screen
+            self.screen = Screen.ADVANCED
 
     def close_advanced(self) -> None:
-        if self.screen != Screen.ADVANCED:
-            return
-        self.screen = self._advanced_from or Screen.METHOD
+        with self._lock:
+            if self.screen != Screen.ADVANCED:
+                return
+            self.screen = self._advanced_from or Screen.METHOD
 
     def back(self) -> None:
         # Under _lock like every other screen mutation: confirm_erase holds
@@ -1141,10 +1230,7 @@ class Wizard:
 
     @property
     def method_result(self) -> str:
-        evidence = self.evidence or {}
-        outcome = "preview" if self.preview else evidence.get("outcome", "unknown")
-        verified = evidence.get("verification", {}).get("verified") is True
-        return METHODS[self.method].result_description(outcome, verified=verified)
+        return self.result_view.message
 
     def erase_label(self) -> str:
         if self.selected is None:

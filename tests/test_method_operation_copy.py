@@ -89,13 +89,15 @@ def test_command_evidence_and_report(method, engine, writes, verify, reads, stat
     wiz.evidence = ev
     assert wiz.method_result == ev["result_description"]
     if state != "success":
-        assert "not confirmed" in wiz.method_result
+        assert not wiz.result_view.success
+        assert wiz.result_view.code == {"failed": "process_failed", "ambiguous": "completion_missing", "interrupted": "interrupted"}[state]
     elif reads:
         assert ev["verification"]["verified"] is True
-        assert "accessible storage" in wiz.method_result
+        assert wiz.method_result == "Erase completed; verification passed"
+        assert "exposed storage" in wiz.result_view.next_step
     else:
         assert ev["verification"]["verified"] is False
-        assert "Verification was not performed" in wiz.method_result
+        assert wiz.method_result == "Erase completed; verification was not performed"
     bundle = _bundle_files(json.dumps(ev).encode(), b"", "unavailable")
     assert json.loads(bundle["result.json"])["result_description"] == wiz.method_result
 

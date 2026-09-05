@@ -28,6 +28,20 @@ def test_parser_preview_aliases():
     assert args.empty
     args = _parser().parse_args(["--helper"])
     assert args.helper
+    assert _parser().parse_args(["--plain-console"]).plain_console
+
+
+def test_gallery_targets_use_classified_eligibility(monkeypatch):
+    from dataclasses import replace
+    from beamo_wipe import gallery
+
+    discovery = discovery_for_scenario("happy")
+    blocked = replace(discovery.selectable[0], read_only=True)
+    discovery = replace(discovery, disks=(discovery.boot, blocked), selectable=())
+    monkeypatch.setattr(gallery, "discovery_for_scenario", lambda _: discovery)
+    payload = gallery._disks_payload()
+    assert all(not disk["eligible"] and not disk["token"] for disk in payload)
+    assert "return disks().filter(d => d.eligible)" in gallery.gallery_html()
 
 
 def test_lsblk_json_forces_dry_run_without_env(monkeypatch):

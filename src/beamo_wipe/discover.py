@@ -804,7 +804,33 @@ def parse_lsblk_json(
                     log_diag("discover", "all_hidden", f"nodes={total_disk_nodes} boot={boot_path}")
                 except Exception:
                     pass
+    # Preserve explanations separately from the safety-owned target collection.
+    # No excluded node is added to disks/selectable or used for confirmation.
+    from beamo_wipe.inventory import excluded_device
+    from beamo_wipe.models import ExcludedDevice
+
+    eligible_paths = {d.path for d in selectable}
+    classified = {d.path: d for d in disks}
+    excluded = []
+    for node, _parent in flatten_blockdevices(blockdevices):
+        try:
+            path = node_path(node)
+            if path in eligible_paths:
+                continue
+            inventory_disk = classified.get(path)
+            if inventory_disk is None:
+                inventory_disk = node_to_disk(node, is_boot=_node_is_boot(node, boot_path))
+                extra = flat_mounts.get(inventory_disk.name, [])
+                if extra:
+                    inventory_disk = replace(inventory_disk, mountpoints=tuple(dict.fromkeys((*inventory_disk.mountpoints, *extra))))
+            excluded.append(excluded_device(
+                inventory_disk, unsupported=should_hide(node, boot_path),
+                capacity_unknown=node.get("size") not in (0, "0") and inventory_disk.size_bytes <= 0,
+            ))
+        except ValueError:
+            excluded.append(ExcludedDevice("Device identity unavailable", ("identity could not be confirmed",)))
     return DiscoveryResult(
+        excluded=tuple(excluded),
         disks=tuple(disks),
         selectable=selectable,
         boot=boot,

@@ -66,6 +66,7 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Preview a failed wipe.",
     )
+    p.add_argument("--plain-console", action="store_true", help="Use sequential text prompts without curses screen redraws.")
     p.add_argument("--console", action="store_true", help="Use the keyboard console UI.")
     p.add_argument("--fullscreen", action="store_true", help="Fill the screen (live USB).")
     p.add_argument("--dry-run", action="store_true", help="Do not invoke nwipe.")
@@ -153,7 +154,13 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
     )
     if use_dry:
         runner = DryRunRunner(duration_s=3.0, fail=args.fail_demo)
-        return Wizard(discovery, runner, dry_run=True)
+        def fresh_fake_discovery():
+            if not args.lsblk_json:
+                raise SafetyError("A fake lsblk JSON file is required for refresh.")
+            with open(args.lsblk_json, encoding="utf-8") as fh:
+                fresh_payload = load_lsblk_json_text(fh.read())
+            return discover(lsblk_payload=fresh_payload, boot_path=args.boot_device)
+        return Wizard(discovery, runner, dry_run=True, rediscover=fresh_fake_discovery)
     live_runner = NwipeRunner()
     return Wizard(discovery, live_runner, dry_run=False)
 
@@ -248,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     windowed = args.demo and not args.fullscreen
-    use_console = args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
+    use_console = args.plain_console or args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
     if not use_console:
         try:
             from beamo_wipe.ui.tk_wizard import run_tk
@@ -265,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
                 # tear X down and launch the visible console on tty1.
                 if wizard.screen == Screen.WORKING:
                     try:
-                        wizard.cancel_wipe()
+                        wizard.cancel_wipe(origin="system")
                     except Exception as cancel_exc:
                         try:
                             from beamo_wipe.diagnostics import log_diag
@@ -282,7 +289,11 @@ def main(argv: list[str] | None = None) -> int:
 
     from beamo_wipe.ui.console_wizard import run_console
 
-    code = run_console(wizard)
+    if args.plain_console:
+        from beamo_wipe.ui.console_wizard import _plain_loop
+        code = _plain_loop(wizard)
+    else:
+        code = run_console(wizard)
     if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
         _shutdown()
     return code

@@ -152,7 +152,7 @@ def test_match_pill_shows_text_plus_icon_not_color_only():
 def test_status_screens_use_halo_badge_not_color_only():
     for name in ('_blocked', '_empty'):
         src = inspect.getsource(getattr(tkui.TkWizard, name))
-        assert '_status_screen' in src
+        assert '_status_screen' in src or '_icon_badge' in src
     status_src = inspect.getsource(tkui.TkWizard._status_screen)
     assert '_icon_badge' in status_src
 

@@ -23,6 +23,7 @@ cd "/path/to/Beamo Wiper"   # this repo
 ./preview --blocked         # cannot identify the USB
 ./preview --fail            # finished screen after a failed wipe
 ./preview --console         # keyboard screens in the terminal
+./preview --plain-console   # sequential text prompts, without screen redraws
 ```
 
 `make preview` and `make preview-web` are the same commands.
@@ -31,6 +32,27 @@ The Tk window is the real app. The browser page is a click-through so you can
 see the flow in Safari or Chrome without installing anything extra.
 
 If `./preview` cannot open a window (no Tk), it falls back to `--console`.
+
+Before erasure, **Check disks again** (F5, or `CHECK DISKS AGAIN` at a text
+prompt) reads the inventory again and identifies the boot device again. It
+clears the selected disk, ownership acknowledgement, typed confirmation,
+method, and countdown. Complete the entire confirmation flow again. A failed
+refresh leaves no stale target selectable. Refresh is unavailable once an
+erase is starting or running.
+
+**Other detected devices** is information only: each row explains why the
+device cannot be selected. In the keyboard console, press O to read and scroll
+these explanations. No excluded row offers an erase action or bypass.
+
+Results use the same evidence-based explanation in both interfaces and report
+exports. “Erase completed; verification passed” requires validated completion
+evidence for a method with read-back verification. Quick zero instead says
+“Erase completed; verification was not performed.” Read-back checks exposed
+storage only; it does not prove hidden copies were erased. Confirmed user
+cancellation says “Stopped by you.” Failed verification, interruption, missing
+evidence, and an unconfirmed stop remain distinct. Saved evidence can be checked
+for its result without resuming erasure; missing or inconsistent evidence never
+becomes success.
 
 ## What this is not
 
@@ -139,11 +161,16 @@ used. Details: [docs/ci.md](docs/ci.md).
 4. The Beamo USB cannot be selected. If we cannot tell which disk is the USB,
    the app refuses to list disks.
 5. Type-to-confirm, five-second delay, then nwipe runs non-interactively.
-6. `Done` means nwipe exited 0 and verified its last pass (when `verify=last`).
-   It is not a lab or vendor certificate — on SSDs the controller decides what
-   remains ([details](docs/storage-and-controller-limits.md#3-overwrite-limits--why-overwrite-alone-is-not-a-certificate)).
-   For drives that must be certified, use the vendor's secure-erase tool for that
-   model or physically destroy the drive.
+6. The final screen reports success, failure, or interruption. Success requires
+   exit 0 and positive completion evidence for the selected target, with no
+   failure markers. Everyday and Three overwrites include a separate read-back
+   verification pass; Quick zero does not perform verification.
+   Read-back checks exposed storage only and does not prove that hidden copies
+   were erased. Additional overwrite passes do not fix SSD coverage limitations
+   ([details](docs/storage-and-controller-limits.md#3-overwrite-limits--why-overwrite-alone-is-not-a-certificate)).
+   Reports are not a formal certificate. If required assurance cannot be
+   established, consult the drive maker's guidance for the exact model and
+   firmware or use a qualified destruction service.
 
 ## Development
 

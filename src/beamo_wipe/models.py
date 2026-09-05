@@ -35,6 +35,7 @@ class Screen(str, Enum):
     DONE = "done"
     ADVANCED = "advanced"
     LIMITS = "limits"
+    REFRESHING = "refreshing"
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ class WipeResult:
     exit_code: int
     summary: str
     logfile: str
+    reason: str = ""
 
 
 @dataclass
@@ -109,3 +111,15 @@ class DiscoveryResult:
     # UI shows `error` (generic, actionable); `diagnostic` is for advanced/
     # support export and diagnostics.log.
     diagnostic: Optional[str] = None
+    # Display-only inventory. Never a source of selectable Disk objects.
+    excluded: Tuple[ExcludedDevice, ...] = ()
+
+
+@dataclass(frozen=True)
+class ExcludedDevice:
+    identity: str
+    reasons: Tuple[str, ...]
+
+    @property
+    def explanation(self) -> str:
+        return f"{self.identity}\nCannot erase: {'; '.join(self.reasons)}."

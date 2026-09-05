@@ -58,6 +58,6 @@ def make_demo_wizard(fail: bool = False, scenario: Scenario = "happy") -> Wizard
         scenario = "happy"
     discovery = discovery_for_scenario(scenario)
     runner = DryRunRunner(duration_s=DEMO_DURATION_S, fail=fail)
-    wiz = Wizard(discovery, runner, dry_run=True)
+    wiz = Wizard(discovery, runner, dry_run=True, rediscover=lambda: discovery_for_scenario(scenario))
     wiz.preview = True
     return wiz

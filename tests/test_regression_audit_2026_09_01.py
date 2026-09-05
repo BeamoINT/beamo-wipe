@@ -385,4 +385,4 @@ def test_cancel_flags_survive_transient_evidence_failure(tmp_path, monkeypatch):
     assert wiz.screen.value == "done"
     assert wiz.evidence is not None
     assert wiz.evidence["outcome"] == "interrupted"
-    assert wiz.evidence["interruption"] == {"interrupted": True, "cancelled": True}
+    assert wiz.evidence["interruption"] == {"interrupted": True, "cancelled": True, "origin": "user"}

@@ -543,9 +543,9 @@ def _target_reported_success(log_text: str, device: str) -> bool:
     return False
 
 
-def evaluate_nwipe_completion(
+def evaluate_nwipe_outcome(
     exit_code: int, log_text: str, device: str
-) -> tuple[bool, str]:
+) -> tuple[bool, str, str]:
     """Map nwipe's process exit to owner-facing success.
 
     nwipe 0.42 returns 0 and logs "Nwipe successfully completed" when no wipe
@@ -554,23 +554,33 @@ def evaluate_nwipe_completion(
     ``/dev/X: Success`` before pthread_create. 100% of pass 1 of 3 (dodshort)
     is not Finished. Those must not become Finished.
     """
+    if type(exit_code) is not int or not isinstance(log_text, str) or not isinstance(device, str) or not device.startswith("/dev/"):
+        return False, "invalid completion metadata", "indeterminate"
     if target_skipped_busy(log_text, device):
-        return False, "nwipe skipped the disk because it is in use"
+        return False, "nwipe skipped the disk because it is in use", "occupied"
     if NWIPE_ABORT_RE.search(log_text or ""):
-        return False, "nwipe was aborted"
+        return False, "nwipe was aborted", "interrupted"
     if _target_open_failed(log_text, device):
-        return False, "nwipe could not open the disk"
+        return False, "nwipe could not open the disk", "open_failed"
     if _target_geometry_failed(log_text, device):
-        return False, "nwipe could not use the disk"
+        return False, "nwipe could not use the disk", "geometry_unusable"
+    if any("Verification mismatch on" in line and _line_mentions_device(line, device)
+           for line in (log_text or "").splitlines()):
+        return False, "nwipe read-back verification failed", "verification_failed"
     if _target_reported_failure(log_text, device):
-        return False, "nwipe reported a failure"
+        return False, "nwipe reported a failure", "engine_failed"
     if exit_code != 0:
-        return False, f"nwipe exited {exit_code}"
+        return False, f"nwipe exited {exit_code}", "process_failed"
     if _target_reported_success(log_text, device):
-        return True, "finished"
+        return True, "finished", "completed"
     if _target_reached_last_pass(log_text, device):
-        return True, "finished"
-    return False, "nwipe exited without wiping"
+        return True, "finished", "completed"
+    return False, "nwipe exited without wiping", "completion_missing"
+
+
+def evaluate_nwipe_completion(exit_code: int, log_text: str, device: str) -> tuple[bool, str]:
+    ok, detail, _reason = evaluate_nwipe_outcome(exit_code, log_text, device)
+    return ok, detail
 
 
 class NwipeRunner:
@@ -735,7 +745,8 @@ class NwipeRunner:
                 _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
         else:
             _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
-        ok, summary = evaluate_nwipe_completion(code, log_text, request.device)
+        ok, summary, reason = evaluate_nwipe_outcome(code, log_text, request.device)
+        _try_log_diag("nwipe", reason, f"exit={code}; {summary}")
         if not ok and code == 0 and log_text:
             # Verification ambiguity: nwipe exit 0 without explicit success must
             # not become success via fallback. Log for maintainer triage.
@@ -750,6 +761,7 @@ class NwipeRunner:
                 ok=ok,
                 exit_code=code,
                 summary=summary,
+                reason=reason,
                 logfile=request.logfile,
             )
             # Only show 100 on verified success; keep monotonic cap otherwise.
@@ -887,6 +899,7 @@ class NwipeRunner:
                 ok=False,
                 exit_code=proc.returncode if proc.returncode is not None else 143,
                 summary="cancelled",
+                reason="cancelled",
                 logfile=getattr(self, "_last_logfile", "") or "",
             )
         self._release_wipe_lock()
@@ -930,6 +943,7 @@ class DryRunRunner:
                 ok=False,
                 exit_code=143,
                 summary="cancelled",
+                reason="cancelled",
                 logfile=request.logfile,
             )
             # Keep last progress, but never show 100 on cancelled/failed
@@ -972,3 +986,5 @@ class DryRunRunner:
 
     def cancel(self) -> None:
         self.cancelled = True
+        if self._request is not None:
+            self.poll(self._request)

@@ -11,6 +11,7 @@ import textwrap
 
 from beamo_wipe import copy as C
 from beamo_wipe import storage_limits as limits
+from beamo_wipe import inventory
 from beamo_wipe.models import MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.wizard import Wizard, format_progress_percent
@@ -26,11 +27,27 @@ def run_console(wizard: Wizard) -> int:
         return _plain_loop(wizard)
 
 
+class _InventoryRefreshed(Exception):
+    pass
+
+
+def _answer(wizard: Wizard, prompt: str) -> str:
+    if wizard.can_refresh:
+        print("Type CHECK DISKS AGAIN to refresh and clear all confirmations.")
+    answer = input(prompt)
+    if wizard.can_refresh and answer.strip().upper() == "CHECK DISKS AGAIN":
+        wizard.refresh_disks()
+        raise _InventoryRefreshed
+    return answer
+
+
 def _plain_loop(wizard: Wizard) -> int:
     """Last-resort TTY with input(). Still requires confirms; never auto-wipes."""
     while True:
         try:
             return _plain_loop_body(wizard)
+        except _InventoryRefreshed:
+            continue
         except EOFError:
             wizard.shutdown()
             return 0
@@ -61,39 +78,40 @@ def _plain_loop_body(wizard: Wizard) -> int:
         print("=" * 60)
         if screen == Screen.SPLASH:
             print(C.SPLASH_TAGLINE)
-            input("Press Enter… ")
+            _answer(wizard, "Press Enter… ")
             wizard.skip_splash()
             continue
         if screen == Screen.WHAT:
             for b in C.WHAT_BULLETS:
                 print(" -", b)
-            input("Press Enter to continue… ")
+            _answer(wizard, "Press Enter to continue… ")
             wizard.accept_what()
             continue
         if screen == Screen.OWNER:
             print(C.OWNER_CHECKBOX)
-            ans = input("Type YES if that is true: ").strip()
+            ans = _answer(wizard, "Type YES if that is true: ").strip()
             wizard.set_owner(ans.upper() == "YES")
             if wizard.owner_ok:
                 wizard.continue_owner()
             continue
         if screen == Screen.PICK_BLOCKED:
             print(wizard.error or C.IDENTIFY_ERROR)
-            input("Press Enter to shut down… ")
+            _answer(wizard, "Press Enter to shut down… ")
             wizard.shutdown()
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
-            input("Press Enter to shut down… ")
+            if wizard.other_devices:
+                print(inventory.TITLE)
+                print(inventory.full_text(wizard.other_devices))
+            _answer(wizard, "Press Enter to shut down… ")
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
-            boot = wizard.discovery.boot
-            if boot is not None:
-                print(
-                    f"[BOOT — do not erase] {boot.display_name} {boot.size_phrase} "
-                    f"{boot.path} {boot.serial}"
-                )
+            if wizard.other_devices:
+                print(inventory.TITLE)
+                print(inventory.full_text(wizard.other_devices))
+            print("Eligible disks")
             if same_size_conflict(wizard.listed_disks):
                 print(C.SAME_SIZE_HINT)
             numbered = sorted(wizard.selectable, key=lambda d: d.path)
@@ -102,7 +120,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     f"[{i}] {disk.display_name} {disk.size_phrase} "
                     f"{disk.path} {disk.serial}"
                 )
-            choice = input("Number of disk to erase: ").strip()
+            choice = _answer(wizard, "Number of disk to erase: ").strip()
             try:
                 idx = int(choice) - 1
                 if idx < 0:
@@ -124,7 +142,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 )
             print(wizard.warning_text())
             print(spec.prompt if spec else "")
-            typed = input("> ")
+            typed = _answer(wizard, "> ")
             wizard.set_confirm_input(typed)
             if wizard.token_ok:
                 wizard.continue_confirm()
@@ -135,7 +153,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(limits.BUTTON)
             for card in C.METHOD_CARDS.values():
                 print(f"{card['key']} {card['title']}: {card['blurb']} {card['pace']}")
-            choice = input("Choice [1], or L for storage limits: ").strip()
+            choice = _answer(wizard, "Choice [1], or L for storage limits: ").strip()
             if choice.lower() == "l":
                 wizard.open_limits()
                 continue
@@ -157,7 +175,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.tick()
                 print(f"Wait {wizard.countdown_display}…")
                 time.sleep(0.4)
-            ans = input("Type ERASE to start: ").strip()
+            ans = _answer(wizard, "Type ERASE to start: ").strip()
             if ans.upper() == "ERASE":
                 wizard.confirm_erase()
             else:
@@ -166,6 +184,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen == Screen.WORKING:
             pct = "—" if wizard.progress is None else format_progress_percent(wizard.progress)
             print(C.WORKING_PULSE, pct, "  [type CANCEL then Enter to interrupt]")
+            if wizard.error:
+                print(wizard.error)
             if wizard.evidence_error:
                 print(f"Note: {wizard.evidence_error}")
             if wizard.selected:
@@ -193,14 +213,14 @@ def _plain_loop_body(wizard: Wizard) -> int:
             if report.evidence_error:
                 print(f"Evidence was not saved: {report.evidence_error}")
             if wizard.preview:
-                print(C.DONE_OK_PREVIEW if wizard.done_ok else C.DONE_FAIL_PREVIEW)
-                ans = input("Enter to run again, or q to close… ").strip().lower()
+                print(wizard.result_view.next_step)
+                ans = _answer(wizard, "Enter to run again, or q to close… ").strip().lower()
                 if ans in ("q", "quit", "close"):
                     wizard.shutdown()
                 else:
                     wizard.reset_for_preview()
             else:
-                print(C.DONE_OK if wizard.done_ok else C.DONE_FAIL)
+                print(wizard.result_view.next_step)
                 if report.can_save:
                     print(
                         report.message
@@ -212,7 +232,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     if report.message:
                         print(report.message)
                     prompt = "Type SHUTDOWN: "
-                action = input(prompt).strip().upper()
+                action = _answer(wizard, prompt).strip().upper()
                 if action == "SAVE" and report.can_save:
                     wizard.save_report_to_usb()
                 elif action == "SHUTDOWN":
@@ -223,11 +243,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             for title, body in limits.SECTIONS:
                 print(title)
                 print(textwrap.fill(body, 76))
-                input("Enter for more… ")
+                _answer(wizard, "Enter for more… ")
             wizard.close_limits()
             continue
         if screen == Screen.ADVANCED:
-            input("Press Enter to go back… ")
+            _answer(wizard, "Press Enter to go back… ")
             wizard.close_advanced()
             continue
     return 0
@@ -241,6 +261,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
     enter_held = False
     enter_quiet_since = None
     limits_offset = 0
+    inventory_open = False
+    inventory_offset = 0
     while not wizard.wants_shutdown:
         wizard.tick()
         stdscr.erase()
@@ -250,7 +272,18 @@ def _loop(stdscr, wizard: Wizard) -> int:
         if wizard.preview:
             _add(stdscr, 1, 0, C.PREVIEW_BANNER)
             y = 3
-        if wizard.screen == Screen.SPLASH:
+        if inventory_open:
+            _add(stdscr, y, 0, inventory.TITLE)
+            y += 1
+            lines = [line for paragraph in inventory.full_text(wizard.other_devices).split("\n")
+                     for line in (textwrap.wrap(paragraph, max(10, w - 2)) or [""])]
+            page_size = max(1, h - y - 2)
+            inventory_offset = min(inventory_offset, max(0, len(lines) - page_size))
+            for line in lines[inventory_offset:inventory_offset + page_size]:
+                _add(stdscr, y, 0, line)
+                y += 1
+            _add(stdscr, h - 1, 0, "Read only. Up/Down, PgUp/PgDn: read. Esc: back.")
+        elif wizard.screen == Screen.SPLASH:
             y = _wrap(stdscr, y, C.SPLASH_TAGLINE, w)
             _add(stdscr, y + 1, 0, "Press any key.")
         elif wizard.screen == Screen.WHAT:
@@ -265,7 +298,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, C.pick_subtitle(), w) + 1
             if same_size_conflict(wizard.listed_disks):
                 y = _wrap(stdscr, y, C.SAME_SIZE_HINT, w) + 1
-            ordered = sorted(wizard.listed_disks, key=lambda d: (d.is_boot, d.path))
+            ordered = sorted(wizard.selectable, key=lambda d: d.path)
             for disk in ordered:
                 star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
                 extra = ""
@@ -283,13 +316,17 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     attr = curses.A_DIM
                 _add(stdscr, y, 0, line[: w - 1], attr)
                 y += 1
+            if wizard.other_devices:
+                _add(stdscr, min(h - 3, y), 0, "Other detected devices (O): read reasons; not selectable.")
             _add(stdscr, min(h - 2, y + 1), 0, "Up/Down then Enter. Esc back.")
         elif wizard.screen == Screen.PICK_BLOCKED:
             _wrap(stdscr, y, wizard.error or C.IDENTIFY_ERROR, w)
             _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.PICK_EMPTY:
-            _wrap(stdscr, y, C.EMPTY_DISKS, w)
-            _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
+            y = _wrap(stdscr, y, C.EMPTY_DISKS, w)
+            if wizard.other_devices:
+                _add(stdscr, min(h - 3, y + 1), 0, "Other detected devices (O): read reasons; not selectable.")
+            _add(stdscr, h - 2, 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.CONFIRM and wizard.selected:
             disk = wizard.selected
             _add(stdscr, y, 0, disk.display_name, curses.A_BOLD)
@@ -366,9 +403,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _wrap(
                 stdscr,
                 y,
-                (C.DONE_OK_PREVIEW if wizard.done_ok else C.DONE_FAIL_PREVIEW)
-                if wizard.preview
-                else (C.DONE_OK if wizard.done_ok else C.DONE_FAIL),
+                wizard.result_view.next_step,
                 w,
             )
             _add(
@@ -391,8 +426,26 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     message = "Leave the Beamo USB and selected disk connected while saving."
                 if message:
                     _wrap(stdscr, y + 6, message, w)
+        if wizard.can_refresh and not inventory_open:
+            _add(stdscr, h - 1, 0, "F5: Check disks again (clears all confirmations)")
         stdscr.refresh()
         ch = stdscr.getch()
+        if ch == curses.KEY_F5 and wizard.can_refresh:
+            wizard.refresh_disks()
+            inventory_open = False
+            continue
+        if inventory_open:
+            if ch == 27:
+                inventory_open = False
+            elif ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE):
+                delta = {curses.KEY_UP: -1, curses.KEY_DOWN: 1,
+                         curses.KEY_PPAGE: -page_size, curses.KEY_NPAGE: page_size}[ch]
+                inventory_offset = max(0, inventory_offset + delta)
+            continue
+        if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("o"), ord("O")) and wizard.other_devices:
+            inventory_open = True
+            inventory_offset = 0
+            continue
         if ch == -1:
             enter_held, enter_quiet_since, released = _advance_enter_quiet(
                 enter_held, enter_quiet_since, time.monotonic()

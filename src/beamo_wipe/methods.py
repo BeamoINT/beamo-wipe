@@ -62,16 +62,6 @@ class NwipeMethodSpec:
     def docs_name(self) -> str:
         return self.description
 
-    def result_description(self, outcome: str, *, verified: bool = False) -> str:
-        if outcome == "preview":
-            return "Preview only. No overwrite or verification was performed."
-        if outcome == "verified" and verified and self.verify != "off":
-            return "nwipe reported overwrite and read-back verification success for accessible storage."
-        if outcome == "completed" and self.verify == "off":
-            return (
-                "nwipe reported overwrite completion. Verification was not performed."
-            )
-        return "Overwrite completion and verification success are not confirmed."
 
 
 # Everyday default: one PRNG overwrite (nwipe's own default method family)
