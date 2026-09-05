@@ -46,6 +46,9 @@ NWIPE_PROGRESS_RE = re.compile(
     r"(/dev/[A-Za-z0-9._+-]+)"
     r":\s*(\d{1,3}(?:\.\d+)?)\s*%,\s*round\s+(\d{1,6})\s+of\s+(\d{1,6})"
     r"(?:,\s*pass\s+(\d{1,6})\s+of\s+(\d{1,6}))?"
+    # Do not backtrack a malformed/truncated pass clause into an absent one,
+    # or accept a numeric prefix of a malformed counter as completion proof.
+    r"(?=\s*(?:,\s*eta\b|$))"
 )
 # nwipe 0.42 (device.c / nwipe.c) when the target is mounted and --force is unset.
 NWIPE_BUSY_RE = re.compile(
@@ -768,12 +771,13 @@ class NwipeRunner:
             if ok:
                 self.progress = 100.0
             self._proc = None
-        self._release_wipe_lock()
-        return self.result
+            # Keep retiring this run's lock atomic with making start available.
+            self._release_wipe_lock()
+            return self.result
 
     def _read_log_tail(self, logfile: str, nbytes: int) -> str:
         try:
-            fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW)
+            fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         except OSError as exc:
             # Missing log is expected before nwipe creates it; permission/
             # symlink errors are diagnostic for maintainer (log isolation).
@@ -891,8 +895,9 @@ class NwipeRunner:
             if not exited:
                 raise SafetyError("Could not stop nwipe; the disk may still be erasing.")
         with self._lock:
-            if self.result is not None:
-                # poll() recorded the real outcome concurrently; keep it.
+            if self._proc is not proc or self.result is not None:
+                # poll() or another cancel completed this run while wait()
+                # was pending. A subsequent start may already own the runner.
                 return
             self._proc = None
             self.result = WipeResult(
@@ -902,7 +907,7 @@ class NwipeRunner:
                 reason="cancelled",
                 logfile=getattr(self, "_last_logfile", "") or "",
             )
-        self._release_wipe_lock()
+            self._release_wipe_lock()
 
 
 class DryRunRunner:

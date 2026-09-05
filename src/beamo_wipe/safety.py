@@ -82,6 +82,8 @@ REMOTE_BUS_TOKENS = frozenset(
         "nvmeof",
         "nvme-of",
         "nvmf",
+        "tcp",
+        "rdma",
     }
 )
 

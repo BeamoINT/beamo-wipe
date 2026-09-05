@@ -228,7 +228,7 @@ def read_diagnostics(log_dir: Optional[Path] = None, limit: int = 100) -> list[d
         return []
     path = Path(directory) / "diagnostics.log"
     try:
-        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         try:
             opened = os.fstat(fd)
             if not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.getuid():

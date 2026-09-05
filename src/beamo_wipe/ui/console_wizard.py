@@ -254,6 +254,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 ready, _w, _x = select.select([sys.stdin], [], [], 0.3)
                 if ready:
                     typed = sys.stdin.readline()
+                    if typed == "":
+                        raise EOFError
                     if typed.strip().casefold() == "cancel":
                         wizard.cancel_wipe()
             except (OSError, ValueError):

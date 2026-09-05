@@ -459,7 +459,7 @@ def recover_result(path: Path):
 
 def _read_regular_nofollow(path: Path) -> bytes:
     try:
-        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except OSError as exc:
         raise SafetyError("Cannot safely read evidence file") from exc
     try:

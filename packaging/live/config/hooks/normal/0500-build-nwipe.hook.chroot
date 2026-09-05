@@ -14,8 +14,9 @@ run_logged() {
   shift
   if "$@" >"$log_file" 2>&1; then
     return 0
+  else
+    rc=$?
   fi
-  rc=$?
   echo "ERROR: command failed (exit $rc): $1" >&2
   tail -n 50 "$log_file" >&2 || true
   return "$rc"

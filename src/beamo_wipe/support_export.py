@@ -463,7 +463,7 @@ def read_export_log(
     ):
         return b"", "unavailable"
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except OSError:
         return b"", "unavailable"
     try:

@@ -835,7 +835,7 @@ class Wizard:
                     try:
                         fd = os.open(
                             self._wipe_request.logfile,
-                            os.O_RDONLY | os.O_NOFOLLOW,
+                            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
                         )
                         try:
                             opened = os.fstat(fd)

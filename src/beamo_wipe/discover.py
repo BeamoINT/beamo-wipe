@@ -625,17 +625,14 @@ def identify_boot_path(
                 mount_hits.append(resolved)
         else:
             unresolved_sources.append(source)
-    if len(mount_hits) > 1:
+    # Every observed live source must have a known physical owner. A known
+    # source does not establish the owner of a second UUID or loop mount.
+    if unresolved_sources or len(mount_hits) > 1:
         return None
     if len(mount_hits) == 1:
         if resolved_env and resolved_env != mount_hits[0]:
             return None
         return mount_hits[0]
-    # Caller named a live mount we cannot map. Do not guess via labels —
-    # that is how a leftover BEAMO_WIPE USB becomes "the boot stick" and
-    # the real live medium becomes a wipe target.
-    if unresolved_sources:
-        return None
     if env_boot and not resolved_env:
         return None
     if resolved_env:
@@ -710,13 +707,40 @@ def parse_lsblk_json(
         return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
 
     flat_mounts: Dict[str, List[str]] = {}
-    for candidate, parent in flatten_blockdevices(blockdevices):
+    flat_nodes = list(flatten_blockdevices(blockdevices))
+    by_name: Dict[str, List[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]] = {}
+    for candidate, parent in flat_nodes:
+        name = _identity_text(candidate.get("name"), "name")
+        if name:
+            by_name.setdefault(name, []).append((candidate, parent))
+    for candidate, parent in flat_nodes:
         if parent is not None or _node_type(candidate) == "disk":
             continue
-        pkname = _clean(candidate.get("pkname"))
-        if not pkname:
+        pkname = _identity_text(candidate.get("pkname"), "pkname")
+        mounts = _node_mountpoints(candidate)
+        if not pkname or not mounts:
             continue
-        flat_mounts.setdefault(pkname, []).extend(_node_mountpoints(candidate))
+        # Flat lsblk rows can describe disk -> partition -> crypt/LVM chains.
+        # Exclude every possible whole-disk ancestor; an unknown or cyclic
+        # mounted chain must not silently become an unmounted physical disk.
+        pending: List[Tuple[str, frozenset[str]]] = [(pkname, frozenset())]
+        while pending:
+            ancestor_name, trail = pending.pop()
+            if ancestor_name in trail:
+                raise ValueError("lsblk mounted ancestry contains a cycle")
+            ancestors = by_name.get(ancestor_name)
+            if not ancestors:
+                raise ValueError("lsblk mounted ancestry is unresolved")
+            for ancestor, tree_parent in ancestors:
+                if _node_type(ancestor) in {"disk", "rom"}:
+                    flat_mounts.setdefault(ancestor_name, []).extend(mounts)
+                    continue
+                next_name = _identity_text(ancestor.get("pkname"), "pkname")
+                if not next_name and tree_parent is not None:
+                    next_name = _identity_text(tree_parent.get("name"), "name")
+                if not next_name:
+                    raise ValueError("lsblk mounted ancestry is unresolved")
+                pending.append((next_name, trail | {ancestor_name}))
 
     disks: List[Disk] = []
     identified_boot: Optional[Disk] = None
@@ -926,6 +950,10 @@ def _validate_real_lsblk_metadata(payload: Dict[str, Any]) -> None:
         mps = node.get("mountpoints")
         if mps is not None and not isinstance(mps, (list, str)):
             raise ValueError("lsblk mountpoints has invalid shape")
+        if isinstance(mps, list) and any(
+            mp is not None and not isinstance(mp, str) for mp in mps
+        ):
+            raise ValueError("lsblk mountpoints has invalid entry")
         if _node_type(node) == "disk" and _as_bool(node.get("ro")) is None:
             raise ValueError("lsblk omitted read-only metadata")
 
