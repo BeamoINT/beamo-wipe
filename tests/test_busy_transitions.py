@@ -376,3 +376,36 @@ def test_stale_tk_callback_cannot_reactivate_same_named_screen():
     assert not calls
     TkWizard._nav(ui, lambda: calls.append("current"))()
     assert calls == ["current"]
+
+
+def test_unchanged_working_revision_does_not_rebuild_controls():
+    from types import SimpleNamespace
+
+    pytest.importorskip("tkinter")
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    ui = TkWizard.__new__(TkWizard)
+    ui.w = SimpleNamespace(
+        screen=Screen.WORKING,
+        report_view=SimpleNamespace(revision=7),
+        wants_shutdown=False,
+        tick=lambda: None,
+    )
+    ui._body = SimpleNamespace(configure=lambda **kw: None)
+    ui._footer = object()
+    ui._pick_canvas = None
+    ui.root = SimpleNamespace(after=lambda *args: 1)
+    ui._clear = lambda *args: None
+    ui._sync_chrome = lambda *args: None
+    ui._draw_header = ui._draw_strip = ui._refresh_working = lambda: None
+    ui._shown_report_revision = -1
+    calls = []
+    ui._working = lambda: calls.append("render")
+    ui._draw()
+    ui._tick()
+    ui._tick()
+    assert calls == ["render"]
+    ui.w.report_view.revision += 1
+    ui._tick()
+    ui._tick()
+    assert calls == ["render", "render"]

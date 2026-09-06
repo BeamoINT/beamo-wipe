@@ -1106,3 +1106,27 @@ def test_rebuilt_last_chance_rejects_old_erase_callback(ui, monkeypatch):
     assert not calls
     app._nav(w.begin_erase)()
     assert calls == ["erase"]
+
+
+def test_working_timer_keeps_cancel_control_until_revision_changes(ui, monkeypatch, tmp_path):
+    w, app = ui()
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
+    w.runner._clock = lambda: 0
+    _drive_to(w, app, Screen.LAST_CHANCE)
+    w._erase_until = 0
+    w.confirm_erase()
+    app._draw()
+    generation = app._draw_generation
+    def walk(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from walk(child)
+    cancel = next(v for v in walk(app.root) if isinstance(v, _Button)
+                  and v.itemcget(v._label, "text") == "Cancel erase")
+    app._tick(); app._tick()
+    assert app._draw_generation == generation and cancel.winfo_exists()
+    with w._lock:
+        w._touch_report_locked()
+    app._tick()
+    assert app._draw_generation == generation + 1

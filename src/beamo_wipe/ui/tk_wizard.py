@@ -1148,6 +1148,7 @@ class TkWizard:
         self._match_pill = None
         screen = self.w.screen
         report_view = self.w.report_view if screen == Screen.DONE else None
+        working_revision = self.w.report_view.revision if screen == Screen.WORKING else None
         diagnostic_view = self.w.diagnostic_view if screen == Screen.DIAGNOSTIC else None
         self._sync_chrome(screen == Screen.SPLASH)
         self._body.configure(bg=BG)
@@ -1189,6 +1190,8 @@ class TkWizard:
         self._draw_header()
         self._draw_strip()
         self._shown = screen
+        if working_revision is not None:
+            self._shown_report_revision = working_revision
         if diagnostic_view is not None:
             self._shown_report_revision = diagnostic_view.revision
         if report_view is not None:
