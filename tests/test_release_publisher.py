@@ -134,3 +134,43 @@ def test_send_upload_rejects_short_or_growing_input_before_success(monkeypatch):
     with pytest.raises(PUBLISHER.PublishError, match="grew"):
         PUBLISHER._send_upload("/upload/session", io.BytesIO(b"ab"), 1, "token")
     PUBLISHER._send_upload("/upload/session", io.BytesIO(b"ab"), 2, "token")
+
+
+def test_release_includes_the_desktop_readable_usb_image():
+    names = {p.name for p in PUBLISHER._release_inputs('0.2.5')}
+    assert {'beamo-wipe-0.2.5-amd64.img', 'beamo-wipe-0.2.5-amd64.img.sha256',
+            'beamo-wipe-0.2.5-amd64.img.json'} <= names
+
+
+@pytest.mark.parametrize('damage', ['', 'image', 'iso', 'sidecar', 'metadata'])
+def test_usb_release_binding_rejects_changed_artifacts(tmp_path, damage):
+    import hashlib
+    import json
+
+    version = '0.2.5'
+    iso = tmp_path / f'beamo-wipe-{version}-amd64.iso'
+    image = tmp_path / f'beamo-wipe-{version}-amd64.img'
+    iso.write_bytes(b'fixture ISO')
+    image.write_bytes(b'fixture USB' * 64)
+    def digest(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    meta = {'schema_version': 1, 'image': image.name, 'sha256': digest(image),
+            'iso': iso.name, 'iso_sha256': digest(iso), 'size': image.stat().st_size,
+            'layout': 'MBR, one active FAT32 partition at sector 2048'}
+    image.with_suffix('.img.sha256').write_text(f'{digest(image)}  {image.name}\n')
+    metadata = image.with_suffix('.img.json')
+    metadata.write_text(json.dumps(meta))
+    if damage == 'image':
+        image.write_bytes(b'changed USB')
+    elif damage == 'iso':
+        iso.write_bytes(b'changed ISO')
+    elif damage == 'sidecar':
+        image.with_suffix('.img.sha256').write_text('wrong')
+    elif damage == 'metadata':
+        metadata.write_text('{')
+    if damage:
+        with pytest.raises(PUBLISHER.PublishError):
+            PUBLISHER._verify_usb_image(tmp_path, version)
+    else:
+        PUBLISHER._verify_usb_image(tmp_path, version)

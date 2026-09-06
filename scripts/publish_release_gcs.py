@@ -271,12 +271,53 @@ def _verify_sha256sums(dist: Path, version: str) -> None:
             raise PublishError(f"SHA256SUMS mismatch for {name}")
 
 
+def _verify_usb_image(dist: Path, version: str) -> None:
+    """Bind the desktop-readable image to the verified ISO before uploading."""
+    image = dist / f"beamo-wipe-{version}-amd64.img"
+    iso = dist / f"beamo-wipe-{version}-amd64.iso"
+    try:
+        with _open_owned_file(Path(f"{image}.json")) as stream:
+            raw = stream.read(4097)
+        if len(raw) > 4096:
+            raise PublishError("USB image metadata exceeded the safety limit")
+        metadata = json.loads(raw)
+        with _open_owned_file(Path(f"{image}.sha256")) as stream:
+            sidecar = stream.read(4097).decode("ascii")
+        with _open_owned_file(image) as stream:
+            size = os.fstat(stream.fileno()).st_size
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise PublishError("USB image metadata is unreadable") from exc
+    image_sha = _sha256(image)
+    expected = {
+        "schema_version": 1,
+        "image": image.name,
+        "sha256": image_sha,
+        "iso": iso.name,
+        "iso_sha256": _sha256(iso),
+        "layout": "MBR, one active FAT32 partition at sector 2048",
+        "size": size,
+    }
+    if (
+        not isinstance(metadata, dict)
+        or metadata != expected
+        or type(metadata.get("schema_version")) is not int
+        or type(metadata.get("size")) is not int
+        or size <= 0
+        or sidecar != f"{image_sha}  {image.name}\n"
+    ):
+        raise PublishError("USB image does not match its ISO, metadata, or checksum")
+
+
 def _release_inputs(version: str) -> list[Path]:
     iso = ROOT / "dist" / f"beamo-wipe-{version}-amd64.iso"
+    image = ROOT / "dist" / f"beamo-wipe-{version}-amd64.img"
     manifest = ROOT / "dist" / f"beamo-wipe-{version}-amd64.manifest.json"
     return [
         iso,
         Path(f"{iso}.sha256"),
+        image,
+        Path(f"{image}.sha256"),
+        Path(f"{image}.json"),
         manifest,
         Path(f"{manifest}.sha256"),
         ROOT / "dist" / "SHA256SUMS",
@@ -298,6 +339,12 @@ def _release_inputs(version: str) -> list[Path]:
                 "bios-qemu.txt",
                 "uefi-serial.txt",
                 "uefi-qemu.txt",
+                "bios-usb-serial.txt",
+                "bios-usb-qemu.txt",
+                "uefi-usb-serial.txt",
+                "uefi-usb-qemu.txt",
+                "secureboot-usb-serial.txt",
+                "secureboot-usb-qemu.txt",
                 "summary.txt",
             )
         ],
@@ -328,6 +375,7 @@ def publish() -> str | None:
 
     verify_manifest(ROOT / "dist" / f"beamo-wipe-{version}-amd64.manifest.json")
     _verify_sha256sums(ROOT / "dist", version)
+    _verify_usb_image(ROOT / "dist", version)
 
     receipt_lines = [
         "release_complete=true",
