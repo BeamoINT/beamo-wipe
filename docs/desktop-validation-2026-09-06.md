@@ -2,7 +2,7 @@
 
 Validation source: `6904d80c8b26fdf5a794f11490c947a0fc16bf6b` on
 `codex/desktop-entry`, integrated into the local project. Current full build:
-`850fb9bf-c213-4648-b1f8-d4a98a2e5f47` (still running).
+`850fb9bf-c213-4648-b1f8-d4a98a2e5f47` (**SUCCESS**).
 No release has been published. Validation images are ephemeral; no physical
 USB was flashed and the existing public v0.2.5 release was not replaced. This report distinguishes implemented behavior
 from runtime, boot, and hardware evidence.
@@ -41,7 +41,7 @@ from runtime, boot, and hardware evidence.
   fragment, Close removing all controls, and no platform mutation in preview.
 - Isolated Xvfb regression: both virtual and server-delivered Enter releases
   through the erase-start redraw passed. No real device was erased.
-- Previous corrected-run hosted Python gate: 1,578 passed, 12 skipped, 2 deselected (124.43 seconds); lint,
+- Final-source hosted Python gate: 1,578 passed, 12 skipped, 2 deselected (147.62 seconds); lint,
   preview, native Linux launcher tests, and the fail-open negative test passed.
 - Full boot build `e7ef9ce6-de24-4131-bcfc-b6d834c7edde`: ISO provenance,
   BIOS erase/report export and ordinary UEFI boot passed. BIOS boot of the
@@ -51,9 +51,22 @@ from runtime, boot, and hardware evidence.
   `d001dd5d-88c2-46a7-b602-408ba056aeda`. The corrected full run reached BIOS USB confirmation; its additional
   check then used the ISO layout serial token instead of the USB layout
   unique-size token. The product correctly refused that incorrect token.
-  The harness now enters the 1 GB size for this fixture; full rerun pending.
+  The harness now enters the 1 GB size for this fixture; the full rerun passed.
   Redundant builds were canceled rather than claiming they passed.
-- Final complete hosted boot build: PENDING.
+- Final complete hosted boot build: **PASS**. BIOS ISO erase/report export,
+  UEFI ISO boot, and BIOS/UEFI/Secure Boot FAT32 USB boots passed. Each USB
+  mode reached the disposable target confirmation and matched its required
+  token. Secure Boot required the actual guest firmware variable to be 1
+  with enrolled OVMF keys and SMM enforcement. The final publication step
+  explicitly reported publication disabled. See the compact
+  [boot receipt](evidence/desktop-boot-20260906.txt).
+- Actual Linux desktop-to-USB firmware handoff: separate private x64 test VM
+  `beamo-handoff-test-0906` is running. It uses an installed Linux guest copy,
+  the production launcher, and a seeded exact firmware entry. No erase is
+  requested. Hardware nesting was unavailable because the project policy
+  disables it; that policy was not changed. The handoff test uses TCG software
+  emulation on x64, as does the hosted gate. Its result is still pending;
+  this is not physical PC proof.
 
 ## Limits that remain
 
@@ -95,7 +108,7 @@ source and Git history were preserved.
 | Complaint | Improvement | Remaining limit |
 | --- | --- | --- |
 | Expected Windows plug-and-play | A visible desktop application explains the process and checks readiness | Explicit launch, permission and restart still required; no in-Windows erase |
-| USB not seen at boot | Ordinary boot retained; exact-entry guided restart and signed Debian EFI components added | BIOS USB reached confirmation; final matrix rerun pending; firmware, ports and trust settings still vary |
+| USB not seen at boot | Ordinary boot retained; exact-entry guided restart and signed Debian EFI components added | BIOS/UEFI/Secure Boot USB matrix passed in QEMU; firmware, ports and trust settings still vary |
 | Modern MacBook | Clear architecture refusal and unsupported-platform copy | Apple Silicon is not supported |
 | Wrong disk or nothing happened | Boot USB exclusion and explicit live disk confirmation remain; desktop restart states that nothing has been erased | User must identify their intended disk; no automatic target selection |
 | Honesty/value | Launcher, guidance, provenance and validation added; nwipe attribution retained | Open-source eraser, commodity media and SSD overwrite limits remain |
@@ -135,13 +148,13 @@ evidence. No release, signing, or manufacturing readiness is claimed here.
 | Windows/Linux desktop entry | Both x64 executables compile; Linux race/vet/fuzz; native Windows API and PowerShell fixtures; browser preview | Implemented; physical desktop acceptance outstanding |
 | Compatibility checks | Exact USB ancestry and partition identity; malformed/ambiguous EFI tests; native architecture refusal | Automated checks passed; real firmware inventory coverage limited |
 | Guided restart | Explicit action, fresh elevated probe, BootNext read-back and rollback fixtures; no forced application closure | Implemented; actual desktop-to-USB handoff not yet proven |
-| Ordinary BIOS/UEFI boot | ISO BIOS erase/report and UEFI boot; corrected FAT32 BIOS reaches confirmation | Final three-mode USB matrix running |
-| Secure Boot | Signed Debian EFI components and enrolled OVMF gate with actual firmware variable requirement | Final gate pending; physical firmware acceptance outstanding |
-| Disk safety and required confirmation | Existing fail-closed tests, negative mutation gate, disposable-disk erase/report; USB probes require target confirmation | Preserved; final USB probes pending |
+| Ordinary BIOS/UEFI boot | ISO BIOS erase/report and UEFI boot; corrected FAT32 BIOS reaches confirmation | Automated matrix passed; physical acceptance outstanding |
+| Secure Boot | Signed Debian EFI components and enrolled OVMF gate with actual firmware variable requirement | Enrolled OVMF gate passed; physical firmware acceptance outstanding |
+| Disk safety and required confirmation | Existing fail-closed tests, negative mutation gate, disposable-disk erase/report; USB probes require target confirmation | Preserved; final USB probes passed |
 | Desktop erasure assessment | nwipe-only engine and live-session requirement; no Windows engine and no installed-Linux running-system isolation added | Assessed; all erasure remains offline |
 | Supported configurations and limitations | This report, desktop design, boot card, platform refusal, manifest compatibility wording | Documented; universal compatibility is not claimed |
 | Delivery and cleanup | Integrated local branch; publication disabled; Windows test resources removed | Complete within local implementation scope |
 
-The overall goal is not marked complete while the final boot gate and real
-desktop handoff evidence remain unproven. No test count substitutes for those
+The overall goal is not marked complete while the actual desktop handoff
+test and physical desktop acceptance remain unproven. No test count substitutes for those
 missing integration results.

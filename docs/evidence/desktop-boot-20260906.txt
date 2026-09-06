@@ -1,0 +1,22 @@
+Cloud Build: 850fb9bf-c213-4648-b1f8-d4a98a2e5f47
+Source: 6904d80c8b26fdf5a794f11490c947a0fc16bf6b
+Status: SUCCESS
+Project: beamo-wipe
+Publication: disabled
+All erasure tests used disposable virtual or file-backed storage.
+
+Step #0 - "desktop-launchers": fuzz: elapsed: 15s, execs: 460579 (26129/sec), new interesting: 37 (total: 40)
+Step #0 - "desktop-launchers": fuzz: elapsed: 15s, execs: 460579 (0/sec), new interesting: 37 (total: 40)
+Step #2 - "python-tests": 1578 passed, 12 skipped, 2 deselected in 147.62s (0:02:27)
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": [qemu-verify] bios boot completed the shipped Wizard report export
+Step #6 - "qemu-verify": [qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+Step #6 - "qemu-verify": [qemu-verify] uefi boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": [qemu-verify] bios-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": [qemu-verify] uefi-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": [qemu-verify] secureboot-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] PASS; evidence=/tmp/beamo-wipe-qemu.1NlrTK/evidence
+Step #7 - "publish-release": Release publication disabled; verified artifacts remain ephemeral.
