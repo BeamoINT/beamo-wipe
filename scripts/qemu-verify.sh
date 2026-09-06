@@ -722,7 +722,19 @@ send_key_for_marker() {
       return 1
     fi
     qmp_request "$qmp_socket" key-up "$key"
-    wait_for_new_marker "$label" "$release_marker" "$release_prior" 20
+    # Recover an unacknowledged emulator event by retrying only the idempotent
+    # release, never the press that might confirm erasure. A fresh guest
+    # release acknowledgement is still mandatory within the original bound.
+    for release_attempt in $(seq 1 20); do
+      if [[ "$(marker_count "$label" "$release_marker")" -gt "$release_prior" ]]; then
+        return 0
+      fi
+      if [[ "$release_attempt" == 5 || "$release_attempt" == 10 ]]; then
+        qmp_request "$qmp_socket" key-up "$key"
+      fi
+      sleep 1
+    done
+    wait_for_new_marker "$label" "$release_marker" "$release_prior" 1
     return
   fi
   qmp_request "$qmp_socket" key-tap "$key"

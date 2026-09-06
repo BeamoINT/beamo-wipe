@@ -1185,3 +1185,83 @@ def test_stopping_shows_elapsed_without_estimate(ui):
     assert "Stopping" in app._progress_label.cget("text")
     assert "Elapsed:" in app._progress_label.cget("text")
     assert "remaining" not in app._progress_label.cget("text")
+
+
+def test_working_redraw_keeps_receiver_for_held_enter_release(ui, tmp_path, monkeypatch):
+    """Destroying the Erase button must not strand its pending key release."""
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    wiz._erase_until = 0.0
+    wiz.tick()
+    app._draw()
+    app.root.update()
+    app._primary.focus_set()
+    app.root.update()
+    app._on_return()
+    _wait_transition(wiz, app)
+    assert wiz.screen == Screen.WORKING
+    receiver = app.root.focus_get()
+    assert receiver is not None, "Working redraw lost the keyboard release receiver"
+    receiver.event_generate("<KeyRelease>", keysym="Return")
+    app.root.update()
+    assert not app._return_held
+
+
+def test_isolated_x11_physical_return_release_after_start(ui, tmp_path, monkeypatch):
+    """Exercise server-delivered key events only on an explicitly isolated Xvfb."""
+    import ctypes
+    import ctypes.util
+    import os
+    import sys
+
+    if sys.platform != "linux" or os.environ.get("BEAMO_ISOLATED_X11_TEST") != "1":
+        pytest.skip("physical key injection requires an isolated test X server")
+    x11 = ctypes.CDLL(ctypes.util.find_library("X11"))
+    xtst = ctypes.CDLL(ctypes.util.find_library("Xtst"))
+    x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x11.XOpenDisplay.restype = ctypes.c_void_p
+    x11.XKeysymToKeycode.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    x11.XKeysymToKeycode.restype = ctypes.c_uint
+    x11.XFlush.argtypes = [ctypes.c_void_p]
+    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
+    connection = x11.XOpenDisplay(None)
+    assert connection
+    code = x11.XKeysymToKeycode(connection, 0xFF0D)
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, app = ui()
+    wiz.runner.duration_s = 30
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    wiz._erase_until = 0
+    wiz.tick()
+    app._draw()
+    app.root.update()
+    app._primary.focus_force()
+    app.root.update()
+    try:
+        xtst.XTestFakeKeyEvent(connection, code, 1, 0)
+        x11.XFlush(connection)
+        deadline = time.monotonic() + 5
+        while wiz.screen != Screen.WORKING and time.monotonic() < deadline:
+            app.root.update()
+            time.sleep(0.01)
+        assert wiz.screen == Screen.WORKING
+        # Keep the key held across the next report-driven working redraw.
+        app._draw()
+        repeat_until = time.monotonic() + 1.2
+        while time.monotonic() < repeat_until:
+            app.root.update()
+            time.sleep(0.01)
+        assert app._return_held
+        xtst.XTestFakeKeyEvent(connection, code, 0, 0)
+        x11.XFlush(connection)
+        deadline = time.monotonic() + 3
+        while app._return_held and time.monotonic() < deadline:
+            app.root.update()
+            time.sleep(0.01)
+        assert not app._return_held, "server-delivered Return release was lost"
+    finally:
+        xtst.XTestFakeKeyEvent(connection, code, 0, 0)
+        x11.XFlush(connection)
+        x11.XCloseDisplay(connection)

@@ -27,7 +27,7 @@ install_test_deps() {
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends \
     xvfb \
-    xauth \
+    xauth libxtst6 \
     python3-tk \
     python3-gi gir1.2-gtk-3.0 librsvg2-common python3-pyatspi at-spi2-core dbus-x11 orca speech-dispatcher speech-dispatcher-espeak-ng pulseaudio \
     python3-pip \
@@ -97,6 +97,7 @@ run_lint() {
 }
 
 run_pytest() {
+  export BEAMO_ISOLATED_X11_TEST=1
   log "pytest under Xvfb 1600x1000 @ 72 DPI"
   # Two live-image tests need lb config (bootstrap/binary) from the ISO
   # build; skip them when those artifacts are absent.
