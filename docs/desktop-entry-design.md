@@ -50,7 +50,9 @@ is only a local presentation surface; no internet or account is required.
 ## Local UI boundary
 
 Bind an ephemeral IPv4 loopback port. Require the exact Host and Origin plus
-a random per-process token for API calls. Serve only embedded assets, prohibit
+a random per-process token for API calls. The opening fragment is removed from
+the address bar; tab-scoped session storage retains only this token so refresh
+works, and Close clears it. Serve only embedded assets, prohibit
 framing and external content, reject other methods and malformed bodies, and
 never place device identifiers in browser responses. Require an explicit restart
 button after the check. Repeated requests cannot start concurrent helpers. Close and
