@@ -4,9 +4,11 @@ Baseline: `8a548412baefcf5f83f894b3bc0803cec9a06c0f`, branch `main`.
 The checkout was initially clean. A live `git ls-remote origin refs/heads/main`
 check matched that exact SHA. Origin is `https://github.com/BeamoINT/beamo-wipe.git`.
 
-Status: repository reconnaissance and local remediation complete; **hosted
-validation and landing remain pending**. The user authorized a local audit
-commit on 2026-09-06. No push, release, or deployment has occurred. No disk-selection, confirmation, runner, or evidence policy changed.
+Status: repository reconnaissance, local remediation, and **full hosted
+validation passed** for code commit `5648821e99e3d4b7e46b7877a6bad36432c7f87a`.
+This final receipt changes only this report; runtime, test, build, and packaging
+files remain byte-identical to that validated commit. No disk-selection,
+confirmation, runner, or evidence policy changed. Release publication was disabled.
 
 ## Changes and removal proof
 
@@ -89,9 +91,9 @@ met the removal threshold.
 | Storage reports | Before build validation: 46.8 GiB free; no deletion performed. Final report: 46.7 to 46.9 GiB free, report-only, zero deletions |
 
 Local GUI tests skip when there is no macOS display. Accessible Linux UI,
-Xvfb layout, actual ISO, and isolated BIOS/UEFI validation remain mandatory.
-The local mypy version differs from hosted CI's configured 2.1.0; local success
-is not hosted-version proof. No dedicated formatter is prescribed in project
+Xvfb layout, actual ISO, and isolated BIOS/UEFI validation passed in the full
+hosted run below. The local mypy version differs from hosted CI's configured
+2.1.0; both the local and hosted type checks passed. No dedicated formatter is prescribed in project
 metadata, Makefile, contributing instructions, or hosted gate.
 
 The build emitted nonfatal host py2app/pkg_resources and setuptools license
@@ -121,9 +123,47 @@ local audit commit needed to resolve this order dependency. Pushing must still
 wait for successful full validation. No ALLOW_DIRTY override, fabricated Git
 metadata, skip flag, or publication was used.
 
-The authorized next steps are to commit only the three reviewed source/test
-paths and this report, submit `./scripts/ci-cloud.sh` with ISO/QEMU enabled and
-publication disabled, resolve any hosted failures, verify exact artifacts and
-revision, then push and prove remote parity. Physical devices and Secure Boot
-hardware are outside executed coverage; fake disks and isolated x86_64
-virtualization remain the validation boundary.
+The local audit commit and full verification completed as recorded below.
+Physical devices and Secure Boot hardware are outside executed coverage; fake
+disks and isolated x86_64 virtualization remain the validation boundary.
+
+
+## Successful full hosted validation
+
+Validated code commit: `5648821e99e3d4b7e46b7877a6bad36432c7f87a`.
+[Cloud Build 52b759c0-b13b-4a00-8f28-df9ecf0fcc3e](https://console.cloud.google.com/cloud-build/builds/52b759c0-b13b-4a00-8f28-df9ecf0fcc3e?project=beamo-wipe)
+finished **SUCCESS** at `2026-09-06T05:36:27.814385Z`.
+`./scripts/ci-cloud.sh --project beamo-wipe` exited 0.
+
+A clean isolated clone matched every tracked file in the audited commit before
+submission. Explicit substitutions were `_SKIP_ISO=false`, `_SKIP_QEMU=false`,
+and `_PUBLISH_RELEASE=false`. Cloud Build's resolved source archive generation
+was `1788671600515841` in the project source bucket.
+
+| Hosted phase | Result |
+| --- | --- |
+| Lint | SUCCESS: compile, ShellCheck, both Ruff security selections, full Ruff, and mypy; no Ruff/type findings |
+| Linux tests, Xvfb 72 DPI | SUCCESS: 1535 passed, 12 skipped, 2 generated-config tests deselected in 149.60 seconds |
+| Preview | SUCCESS: web, console, helper |
+| Negative safety test | SUCCESS: broken safety rejected, source restored, clean test passed |
+| amd64 ISO | SUCCESS: fresh image, strict manifest, checksums, 529530880 bytes, ISO9660 PVD `CD001` |
+| QEMU | SUCCESS: image/package/permission policy, crash isolation, engine boundary, BIOS wizard erase/export, UEFI Tk WHAT startup |
+| Publication step | SUCCESS as disabled no-op: verified artifacts remained ephemeral; no release |
+
+ISO SHA-256:
+`a34fa08b35d7af02a1c40855fa6d9584e5966aa007bff3bab52e951f8e53f5be`.
+Manifest SHA-256:
+`7ccbf8ee222652d435b18fdb86744f4aaadb2a5687f36bdf6824add9386b06fe`.
+The manifest log explicitly reports `strict=True`.
+
+The BIOS guest completed the shipped wizard's erase and report-export path.
+Independent checks confirmed the target's nonzero prefill became zero and the
+FAT32 report passed clean-filesystem, completion, checksum, read-only mount,
+and final unmount checks. The pinned engine's separately owned disposable loop
+check and killed report-helper namespace isolation also passed. UEFI coverage
+is startup through the shipped Tk WHAT screen, not a second erase run.
+
+The live main trigger was inspected before landing: it uses `cloudbuild.yaml`
+without a publication substitution. The validated cleanup and this documentation
+receipt can be pushed normally after the final diff check; no release or
+publication action is authorized or needed for that landing.
