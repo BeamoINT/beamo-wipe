@@ -35,8 +35,10 @@ The estimate is omitted unless all of these hold:
   cannot predict the unmeasured read-back rate.
 
 Phase/counter changes, regressions, missing data, timestamp discontinuities,
-clock changes and gaps clear history. Duplicated percentages cannot renew rate
-freshness. A regression must catch up to the prior high-water mark before a new
+clock changes and gaps clear history. Local wall/monotonic disagreement over
+100 milliseconds clears history; engine log timestamps have whole-second
+resolution and use a two-second comparison tolerance. Duplicated percentages
+cannot renew rate freshness. A regression must catch up to the prior high-water mark before a new
 window can form. Unstable or inadequate rates suppress the estimate. There is
 no estimate at 100%, during stopping/finalizing, after a result, or after
 recovery. The interface never decrements an old ETA between engine samples.

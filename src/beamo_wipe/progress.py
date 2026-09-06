@@ -184,7 +184,7 @@ class ProgressTiming:
             changed_clock = (
                 self.invalid_clock
                 or not math.isfinite(wall_delta)
-                or abs(wall_delta - mono_delta) > 2
+                or abs(wall_delta - mono_delta) > 0.1
             )
         self.last_clock = now, wall
         if changed_clock:

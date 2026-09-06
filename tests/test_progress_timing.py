@@ -426,3 +426,11 @@ def test_invalid_initial_monotonic_time_is_unavailable():
     timing = ProgressTiming(clock, lambda: clock.wall)
     timing.start(float("nan"))
     assert timing.view(None, False).elapsed is None
+
+
+@pytest.mark.parametrize("step", [-1, -0.25, 0.25, 1])
+def test_wall_clock_step_suppresses_estimate(step):
+    clock, timing, before = stable()
+    assert before.remaining is not None
+    clock.wall += step
+    assert timing.view(timing.last, True).remaining is None
