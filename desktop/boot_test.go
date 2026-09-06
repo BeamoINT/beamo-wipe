@@ -83,3 +83,17 @@ func TestPlanningRequiresOneExactUSBEntry(t *testing.T) {
 		t.Fatal("unidentified media accepted")
 	}
 }
+
+func TestMBRBootOptionMatchesVolumeGeometry(t *testing.T) {
+	b := option(1)
+	b[48], b[49] = 1, 1
+	binary.LittleEndian.PutUint32(b[32:], 0x12345678)
+	id, err := parseBootOption(b)
+	if err != nil || id != "mbr:12345678:1:2048:4096" {
+		t.Fatalf("%s %v", id, err)
+	}
+	b[36] = 1
+	if _, err := parseBootOption(b); err == nil {
+		t.Fatal("malformed MBR signature accepted")
+	}
+}

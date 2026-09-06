@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -20,5 +21,34 @@ func TestLinuxMediaIdentity(t *testing.T) {
 	}
 	if _, _, err := linuxMedia([]byte(linuxFixture), "/dev/sdc1"); err == nil {
 		t.Fatal("different USB accepted")
+	}
+}
+
+func TestLinuxWorkerArchitecture(t *testing.T) {
+	if !nativeX64() {
+		t.Fatal("Linux desktop tests require a native x86_64 worker")
+	}
+}
+
+func TestLinuxDuplicateMediaIdentitiesRefused(t *testing.T) {
+	var inventory struct {
+		Devices []linuxNode `json:"blockdevices"`
+	}
+	if err := json.Unmarshal([]byte(linuxFixture), &inventory); err != nil {
+		t.Fatal(err)
+	}
+	clone := inventory.Devices[0]
+	clone.Path = "/dev/sdc"
+	clone.Serial = "OTHER"
+	clone.MajMin = "8:32"
+	clone.Children = append([]linuxNode(nil), clone.Children...)
+	clone.Children[0].Path = "/dev/sdc1"
+	inventory.Devices = append(inventory.Devices, clone)
+	data, err := json.Marshal(inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := linuxMedia(data, "/dev/sdb1"); err == nil {
+		t.Fatal("cloned partition identity accepted")
 	}
 }

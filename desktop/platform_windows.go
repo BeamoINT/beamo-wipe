@@ -122,8 +122,27 @@ foreach ($part in @(Get-Partition -DiskNumber $disk.Number -ErrorAction Stop)) {
 @{media=(@([string]$disk.Number,[string]$disk.UniqueId,[string]$disk.SerialNumber,[string]$disk.Size) | ConvertTo-Json -Compress);partitions=$ids} | ConvertTo-Json -Compress
 `
 
+// The compiled architecture alone does not detect x64 emulation on ARM PCs.
+func nativeX64() bool {
+	proc := kernel.NewProc("IsWow64Process2")
+	if proc.Find() != nil {
+		return false
+	}
+	process, err := syscall.GetCurrentProcess()
+	if err != nil {
+		return false
+	}
+	var emulated, native uint16
+	ok, _, _ := proc.Call(uintptr(process), uintptr(unsafe.Pointer(&emulated)), uintptr(unsafe.Pointer(&native)))
+	return ok != 0 && native == 0x8664
+}
+
 func platformProbe(ctx context.Context) Snapshot {
 	s := Snapshot{}
+	if !nativeX64() {
+		s.Problem = "platform"
+		return s
+	}
 	var kind uint32
 	r, _, _ := kernel.NewProc("GetFirmwareType").Call(uintptr(unsafe.Pointer(&kind)))
 	if r == 0 || kind != 2 {
@@ -232,7 +251,7 @@ func elevated(exe, args string) (syscall.Handle, error) {
 	return info.Process, nil
 }
 func prepareDesktop() (bool, error) {
-	if administrator() {
+	if !nativeX64() || administrator() {
 		return false, nil
 	}
 	exe, err := os.Executable()

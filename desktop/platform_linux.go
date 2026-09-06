@@ -160,8 +160,27 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 	return string(id), parts, nil
 }
 
+func nativeX64() bool {
+	var info syscall.Utsname
+	if syscall.Uname(&info) != nil {
+		return false
+	}
+	var name []byte
+	for _, c := range info.Machine {
+		if c == 0 {
+			break
+		}
+		name = append(name, byte(c))
+	}
+	return string(name) == "x86_64"
+}
+
 func platformProbe(ctx context.Context) Snapshot {
 	s := Snapshot{}
+	if !nativeX64() {
+		s.Problem = "platform"
+		return s
+	}
 	if _, err := os.Stat("/sys/firmware/efi"); err != nil {
 		s.Problem = "legacy"
 		return s

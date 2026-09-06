@@ -59,3 +59,6 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+/packaging/live/config/includes.binary/GO-LICENSE.txt
+/packaging/live/config/includes.binary/GO-PATENTS.txt

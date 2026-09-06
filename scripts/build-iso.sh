@@ -113,6 +113,8 @@ PYDESKTOP
 cp "$ROOT/dist/desktop/Start Beamo Wipe.exe" "$STAGE_BIN/Start Beamo Wipe.exe"
 cp "$ROOT/dist/desktop/Start Beamo Wipe Linux" "$STAGE_BIN/Start Beamo Wipe Linux"
 cp "$ROOT/dist/desktop/desktop-build.json" "$STAGE_BIN/desktop-build.json"
+cp "$ROOT/desktop/GO-LICENSE.txt" "$STAGE_BIN/GO-LICENSE.txt"
+cp "$ROOT/desktop/GO-PATENTS.txt" "$STAGE_BIN/GO-PATENTS.txt"
 cp "$ROOT/NOTICE" "$STAGE_DOC/NOTICE"
 cp "$ROOT/LICENSE" "$STAGE_DOC/LICENSE"
 cp "$ROOT/THIRD_PARTY.md" "$STAGE_DOC/THIRD_PARTY.md"
