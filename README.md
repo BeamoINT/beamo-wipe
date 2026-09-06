@@ -15,7 +15,7 @@ Nothing is erased. Fake disks only. This is the way to look at the screens
 without building an ISO or booting a USB.
 
 ```bash
-cd "/path/to/Beamo Wiper"   # this repo
+cd "/path/to/Beamo Wipe"   # this repo
 ./preview                   # real Tk window (same screens as the live USB)
 ./preview --web             # browser click-through of the same copy
 ./preview --helper          # boot-menu helper page (does not wipe)
