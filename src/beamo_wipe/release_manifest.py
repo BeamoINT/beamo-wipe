@@ -290,19 +290,21 @@ def hardware_limits() -> Dict[str, Any]:
         ],
         "unsupported": [
             "Apple Silicon, Chromebooks, RAID/dm-raid, network bdevs (nbd/iscsi/fc/nvmeof)",
-            "In-OS wipe from Windows/macOS, Secure Boot enrolled without disable",
+            "In-OS erase from Windows/macOS; automatic execution on USB insertion",
         ],
         "degraded": [
             "SSD overwrite is controller-dependent (not a lab cert)",
             "800x600 requires scroll, HiDPI 144 un-gated",
             "USB-SATA bridges may present as sata",
+            "Secure Boot depends on firmware trust and revocations; signed Debian EFI components are included",
+            "Desktop restart requires one exact existing USB boot entry; otherwise use the boot menu",
         ],
     }
 
 
 def known_issues() -> List[str]:
     return [
-        "Secure Boot enabled with unsigned image requires disable (see docs/claims.md)",
+        "Physical Windows/Linux desktop-to-USB handoff and hardware Secure Boot acceptance remain required (see docs/desktop-entry-design.md)",
         "QEMU TCG on Apple silicon is slow; use Cloud Build or x86_64 KVM (see docs/vm-test.md)",
         "eMMC boot partitions (mmcblk0boot0) hidden; eMMC-only recycle shows single selectable",
     ]
