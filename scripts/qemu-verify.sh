@@ -859,7 +859,10 @@ boot_probe() {
     send_key_for_marker "$label" "$qmp_socket" down BEAMO_WIPE_SCREEN_PICK 20
     send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_CONFIRM 20
     wait_for_marker "$label" BEAMO_WIPE_CONFIRM_FOCUSED 20
-    type_token_for_marker "$label" "$qmp_socket" "$QEMU_TARGET_SERIAL" BEAMO_WIPE_CONFIRM_MATCHED 20
+    # The 2 GiB USB image differs from the 1 GiB target, so this layout asks
+    # for the unique displayed size. The ISO probe instead needs the serial
+    # token because its optical boot medium also rounds to 1 GB.
+    type_token_for_marker "$label" "$qmp_socket" 1 BEAMO_WIPE_CONFIRM_MATCHED 20
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "QEMU $label exited immediately after its final marker" >&2
