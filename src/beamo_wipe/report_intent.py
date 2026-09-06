@@ -25,10 +25,13 @@ class ReportIntentStore:
     def _directory_fd(self) -> int:
         path = self.directory if self.directory is not None else default_log_dir()
         fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        st = os.fstat(fd)
-        if st.st_uid != os.getuid() or stat.S_IMODE(st.st_mode) != 0o700:
+        try:
+            st = os.fstat(fd)
+            if st.st_uid != os.getuid() or stat.S_IMODE(st.st_mode) != 0o700:
+                raise SafetyError("Unsafe report preference directory")
+        except BaseException:
             os.close(fd)
-            raise SafetyError("Unsafe report preference directory")
+            raise
         return fd
 
     def load(self) -> bool:
@@ -51,7 +54,12 @@ class ReportIntentStore:
                     or st.st_nlink != 1
                 ):
                     raise SafetyError("Unsafe report preference file")
-                data = os.read(fd, 32)
+                data = b""
+                while len(data) < 32:
+                    chunk = os.read(fd, 32 - len(data))
+                    if not chunk:
+                        break
+                    data += chunk
                 if data not in {b"wanted\n", b"not-wanted\n"}:
                     raise SafetyError("Invalid report preference")
                 return data == b"wanted\n"
@@ -88,6 +96,8 @@ class ReportIntentStore:
             created = False
             os.fsync(directory)
         finally:
-            if created:
-                os.unlink(temporary, dir_fd=directory)
-            os.close(directory)
+            try:
+                if created:
+                    os.unlink(temporary, dir_fd=directory)
+            finally:
+                os.close(directory)

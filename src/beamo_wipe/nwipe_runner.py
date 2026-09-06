@@ -85,6 +85,10 @@ NWIPE_VERSION_LINE_RE = re.compile(
 )
 
 
+class ProcessStatusError(SafetyError):
+    """Polling failed; cancellation can still confirm exit through wait()."""
+
+
 def resolve_nwipe_binary(binary: str) -> str:
     """Production always execs the pinned path. Relative PATH lookup is forbidden."""
     if not binary:
@@ -731,7 +735,10 @@ class NwipeRunner:
             code = proc.poll()
         except (OSError, AttributeError) as exc:
             _try_log_diag("nwipe", "poll_failed", type(exc).__name__)
-            return self.result
+            with self._lock:
+                if self._proc is not proc:
+                    return self.result
+            raise ProcessStatusError("Process status could not be confirmed.") from exc
         self._refresh_progress(request.logfile, request.device, expected_proc=proc)
         if code is None:
             ready_text = ""
@@ -857,7 +864,6 @@ class NwipeRunner:
         try:
             st = os.fstat(fd)
             if not stat.S_ISREG(st.st_mode):
-                os.close(fd)
                 raise SafetyError("Wipe lock is not a regular file.")
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

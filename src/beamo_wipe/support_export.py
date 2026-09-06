@@ -879,8 +879,8 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
     except (ValueError, AttributeError):
         diagnostic = False
     if diagnostic:
-        from beamo_wipe.diagnostic_report import validate_report, TITLE, NOTICE
-        validate_report(evidence)
+        from beamo_wipe.diagnostic_report import validate_report, NOTICE
+        diagnostic_payload = validate_report(evidence)
         if log_data or log_status != "unavailable":
             raise SafetyError("Diagnostic reports cannot include raw logs.")
     evidence_hash = hashlib.sha256(evidence).hexdigest()
@@ -909,7 +909,7 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
     if diagnostic:
         files = {"diagnostic.json": evidence,
                  "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}
-        readme = (TITLE + "\r\n" + NOTICE + "\r\n"
+        readme = (diagnostic_payload["title"] + "\r\n" + NOTICE + "\r\n"
                   "Calendar time is unverified. COMPLETE authenticates contents only; it does not mean safe to remove.\r\n").encode()
     files["README.txt"] = readme
     manifest = {

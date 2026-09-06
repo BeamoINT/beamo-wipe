@@ -319,19 +319,20 @@ def test_nwipe_runner_poll_gates_100_to_verified_success(tmp_path, monkeypatch):
 # Cancellation: race handling and UI wires
 # ---------------------------------------------------------------------------
 
-def test_nwipe_runner_poll_handles_race_with_cancel(tmp_path, monkeypatch):
+def test_nwipe_runner_poll_reports_unavailable_status(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.nwipe_runner import NwipeRunner
+    from beamo_wipe.safety import SafetyError
 
     runner = NwipeRunner(binary=str(tmp_path / "fake"))
-    # Simulate _proc that raises AttributeError on poll (race where cancel cleared)
+    # An unavailable process status must reach the wizard's visible warning.
     class BadProc:
         def poll(self):
             raise AttributeError("gone")
     runner._proc = BadProc()  # type: ignore
     req = WipeRequest(device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0", logfile=str(tmp_path / "nwipe.log"))
-    # Should not raise, returns previous result (None initially)
-    assert runner.poll(req) is None
+    with pytest.raises(SafetyError, match="Process status"):
+        runner.poll(req)
     diag = (tmp_path / "diagnostics.log").read_text(encoding="utf-8")
     assert "poll_failed" in diag
 

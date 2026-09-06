@@ -517,8 +517,11 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
                 raise OSError("short evidence write")
             view = view[written:]
         os.fsync(fd)
-        os.close(fd)
+        closing_fd = fd
         fd = -1
+        # A failed close has platform-dependent ownership; never retry its
+        # descriptor number, which may already have been reused.
+        os.close(closing_fd)
         # Publish the already-fsynced inode without replacing an existing
         # entry. linkat's create-if-absent behavior closes the exists()/rename
         # race that could overwrite a report planted between preflight and
@@ -551,13 +554,16 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
                 raise EvidenceFinalizationError("Evidence finalization failed") from exc
             raise
     finally:
-        if fd >= 0:
-            os.close(fd)
         try:
-            os.unlink(tmp_name, dir_fd=dir_fd)
-        except FileNotFoundError:
-            pass
-        os.close(dir_fd)
+            if fd >= 0:
+                os.close(fd)
+        finally:
+            try:
+                os.unlink(tmp_name, dir_fd=dir_fd)
+            except FileNotFoundError:
+                pass
+            finally:
+                os.close(dir_fd)
 
 
 def verify_evidence_checksum(path: Path) -> bool:

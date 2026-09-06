@@ -90,15 +90,18 @@ class SessionStore:
 
     def _file(self, name, flags=os.O_RDONLY):
         fd = os.open(name, flags | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=self.fd)
-        st = os.fstat(fd)
-        if (
-            not stat.S_ISREG(st.st_mode)
-            or st.st_uid != os.getuid()
-            or stat.S_IMODE(st.st_mode) != 0o600
-            or st.st_nlink != 1
-        ):
+        try:
+            st = os.fstat(fd)
+            if (
+                not stat.S_ISREG(st.st_mode)
+                or st.st_uid != os.getuid()
+                or stat.S_IMODE(st.st_mode) != 0o600
+                or st.st_nlink != 1
+            ):
+                raise SafetyError("Unsafe recovery file")
+        except BaseException:
             os.close(fd)
-            raise SafetyError("Unsafe recovery file")
+            raise
         return fd
 
     def read(self, name):
@@ -106,10 +109,17 @@ class SessionStore:
             raise SafetyError("Invalid recovery filename")
         fd = self._file(name)
         try:
-            data = os.read(fd, LIMIT + 1)
-            if len(data) > LIMIT or os.read(fd, 1):
+            chunks = []
+            remaining = LIMIT + 1
+            while remaining:
+                chunk = os.read(fd, min(65536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            if not remaining:
                 raise SafetyError("Recovery file too large")
-            return data
+            return b"".join(chunks)
         finally:
             os.close(fd)
 

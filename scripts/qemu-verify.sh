@@ -30,7 +30,7 @@ fi
 BOOT_WAIT_SECONDS=120
 if [[ ! -r /dev/kvm ]]; then BOOT_WAIT_SECONDS=300; fi
 
-VERSION="${BEAMO_WIPE_VERSION:-0.2.4}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.5}"
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "ABORT: invalid BEAMO_WIPE_VERSION" >&2
   exit 2

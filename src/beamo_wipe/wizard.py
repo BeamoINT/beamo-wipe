@@ -39,7 +39,7 @@ from beamo_wipe.safety import (
     selectable_disks,
     token_matches,
 )
-from beamo_wipe.nwipe_runner import NwipeRunner, build_nwipe_argv
+from beamo_wipe.nwipe_runner import NwipeRunner, ProcessStatusError, build_nwipe_argv
 from beamo_wipe.progress import ProgressTiming, ProgressView
 
 
@@ -445,14 +445,17 @@ class Wizard:
         should_finish = None
         with self._lock:
             if self.screen == Screen.WORKING and self._wipe_request is not None:
+                status_warning = "Process status or cleanup could not be confirmed. The disk may still be erasing."
                 try:
                     result = self.runner.poll(self._wipe_request)
                 except Exception:
-                    message = "Process status or cleanup could not be confirmed. The disk may still be erasing."
-                    if self.error != message:
-                        self.error = message
+                    if self.error != status_warning:
+                        self.error = status_warning
                         self._touch_report_locked()
                     return
+                if self.error == status_warning:
+                    self.error = None
+                    self._touch_report_locked()
                 if result is not None and not self._cancel_requested:
                     should_finish = result
                 # When a cancel is in flight, drop the poll result: the
@@ -979,6 +982,7 @@ class Wizard:
                 self._evidence_end_mono = None
             self.wipe_result = result
             self.screen = Screen.DONE
+            self.error = None
             self._done_keyboard_armed = False
             self.log_text = result.summary
             self._active_report_claim = None
@@ -1015,7 +1019,12 @@ class Wizard:
                 return
         try:
             # Preserve a terminal engine result that predates the stop request.
-            self.runner.poll(request)
+            try:
+                self.runner.poll(request)
+            except ProcessStatusError:
+                # A failed status read must not disable the user's stop action.
+                # cancel() still requires confirmed exit and successful cleanup.
+                pass
             self.runner.cancel()
         except Exception as exc:
             try:
@@ -1485,10 +1494,14 @@ class Wizard:
 
             verified = prepare_terminal_evidence(path, target)
             payload = json.loads(verified.data.decode("utf-8"))
-        except (SafetyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        except (OSError, SafetyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             with self._lock:
                 if not self._report_exporting:
-                    self._set_report_state_locked(status="error", message=str(exc))
+                    message = (
+                        "The saved wipe evidence could not be read. Try saving the report again."
+                        if isinstance(exc, OSError) else str(exc)
+                    )
+                    self._set_report_state_locked(status="error", message=message)
             return None
 
         claim = _ReportExportClaim(
@@ -1640,13 +1653,13 @@ class Wizard:
         claim = self._claim_report_export()
         if claim is None:
             return False
-        thread = threading.Thread(
-            target=self._perform_report_export,
-            args=(claim,),
-            name="beamo-report-export",
-            daemon=True,
-        )
         try:
+            thread = threading.Thread(
+                target=self._perform_report_export,
+                args=(claim,),
+                name="beamo-report-export",
+                daemon=True,
+            )
             thread.start()
         except Exception as exc:
             with self._lock:

@@ -157,7 +157,7 @@ PY
 
 inspect_iso() {
   local iso version size magic
-  version="${BEAMO_WIPE_VERSION:-0.2.4}"
+  version="${BEAMO_WIPE_VERSION:-0.2.5}"
   iso="$ROOT/dist/beamo-wipe-${version}-amd64.iso"
   [ -f "$iso" ] || {
     printf 'ISO missing: %s\n' "$iso" >&2
@@ -200,7 +200,7 @@ run_qemu() {
     return 0
   fi
   log "controlled QEMU verification (disposable qcow2, TCG where KVM absent)"
-  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.4}" ./scripts/qemu-verify.sh
+  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.5}" ./scripts/qemu-verify.sh
   # Copy private temporary evidence into the ignored workspace directory for
   # the explicit post-QEMU publisher. Verification-only builds discard it.
   evidence_source="$(cat "$ROOT/qemu-evidence/PATH" 2>/dev/null || true)"
