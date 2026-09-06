@@ -1130,3 +1130,37 @@ def test_working_timer_keeps_cancel_control_until_revision_changes(ui, monkeypat
         w._touch_report_locked()
     app._tick()
     assert app._draw_generation == generation + 1
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_timing_text_readable_and_working_controls_stable(ui, size):
+    from beamo_wipe.progress import ProgressView
+    from unittest.mock import PropertyMock, patch
+    from beamo_wipe.wizard import Wizard
+
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.WORKING
+    wiz.selected = wiz.selectable[0]
+    view = ProgressView("Verifying", 82, 90061, 7200)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=view):
+        app._draw()
+        app.root.update_idletasks()
+        label = app._progress_label
+        assert label.cget("text") == view.timing_text
+        assert "Estimated time remaining: about 2 hours" in label.cget("text")
+        assert label.winfo_height() >= label.winfo_reqheight()
+        assert label.winfo_rooty() + label.winfo_height() < app.root.winfo_rooty() + app.root.winfo_height()
+        for _ in range(10):
+            app._refresh_working()
+        assert app._progress_label is label
+        assert app._progress_pct.cget("text") == "82%"
+
+
+def test_stopping_shows_elapsed_without_estimate(ui):
+    wiz, app = ui()
+    wiz.screen = Screen.STOPPING
+    app._draw()
+    app.root.update_idletasks()
+    assert "Stopping" in app._progress_label.cget("text")
+    assert "Elapsed:" in app._progress_label.cget("text")
+    assert "remaining" not in app._progress_label.cget("text")

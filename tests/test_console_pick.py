@@ -142,7 +142,7 @@ def test_plain_working_hint_does_not_promise_typing(capsys):
     import inspect
 
     src = inspect.getsource(C._plain_loop_body)
-    working = src.split("Screen.WORKING", 1)[1].split("Screen.DONE", 1)[0]
+    working = src.split("if screen == Screen.WORKING:", 1)[1].split("Screen.DONE", 1)[0]
     assert "input(" not in working.replace("via input()", "")
     out = working
     assert "type 'cancel'" not in out
@@ -234,7 +234,7 @@ def test_curses_pick_shows_serial_and_same_size_hint():
     assert "disk.path" in text
     assert "BOOT_DISC_BANNER" in text
     assert "listed_disks" in text
-    assert "wizard.progress is None" in text
+    assert "wizard.progress_view.status_text" in text
     assert "no serial" in text
 
 

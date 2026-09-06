@@ -20,7 +20,7 @@ from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
 from beamo_wipe.models import Screen  # noqa: E402
-from beamo_wipe.wizard import Wizard, format_progress_percent  # noqa: E402
+from beamo_wipe.wizard import Wizard  # noqa: E402
 
 
 class AccessibleWizard:
@@ -260,6 +260,7 @@ class AccessibleWizard:
         elif screen == Screen.STOPPING:
             heading.set_text("Stopping erase")
             self.label("Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.")
+            self.progress_label = self.label("")
         elif screen == Screen.WORKING:
             heading.set_text(C.WORKING_PULSE)
             self.identity()
@@ -298,6 +299,7 @@ class AccessibleWizard:
             )
             self.identity()
             self.label(self.w.method_summary)
+            self.label(self.w.elapsed_text)
             report = self.w.report_view
             if report.evidence_error:
                 self.label(self.w.evidence_warning)
@@ -415,12 +417,11 @@ class AccessibleWizard:
             )
             self.primary.set_sensitive(self.w.erase_enabled)
         if self.progress_label:
-            percent = (
-                "Progress not reported"
-                if self.w.progress is None
-                else format_progress_percent(self.w.progress)
-            )
-            self.progress_label.set_text(f"{percent}. {C.WORKING_PULSE}")
+            text = self.w.progress_view.status_text
+            # Integer percentage, minute elapsed, coarse ETA; no 100 ms
+            # duplicate ATK text-change events or focus theft.
+            if self.progress_label.get_text() != text:
+                self.progress_label.set_text(text)
         if self.error_label:
             message = self.w.error or ""
             changed = self.error_label.get_text() != message

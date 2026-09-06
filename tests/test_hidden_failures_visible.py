@@ -106,7 +106,7 @@ def test_pick_blocked_logs_but_does_not_expose_diagnostic():
 
 def test_console_progress_is_formatted_not_raw():
     txt = Path("src/beamo_wipe/ui/console_wizard.py").read_text(encoding="utf-8")
-    assert "format_progress_percent(wizard.progress)" in txt
+    assert "wizard.progress_view.status_text" in txt
     # Plain loop no longer prints raw float
     assert 'pct = "—" if wizard.progress is None else wizard.progress' not in txt
 

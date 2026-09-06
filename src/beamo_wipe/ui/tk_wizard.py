@@ -1093,7 +1093,7 @@ class TkWizard:
                 self._draw()
             elif self.w.screen == Screen.LAST_CHANCE:
                 self._refresh_last_chance()
-            elif self.w.screen == Screen.WORKING:
+            elif self.w.screen in {Screen.WORKING, Screen.STOPPING}:
                 self._refresh_working()
             self._after_id = self.root.after(100, self._tick)
         except tk.TclError as exc:
@@ -1932,6 +1932,9 @@ class TkWizard:
             col, message, fg=MUTED, font=self.font_b,
             wraplength=700, justify=tk.CENTER, anchor="center",
         ).pack(fill=tk.X)
+        if self.w.screen == Screen.STOPPING:
+            self._progress_label = self._p(col, self.w.progress_view.timing_text, fg=MUTED)
+            self._progress_label.pack(fill=tk.X, pady=(12, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
 
     def _blocked(self) -> None:
@@ -2362,21 +2365,24 @@ class TkWizard:
     def _refresh_working(self) -> None:
         if self._progress_label is None:
             return
-        pulse = f"{C.METHOD_CARDS[self.w.method]['title']}.  {C.WORKING_PULSE}"
-        pct = self.w.progress
+        view = self.w.progress_view
+        pulse = view.timing_text
+        pct = view.percent
         if pct is None:
             # nwipe has not reported a number yet: slide a segment back and
             # forth so the screen never looks frozen.
             if self._progress_pct is not None:
                 self._progress_pct.configure(text="")
-            self._progress_label.configure(text=pulse)
+            if self._progress_label.cget("text") != pulse:
+                self._progress_label.configure(text=pulse)
             self._indet = (self._indet + 0.045) % 2.0
             pos = self._indet if self._indet <= 1.0 else 2.0 - self._indet
             self._paint_bar(None, pos)
         else:
             if self._progress_pct is not None:
                 self._progress_pct.configure(text=format_progress_percent(pct))
-            self._progress_label.configure(text=pulse)
+            if self._progress_label.cget("text") != pulse:
+                self._progress_label.configure(text=pulse)
             self._paint_bar(max(0.02, pct / 100.0))
 
     def _paint_bar(self, frac: Optional[float], indet_pos: float = 0.0) -> None:
@@ -2413,6 +2419,8 @@ class TkWizard:
         self._p(
             col, msg, font=self.font_b, wraplength=700, justify=tk.CENTER, anchor="center"
         ).pack(fill=tk.X)
+        self._p(col, self.w.elapsed_text, fg=MUTED, font=self.font_s,
+                justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(4, 0))
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
         self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
         if report.evidence_error:

@@ -15,7 +15,7 @@ from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
 from beamo_wipe.models import MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
-from beamo_wipe.wizard import Wizard, format_progress_percent
+from beamo_wipe.wizard import Wizard
 
 
 ENTER_RELEASE_QUIET_S = 1.0
@@ -91,14 +91,17 @@ def _plain_loop(wizard: Wizard) -> int:
 
 
 def _plain_loop_body(wizard: Wizard) -> int:
+    last_working = None
     while not wizard.wants_shutdown:
         wizard.tick()
         screen = wizard.screen
-        print("\n" + "=" * 60)
-        print(C.APP_NAME, screen.value)
-        if wizard.preview:
-            print(C.PREVIEW_BANNER)
-        print("=" * 60)
+        if screen != Screen.WORKING:
+            print("\n" + "=" * 60)
+            print(C.APP_NAME, screen.value)
+            last_working = None
+            if wizard.preview:
+                print(C.PREVIEW_BANNER)
+            print("=" * 60)
         if screen == Screen.SHUTDOWN_CONFIRM:
             print(C.SHUTDOWN_TITLE)
             print(textwrap.fill(C.SHUTDOWN_LOSS, 76))
@@ -235,19 +238,16 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.back()
             continue
         if screen == Screen.WORKING:
-            pct = "—" if wizard.progress is None else format_progress_percent(wizard.progress)
-            print(C.WORKING_PULSE, pct, "  [type CANCEL then Enter to interrupt]")
-            if wizard.error:
-                print(wizard.error)
-            if wizard.evidence_error:
-                print(wizard.evidence_warning)
-            if wizard.selected:
-                print(
-                    wizard.selected.display_name,
-                    wizard.selected.size_phrase,
-                    wizard.selected.path,
-                    wizard.selected.serial or "no serial",
-                )
+            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning)
+            if status != last_working:
+                print(status[0], "  [type CANCEL then Enter to interrupt]")
+                for warning in status[1:]:
+                    if warning:
+                        print(warning)
+                if last_working is None and wizard.selected:
+                    print(wizard.selected.display_name, wizard.selected.size_phrase,
+                          wizard.selected.path, wizard.selected.serial or "no serial")
+                last_working = status
             # Poll canonical TTY input without blocking progress updates.
             # This remains usable when the hardened kiosk disables INTR.
             try:
@@ -257,11 +257,13 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     if typed == "":
                         raise EOFError
                     if typed.strip().casefold() == "cancel":
+                        print("Stopping erase. Waiting for process termination and cleanup.")
                         wizard.cancel_wipe()
             except (OSError, ValueError):
                 time.sleep(0.3)
             continue
         if screen == Screen.DONE:
+            print(wizard.elapsed_text)
             report = wizard.report_view
             print(wizard.method_summary)
             print(wizard.method_result)
@@ -472,22 +474,19 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 _wrap(stdscr, y + 2, wizard.error, w)
             _add(stdscr, y + 3, 0, f"Wait {wizard.countdown_display}s" if not wizard.erase_enabled else "Enter to erase.")
         elif wizard.screen == Screen.WORKING:
-            _add(stdscr, y, 0, C.WORKING_PULSE)
-            if wizard.progress is None:
-                _add(stdscr, y + 2, 0, "—")
-            else:
-                _add(stdscr, y + 2, 0, format_progress_percent(wizard.progress))
+            progress_end = _wrap(stdscr, y, wizard.progress_view.status_text, w)
+            identity_y = max(y + 4, progress_end + 1)
             if wizard.selected:
-                _add(stdscr, y + 4, 0, f"{wizard.selected.display_name} {wizard.selected.size_phrase}")
+                _add(stdscr, identity_y, 0, f"{wizard.selected.display_name} {wizard.selected.size_phrase}")
                 _add(
                     stdscr,
-                    y + 5,
+                    identity_y + 1,
                     0,
                     f"{wizard.selected.path}  {wizard.selected.serial or 'no serial'}",
                 )
             # A failed cancel stays on WORKING with wizard.error set: show it
             # so the owner knows the disk may still be erasing.
-            message_y = y + 6
+            message_y = identity_y + 2
             if wizard.error:
                 message_y = _wrap(stdscr, message_y, wizard.error, w)
             if wizard.evidence_warning:
@@ -497,7 +496,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             report = wizard.report_view
             y = _wrap(stdscr, y, wizard.method_summary, w)
             y = _wrap(stdscr, y, wizard.method_result, w)
-            content = wizard.result_view.next_step
+            content = wizard.elapsed_text + "\n" + wizard.result_view.next_step
             if not wizard.preview:
                 content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             if report.evidence_error:
@@ -590,6 +589,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             continue
         if wizard.screen not in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED, Screen.DONE}:
             limits_offset = 0
+        if wizard.screen == Screen.WORKING and ch == 27:
+            stdscr.erase()
+            _wrap(stdscr, 0, "Stopping erase. Waiting for process termination and cleanup. The disk may still be erasing.", w)
+            stdscr.refresh()
         _handle(wizard, ch)
     return 0
 

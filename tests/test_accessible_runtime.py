@@ -592,3 +592,26 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
     finally:
         barrier.join(w)
     wait_transition(app)
+
+
+def test_accessible_progress_has_shared_text_without_duplicate_announcements(ui):
+    from unittest.mock import PropertyMock, patch
+    from beamo_wipe.progress import ProgressView
+    from beamo_wipe.wizard import Wizard
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.WORKING
+    view = ProgressView("Verifying", 82, 90061, 7200)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=view):
+        app = ui(wizard)
+        label = app.progress_label
+        changes = []
+        label.connect("notify::label", lambda *_: changes.append(True))
+        app.update_status()
+        baseline = len(changes)
+        for _ in range(20):
+            app.update_status()
+        assert len(changes) == baseline
+        assert label.get_text() == view.status_text
+        assert label.get_accessible().get_name() == view.status_text
+        assert "Estimated time remaining: about 2 hours" in text(app)

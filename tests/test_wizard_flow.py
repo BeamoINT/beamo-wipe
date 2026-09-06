@@ -589,7 +589,10 @@ def test_working_uis_never_round_percent_with_point_zero_f():
     assert "format_progress_percent" in tk_src
     assert ":.0f" not in tk_src
     console_src = inspect.getsource(_loop)
-    assert "format_progress_percent" in console_src
+    assert "progress_view.status_text" in console_src
+    from beamo_wipe.progress import ProgressView
+    for pct in (99.5, 99.9, 99.99):
+        assert ProgressView("Writing", pct, 60).status_text.startswith("99%.")
     assert ":.0f" not in console_src
 
 

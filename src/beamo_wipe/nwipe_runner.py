@@ -23,6 +23,7 @@ from beamo_wipe.methods import (
     NwipeMethodSpec,
 )
 from beamo_wipe.models import WipeRequest, WipeResult
+from beamo_wipe.progress import Observation
 from beamo_wipe.safety import (
     CLEAN_SUBPROCESS_ENV,
     SafetyError,
@@ -596,6 +597,8 @@ class NwipeRunner:
         self._lock_fd: Optional[int] = None
         self._cleanup_failed = False
         self._cancelling: Optional[subprocess.Popen] = None
+        self.progress_observation: Optional[Observation] = None
+        self.finalizing = False
         self.progress: Optional[float] = None
         self.result: Optional[WipeResult] = None
         self._log_tail = ""
@@ -666,6 +669,8 @@ class NwipeRunner:
                 raise
             self.result = None
             self.progress = None
+            self.progress_observation = None
+            self.finalizing = False
             self._log_tail = ""
             self._last_sigusr1 = 0.0
             self._sigusr1_armed = False
@@ -743,6 +748,7 @@ class NwipeRunner:
                 except (ProcessLookupError, OSError, AttributeError) as exc:
                     _try_log_diag("nwipe", "sigusr1_failed", type(exc).__name__)
             return None
+        self.finalizing = True
         log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
         if log_text:
             self._log_tail = log_text
@@ -820,8 +826,12 @@ class NwipeRunner:
     def _refresh_progress(self, logfile: str, device: str) -> None:
         text = self._read_log_tail(logfile, 8000)
         if not text:
+            self.progress_observation = None
             return
         self._log_tail = text
+        from beamo_wipe.progress import observe
+
+        self.progress_observation = observe(text, device)
         percent = _target_job_percent(text, device)
         if percent is not None:
             self._update_progress(percent)

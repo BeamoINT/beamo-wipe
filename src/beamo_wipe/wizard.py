@@ -40,6 +40,7 @@ from beamo_wipe.safety import (
     token_matches,
 )
 from beamo_wipe.nwipe_runner import NwipeRunner, build_nwipe_argv
+from beamo_wipe.progress import ProgressTiming, ProgressView
 
 
 if TYPE_CHECKING:
@@ -164,6 +165,11 @@ class Wizard:
         # Evidence bookkeeping (auditable, off-target)
         self._evidence_start_wall: Optional[str] = None
         self._evidence_start_mono: Optional[float] = None
+        self._evidence_end_mono: Optional[float] = None
+        self._evidence_end_wall = ""
+        self._progress_timing = ProgressTiming(self._clock, time.time)
+        self._display_progress: Optional[ProgressView] = None
+        self._display_progress_at = 0.0
         self._evidence_argv: Optional[list[str]] = None
         self.evidence: Optional[dict] = None  # type: ignore[type-arg]
         self.evidence_path: Optional[str] = None
@@ -346,6 +352,53 @@ class Wizard:
     @property
     def progress(self) -> Optional[float]:
         return getattr(self.runner, "progress", None)
+
+    @property
+    def progress_view(self) -> ProgressView:
+        with self._lock:
+            observation = getattr(self.runner, "progress_observation", None)
+            spec = METHODS[self.method]
+            final_operation = bool(
+                observation and observation.counters[0] == observation.counters[1]
+                and 0 < observation.counters[2] == observation.counters[3]
+                and (observation.phase == "Verifying" and spec.verify == "last"
+                     or observation.phase == "Writing" and spec.verify == "off")
+            )
+            timing = self._progress_timing.view(observation, final_operation)
+            phase = timing.phase
+            if phase == "Preparing" and self.progress is not None:
+                phase = "Phase not reported"
+            remaining = timing.remaining
+            if self.screen == Screen.STOPPING:
+                phase, remaining = "Stopping", None
+                self._progress_timing.clear_estimate()
+            elif getattr(self.runner, "finalizing", False):
+                phase, remaining = "Finalizing", None
+                self._progress_timing.clear_estimate()
+            if self.wipe_result is not None or self._recovered:
+                remaining = None
+            percent = self.progress
+            now = self.now
+            previous = self._display_progress
+            # Share one displayed percentage across every interface. Phase,
+            # estimate suppression and terminal results are never delayed.
+            if (previous is not None and previous.phase == phase
+                    and percent is not None and previous.percent is not None
+                    and self.wipe_result is None and 0 <= now - self._display_progress_at < 5):
+                percent = previous.percent
+            else:
+                self._display_progress_at = now
+            view = ProgressView(phase, percent, timing.elapsed, remaining)
+            self._display_progress = view
+            return view
+
+    @property
+    def elapsed_text(self) -> str:
+        from beamo_wipe.progress import duration
+        if self._recovered:
+            value = (self.evidence or {}).get("timestamps", {}).get("duration_s")
+            return "Elapsed: " + duration(value)
+        return "Elapsed: " + duration(self.progress_view.elapsed)
 
     @staticmethod
     def _result_evidence_key(result: WipeResult) -> str:
@@ -880,6 +933,10 @@ class Wizard:
                     wall = ""
                 self._evidence_start_wall = wall
                 self._evidence_start_mono = self.now
+                self._evidence_end_mono = None
+                self._progress_timing = ProgressTiming(self._clock, time.time)
+                self._progress_timing.start(self._evidence_start_mono)
+                self._display_progress = None
                 try:
                     # Build redacted argv now (never contains secrets; already sanitized)
                     self._evidence_argv = list(build_nwipe_argv(request))
@@ -911,6 +968,15 @@ class Wizard:
                 return
             if self.screen == Screen.DONE and self.wipe_result is not None:
                 return
+            self._evidence_end_mono = self.now
+            try:
+                from beamo_wipe.evidence import _iso_now_wall
+                self._evidence_end_wall = self._wall_clock() if self._wall_clock else _iso_now_wall()
+            except Exception:
+                self._evidence_end_wall = ""
+            self._progress_timing.finish(self._evidence_end_mono)
+            if self._progress_timing.invalid_clock:
+                self._evidence_end_mono = None
             self.wipe_result = result
             self.screen = Screen.DONE
             self._done_keyboard_armed = False
@@ -927,6 +993,7 @@ class Wizard:
             if self._wipe_request is None or self.screen != Screen.WORKING or self._cancel_requested:
                 return False
             self._cancel_requested = True
+            self._progress_timing.clear_estimate()
             self.screen = Screen.STOPPING
             self.error = None
             return True
@@ -1087,9 +1154,11 @@ class Wizard:
                 except Exception:
                     pass
                 end_wall = ""
+            if result is not None:
+                end_wall = self._evidence_end_wall
             start_wall = self._evidence_start_wall or ""
             start_mono = self._evidence_start_mono
-            end_mono = self.now if result is not None else None
+            end_mono = self._evidence_end_mono if result is not None else None
             # If STARTED evidence has no start yet, use current as both
             if start_wall == "" and result is None and self._wipe_request is not None:
                 start_wall = end_wall
