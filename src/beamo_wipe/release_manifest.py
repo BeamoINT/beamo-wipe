@@ -211,6 +211,7 @@ def live_build_inputs() -> Dict[str, Any]:
         "helper/index.html",
         "scripts/build-iso.sh",
         "scripts/build-desktop.sh",
+        "scripts/build-usb-image.sh",
         "scripts/ci-desktop.sh",
         "packaging/live/inside-docker.sh",
     ):

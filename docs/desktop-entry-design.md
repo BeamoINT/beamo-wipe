@@ -4,10 +4,10 @@ Status: implementation in progress, 2026-09-06. No new platform claim is establi
 
 ## Customer flow
 
-Insert the USB, open Start Beamo Wipe, choose the intended job, check readiness,
+Insert the USB, open Start Beamo Wipe, let the automatic read-only check finish,
 and explicitly request a restart. The live wizard remains the only erase engine
 entry. It asks for ownership, exact target confirmation, and the existing delay.
-Neither a restart request nor a desktop choice authorizes an erase after boot.
+A restart request never authorizes an erase after boot.
 Ordinary BIOS/UEFI boot remains independent of the desktop launcher.
 
 The first delivery keeps both system and separate-drive erasure offline. The
@@ -24,13 +24,9 @@ No decorative dashboard, algorithm menu, or device-path selector. The browser
 is only a local presentation surface; no internet or account is required.
 
     Beamo Wipe                         Close
-    What would you like to erase?
-    [ This computer ]   [ Another drive ]
-    Restart required. Nothing is erased here.
-
-    Ready to restart
+    Ready for a guided restart
     Save your work. You choose and confirm the disk after restarting.
-    [ Restart into Beamo Wipe ]   [ Back ]
+    [ Restart into Beamo Wipe ]
 
 ## Restart boundary
 
@@ -56,8 +52,8 @@ is only a local presentation surface; no internet or account is required.
 Bind an ephemeral IPv4 loopback port. Require the exact Host and Origin plus
 a random per-process token for API calls. Serve only embedded assets, prohibit
 framing and external content, reject other methods and malformed bodies, and
-never place device identifiers in browser responses. Confirm restart in a
-separate step. Repeated requests cannot start concurrent helpers. Close and
+never place device identifiers in browser responses. Require an explicit restart
+button after the check. Repeated requests cannot start concurrent helpers. Close and
 idle timeout end the process; it is not an installed background service.
 
 ## Required evidence
@@ -70,3 +66,27 @@ environments. Run existing Python, hosted ISO, BIOS and UEFI gates; add a
 Secure Boot gate using enrolled firmware before advertising it. Test the
 launcher from the flashed-media layout, not only extracted files. Physical
 machines and novice usability remain distinct evidence requirements.
+
+## Packaging and remaining compatibility boundaries
+
+The ISO remains the ordinary optical/hybrid boot artifact. A separate `.img`
+uses one active FAT32 MBR partition, so Windows can expose the application
+files. Its BIOS loader is Syslinux; its EFI files come from the signed Debian
+ISO. The image builder accepts no physical-device or output-path argument:
+it creates regular files only, verifies the source ISO provenance, and reads
+both launchers back through FAT32. The hosted gate boots this actual image.
+
+Opening files is explicit. Windows may show publisher/reputation warnings;
+the current Windows executable has no Authenticode signature. Linux desktop
+file execution/trust rules vary, and a noexec mount cannot run this ELF directly.
+No automatic insertion launch or universal double-click claim is justified.
+An exact existing USB Boot#### entry is required for direct restart; firmware
+that exposes only a generic USB path receives manual boot instructions.
+Windows applications can veto a requested restart after ExitWindowsEx returns;
+then BootNext may remain for the next restart. This never authorizes erasure.
+
+Native Windows Server runtime tests cover the actual Win32 read-only API and
+PowerShell inventory parser with simulated disks. They do not establish
+Windows 10/11 Explorer, SmartScreen, UAC, USB mounting, or firmware handoff
+behavior. Linux unit tests and OVMF boot tests do not replace novice or physical
+hardware acceptance testing. Keep these limits in the release evidence.

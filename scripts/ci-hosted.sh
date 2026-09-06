@@ -59,7 +59,7 @@ install_qemu_deps() {
     qemu-system-x86 \
     qemu-utils \
     ovmf \
-    genisoimage \
+    genisoimage xorriso mtools syslinux syslinux-common \
     debsecan \
     file \
     sudo \
@@ -200,6 +200,7 @@ run_qemu() {
     return 0
   fi
   log "controlled QEMU verification (disposable qcow2, TCG where KVM absent)"
+  ./scripts/build-usb-image.sh
   BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.5}" ./scripts/qemu-verify.sh
   # Copy private temporary evidence into the ignored workspace directory for
   # the explicit post-QEMU publisher. Verification-only builds discard it.

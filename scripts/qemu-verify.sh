@@ -36,6 +36,7 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 2
 fi
 ISO="$ROOT/dist/beamo-wipe-${VERSION}-amd64.iso"
+USB_IMAGE="$ROOT/dist/beamo-wipe-${VERSION}-amd64.img"
 MANIFEST="$ROOT/dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 [[ -f "$ISO" && -f "$MANIFEST" ]] || {
   echo "ABORT: exact versioned ISO and manifest are required" >&2
@@ -200,6 +201,7 @@ git rev-parse HEAD >"$EVIDENCE_DIR/source-commit.txt"
 (
   cd "$ROOT/dist"
   sha256sum -c "$(basename "$ISO").sha256"
+  sha256sum -c "$(basename "$USB_IMAGE").sha256"
   sha256sum -c "$(basename "$MANIFEST").sha256"
 ) >"$EVIDENCE_DIR/checksums.txt" 2>&1
 log "artifact checksums verified"
@@ -808,7 +810,7 @@ boot_probe() {
   if [[ "$label" == secureboot-usb ]]; then machine="q35,accel=kvm:tcg,smm=on"; fi
   local media_args=(-cdrom "$ISO" -boot order=d)
   if [[ "$label" == *-usb ]]; then
-    media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=on,file=$ISO"
+    media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=on,file=$USB_IMAGE"
       -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,bootindex=1")
   fi
   qemu-system-x86_64 -machine "$machine" -m 1024 -nic none \

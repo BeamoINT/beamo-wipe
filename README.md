@@ -9,6 +9,20 @@ and this wizard. You do not pay for a secret wipe algorithm.
 > **No warranty.** See [LICENSE](LICENSE) (GPL-3.0-or-later) and [NOTICE](NOTICE).
 > Owner-operated sanitization before recycle or resale. Not a lab certificate.
 
+## Desktop entry (development)
+
+The new Windows and Linux launchers provide a local readiness check and an
+explicit **Restart into Beamo Wipe** action when firmware exposes an exact USB
+boot entry. They never erase a disk. Booting the USB normally remains available.
+A separate FAT32 `.img` is intended for the desktop-readable USB layout; the
+`.iso` remains available for conventional booting.
+
+This is an implementation under validation, not a new universal compatibility
+claim. Both system and separate-drive erasure still require the offline live
+environment. Opening the application and approving permissions are explicit;
+Windows publisher warnings and Linux execution policies still apply. See
+[desktop design and evidence limits](docs/desktop-entry-design.md).
+
 ## See the UI on this computer
 
 Nothing is erased. Fake disks only. This is the way to look at the screens
