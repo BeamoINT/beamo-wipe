@@ -27,6 +27,12 @@ substitutions:
   _PUBLISH_RELEASE: "false"
 
 steps:
+  - id: desktop-launchers
+    name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+    waitFor: ['-']
+    entrypoint: bash
+    args: ['scripts/ci-desktop.sh']
+
   - id: lint
     name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
     waitFor: ['-']
@@ -69,7 +75,7 @@ steps:
 
   - id: iso-build
     name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
-    waitFor: ['negative-test']
+    waitFor: ['negative-test', 'desktop-launchers']
     entrypoint: bash
     env:
       - SKIP_ISO=${_SKIP_ISO}

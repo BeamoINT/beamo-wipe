@@ -45,7 +45,8 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     assert "waitFor: ['python-tests', 'lint', 'preview']" in cfg
     iso_at = cfg.find("  - id: iso-build\n")
     assert iso_at != -1
-    assert "waitFor: ['negative-test']" in cfg[iso_at:qemu_at]
+    assert "waitFor: ['negative-test', 'desktop-launchers']" in cfg[iso_at:qemu_at]
+    assert "scripts/ci-desktop.sh" in cfg
     iso_step = cfg[iso_at:qemu_at]
     assert "ca-certificates docker.io git python3" in iso_step
     submit = (ROOT / "scripts" / "ci-cloud.sh").read_text(encoding="utf-8")

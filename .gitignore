@@ -48,6 +48,9 @@ packaging/live/config/includes.binary/README.txt
 packaging/live/config/includes.binary/NOTICE
 packaging/live/config/includes.binary/LICENSE
 packaging/live/config/includes.binary/SOURCE.txt
+packaging/live/config/includes.binary/Start Beamo Wipe.exe
+packaging/live/config/includes.binary/Start Beamo Wipe Linux
+packaging/live/config/includes.binary/desktop-build.json
 
 # Generated browser gallery (./preview --web)
 /web-preview/

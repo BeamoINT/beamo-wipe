@@ -4,6 +4,8 @@ live-boot
 live-config
 live-config-systemd
 linux-image-amd64
+shim-signed
+grub-efi-amd64-signed
 systemd-sysv
 python3
 python3-tk

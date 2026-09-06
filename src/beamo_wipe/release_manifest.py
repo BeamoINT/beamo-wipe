@@ -198,9 +198,20 @@ def live_build_inputs() -> Dict[str, Any]:
     if not source_files:
         raise RuntimeError("missing shipped wrapper source")
     inputs["src/beamo_wipe/"] = src_h.hexdigest()
+    desktop_h = hashlib.sha256()
+    for sub in sorted((ROOT / "desktop").rglob("*")):
+        if sub.is_symlink():
+            raise RuntimeError("desktop source contains a symlink")
+        if sub.is_file():
+            rel = str(sub.relative_to(ROOT)).encode()
+            desktop_h.update(f"{len(rel)}:".encode() + rel)
+            desktop_h.update(sha256_file(sub).encode())
+    inputs["desktop/"] = desktop_h.hexdigest()
     for rel in (
         "helper/index.html",
         "scripts/build-iso.sh",
+        "scripts/build-desktop.sh",
+        "scripts/ci-desktop.sh",
         "packaging/live/inside-docker.sh",
     ):
         path = ROOT / rel

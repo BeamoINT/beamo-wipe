@@ -52,6 +52,7 @@ lb config \
   --debootstrap-options "--variant=minbase" \
   --binary-images iso-hybrid \
   --bootloaders syslinux,grub-efi \
+  --uefi-secure-boot enable \
   --debian-installer none \
   --memtest none \
   --win32-loader false \

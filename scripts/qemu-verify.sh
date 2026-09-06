@@ -799,18 +799,25 @@ drive_report_export() {
 }
 
 boot_probe() {
-  local label="$1" exercise_export="$2" qmp_socket pid
+  local label="$1" exercise_export="$2" qmp_socket pid machine
   shift 2
   qmp_socket="$RUN_ROOT/${label}.qmp"
   rm -f -- "$qmp_socket"
   : >"$EVIDENCE_DIR/${label}-serial.txt"
-  qemu-system-x86_64 -machine accel=kvm:tcg -m 1024 -nic none \
-    "$@" -cdrom "$ISO" \
+  machine="pc,accel=kvm:tcg"
+  if [[ "$label" == secureboot-usb ]]; then machine="q35,accel=kvm:tcg,smm=on"; fi
+  local media_args=(-cdrom "$ISO" -boot order=d)
+  if [[ "$label" == *-usb ]]; then
+    media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=on,file=$ISO"
+      -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,bootindex=1")
+  fi
+  qemu-system-x86_64 -machine "$machine" -m 1024 -nic none \
+    -device qemu-xhci,id=beamo-xhci \
+    "$@" "${media_args[@]}" \
     -blockdev "driver=file,node-name=beamo-target-file,filename=$TARGET" \
     -blockdev "driver=qcow2,node-name=beamo-target,file=beamo-target-file" \
     -device "virtio-blk-pci,drive=beamo-target,serial=$QEMU_TARGET_SERIAL" \
-    -device qemu-xhci,id=beamo-xhci \
-    -boot order=d -display none -serial "file:$EVIDENCE_DIR/${label}-serial.txt" \
+    -display none -serial "file:$EVIDENCE_DIR/${label}-serial.txt" \
     -qmp "unix:$qmp_socket,server=on,wait=off" \
     -no-reboot >"$EVIDENCE_DIR/${label}-qemu.txt" 2>&1 &
   pid=$!
@@ -823,6 +830,9 @@ boot_probe() {
     echo "QEMU $label never rendered the shipped Tk WHAT screen" >&2
     return 1
   }
+  if [[ "$label" == secureboot-usb ]]; then
+    wait_for_marker "$label" 'BEAMO_WIPE_SECURE_BOOT=1' 20
+  fi
   if [[ "$exercise_export" == yes ]]; then
     drive_report_export "$label" "$qmp_socket"
   fi
@@ -963,7 +973,24 @@ else
   boot_probe uefi no -bios "$OVMF_CODE"
 fi
 
-printf 'iso_sha256=%s\nnwipe_sha256=%s\nbios=pass\nuefi=pass\nreport_export=pass\n' \
+boot_probe bios-usb no
+cp "$OVMF_VARS" "$RUN_ROOT/ovmf-usb-vars.fd"
+boot_probe uefi-usb no \
+  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-usb-vars.fd"
+
+# Enrolled Microsoft keys and SMM enforcement. A bare OVMF boot is not
+# Secure Boot evidence. The guest must report the actual firmware variable.
+SECURE_CODE=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+SECURE_VARS=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
+[[ -f "$SECURE_CODE" && -f "$SECURE_VARS" ]] || { echo "Enrolled Secure Boot firmware missing" >&2; exit 2; }
+cp "$SECURE_VARS" "$RUN_ROOT/secureboot-vars.fd"
+boot_probe secureboot-usb no \
+  -global driver=cfi.pflash01,property=secure,value=on \
+  -drive "if=pflash,format=raw,readonly=on,file=$SECURE_CODE" \
+  -drive "if=pflash,format=raw,file=$RUN_ROOT/secureboot-vars.fd"
+
+printf 'iso_sha256=%s\nnwipe_sha256=%s\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nreport_export=pass\n' \
   "$(sha256sum "$ISO" | awk '{print $1}')" "$shipped_sha" \
   >"$EVIDENCE_DIR/summary.txt"
 log "PASS; evidence=$EVIDENCE_DIR"

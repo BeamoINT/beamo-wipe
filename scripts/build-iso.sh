@@ -96,6 +96,23 @@ path.write_text(json.dumps(identity, sort_keys=True) + "\n", encoding="ascii")
 PYIDENTITY
 cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"
 cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"
+# A local build compiles launchers; hosted CI supplies the exact tested pair.
+if [ ! -f "$ROOT/dist/desktop/desktop-build.json" ]; then
+  "$ROOT/scripts/build-desktop.sh"
+fi
+python3 - "$ROOT" <<'PYDESKTOP'
+import hashlib,json,pathlib,subprocess,sys
+root=pathlib.Path(sys.argv[1]);out=root/'dist/desktop'
+manifest=json.loads((out/'desktop-build.json').read_text())
+source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
+if manifest['source_commit']!=source: raise SystemExit('Desktop launchers are from a different source commit; rebuild them')
+for name in ('Start Beamo Wipe.exe','Start Beamo Wipe Linux'):
+    if hashlib.sha256((out/name).read_bytes()).hexdigest()!=manifest['files'].get(name):
+        raise SystemExit('Desktop launcher checksum mismatch')
+PYDESKTOP
+cp "$ROOT/dist/desktop/Start Beamo Wipe.exe" "$STAGE_BIN/Start Beamo Wipe.exe"
+cp "$ROOT/dist/desktop/Start Beamo Wipe Linux" "$STAGE_BIN/Start Beamo Wipe Linux"
+cp "$ROOT/dist/desktop/desktop-build.json" "$STAGE_BIN/desktop-build.json"
 cp "$ROOT/NOTICE" "$STAGE_DOC/NOTICE"
 cp "$ROOT/LICENSE" "$STAGE_DOC/LICENSE"
 cp "$ROOT/THIRD_PARTY.md" "$STAGE_DOC/THIRD_PARTY.md"
@@ -106,6 +123,10 @@ printf '%s\n' "Source: https://github.com/BeamoINT/beamo-wipe" > "$STAGE_DOC/SOU
 cat > "$STAGE_BIN/README.txt" <<'EOF'
 Beamo Wipe
 This USB is a bootable nwipe front-end. It does not wipe from Windows.
+On Windows: open Start Beamo Wipe.exe and approve the permission prompt.
+On supported Linux desktops: open Start Beamo Wipe Linux.
+The launcher checks readiness and offers a guided restart when supported.
+You still choose and confirm the disk after restarting. Nothing erases automatically.
 Open START-HERE.html for boot-menu keys.
 Engine: nwipe (GPL). Wrapper: GPL-3.0-or-later. NO WARRANTY.
 https://github.com/BeamoINT/beamo-wipe
