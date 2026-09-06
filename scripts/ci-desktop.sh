@@ -5,7 +5,7 @@ ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 TOOL_ROOT="$(mktemp -d /tmp/beamo-wipe-go.XXXXXX)"
 trap 'rm -rf -- "$TOOL_ROOT"' EXIT
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends ca-certificates python3 git gcc libc6-dev
+apt-get install -y -qq --no-install-recommends ca-certificates python3 git gcc libc6-dev util-linux
 python3 - "$TOOL_ROOT" <<'PY'
 import hashlib,pathlib,sys,urllib.request
 root=pathlib.Path(sys.argv[1]);path=root/'go.tar.gz'

@@ -160,6 +160,12 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 	return string(id), parts, nil
 }
 
+func linuxInventory(ctx context.Context) ([]byte, error) {
+	// PATH alone does not enable lsblk's JSON children arrays. Explicit tree
+	// output preserves the disk ancestry required to identify the mounted USB.
+	return linuxCommand(ctx, "/usr/bin/lsblk", "--json", "--tree", "--bytes", "--output", "PATH,TYPE,TRAN,SERIAL,WWN,SIZE,PARTUUID,PTUUID,START,MAJ:MIN,LOG-SEC")
+}
+
 func nativeX64() bool {
 	var info syscall.Utsname
 	if syscall.Uname(&info) != nil {
@@ -219,7 +225,7 @@ func platformProbe(ctx context.Context) Snapshot {
 		s.Problem = "media"
 		return s
 	}
-	data, err := linuxCommand(ctx, "/usr/bin/lsblk", "--json", "--bytes", "--output", "PATH,TYPE,TRAN,SERIAL,WWN,SIZE,PARTUUID,PTUUID,START,MAJ:MIN,LOG-SEC")
+	data, err := linuxInventory(ctx)
 	if err != nil {
 		s.Problem = "media"
 		return s

@@ -2,9 +2,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 const linuxFixture = `{"blockdevices":[{"path":"/dev/sdb","type":"disk","tran":"usb","serial":"BEAMO123","size":8000000000,"maj:min":"8:16","ptuuid":"12345678","log-sec":512,"children":[{"path":"/dev/sdb1","type":"part","partuuid":"12345678-01","start":2048,"size":2097152}]}]}`
@@ -50,5 +52,41 @@ func TestLinuxDuplicateMediaIdentitiesRefused(t *testing.T) {
 	}
 	if _, _, err := linuxMedia(data, "/dev/sdb1"); err == nil {
 		t.Fatal("cloned partition identity accepted")
+	}
+}
+
+// Exercise the actual installed utility, not a hand-authored JSON fixture.
+// This catches loss of parent relationships when changing lsblk columns.
+func TestLinuxInventoryRetainsPartitionParents(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	data, err := linuxInventory(ctx)
+	if err != nil {
+		t.Fatalf("native lsblk inventory failed: %v", err)
+	}
+	var inventory struct {
+		Devices []linuxNode `json:"blockdevices"`
+	}
+	if err := json.Unmarshal(data, &inventory); err != nil {
+		t.Fatal(err)
+	}
+	partitions := 0
+	var inspect func(linuxNode, bool)
+	inspect = func(node linuxNode, hasParent bool) {
+		if node.Type == "part" {
+			partitions++
+			if !hasParent {
+				t.Error("partition lost its parent in actual lsblk output")
+			}
+		}
+		for _, child := range node.Children {
+			inspect(child, true)
+		}
+	}
+	for _, node := range inventory.Devices {
+		inspect(node, false)
+	}
+	if partitions == 0 {
+		t.Skip("worker exposes no partitions; virtual USB handoff coverage is required")
 	}
 }
