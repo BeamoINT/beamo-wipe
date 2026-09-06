@@ -1066,27 +1066,33 @@ def test_busy_transition_renders_and_pumps_events(ui, monkeypatch, tmp_path, pha
     if phase == "checking":
         original = w.runner.start
         def slow(request):
-            barrier.wait(); original(request)
+            barrier.wait()
+            original(request)
         monkeypatch.setattr(w.runner, "start", slow)
         app._nav(w.begin_erase)()
     else:
-        w.confirm_erase(); app._draw()
+        w.confirm_erase()
+        app._draw()
         original = w.runner.cancel
         def slow():
-            barrier.wait(); original()
+            barrier.wait()
+            original()
         monkeypatch.setattr(w.runner, "cancel", slow)
         app._click_cancel()
     try:
         assert barrier.entered.wait(2)
         beats = []
         app.root.after_idle(lambda: beats.append("event loop alive"))
-        app.root.update(); app._tick()
+        app.root.update()
+        app._tick()
         assert beats == ["event loop alive"]
         assert app._shown == (Screen.CHECKING if phase == "checking" else Screen.STOPPING)
         assert app._primary is None
         assert _clipping_problems(app) == []
         assert _off_window_problems(app) == []
-        app._close(); app._on_escape(); app._on_return()
+        app._close()
+        app._on_escape()
+        app._on_return()
         assert not w.wants_shutdown and w.screen == app._shown
     finally:
         barrier.join(w)
@@ -1124,7 +1130,8 @@ def test_working_timer_keeps_cancel_control_until_revision_changes(ui, monkeypat
             yield from walk(child)
     cancel = next(v for v in walk(app.root) if isinstance(v, _Button)
                   and v.itemcget(v._label, "text") == "Cancel erase")
-    app._tick(); app._tick()
+    app._tick()
+    app._tick()
     assert app._draw_generation == generation and cancel.winfo_exists()
     with w._lock:
         w._touch_report_locked()

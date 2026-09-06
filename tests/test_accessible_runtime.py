@@ -551,13 +551,20 @@ def wait_transition(app):
 @pytest.mark.parametrize("phase", ["checking", "stopping"])
 def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phase):
     from test_busy_transitions import Barrier
-    w = make_demo_wizard(); w.preview = False
+    w = make_demo_wizard()
+    w.preview = False
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
     w.runner._clock = lambda: 0
-    w.skip_splash(); w.accept_what(); w.set_owner(True); w.continue_owner()
-    w.select_disk(w.selectable[0].path); w.continue_pick()
-    w.set_confirm_input(w.confirm.token); w.continue_confirm(); w.continue_method()
+    w.skip_splash()
+    w.accept_what()
+    w.set_owner(True)
+    w.continue_owner()
+    w.select_disk(w.selectable[0].path)
+    w.continue_pick()
+    w.set_confirm_input(w.confirm.token)
+    w.continue_confirm()
+    w.continue_method()
     w._erase_until = 0
     barrier = Barrier()
     if phase == "stopping":
@@ -566,14 +573,16 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
     if phase == "checking":
         original = w.runner.start
         def slow(request):
-            barrier.wait(); original(request)
+            barrier.wait()
+            original(request)
         monkeypatch.setattr(w.runner, "start", slow)
         stale = app.actions["Erase now"]
         stale.clicked()
     else:
         original = w.runner.cancel
         def slow():
-            barrier.wait(); original()
+            barrier.wait()
+            original()
         monkeypatch.setattr(w.runner, "cancel", slow)
         stale = app.actions["Cancel erase"]
         stale.clicked()
@@ -581,13 +590,15 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
         assert barrier.entered.wait(2)
         beats = []
         GLib.idle_add(lambda: beats.append(True) or False)
-        drain(); app.tick()
+        drain()
+        app.tick()
         assert beats
         title = "Checking disk" if phase == "checking" else "Stopping erase"
         assert title in text(app)
         assert title in [v.get_accessible().get_name() for v in widgets(app.window)]
         assert not app.actions
-        stale.emit("clicked"); app._close()
+        stale.emit("clicked")
+        app._close()
         assert not app.closed and not w.wants_shutdown
     finally:
         barrier.join(w)

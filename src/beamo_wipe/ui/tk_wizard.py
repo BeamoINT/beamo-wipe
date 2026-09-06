@@ -880,7 +880,6 @@ class TkWizard:
         self._match_pill: Optional[_Box] = None
         self._shown: Optional[Screen] = None
         self._shown_report_revision = -1
-        self._primary_cmd: Optional[Callable[[], None]] = None
         self._after_id: Optional[str] = None
         # Pick-list scroll state: the list is rebuilt on every redraw, so the
         # scroll offset is saved before teardown and restored (or the selected
@@ -1136,7 +1135,6 @@ class TkWizard:
         self._clear(self._body)
         self._clear(self._footer)
         self._primary = None
-        self._primary_cmd = None
         self._countdown_ring = None
         self._countdown_num = None
         self._countdown_label = None
@@ -1535,7 +1533,6 @@ class TkWizard:
         enabled: bool = True,
         danger: bool = False,
     ) -> _Button:
-        self._primary_cmd = command
         btn = _Button(
             row._right,  # type: ignore[attr-defined]
             text=text,
@@ -1591,7 +1588,6 @@ class TkWizard:
         )
         hero.pack(pady=(34, 0))
         self._primary = hero
-        self._primary_cmd = self.w.skip_splash
         tk.Label(col, text=C.HINT_SPLASH, font=self.font_meta, fg=MUTED, bg=BG).pack(pady=(14, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         hero.focus_set()
