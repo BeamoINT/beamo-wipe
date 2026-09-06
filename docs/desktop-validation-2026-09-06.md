@@ -1,7 +1,8 @@
 # Desktop USB validation — 2026-09-06
 
-Implementation source: `1c75158` on `codex/desktop-entry`. Subsequent changes
-are documentation only. Full validation build: `2df58471-eb18-4d3f-ae5a-3a1652ed3c7b`.
+Validation source: `6904d80c8b26fdf5a794f11490c947a0fc16bf6b` on
+`codex/desktop-entry`, integrated into the local project. Current full build:
+`850fb9bf-c213-4648-b1f8-d4a98a2e5f47` (still running).
 No release has been published. Validation images are ephemeral; no physical
 USB was flashed and the existing public v0.2.5 release was not replaced. This report distinguishes implemented behavior
 from runtime, boot, and hardware evidence.
@@ -19,7 +20,10 @@ from runtime, boot, and hardware evidence.
 
 ## Executed evidence
 
-- Local Python: 1,390 passed, 147 skipped, 2 deselected (21.61 seconds).
+- Integrated local Python: **1,404 passed, 135 skipped** (30.31 seconds).
+  An ignored generated source copy from the prior build was refreshed after
+  its consistency check identified stale `release_manifest.py`.
+- Isolated fresh-clone Python: 1,390 passed, 147 skipped, 2 deselected (21.61 seconds).
   The deselected tests require live-build-generated `bootstrap` and `binary`
   configuration files that this fresh macOS clone lacks; an unfiltered run
   confirmed those two expected missing-file failures. The native ISO and boot
@@ -37,7 +41,7 @@ from runtime, boot, and hardware evidence.
   fragment, Close removing all controls, and no platform mutation in preview.
 - Isolated Xvfb regression: both virtual and server-delivered Enter releases
   through the erase-start redraw passed. No real device was erased.
-- Final hosted Python gate: 1,578 passed, 12 skipped, 2 deselected (124.43 seconds); lint,
+- Previous corrected-run hosted Python gate: 1,578 passed, 12 skipped, 2 deselected (124.43 seconds); lint,
   preview, native Linux launcher tests, and the fail-open negative test passed.
 - Full boot build `e7ef9ce6-de24-4131-bcfc-b6d834c7edde`: ISO provenance,
   BIOS erase/report export and ordinary UEFI boot passed. BIOS boot of the
@@ -108,7 +112,8 @@ checksum; do not label an untested configuration as supported.
 
 ## Evidence links
 
-- [Full corrected hosted run](https://console.cloud.google.com/cloud-build/builds/2df58471-eb18-4d3f-ae5a-3a1652ed3c7b?project=beamo-wipe).
+- [Current exact-source full run](https://console.cloud.google.com/cloud-build/builds/850fb9bf-c213-4648-b1f8-d4a98a2e5f47?project=beamo-wipe).
+- [Corrected BIOS run with the subsequently fixed token fixture](https://console.cloud.google.com/cloud-build/builds/2df58471-eb18-4d3f-ae5a-3a1652ed3c7b?project=beamo-wipe).
 - [BIOS configuration-path before/after reproduction](https://console.cloud.google.com/cloud-build/builds/d001dd5d-88c2-46a7-b602-408ba056aeda?project=beamo-wipe).
 - [Earlier full run that exposed the BIOS USB failure](https://console.cloud.google.com/cloud-build/builds/e7ef9ce6-de24-4131-bcfc-b6d834c7edde?project=beamo-wipe).
 - [Native Windows fixture receipt](evidence/desktop-windows-20260906.txt).
@@ -122,3 +127,21 @@ run the full gate on a clean, versioned source tree and perform hardware
 acceptance. An authorized release must publish matching source and checksums;
 the publisher now requires the USB image, its ISO binding, and all USB boot
 evidence. No release, signing, or manufacturing readiness is claimed here.
+
+## Completion audit
+
+| Requirement | Current evidence | Status |
+| --- | --- | --- |
+| Windows/Linux desktop entry | Both x64 executables compile; Linux race/vet/fuzz; native Windows API and PowerShell fixtures; browser preview | Implemented; physical desktop acceptance outstanding |
+| Compatibility checks | Exact USB ancestry and partition identity; malformed/ambiguous EFI tests; native architecture refusal | Automated checks passed; real firmware inventory coverage limited |
+| Guided restart | Explicit action, fresh elevated probe, BootNext read-back and rollback fixtures; no forced application closure | Implemented; actual desktop-to-USB handoff not yet proven |
+| Ordinary BIOS/UEFI boot | ISO BIOS erase/report and UEFI boot; corrected FAT32 BIOS reaches confirmation | Final three-mode USB matrix running |
+| Secure Boot | Signed Debian EFI components and enrolled OVMF gate with actual firmware variable requirement | Final gate pending; physical firmware acceptance outstanding |
+| Disk safety and required confirmation | Existing fail-closed tests, negative mutation gate, disposable-disk erase/report; USB probes require target confirmation | Preserved; final USB probes pending |
+| Desktop erasure assessment | nwipe-only engine and live-session requirement; no Windows engine and no installed-Linux running-system isolation added | Assessed; all erasure remains offline |
+| Supported configurations and limitations | This report, desktop design, boot card, platform refusal, manifest compatibility wording | Documented; universal compatibility is not claimed |
+| Delivery and cleanup | Integrated local branch; publication disabled; Windows test resources removed | Complete within local implementation scope |
+
+The overall goal is not marked complete while the final boot gate and real
+desktop handoff evidence remain unproven. No test count substitutes for those
+missing integration results.
