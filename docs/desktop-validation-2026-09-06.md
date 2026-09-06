@@ -1,8 +1,11 @@
 # Desktop USB validation — 2026-09-06
 
-Validation source: `6904d80c8b26fdf5a794f11490c947a0fc16bf6b` on
-`codex/desktop-entry`, integrated into the local project. Current full build:
-`850fb9bf-c213-4648-b1f8-d4a98a2e5f47` (**SUCCESS**).
+Current runtime source: `f7e28ccd6ea39b4b4de37765f66d204f61047e4d` on
+`codex/desktop-entry`, integrated into the local project. Its full build
+`67eda7ba-a18b-4ce9-90bd-da8d9932b838` is **pending**. The previous complete
+build `850fb9bf-c213-4648-b1f8-d4a98a2e5f47` passed for source
+`6904d80c8b26fdf5a794f11490c947a0fc16bf6b`; it does not validate the later Linux
+inventory correction. The new native-utility test and firmware handoff must pass.
 No release has been published. Validation images are ephemeral; no physical
 USB was flashed and the existing public v0.2.5 release was not replaced. This report distinguishes implemented behavior
 from runtime, boot, and hardware evidence.
@@ -53,20 +56,25 @@ from runtime, boot, and hardware evidence.
   unique-size token. The product correctly refused that incorrect token.
   The harness now enters the 1 GB size for this fixture; the full rerun passed.
   Redundant builds were canceled rather than claiming they passed.
-- Final complete hosted boot build: **PASS**. BIOS ISO erase/report export,
+- Previous complete hosted boot build: **PASS**. BIOS ISO erase/report export,
   UEFI ISO boot, and BIOS/UEFI/Secure Boot FAT32 USB boots passed. Each USB
   mode reached the disposable target confirmation and matched its required
   token. Secure Boot required the actual guest firmware variable to be 1
   with enrolled OVMF keys and SMM enforcement. The final publication step
   explicitly reported publication disabled. See the compact
   [boot receipt](evidence/desktop-boot-20260906.txt).
-- Actual Linux desktop-to-USB firmware handoff: separate private x64 test VM
-  `beamo-handoff-test-0906` is running. It uses an installed Linux guest copy,
-  the production launcher, and a seeded exact firmware entry. No erase is
-  requested. Hardware nesting was unavailable because the project policy
-  disables it; that policy was not changed. The handoff test uses TCG software
-  emulation on x64, as does the hosted gate. Its result is still pending;
-  this is not physical PC proof.
+- Actual Linux desktop-to-USB firmware handoff: the private x64 test VM
+  `beamo-handoff-test-0906` uses an installed Linux guest copy, the production
+  launcher, and a seeded exact firmware entry. No erase is requested. A fixture
+  GRUB module omission was corrected after it prevented the installed guest
+  from starting. The running guest then exposed a real integration issue:
+  `lsblk` with PATH-only columns emitted flat JSON, but media detection requires
+  parent/partition relationships. The launcher now explicitly requests `--tree`;
+  a new test invokes the native utility to check those relationships. Local Go
+  race tests and unfiltered Python passed after the correction; the fresh full
+  build and exact-source handoff are pending. Hardware nesting was unavailable
+  because project policy disables it; that policy was not changed. The test
+  uses TCG software emulation on x64, not physical PC hardware.
 
 ## Limits that remain
 
@@ -128,7 +136,7 @@ checksum; do not label an untested configuration as supported.
 
 ## Evidence links
 
-- [Current exact-source full run](https://console.cloud.google.com/cloud-build/builds/850fb9bf-c213-4648-b1f8-d4a98a2e5f47?project=beamo-wipe).
+- [Current exact-source full run](https://console.cloud.google.com/cloud-build/builds/67eda7ba-a18b-4ce9-90bd-da8d9932b838?project=beamo-wipe).
 - [Corrected BIOS run with the subsequently fixed token fixture](https://console.cloud.google.com/cloud-build/builds/2df58471-eb18-4d3f-ae5a-3a1652ed3c7b?project=beamo-wipe).
 - [BIOS configuration-path before/after reproduction](https://console.cloud.google.com/cloud-build/builds/d001dd5d-88c2-46a7-b602-408ba056aeda?project=beamo-wipe).
 - [Earlier full run that exposed the BIOS USB failure](https://console.cloud.google.com/cloud-build/builds/e7ef9ce6-de24-4131-bcfc-b6d834c7edde?project=beamo-wipe).
@@ -158,6 +166,6 @@ evidence. No release, signing, or manufacturing readiness is claimed here.
 | Supported configurations and limitations | This report, desktop design, boot card, platform refusal, manifest compatibility wording | Documented; universal compatibility is not claimed |
 | Delivery and cleanup | Integrated local branch; publication disabled; Windows test resources removed | Complete within local implementation scope |
 
-The overall goal is not marked complete while the actual desktop handoff
-test and physical desktop acceptance remain unproven. No test count substitutes for those
+The overall goal is not marked complete while the corrected-source full gate,
+actual desktop handoff test, and physical desktop acceptance remain unproven. No test count substitutes for those
 missing integration results.
