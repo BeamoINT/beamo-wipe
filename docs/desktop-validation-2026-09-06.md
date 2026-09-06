@@ -115,6 +115,9 @@ source and Git history were preserved.
 
 ## Hardware acceptance still required
 
+Use the [configuration record and case checklist](desktop-hardware-acceptance.md)
+to preserve results without treating an untested configuration as accepted.
+
 Test a manufactured USB on supported Windows 10/11 x64 PCs and Linux desktops.
 Check file visibility and launch policy, actual UAC/polkit behavior, direct
 restart when a matching USB entry exists, manual fallback when it does not,

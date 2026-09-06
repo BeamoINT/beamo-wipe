@@ -1,6 +1,9 @@
 # Desktop entry and ordinary USB boot
 
-Status: implementation in progress, 2026-09-06. No new platform claim is established by this design.
+Status: implemented on `codex/desktop-entry`, 2026-09-06. See the
+[validation report](desktop-validation-2026-09-06.md) for executed evidence and
+the [hardware acceptance checklist](desktop-hardware-acceptance.md) for remaining
+physical checks. No new platform claim is established by this design alone.
 
 ## Customer flow
 
