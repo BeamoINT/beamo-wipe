@@ -611,6 +611,20 @@ def test_pick_list_scrolls_selected_card_into_view(ui):
     assert y1 <= bottom + 0.02, "selected card scrolled below the view"
 
 
+def test_leaving_picker_cancels_registered_restore_events(ui):
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.PICK, size=MIN_WINDOW)
+    app._draw()
+    pending = set(app.root.tk.call("after", "info"))
+    picker_events = set(app._pick_after_ids)
+    assert len(picker_events) == 4
+    assert picker_events <= pending
+    wiz.back()
+    app._draw()
+    assert not picker_events.intersection(app.root.tk.call("after", "info"))
+    assert app._pick_after_ids == []
+
+
 def test_pick_list_keeps_scroll_position_on_click(ui):
     """Clicking a disk must not snap the rebuilt list back to the top."""
     wiz, app = ui(size=MIN_WINDOW)

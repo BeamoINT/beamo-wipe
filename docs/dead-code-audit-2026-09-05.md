@@ -4,11 +4,11 @@ Baseline: `8a548412baefcf5f83f894b3bc0803cec9a06c0f`, branch `main`.
 The checkout was initially clean. A live `git ls-remote origin refs/heads/main`
 check matched that exact SHA. Origin is `https://github.com/BeamoINT/beamo-wipe.git`.
 
-Status: repository reconnaissance, local remediation, and **full hosted
-validation passed** for code commit `5648821e99e3d4b7e46b7877a6bad36432c7f87a`.
-This final receipt changes only this report; runtime, test, build, and packaging
-files remain byte-identical to that validated commit. No disk-selection,
-confirmation, runner, or evidence policy changed. Release publication was disabled.
+The original cleanup passed full hosted validation at code commit
+`5648821e99e3d4b7e46b7877a6bad36432c7f87a`. A subsequent main-trigger run
+exposed a picker timing failure; the follow-up section records its reproduction
+and repair. No disk-selection, confirmation, runner, or evidence policy
+changed. Release publication remains disabled.
 
 ## Changes and removal proof
 
@@ -68,7 +68,7 @@ met the removal threshold.
 | Ignore/configuration rules | Git provenance is uploaded; generated live-build, cache, image, and preview outputs are excluded from Git. Retain. |
 | Existing tests, documentation, licenses, mirrored instructions | Pytest collection, packaging/license copy, operator/recovery contracts, and external tooling reach these. Retain; test-only use was not classified as dead. |
 
-## Validation receipts
+## Original cleanup validation receipts
 
 | Check | Result |
 | --- | --- |
@@ -128,7 +128,7 @@ Physical devices and Secure Boot hardware are outside executed coverage; fake
 disks and isolated x86_64 virtualization remain the validation boundary.
 
 
-## Successful full hosted validation
+## Original successful full hosted validation
 
 Validated code commit: `5648821e99e3d4b7e46b7877a6bad36432c7f87a`.
 [Cloud Build 52b759c0-b13b-4a00-8f28-df9ecf0fcc3e](https://console.cloud.google.com/cloud-build/builds/52b759c0-b13b-4a00-8f28-df9ecf0fcc3e?project=beamo-wipe)
@@ -167,3 +167,59 @@ The live main trigger was inspected before landing: it uses `cloudbuild.yaml`
 without a publication substitution. The validated cleanup and this documentation
 receipt can be pushed normally after the final diff check; no release or
 publication action is authorized or needed for that landing.
+
+
+## Follow-up: picker timing failure and regression repair
+
+After landing `7e235faf5b68d4eff00b9594e963e733605eb333`, the normal
+[main build aa810173-044d-4cdc-8042-44f1c9634113](https://console.cloud.google.com/cloud-build/builds/aa810173-044d-4cdc-8042-44f1c9634113?project=beamo-wipe)
+failed `test_pick_list_scrolls_selected_card_into_view`: the correct final disk
+was selected, but its card was below the viewport. The Linux suite reported
+1534 passed, 1 failed, 12 skipped, and 2 deselected. Its log also contained
+Tcl `invalid command name` errors from callbacks on destroyed picker canvases.
+The earlier full build's success did not establish reliable picker behavior.
+
+Two defects were reproduced before editing the runtime:
+
+- A viewport or content-height change can clamp the canvas offset. Restoration
+  treated this automatic movement as manual scrolling and stopped too early.
+  Deterministic viewport and content cases both failed before the fix.
+- Destroying a Tk widget deletes its registered Tcl commands but does not
+  cancel pending `after` events. A real headless Tcl event-loop regression
+  reproduced the deleted-command error on redraw before the fix.
+
+The fix records the geometry associated with an applied offset, so layout
+clamping can settle while same-geometry direct scrolling still takes ownership.
+Existing wheel/scrollbar input continues to stop restoration explicitly.
+All four picker callbacks are tracked and cancelled before canvas destruction
+or application teardown; the idle callback also checks the picker generation.
+The existing runtime visibility assertion and click-scroll test are unchanged.
+
+Five deterministic regressions pass, covering both geometry changes, direct
+scroll ownership, redraw callback lifetime, and teardown callback lifetime.
+A new real-Tk integration test verifies all four registered events disappear
+when leaving the picker. Independent exact-diff review found no actionable
+issue and independently ran the five headless regressions successfully.
+
+[Linux picker repetition build 21fa5273-e8cd-4991-8f7e-214833b549e5](https://console.cloud.google.com/cloud-build/builds/21fa5273-e8cd-4991-8f7e-214833b549e5?project=beamo-wipe)
+finished SUCCESS at `2026-09-06T06:01:08.722534Z`: 30 consecutive Xvfb
+72-DPI runs of eight focused picker regressions passed (240 test executions).
+This supplementary diagnostic used fake disks and did not replace the full gate.
+
+Local follow-up verification: `python3 -m pytest` and `./scripts/test-all.sh`
+both exited 0 with **1369 passed, 133 skipped** (28.96 and 28.88 seconds).
+Compileall, prescribed ShellCheck, both Ruff security selections, full Ruff,
+and mypy all passed. Web/console/helper preview checks passed. Fresh wheel
+and sdist builds succeeded; all 34 tracked package files in both archives
+match the corrected source byte-for-byte. A fresh wheel installation passed
+version and fake-disk console smoke checks.
+
+Follow-up package SHA-256 values:
+
+- Wheel: `cf75d76ffa0ed90c307ce2cdf231395ed7fa93f526d6d6b8ec671263e1c31c3f`.
+- Sdist: `7289c11661d2e09d96a5d5a99c7bcadfb57230968be9baac9f8ecc8ca5167dfb`.
+
+A clean local commit is required for strict ISO provenance, as authorized
+above. The complete hosted ISO/QEMU gate and the normal post-push main gate
+must pass for that correction before completion; their immutable build receipts
+are reported with the final delivery. No release publication is authorized.

@@ -890,6 +890,8 @@ class TkWizard:
         self._pick_ensure_visible = False
         self._pick_restore_pending = False
         self._pick_applied: Optional[float] = None
+        self._pick_applied_geometry: Optional[tuple[float, float]] = None
+        self._pick_after_ids: list[str] = []
         self._pick_gen = 0
         self._return_held = False
         self._return_release_after: Optional[str] = None
@@ -1056,6 +1058,7 @@ class TkWizard:
             self.w.arm_done_keyboard()
 
     def _teardown(self) -> None:
+        self._cancel_pick_restore()
         for attr in ("_return_release_after", "_space_release_after"):
             callback = getattr(self, attr)
             if callback is not None:
@@ -1129,6 +1132,7 @@ class TkWizard:
                 self._pick_scroll = self._pick_canvas.yview()[0] * max(1.0, content_h)
             except tk.TclError:
                 pass
+            self._cancel_pick_restore()
             self._pick_canvas = None
             self._pick_cards = {}
             self._pick_restore_pending = False
@@ -1810,12 +1814,15 @@ class TkWizard:
         # restore itself did not make (user wheel/drag) is detected.
         self._pick_restore_pending = True
         self._pick_applied = None
+        self._pick_applied_geometry = None
         self._pick_gen += 1
         gen = self._pick_gen
-        canvas.after_idle(self._pick_restore_scroll)
-        canvas.after(30, lambda: self._pick_restore_tick(gen))
-        canvas.after(90, lambda: self._pick_restore_tick(gen))
-        canvas.after(180, lambda: self._pick_restore_tick(gen, final=True))
+        self._pick_after_ids = [
+            canvas.after_idle(lambda: self._pick_restore_tick(gen)),
+            canvas.after(30, lambda: self._pick_restore_tick(gen)),
+            canvas.after(90, lambda: self._pick_restore_tick(gen)),
+            canvas.after(180, lambda: self._pick_restore_tick(gen, final=True)),
+        ]
         self._other_devices(col, before=list_wrap)
         row = self._footer_shell(C.HINT_PICK)
         back = self._back_btn(row)
@@ -1850,6 +1857,20 @@ class TkWizard:
         reader.insert("1.0", inventory.full_text(self.w.other_devices))
         reader.configure(state=tk.DISABLED)
 
+    def _cancel_pick_restore(self) -> None:
+        # Destroying a widget deletes its Tcl commands, but leaves after events
+        # queued. Cancel them while the canvas still owns those commands.
+        if self._pick_canvas is not None:
+            for callback in self._pick_after_ids:
+                try:
+                    self._pick_canvas.after_cancel(callback)
+                except tk.TclError:
+                    pass
+        self._pick_after_ids = []
+        self._pick_restore_pending = False
+        self._pick_applied = None
+        self._pick_applied_geometry = None
+
     def _pick_restore_scroll(self) -> None:
         """Keep the rebuilt list where the user left it.
 
@@ -1871,10 +1892,16 @@ class TkWizard:
             if view_h <= 1.0:
                 return
             current_top = canvas.yview()[0] * content_h
-            if self._pick_applied is not None and abs(current_top - self._pick_applied) > 2:
-                # The offset moved without this restore doing it: a wheel,
-                # a drag, or a direct yview call. That party owns the scroll
-                # position now; the window closes without re-applying.
+            geometry = (content_h, view_h)
+            if (
+                self._pick_applied is not None
+                and self._pick_applied_geometry == geometry
+                and abs(current_top - self._pick_applied) > 2
+            ):
+                # With stable geometry, an external yview call owns the scroll.
+                # Layout changes can also move the offset by clamping it; those
+                # must keep restoring as the selected row settles. Wheel/drag
+                # handlers explicitly end restoration regardless of geometry.
                 self._pick_restore_pending = False
                 self._pick_applied = None
                 return
@@ -1892,6 +1919,7 @@ class TkWizard:
             else:
                 canvas.yview_moveto(max(0.0, self._pick_scroll / content_h))
             self._pick_applied = canvas.yview()[0] * content_h
+            self._pick_applied_geometry = geometry
         except tk.TclError:
             pass
 
