@@ -2,11 +2,9 @@
 
 Current runtime source: `f7e28ccd6ea39b4b4de37765f66d204f61047e4d` on
 `codex/desktop-entry`, integrated into the local project. Its full build
-`67eda7ba-a18b-4ce9-90bd-da8d9932b838` is **pending**. The previous complete
-build `850fb9bf-c213-4648-b1f8-d4a98a2e5f47` passed for source
-`6904d80c8b26fdf5a794f11490c947a0fc16bf6b`; it does not validate the later Linux
-inventory correction. The native-utility suite and actual Linux firmware handoff passed; the fresh full
-boot gate is still pending.
+`67eda7ba-a18b-4ce9-90bd-da8d9932b838` is **SUCCESS**. Native launcher checks,
+ISO/USB BIOS/UEFI/Secure Boot validation, and the separate actual Linux firmware
+handoff passed. Physical Windows/Linux desktop acceptance remains unproven.
 No release has been published. Validation images are ephemeral; no physical
 USB was flashed and the existing public v0.2.5 release was not replaced. This report distinguishes implemented behavior
 from runtime, boot, and hardware evidence.
@@ -28,7 +26,8 @@ from runtime, boot, and hardware evidence.
   (128.09 seconds), native Linux race tests and vet passed, both desktop
   executables built, and firmware-parser fuzzing completed 387,814 executions.
   The deliberate fail-open mutation was rejected and the clean negative gate
-  passed. ISO/USB boot results are still pending; the actual Linux firmware handoff passed.
+  passed. The complete ISO/USB boot matrix and actual Linux firmware handoff passed.
+  See the [corrected-source boot receipt](evidence/desktop-boot-corrected-20260906.txt).
 - Integrated local Python: **1,404 passed, 135 skipped** (30.31 seconds).
   An ignored generated source copy from the prior build was refreshed after
   its consistency check identified stale `release_manifest.py`.
@@ -50,7 +49,7 @@ from runtime, boot, and hardware evidence.
   fragment, Close removing all controls, and no platform mutation in preview.
 - Isolated Xvfb regression: both virtual and server-delivered Enter releases
   through the erase-start redraw passed. No real device was erased.
-- Final-source hosted Python gate: 1,578 passed, 12 skipped, 2 deselected (147.62 seconds); lint,
+- Previous-source hosted Python gate: 1,578 passed, 12 skipped, 2 deselected (147.62 seconds); lint,
   preview, native Linux launcher tests, and the fail-open negative test passed.
 - Full boot build `e7ef9ce6-de24-4131-bcfc-b6d834c7edde`: ISO provenance,
   BIOS erase/report export and ordinary UEFI boot passed. BIOS boot of the
@@ -70,15 +69,14 @@ from runtime, boot, and hardware evidence.
   explicitly reported publication disabled. See the compact
   [boot receipt](evidence/desktop-boot-20260906.txt).
 - Actual Linux desktop-to-USB firmware handoff: the private x64 test VM
-  `beamo-handoff-test-0906` uses an installed Linux guest copy, the production
-  launcher, and a seeded exact firmware entry. No erase is requested. A fixture
+  `beamo-handoff-test-0906` used an installed Linux guest copy, the production
+  launcher, and a seeded exact firmware entry. No erase was requested. A fixture
   GRUB module omission was corrected after it prevented the installed guest
   from starting. The running guest then exposed a real integration issue:
   `lsblk` with PATH-only columns emitted flat JSON, but media detection requires
   parent/partition relationships. The launcher now explicitly requests `--tree`;
   a new test invokes the native utility to check those relationships. Local Go
-  race tests and unfiltered Python passed after the correction; the fresh full
-  build remains pending. The exact-source handoff **passed**: actual readiness,
+  race tests, unfiltered Python, and the fresh full build passed after the correction. The exact-source handoff **passed**: actual readiness,
   normal restart, firmware selection of BootBEEF, and live welcome-screen arrival.
   The USB stayed read-only and no erase was requested. This root/headless fixture
   does not validate polkit or desktop file-launch policies. See the
@@ -177,8 +175,12 @@ evidence. No release, signing, or manufacturing readiness is claimed here.
 | Disk safety and required confirmation | Existing fail-closed tests, negative mutation gate, disposable-disk erase/report; USB probes require target confirmation | Preserved; final USB probes passed |
 | Desktop erasure assessment | nwipe-only engine and live-session requirement; no Windows engine and no installed-Linux running-system isolation added | Assessed; all erasure remains offline |
 | Supported configurations and limitations | This report, desktop design, boot card, platform refusal, manifest compatibility wording | Documented; universal compatibility is not claimed |
-| Delivery and cleanup | Integrated local branch; publication disabled; Windows test resources removed | Complete within local implementation scope |
+| Delivery and cleanup | Integrated local branch; publication disabled; Windows and Linux test resources removed | Complete within local implementation scope |
 
-The overall goal is not marked complete while the corrected-source full gate,
-physical desktop acceptance remain unproven. The isolated Linux handoff passed. No test count substitutes for those
-missing integration results.
+Implementation and all available automated integration gates have passed. The
+overall goal remains open for physical Windows/Linux desktop acceptance,
+including Windows 10/11 prompts and firmware handoff, Linux desktop launch and
+polkit behavior, and physical firmware trust/port coverage. No suitable physical
+PC or user-provided acceptance results were available in this session. The
+[hardware checklist](desktop-hardware-acceptance.md) records these as NOT TESTED;
+no universal or flawless-operation claim is made.
