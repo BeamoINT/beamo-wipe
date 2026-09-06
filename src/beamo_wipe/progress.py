@@ -132,7 +132,7 @@ class ProgressView:
 class ProgressTiming:
     """Bounded history of newly observed progress, using an injected clock.
 
-    The engine ETA must agree with five fresh, stable measured intervals.
+    The engine ETA must agree with at least five fresh, stable measured intervals.
     Only estimate within the method's final operation: future write/read rates
     are not interchangeable. Reading the same record never renews freshness.
     """
@@ -146,7 +146,7 @@ class ProgressTiming:
         self.invalid_clock = False
         self.last_clock: tuple[float, float] | None = None
         self.last: Observation | None = None
-        self.samples: deque[tuple[float, float]] = deque(maxlen=6)
+        self.samples: deque[tuple[float, float]] = deque(maxlen=61)
         self.phase = "Preparing"
         self.last_seen: float | None = None
         self.high_water = 0.0
@@ -217,6 +217,7 @@ class ProgressTiming:
             if previous and (
                 previous.phase != observation.phase
                 or previous.counters != observation.counters
+                or previous.quantum != observation.quantum
             ):
                 self.clear_estimate()
             regressed = observation.percent < self.high_water
@@ -224,7 +225,7 @@ class ProgressTiming:
             if regressed or observation.engine_eta is None or changed_clock:
                 self.clear_estimate()
             elif not self.samples or observation.percent > self.samples[-1][1]:
-                if self.samples and not 2 <= now - self.samples[-1][0] <= 10:
+                if self.samples and not 1 <= now - self.samples[-1][0] <= 10:
                     self.clear_estimate()
                 self.samples.append((now, observation.percent))
         if self.samples and now - self.samples[-1][0] > 10:
@@ -237,7 +238,7 @@ class ProgressTiming:
             and final_operation
             and obs
             and obs.phase in {"Writing", "Verifying"}
-            and len(self.samples) == 6
+            and len(self.samples) >= 6
             and self.samples[-1][0] - self.samples[0][0] >= 20
             and obs.engine_eta
             and obs.percent < 100
@@ -246,8 +247,11 @@ class ProgressTiming:
             rates = [(b[1] - a[1]) / (b[0] - a[0]) for a, b in intervals]
             span = self.samples[-1][1] - self.samples[0][1]
             if (
-                span >= max(1, obs.quantum * 10)
-                and all(b[1] - a[1] >= obs.quantum * 2 for a, b in intervals)
+                span + obs.quantum * 1e-6 >= obs.quantum * 10
+                and all(
+                    b[1] - a[1] + obs.quantum * 1e-6 >= obs.quantum
+                    for a, b in intervals
+                )
                 and min(rates) > 0
                 and max(rates) / min(rates) <= 1.5
             ):

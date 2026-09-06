@@ -24,11 +24,13 @@ Neither phase means successful completion.
 
 The estimate is omitted unless all of these hold:
 
-- Six advancing samples span at least twenty seconds, with each interval
-  between two and ten seconds. Buffered lines count as one observation, not
+- At least six advancing samples span at least twenty seconds, with each
+  interval between one and ten seconds. The bounded history holds up to 61
+  samples so normal two-second updates can accumulate a sufficient window. Buffered lines count as one observation, not
   invented historical timing samples.
-- Every increase is at least twice the engine's reported percentage quantum;
-  the window spans at least one percentage point and ten quantization units.
+- Every increase is at least one engine-reported percentage quantum, and the
+  window spans at least ten quantization units. Floating-point comparison
+  tolerance is one millionth of a quantum; it adds no displayed precision.
 - The fastest interval rate is no more than 1.5 times the slowest, and the
   measured job-wide projection agrees with the engine ETA within a factor of
   1.5. The larger of those two estimates is displayed.
@@ -36,7 +38,7 @@ The estimate is omitted unless all of these hold:
   methods that request it, or writing for Quick zero. Earlier writing rates
   cannot predict the unmeasured read-back rate.
 
-Phase/counter changes, regressions, missing data, timestamp discontinuities,
+Phase/counter/precision changes, regressions, missing data, timestamp discontinuities,
 clock changes and gaps clear history. Local wall/monotonic disagreement over
 100 milliseconds clears history; engine log timestamps have whole-second
 resolution and use a two-second comparison tolerance. Duplicated percentages

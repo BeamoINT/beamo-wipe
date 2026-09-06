@@ -474,3 +474,90 @@ def test_late_poll_cannot_publish_phase_into_a_new_runner_generation(
     assert runner._sigusr1_armed is False and runner._last_sigusr1 == 0
     assert runner._proc is new_process and runner.result is None
     assert signals == []
+
+
+def test_pinned_engine_two_second_cadence_can_estimate_after_warmup():
+    clock = Clock()
+    timing = ProgressTiming(clock, lambda: clock.wall)
+    timing.start(0)
+    for n in range(31):
+        pct = 10 + n
+        view = timing.view(sample(pct, eta=int((100 - pct) * 2)), True)
+        clock.advance(2)
+    assert view.remaining is not None
+
+
+def test_normal_cadence_with_poll_jitter_can_estimate():
+    clock = Clock()
+    timing = ProgressTiming(clock, lambda: clock.wall)
+    timing.start(0)
+    for gap in (1.9, 2.1, 2.2, 1.8, 2.05, 1.95) * 5:
+        pct = 10 + clock() * 0.5
+        view = timing.view(sample(pct, eta=int((100 - pct) * 2)), True)
+        clock.advance(gap)
+    assert view.remaining is not None
+
+
+def test_slow_quantized_progress_can_estimate_with_bounded_history():
+    clock = Clock()
+    timing = ProgressTiming(clock, lambda: clock.wall)
+    timing.start(0)
+    for n in range(200):
+        pct = 50 + n * 0.01
+        view = timing.view(
+            sample(pct, eta=int((100 - pct) * 500), phase="verifying"), True
+        )
+        clock.advance(5)
+    assert view.remaining is not None and view.remaining > 3600
+    assert len(timing.samples) <= 61
+    assert "hours" in view.timing_text and "seconds" not in view.timing_text
+
+
+def test_real_runner_fake_output_reaches_eta_at_its_signal_cadence(monkeypatch):
+    from types import SimpleNamespace
+    from beamo_wipe.demo import make_demo_wizard
+    from beamo_wipe.models import MethodId, WipeRequest
+
+    clock = Clock()
+    w = make_demo_wizard()
+    w._clock = clock
+    w._progress_timing = ProgressTiming(clock, lambda: clock.wall)
+    w._progress_timing.start(0)
+    w.screen = Screen.WORKING
+    w.method = MethodId.QUICK_ZERO
+    w._wipe_request = WipeRequest("/dev/fake", w.method, "/dev/boot", "fake-log")
+    runner = NwipeRunner()
+    signals = []
+    runner._proc = SimpleNamespace(
+        poll=lambda: None, send_signal=lambda value: signals.append((clock(), value))
+    )
+    w.runner = runner
+    monkeypatch.setattr("beamo_wipe.nwipe_runner.time.monotonic", clock)
+    monkeypatch.setattr(
+        runner,
+        "_read_log_tail",
+        lambda *_: line(10 + clock() / 2, eta=int((90 - clock() / 2) * 2))
+        + "Program options are set as follows\n",
+    )
+    for _ in range(31):
+        w.tick()
+        view = w.progress_view
+        clock.advance(2)
+    assert view.remaining is not None
+    assert view.phase == "Writing" and w.screen == Screen.WORKING
+    assert runner.result is None and w.wipe_result is None
+    assert len(signals) == 30
+    assert all(b[0] - a[0] == 2 for a, b in zip(signals, signals[1:]))
+
+
+def test_more_precise_record_cannot_reinterpret_old_coarse_samples():
+    clock = Clock()
+    timing = ProgressTiming(clock, lambda: clock.wall)
+    timing.start(0)
+    for n in range(6):
+        pct = 10 + n
+        coarse = line(pct, eta=(100 - pct) * 5).replace(f"{pct:.2f}%", f"{pct}%")
+        view = timing.view(observe(coarse, "/dev/fake"), True)
+        assert view.remaining is None
+        clock.advance(5)
+    assert timing.view(sample(16, eta=420), True).remaining is None
