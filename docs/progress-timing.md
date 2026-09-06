@@ -5,7 +5,9 @@ The pinned nwipe source (`6082bde060091e66365d852a1877f2ee80c67105`,
 counters, an engine ETA, and an explicit pass-type marker. These observations
 are presentation data; the existing process-exit and completion-log checks
 remain the only completion decision. No engine flags, signal cadence, device
-checks, cancellation waits, or ownership locks change.
+checks, or cancellation waits change. Log reads remain outside the runner
+lock; publishing progress, phase, and signal-readiness state checks the captured
+process identity under that lock. A late poll cannot update a replacement run.
 
 ## Phases
 

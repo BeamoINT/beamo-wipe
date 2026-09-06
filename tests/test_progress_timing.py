@@ -434,3 +434,43 @@ def test_wall_clock_step_suppresses_estimate(step):
     assert before.remaining is not None
     clock.wall += step
     assert timing.view(timing.last, True).remaining is None
+
+
+@pytest.mark.parametrize("code,swap_at", [(0, 1), (0, 2), (None, 1), (None, 2)])
+def test_late_poll_cannot_publish_phase_into_a_new_runner_generation(
+    monkeypatch, code, swap_at
+):
+    from types import SimpleNamespace
+    from beamo_wipe.models import MethodId, WipeRequest
+
+    runner = NwipeRunner()
+    signals = []
+    old_process = SimpleNamespace(
+        poll=lambda: code, send_signal=lambda value: signals.append(value)
+    )
+    new_process = SimpleNamespace()
+    new_observation = sample(5)
+    runner._proc = old_process
+    reads = []
+
+    def read(*_):
+        reads.append(True)
+        # Replace at progress, completion, or signal-readiness read boundaries.
+        if len(reads) == swap_at:
+            runner._proc = new_process
+            runner.finalizing = False
+            runner.progress_observation = new_observation
+            runner.progress = 5
+            runner._sigusr1_armed = False
+            runner._last_sigusr1 = 0
+        return line(99, phase="verifying") + "Program options are set as follows\n"
+
+    monkeypatch.setattr(runner, "_read_log_tail", read)
+    request = WipeRequest("/dev/fake", MethodId.EVERYDAY, "/dev/boot", "fake-log")
+    runner.poll(request)
+    assert runner.finalizing is False
+    assert runner.progress_observation is new_observation
+    assert runner.progress == 5
+    assert runner._sigusr1_armed is False and runner._last_sigusr1 == 0
+    assert runner._proc is new_process and runner.result is None
+    assert signals == []

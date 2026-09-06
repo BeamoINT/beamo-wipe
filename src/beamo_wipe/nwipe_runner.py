@@ -732,33 +732,38 @@ class NwipeRunner:
         except (OSError, AttributeError) as exc:
             _try_log_diag("nwipe", "poll_failed", type(exc).__name__)
             return self.result
-        self._refresh_progress(request.logfile, request.device)
+        self._refresh_progress(request.logfile, request.device, expected_proc=proc)
         if code is None:
+            ready_text = ""
             if not getattr(self, "_sigusr1_armed", False):
                 ready_text = self._read_log_tail(request.logfile, 65536)
+            now = time.monotonic()
+            with self._lock:
+                if self._proc is not proc:
+                    return self.result
                 if nwipe_accepts_sigusr1(ready_text):
                     self._sigusr1_armed = True
-            now = time.monotonic()
-            if getattr(self, "_sigusr1_armed", False) and now - getattr(
-                self, "_last_sigusr1", 0.0
-            ) >= 2.0:
-                try:
-                    proc.send_signal(signal.SIGUSR1)
-                    self._last_sigusr1 = now
-                except (ProcessLookupError, OSError, AttributeError) as exc:
-                    _try_log_diag("nwipe", "sigusr1_failed", type(exc).__name__)
+                if self._sigusr1_armed and now - self._last_sigusr1 >= 2.0:
+                    try:
+                        proc.send_signal(signal.SIGUSR1)
+                        self._last_sigusr1 = now
+                    except (ProcessLookupError, OSError, AttributeError) as exc:
+                        _try_log_diag("nwipe", "sigusr1_failed", type(exc).__name__)
             return None
-        self.finalizing = True
+        with self._lock:
+            if self._proc is not proc:
+                return self.result
+            self.finalizing = True
         log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
-        if log_text:
-            self._log_tail = log_text
-            percent = _target_job_percent(log_text, request.device)
-            if percent is not None:
-                self._update_progress(percent)
-            # Structured diagnostic when completion log may hide failure tail
-            if not log_text.strip():
-                _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
-        else:
+        with self._lock:
+            if self._proc is not proc:
+                return self.result
+            if log_text:
+                self._log_tail = log_text
+                percent = _target_job_percent(log_text, request.device)
+                if percent is not None:
+                    self._update_progress(percent)
+        if not log_text.strip():
             _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
         ok, summary, reason = evaluate_nwipe_outcome(code, log_text, request.device)
         _try_log_diag("nwipe", reason, f"exit={code}; {summary}")
@@ -823,18 +828,22 @@ class NwipeRunner:
                 except OSError as exc:
                     _try_log_diag("nwipe", "log_close_failed", type(exc).__name__)
 
-    def _refresh_progress(self, logfile: str, device: str) -> None:
+    def _refresh_progress(
+        self, logfile: str, device: str, *, expected_proc: Optional[subprocess.Popen] = None
+    ) -> None:
         text = self._read_log_tail(logfile, 8000)
-        if not text:
-            self.progress_observation = None
-            return
-        self._log_tail = text
         from beamo_wipe.progress import observe
 
-        self.progress_observation = observe(text, device)
+        observation = observe(text, device)
         percent = _target_job_percent(text, device)
-        if percent is not None:
-            self._update_progress(percent)
+        with self._lock:
+            if expected_proc is not None and self._proc is not expected_proc:
+                return
+            self.progress_observation = observation
+            if text:
+                self._log_tail = text
+                if percent is not None:
+                    self._update_progress(percent)
 
     def _acquire_wipe_lock(self, request: WipeRequest) -> None:
         directory = os.path.dirname(request.logfile)
