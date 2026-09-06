@@ -1,0 +1,197 @@
+Linux desktop-to-USB firmware handoff: PASS
+Date: 2026-09-06 UTC
+Source: f7e28ccd6ea39b4b4de37765f66d204f61047e4d
+Environment: private GCE x64 host; QEMU q35 TCG; OVMF 4M; no guest NIC.
+Installed guest: separate ext4 Debian 12 copy, no boot=live, root service.
+USB: unchanged verified FAT32 image, attached read-only as virtual USB.
+Firmware: fixture seeded one exact BootBEEF entry in the virtual PC only.
+Browser: headless xdg-open capture; actual application HTTP authorization and
+readiness/restart endpoints. Product re-probed and wrote BootNext itself.
+No erase requested. Secure Boot was 0 for this handoff; the enrolled Secure Boot
+USB boot gate is separate. This is not physical PC, polkit, or Windows proof.
+
+Observed firmware selection after the production restart request:
+BdsDxe: loading BootBEEF "Beamo test USB" from HD(1,MBR,0x8BEB1506,0x800,0x3FF800)/\EFI\BOOT\BOOTX64.EFI
+BdsDxe: starting BootBEEF "Beamo test USB" from HD(1,MBR,0x8BEB1506,0x800,0x3FF800)/\EFI\BOOT\BOOTX64.EFI
+
+Captured terminal test output:
+Handoff test accelerator=TCG on isolated x86_64 host
+BEAMO_DESKTOP_HANDOFF_PASS
+3101fa14928c596391cf065c489d76f37b17523b93fd446c1aaaae23de299fb6  /workspace-tree/dist/beamo-wipe-0.2.5-amd64.img
+BEAMO_DESKTOP_CHECK_READY
+BEAMO_DESKTOP_RESTART_REQUESTED
+BEAMO_WIPE_SECURE_BOOT=0
+BEAMO_WIPE_BOOT_FINDMNT_MULTIROW
+BEAMO_WIPE_SCREEN_SPLASH
+BEAMO_WIPE_SCREEN_WHAT
+
+Fixture SHA-256 (retained in /private/tmp/beamo-desktop-handoff-test):
+f2cb4f24e042ccfb773b13285834ef06daed490d4fb4caca334b33214de3d833  guest.py
+6a002ae10deecd64ddc41f8ac37ab80354555a0807e48658d2c80419d5a28d7c  host.sh
+972af2aa4c5d0616f55598c82db254de71511270861cba04e224be357253df15  startup.sh
+
+Reproduction fixture source follows as non-executable evidence.
+These fixtures operate only inside a disposable virtual PC and its dedicated
+image-building host. Never execute the guest script on a real PC: its test
+setup creates a firmware entry. The production launcher does not do that.
+
+--- guest.py ---
+import json, os, pathlib, struct, subprocess, time, urllib.request, urllib.parse
+
+def marker(text):
+    with open('/dev/ttyS0','w') as f: f.write(text+'\n')
+
+def run(*args): return subprocess.check_output(args, text=True).strip()
+
+try:
+    assert 'boot=live' not in pathlib.Path('/proc/cmdline').read_text().split()
+    disks=json.loads(run('/usr/bin/lsblk','--json','--tree','--bytes','--output','PATH,TYPE,TRAN,SERIAL,PTUUID,START,SIZE,LOG-SEC'))['blockdevices']
+    usb=[d for d in disks if d.get('tran')=='usb' and d.get('serial')=='BEAMOBOOT']
+    assert len(usb)==1
+    disk=usb[0]; parts=[p for p in disk['children'] if p['type']=='part']; assert len(parts)==1
+    part=parts[0]; sector=int(disk['log-sec']); assert sector==512
+    root=pathlib.Path('/media/beamo'); root.mkdir(parents=True,exist_ok=True)
+    subprocess.run(['/usr/bin/mount','-o','ro',part['path'],str(root)],check=True)
+    exe=root/'Start Beamo Wipe Linux'; assert exe.is_file()
+    # Seed an exact existing boot entry only in this disposable virtual PC.
+    # This models the documented supported firmware case; it is not product code.
+    sig=struct.pack('<I',int(disk['ptuuid'],16))+bytes(12)
+    hd=bytes([4,1])+struct.pack('<H',42)+struct.pack('<IQQ',1,int(part['start']),int(part['size'])//sector)+sig+bytes([1,1])
+    name='\\EFI\\BOOT\\BOOTX64.EFI\0'.encode('utf-16-le')
+    path=hd+bytes([4,4])+struct.pack('<H',4+len(name))+name+bytes([127,255,4,0])
+    raw=struct.pack('<IH',1,len(path))+'Beamo test USB\0'.encode('utf-16-le')+path
+    efidir=pathlib.Path('/sys/firmware/efi/efivars'); suffix='-8be4df61-93ca-11d2-aa0d-00e098032b8c'
+    entry=efidir/('BootBEEF'+suffix); entry.write_bytes(struct.pack('<I',7)+raw)
+    order=efidir/('BootOrder'+suffix); old=order.read_bytes(); assert len(old)>=6
+    order.write_bytes(old+struct.pack('<H',0xBEEF))
+    assert not (efidir/('BootNext'+suffix)).exists()
+    proc=subprocess.Popen([str(exe)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    urlfile=pathlib.Path('/run/beamo-browser-url')
+    for _ in range(100):
+        if urlfile.exists(): break
+        assert proc.poll() is None
+        time.sleep(.1)
+    url=urllib.parse.urlsplit(urlfile.read_text().strip()); assert url.hostname=='127.0.0.1'
+    origin=f'{url.scheme}://{url.netloc}'
+    def api(action,confirm=False):
+        req=urllib.request.Request(origin+'/api/'+action,data=json.dumps({'confirm':confirm}).encode(),headers={'Content-Type':'application/json','X-Beamo-Token':url.fragment,'Origin':origin},method='POST')
+        with urllib.request.urlopen(req,timeout=30) as response:return json.load(response)
+    view=api('check'); assert view['ready'], view
+    marker('BEAMO_DESKTOP_CHECK_READY')
+    marker('BEAMO_DESKTOP_RESTART_REQUESTED')
+    try: api('restart',True)
+    except Exception: pass  # A normal reboot can close the HTTP connection.
+    time.sleep(60)
+    raise RuntimeError('desktop did not reboot')
+except Exception as exc:
+    marker('BEAMO_DESKTOP_FAILURE='+type(exc).__name__+':'+str(exc)[:300])
+    raise
+
+--- host.sh ---
+#!/bin/bash
+set -euo pipefail
+ROOT=/workspace-tree
+ISO=$ROOT/dist/beamo-wipe-0.2.5-amd64.iso
+USB=$ROOT/dist/beamo-wipe-0.2.5-amd64.img
+TEST=/var/tmp/beamo-handoff-tree
+mkdir -p "$TEST"
+echo "Handoff test accelerator=TCG on isolated x86_64 host"
+if [[ ! -d "$TEST/extracted" ]]; then
+ xorriso -osirrox on -indev "$ISO" -extract / "$TEST/extracted" >"$TEST/extract.log" 2>&1
+fi
+if [[ ! -d "$TEST/root" ]]; then
+ unsquashfs -d "$TEST/root" "$TEST/extracted/live/filesystem.squashfs" >"$TEST/unsquash.log" 2>&1
+fi
+DESKTOP="$TEST/root"
+# This is a separate installed test OS copy. The USB payload is unchanged.
+rm -f "$DESKTOP/etc/systemd/system/multi-user.target.wants/beamo-wipe-kiosk.service"
+ln -sfn /dev/null "$DESKTOP/etc/systemd/system/beamo-wipe-kiosk.service"
+cp /var/tmp/beamo-guest.py "$DESKTOP/root/beamo-handoff.py"
+cat > "$DESKTOP/usr/bin/xdg-open" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" > /run/beamo-browser-url
+EOF
+chmod 755 "$DESKTOP/usr/bin/xdg-open"
+cat > "$DESKTOP/etc/systemd/system/beamo-desktop-test.service" <<'EOF'
+[Unit]
+Description=Disposable desktop firmware handoff test
+After=local-fs.target systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /root/beamo-handoff.py
+StandardOutput=journal+console
+StandardError=journal+console
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -sfn ../beamo-desktop-test.service "$DESKTOP/etc/systemd/system/multi-user.target.wants/beamo-desktop-test.service"
+: > "$DESKTOP/etc/fstab"
+truncate -s 3G "$TEST/root.ext4"
+mkfs.ext4 -q -F -d "$DESKTOP" "$TEST/root.ext4"
+UUID=$(blkid -s UUID -o value "$TEST/root.ext4")
+KERNEL=$(basename "$(find "$DESKTOP/boot" -name 'vmlinuz-*' -type f | head -1)")
+INITRD=$(basename "$(find "$DESKTOP/boot" -name 'initrd.img-*' -type f | head -1)")
+[[ -n "$KERNEL" && -n "$INITRD" ]]
+cat > "$TEST/grub.cfg" <<EOF
+set timeout=0
+insmod part_msdos
+insmod ext2
+insmod search_fs_uuid
+ls
+ls (hd0,msdos2)/boot/
+search --fs-uuid --set=root $UUID
+linux /boot/$KERNEL root=UUID=$UUID rw console=ttyS0,115200 systemd.unit=multi-user.target
+initrd /boot/$INITRD
+boot
+EOF
+grub-mkstandalone -O x86_64-efi -o "$TEST/bootx64.efi" "boot/grub/grub.cfg=$TEST/grub.cfg"
+truncate -s 64M "$TEST/esp.fat"
+mkfs.vfat -F 32 "$TEST/esp.fat" >/dev/null
+mmd -i "$TEST/esp.fat" ::/EFI ::/EFI/BOOT
+mcopy -i "$TEST/esp.fat" "$TEST/bootx64.efi" ::/EFI/BOOT/BOOTX64.EFI
+python3 - "$TEST" <<'PY'
+import pathlib,struct,shutil,sys
+p=pathlib.Path(sys.argv[1]); fat=p/'esp.fat'; root=p/'root.ext4'; boot=bytearray(512)
+boot[440:444]=struct.pack('<I',0x44534b54)
+for i,(start,size,typ) in enumerate([(2048,fat.stat().st_size//512,0xef),(2048+fat.stat().st_size//512,root.stat().st_size//512,0x83)]):
+ boot[446+i*16:462+i*16]=struct.pack('<B3sB3sII',0,b'\xfe\xff\xff',typ,b'\xfe\xff\xff',start,size)
+boot[510:]=b'\x55\xaa'
+with (p/'desktop.img').open('wb') as out:
+ out.write(boot);out.seek(1048576)
+ for source in (fat,root):
+  with source.open('rb') as f:shutil.copyfileobj(f,out,1048576)
+PY
+cp /usr/share/OVMF/OVMF_VARS_4M.fd "$TEST/vars.fd"
+: > "$TEST/serial.txt"
+qemu-system-x86_64 -machine q35,accel=tcg -cpu max -m 2048 -nic none \
+ -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+ -drive "if=pflash,format=raw,file=$TEST/vars.fd" \
+ -drive "if=none,id=desktop,format=raw,file=$TEST/desktop.img" \
+ -device virtio-blk-pci,drive=desktop,serial=DESKTOPTEST,bootindex=1 \
+ -device qemu-xhci -drive "if=none,id=usb,format=raw,readonly=on,file=$USB" \
+ -device usb-storage,drive=usb,serial=BEAMOBOOT,bootindex=2 \
+ -display none -serial "file:$TEST/serial.txt" >"$TEST/qemu.txt" 2>&1 &
+pid=$!
+trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+for tick in $(seq 1 900); do
+ if (( tick % 30 == 0 )); then
+  tail -c 16000 "$TEST/serial.txt" | curl -fsS -X PUT -H 'Metadata-Flavor: Google' --data-binary @- http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/beamo-handoff/progress >/dev/null || true
+ fi
+ if grep -q 'error: no such device:' "$TEST/serial.txt"; then tail -n 35 "$TEST/serial.txt"; exit 1; fi
+ if grep -q '^BEAMO_DESKTOP_FAILURE=' "$TEST/serial.txt"; then tail -n 35 "$TEST/serial.txt"; exit 1; fi
+ if grep -q '^BEAMO_DESKTOP_RESTART_REQUESTED' "$TEST/serial.txt" && grep -q '^BEAMO_WIPE_SCREEN_WHAT' "$TEST/serial.txt"; then
+  echo BEAMO_DESKTOP_HANDOFF_PASS
+  sha256sum "$USB"
+  grep '^BEAMO_' "$TEST/serial.txt"
+  exit 0
+ fi
+ kill -0 "$pid" || { cat "$TEST/qemu.txt"; exit 1; }
+ sleep 1
+done
+tail -n 50 "$TEST/serial.txt"
+echo 'Handoff timed out'; exit 1
+
+Cleanup: VM and auto-delete disk, NAT, router, subnet, and network removed.
+Independent gcloud resource listings returned empty results for the dedicated
+beamo-handoff-test-0906 instance, disk, router, subnet, and network.

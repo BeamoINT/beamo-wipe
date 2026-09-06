@@ -5,7 +5,8 @@ Current runtime source: `f7e28ccd6ea39b4b4de37765f66d204f61047e4d` on
 `67eda7ba-a18b-4ce9-90bd-da8d9932b838` is **pending**. The previous complete
 build `850fb9bf-c213-4648-b1f8-d4a98a2e5f47` passed for source
 `6904d80c8b26fdf5a794f11490c947a0fc16bf6b`; it does not validate the later Linux
-inventory correction. The new native-utility test and firmware handoff must pass.
+inventory correction. The native-utility suite and actual Linux firmware handoff passed; the fresh full
+boot gate is still pending.
 No release has been published. Validation images are ephemeral; no physical
 USB was flashed and the existing public v0.2.5 release was not replaced. This report distinguishes implemented behavior
 from runtime, boot, and hardware evidence.
@@ -23,6 +24,11 @@ from runtime, boot, and hardware evidence.
 
 ## Executed evidence
 
+- Corrected-source hosted checks: **1,580 Python tests passed, 12 skipped**
+  (128.09 seconds), native Linux race tests and vet passed, both desktop
+  executables built, and firmware-parser fuzzing completed 387,814 executions.
+  The deliberate fail-open mutation was rejected and the clean negative gate
+  passed. ISO/USB boot results are still pending; the actual Linux firmware handoff passed.
 - Integrated local Python: **1,404 passed, 135 skipped** (30.31 seconds).
   An ignored generated source copy from the prior build was refreshed after
   its consistency check identified stale `release_manifest.py`.
@@ -72,7 +78,11 @@ from runtime, boot, and hardware evidence.
   parent/partition relationships. The launcher now explicitly requests `--tree`;
   a new test invokes the native utility to check those relationships. Local Go
   race tests and unfiltered Python passed after the correction; the fresh full
-  build and exact-source handoff are pending. Hardware nesting was unavailable
+  build remains pending. The exact-source handoff **passed**: actual readiness,
+  normal restart, firmware selection of BootBEEF, and live welcome-screen arrival.
+  The USB stayed read-only and no erase was requested. This root/headless fixture
+  does not validate polkit or desktop file-launch policies. See the
+  [handoff receipt](evidence/desktop-linux-handoff-20260906.txt). Hardware nesting was unavailable
   because project policy disables it; that policy was not changed. The test
   uses TCG software emulation on x64, not physical PC hardware.
 
@@ -107,7 +117,10 @@ its additional value is the media, guidance, safeguards, and support.
 The private Windows test VM, its disk, subnet, network, and temporary uploaded
 test executable were deleted after capturing the checksum-bound test receipt.
 Cloud builds are validation-only; no production release was published.
-Final storage reporting showed 45.2 GiB free and deleted no files. The
+The Linux handoff VM and its auto-delete disk, NAT, router, subnet, and network
+were also deleted after capturing the passing receipt. Independent resource
+listings confirmed the VM, disk, router, subnet, and network were absent.
+Final storage reporting showed 43.9 GiB free and deleted no files. The
 reproducible temporary Go cache was registered with a one-day retention period;
 source and Git history were preserved.
 
@@ -158,7 +171,7 @@ evidence. No release, signing, or manufacturing readiness is claimed here.
 | --- | --- | --- |
 | Windows/Linux desktop entry | Both x64 executables compile; Linux race/vet/fuzz; native Windows API and PowerShell fixtures; browser preview | Implemented; physical desktop acceptance outstanding |
 | Compatibility checks | Exact USB ancestry and partition identity; malformed/ambiguous EFI tests; native architecture refusal | Automated checks passed; real firmware inventory coverage limited |
-| Guided restart | Explicit action, fresh elevated probe, BootNext read-back and rollback fixtures; no forced application closure | Implemented; actual desktop-to-USB handoff not yet proven |
+| Guided restart | Explicit action, fresh elevated probe, BootNext read-back and rollback fixtures; no forced application closure | Linux root/headless OVMF handoff passed; physical desktop and Windows handoff outstanding |
 | Ordinary BIOS/UEFI boot | ISO BIOS erase/report and UEFI boot; corrected FAT32 BIOS reaches confirmation | Automated matrix passed; physical acceptance outstanding |
 | Secure Boot | Signed Debian EFI components and enrolled OVMF gate with actual firmware variable requirement | Enrolled OVMF gate passed; physical firmware acceptance outstanding |
 | Disk safety and required confirmation | Existing fail-closed tests, negative mutation gate, disposable-disk erase/report; USB probes require target confirmation | Preserved; final USB probes passed |
@@ -167,5 +180,5 @@ evidence. No release, signing, or manufacturing readiness is claimed here.
 | Delivery and cleanup | Integrated local branch; publication disabled; Windows test resources removed | Complete within local implementation scope |
 
 The overall goal is not marked complete while the corrected-source full gate,
-actual desktop handoff test, and physical desktop acceptance remain unproven. No test count substitutes for those
+physical desktop acceptance remain unproven. The isolated Linux handoff passed. No test count substitutes for those
 missing integration results.
