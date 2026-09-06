@@ -251,8 +251,15 @@ class AccessibleWizard:
             self.label(self.w.method_summary)
             self.countdown_label = self.label("")
             self.primary = self.button(
-                C.BTN_ERASE, self.w.confirm_erase, enabled=self.w.erase_enabled
+                C.BTN_ERASE, self.w.begin_erase, enabled=self.w.erase_enabled
             )
+        elif screen == Screen.CHECKING:
+            heading.set_text("Checking disk")
+            self.identity()
+            self.label("Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.")
+        elif screen == Screen.STOPPING:
+            heading.set_text("Stopping erase")
+            self.label("Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.")
         elif screen == Screen.WORKING:
             heading.set_text(C.WORKING_PULSE)
             self.identity()
@@ -260,7 +267,7 @@ class AccessibleWizard:
             self.progress_label = self.label("")
             if self.w.evidence_warning:
                 self.label(self.w.evidence_warning)
-            self.button("Cancel erase", self.w.cancel_wipe)
+            self.button("Cancel erase", self.w.begin_cancel)
         elif screen == Screen.DONE:
             result = self.w.result_view
             heading.set_text(result.announcement)
@@ -464,7 +471,7 @@ class AccessibleWizard:
 
     def _close(self, *_args):
         if self.w.screen == Screen.WORKING:
-            self.w.cancel_wipe()
+            self.w.begin_cancel()
             self.render()
         else:
             self.w.shutdown()
@@ -494,8 +501,8 @@ class AccessibleWizard:
         except Exception:
             pass
         try:
-            if self.w.screen == Screen.WORKING:
-                self.w.cancel_wipe(origin="system")
+            if self.w.screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+                self.w.interface_failed()
         finally:
             self.close()
 

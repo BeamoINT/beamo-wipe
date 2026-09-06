@@ -293,9 +293,9 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
                 # Under startx, running the console here leaves X owning tty1
                 # and hides the fallback. Exit so the kiosk supervisor can
                 # tear X down and launch the visible console on tty1.
-                if wizard.screen == Screen.WORKING:
+                if wizard.screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
                     try:
-                        wizard.cancel_wipe(origin="system")
+                        wizard.interface_failed()
                     except Exception as cancel_exc:
                         try:
                             from beamo_wipe.diagnostics import log_diag

@@ -594,6 +594,8 @@ class NwipeRunner:
         self._proc: Optional[subprocess.Popen] = None
         self._lock = threading.Lock()
         self._lock_fd: Optional[int] = None
+        self._cleanup_failed = False
+        self._cancelling: Optional[subprocess.Popen] = None
         self.progress: Optional[float] = None
         self.result: Optional[WipeResult] = None
         self._log_tail = ""
@@ -604,6 +606,8 @@ class NwipeRunner:
     def start(self, request: WipeRequest) -> None:
         # Refuse a duplicate before touching the active run's log.
         with self._lock:
+            if self._cleanup_failed:
+                raise SafetyError("Runner cleanup could not be confirmed.")
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
         resolved = resolve_nwipe_binary(self.binary)
@@ -635,6 +639,8 @@ class NwipeRunner:
             env["TERM"] = "linux"
             popen_env = env
         with self._lock:
+            if self._cleanup_failed:
+                raise SafetyError("Runner cleanup could not be confirmed.")
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
             self._acquire_wipe_lock(request)
@@ -760,6 +766,7 @@ class NwipeRunner:
                 # (or a new run superseded this one). Never overwrite it with
                 # a stale completion.
                 return self.result
+            self._release_wipe_lock()
             self.result = WipeResult(
                 ok=ok,
                 exit_code=code,
@@ -771,8 +778,7 @@ class NwipeRunner:
             if ok:
                 self.progress = 100.0
             self._proc = None
-            # Keep retiring this run's lock atomic with making start available.
-            self._release_wipe_lock()
+            # Cleanup was confirmed before publishing the terminal result.
             return self.result
 
     def _read_log_tail(self, logfile: str, nbytes: int) -> str:
@@ -844,18 +850,25 @@ class NwipeRunner:
         self._lock_fd = fd
 
     def _release_wipe_lock(self) -> None:
+        if self._cleanup_failed:
+            raise SafetyError("Runner cleanup could not be confirmed.")
         fd = self._lock_fd
-        self._lock_fd = None
         if fd is None:
             return
         try:
             fcntl.flock(fd, fcntl.LOCK_UN)
         except OSError as exc:
             _try_log_diag("nwipe", "unlock_failed", type(exc).__name__)
+            raise SafetyError("Runner cleanup could not be confirmed.") from exc
+        self._lock_fd = None
         try:
             os.close(fd)
         except OSError as exc:
+            # A failed close has platform-dependent ownership. Never close the
+            # number again (it may be reused), or publish a clean terminal state.
+            self._cleanup_failed = True
             _try_log_diag("nwipe", "lock_close_failed", type(exc).__name__)
+            raise SafetyError("Runner cleanup could not be confirmed.") from exc
 
     def cancel(self) -> None:
         # Snapshot under lock but keep _proc registered until the outcome is
@@ -863,8 +876,17 @@ class NwipeRunner:
         # refusing while the engine may still hold the disk.
         with self._lock:
             proc = self._proc
-            if proc is None or self.result is not None:
+            if proc is None or self.result is not None or self._cancelling is proc:
                 return
+            self._cancelling = proc
+        try:
+            self._cancel_process(proc)
+        finally:
+            with self._lock:
+                if self._cancelling is proc:
+                    self._cancelling = None
+
+    def _cancel_process(self, proc: subprocess.Popen) -> None:
         try:
             proc.terminate()
         except (OSError, AttributeError) as exc:
@@ -899,6 +921,7 @@ class NwipeRunner:
                 # poll() or another cancel completed this run while wait()
                 # was pending. A subsequent start may already own the runner.
                 return
+            self._release_wipe_lock()
             self._proc = None
             self.result = WipeResult(
                 ok=False,
@@ -907,7 +930,6 @@ class NwipeRunner:
                 reason="cancelled",
                 logfile=getattr(self, "_last_logfile", "") or "",
             )
-            self._release_wipe_lock()
 
 
 class DryRunRunner:

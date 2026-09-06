@@ -31,6 +31,8 @@ class Screen(str, Enum):
     CONFIRM = "confirm"
     METHOD = "method"
     LAST_CHANCE = "last_chance"
+    CHECKING = "checking"
+    STOPPING = "stopping"
     WORKING = "working"
     DONE = "done"
     ADVANCED = "advanced"

@@ -112,6 +112,9 @@ def format_progress_percent(pct: float) -> str:
     return f"{int(pct)}%"
 
 
+_StartClaim = tuple[Disk, DiscoveryResult, bool, str, MethodId, bool]
+
+
 class Wizard:
     def __init__(
         self,
@@ -186,6 +189,9 @@ class Wizard:
         self._report_revision = 0
         self._active_report_claim: Optional[_ReportExportClaim] = None
         self._lock = threading.RLock()
+        self._start_claim: Optional[_StartClaim] = None
+        self._start_abort = threading.Event()
+        self._operation_thread: Optional[threading.Thread] = None
         self.startup_error_code = discovery.error_code
         self.diagnostic_ui = "graphical"
         self._session_started = time.monotonic()
@@ -386,7 +392,14 @@ class Wizard:
         should_finish = None
         with self._lock:
             if self.screen == Screen.WORKING and self._wipe_request is not None:
-                result = self.runner.poll(self._wipe_request)
+                try:
+                    result = self.runner.poll(self._wipe_request)
+                except Exception:
+                    message = "Process status or cleanup could not be confirmed. The disk may still be erasing."
+                    if self.error != message:
+                        self.error = message
+                        self._touch_report_locked()
+                    return
                 if result is not None and not self._cancel_requested:
                     should_finish = result
                 # When a cancel is in flight, drop the poll result: the
@@ -405,6 +418,8 @@ class Wizard:
         """Start the wizard over. Preview only — never used on a live wipe."""
         from beamo_wipe.nwipe_runner import DryRunRunner
 
+        if self.screen in {Screen.CHECKING, Screen.STOPPING, Screen.WORKING}:
+            return
         fail = bool(getattr(self.runner, "fail", False))
         duration = float(getattr(self.runner, "duration_s", 8.0))
         self.runner = DryRunRunner(duration_s=duration, fail=fail)
@@ -453,7 +468,7 @@ class Wizard:
                 return
             if self.wants_shutdown or self.screen in {
                 Screen.WORKING,
-                Screen.REFRESHING,
+                Screen.REFRESHING, Screen.CHECKING, Screen.STOPPING,
             }:
                 return
             if self._diagnostic_busy or self._evidence_saving:
@@ -551,7 +566,7 @@ class Wizard:
 
     def set_owner(self, checked: bool) -> None:
         with self._lock:
-            if self.screen != Screen.REFRESHING:
+            if self.screen not in {Screen.REFRESHING, Screen.CHECKING, Screen.STOPPING, Screen.WORKING}:
                 self.owner_ok = bool(checked)
 
     def continue_owner(self) -> None:
@@ -709,31 +724,74 @@ class Wizard:
             self.screen = Screen.LAST_CHANCE
             self._erase_until = self.now + COUNTDOWN_S
 
-    def confirm_erase(self) -> None:
+    def _claim_start(self) -> Optional[_StartClaim]:
         with self._lock:
             if self._recovered or self._startup_blocked:
-                return
+                return None
             # Double-start guard first: a second caller blocked on _lock
             # arrives after the first moved to WORKING. Refuse it with a
             # visible error (checking LAST_CHANCE first would silently
             # swallow it, since the screen is already WORKING).
             if self.screen == Screen.WORKING and self._wipe_request is not None:
                 self.error = "A wipe is already running."
-                return
+                return None
             if self.wants_shutdown or self.screen != Screen.LAST_CHANCE:
-                return
+                return None
             if not self.erase_enabled or self.selected is None:
-                return
+                return None
             if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
                 self.error = "Preview and dry-run cannot exec nwipe."
-                return
-            # We already hold the lock; keep it for the whole start
-            # sequence to prevent a second thread from also passing the
-            # guard and double-starting the wipe. The rediscover I/O
-            # could be slow, but it is bounded (lsblk timeout) and the
-            # critical section is short; correctness wins.
-            discovery = self.discovery
-            disk = self.selected
+                return None
+            # Claim on the caller thread before scheduling any work. All screen
+            # mutations reject CHECKING; slow I/O never owns the UI state lock.
+            claim = (self.selected, copy.deepcopy(self.discovery), self.owner_ok,
+                     self.confirm_input, self.method, self.countdown_left <= 0.0)
+            self._start_claim = claim
+            self._start_abort.clear()
+            self.error = None
+            self.screen = Screen.CHECKING
+            return claim
+
+    def confirm_erase(self) -> None:
+        """Synchronous console/test entry point, sharing the graphical claim."""
+        claim = self._claim_start()
+        if claim is not None:
+            self._perform_start(claim)
+
+    def begin_erase(self) -> bool:
+        claim = self._claim_start()
+        if claim is None:
+            return False
+        return self._launch_operation(lambda: self._perform_start(claim), Screen.CHECKING)
+
+    def _launch_operation(self, action: Callable[[], None], screen: Screen) -> bool:
+        try:
+            worker = threading.Thread(target=action, name="beamo-erase-transition", daemon=True)
+            self._operation_thread = worker
+            worker.start()
+            return True
+        except Exception:
+            with self._lock:
+                if self.screen == screen:
+                    self.screen = Screen.LAST_CHANCE if screen == Screen.CHECKING else Screen.WORKING
+                    self._start_claim = None
+                    self._cancel_requested = False
+                    self.error = ("Disk checking could not start. Try again." if screen == Screen.CHECKING
+                                  else "Stopping could not start. The disk may still be erasing. Try cancel again.")
+            return False
+
+    def interface_failed(self) -> None:
+        """Retire UI actions without a worker ever calling a destroyed toolkit.
+
+        If launch is already in progress, its owner stops it after start returns.
+        Otherwise this prevents launch at the final worker boundary.
+        """
+        self._start_abort.set()
+        self.begin_cancel(origin="system")
+
+    def _perform_start(self, claim: _StartClaim) -> None:
+        disk, discovery, owner, token, method, countdown_complete = claim
+        try:
             if not self.dry_run and not self.preview:
                 try:
                     discovery = (self._rediscover or discover)()
@@ -772,18 +830,21 @@ class Wizard:
                 self.selected = disk
             try:
                 request = assert_ready_to_wipe(
-                    owner_ok=self.owner_ok,
+                    owner_ok=owner,
                     disk=disk,
                     discovery=discovery,
-                    typed_token=self.confirm_input,
-                    countdown_complete=self.countdown_left <= 0.0,
-                    method=self.method,
+                    typed_token=token,
+                    countdown_complete=countdown_complete,
+                    method=method,
                 )
                 build_nwipe_argv(request)
                 self._saved_diagnostic_context = None
                 self._saved_report_claim = None
                 if self._session_store is not None:
                     self._session_store.arm(discovery, request)
+                if self._start_abort.is_set():
+                    self.error = "Interface closed during disk checking. Erase did not start."
+                    return
                 self.runner.start(request)
             except SafetyError as exc:
                 self.error = ("Confirm token does not match." if str(exc) == "Confirm token does not match." else
@@ -802,38 +863,52 @@ class Wizard:
                 self.error = "Startup could not be confirmed. Save a diagnostic report for support."
                 self.startup_error_code = "unexpected_startup_failure"
                 return
-            self.error = None
-            self.startup_error_code = ""
-            self._wipe_request = request
-            self._cancel_requested = False
-            self._evidence_written_for = None
-            self._evidence_flag_hint = {}
-            self.screen = Screen.WORKING
-            # Record evidence start (wall + monotonic) + redacted argv for later completion
-            try:
-                from beamo_wipe.evidence import _iso_now_wall
+            with self._lock:
+                self.error = None
+                self.startup_error_code = ""
+                self._wipe_request = request
+                self._cancel_requested = False
+                self._evidence_written_for = None
+                self._evidence_flag_hint = {}
+                self.screen = Screen.WORKING
+                # Record evidence start (wall + monotonic) + redacted argv for later completion
+                try:
+                    from beamo_wipe.evidence import _iso_now_wall
 
-                wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
-            except Exception:
-                wall = ""
-            self._evidence_start_wall = wall
-            self._evidence_start_mono = self.now
-            try:
-                # Build redacted argv now (never contains secrets; already sanitized)
-                self._evidence_argv = list(build_nwipe_argv(request))
-            except Exception:
-                self._evidence_argv = []
-            # Write initial started evidence (atomic, off-target)
-            # Do not hold the lock during file I/O; copy needed state
-            # and release lock before writing.
-            pass
-        # Outside the lock: write evidence without holding _lock during I/O
-        # (prevents deadlock if evidence write calls back into wizard)
-        self._write_evidence(result=None, cancelled=False, interrupted=False)
+                    wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
+                except Exception:
+                    wall = ""
+                self._evidence_start_wall = wall
+                self._evidence_start_mono = self.now
+                try:
+                    # Build redacted argv now (never contains secrets; already sanitized)
+                    self._evidence_argv = list(build_nwipe_argv(request))
+                except Exception:
+                    self._evidence_argv = []
+                # Write initial started evidence (atomic, off-target)
+                # Do not hold the lock during file I/O; copy needed state
+                # and release lock before writing.
+            self._write_evidence(result=None, cancelled=False, interrupted=False)
+            if self._start_abort.is_set():
+                self.cancel_wipe(origin="system")
+        except Exception:
+            # Malformed discovery metadata must not kill a background worker
+            # silently or leave the operator with an apparently idle success.
+            with self._lock:
+                self.error = "Startup could not be confirmed. Save a diagnostic report for support."
+                self.startup_error_code = "unexpected_startup_failure"
+        finally:
+            with self._lock:
+                if self._start_claim is claim:
+                    self._start_claim = None
+                    if self.screen == Screen.CHECKING:
+                        self.screen = Screen.LAST_CHANCE
 
-    def _finish(self, result: WipeResult, *, cancelled: bool = False, interrupted: bool = False) -> None:
+    def _finish(self, result: WipeResult, *, cancelled: bool = False, interrupted: bool = False, from_stop: bool = False) -> None:
         # Guard against double-finish from concurrent tick/cancel
         with self._lock:
+            if self.screen == Screen.STOPPING and not from_stop:
+                return
             if self.screen == Screen.DONE and self.wipe_result is not None:
                 return
             self.wipe_result = result
@@ -847,22 +922,35 @@ class Wizard:
         # Persist auditable evidence (atomic, off-target, truthful outcome)
         self._write_evidence(result=result, cancelled=cancelled, interrupted=interrupted)
 
-    def cancel_wipe(self, *, origin: str = "user") -> None:
-        """User or system interruption. Produce interrupted evidence."""
+    def _claim_stop(self) -> bool:
         with self._lock:
-            if self._wipe_request is None or self.screen != Screen.WORKING:
-                return
-            # Claim the finish before touching the runner: a concurrent
-            # tick() must drop the post-cancel poll result (see tick())
-            # instead of recording an engine-'failed' outcome.
+            if self._wipe_request is None or self.screen != Screen.WORKING or self._cancel_requested:
+                return False
             self._cancel_requested = True
+            self.screen = Screen.STOPPING
+            self.error = None
+            return True
+
+    def cancel_wipe(self, *, origin: str = "user") -> None:
+        """Synchronous console/test entry point; only one caller owns stop."""
+        if self._claim_stop():
+            self._perform_stop(origin)
+
+    def begin_cancel(self, *, origin: str = "user") -> bool:
+        if not self._claim_stop():
+            return False
+        return self._launch_operation(lambda: self._perform_stop(origin), Screen.STOPPING)
+
+    def _perform_stop(self, origin: str) -> None:
+        with self._lock:
+            request = self._wipe_request
+            if request is None or self.screen != Screen.STOPPING:
+                return
         try:
+            # Preserve a terminal engine result that predates the stop request.
+            self.runner.poll(request)
             self.runner.cancel()
         except Exception as exc:
-            with self._lock:
-                # Cancel failed: release the claim so tick() resumes
-                # delivering real outcomes while the engine may still run.
-                self._cancel_requested = False
             try:
                 from beamo_wipe.diagnostics import log_diag
 
@@ -874,12 +962,15 @@ class Wizard:
             # user can retry), and surface the failure instead of writing a
             # clean 'interrupted' outcome for a wipe that may still run.
             from beamo_wipe.outcomes import VIEWS
-            self.error = VIEWS["stop_unconfirmed"].announcement
+            with self._lock:
+                self.error = VIEWS["stop_unconfirmed"].announcement
+                self._cancel_requested = False
+                self.screen = Screen.WORKING
             return
         # Hold lock while checking and transitioning to avoid race with
         # tick()->_finish.
         with self._lock:
-            if self._wipe_request is None or self.screen != Screen.WORKING:
+            if self._wipe_request is None or self.screen != Screen.STOPPING:
                 return
             from beamo_wipe.models import WipeResult as _WR
 
@@ -887,6 +978,7 @@ class Wizard:
             if observed is None:
                 from beamo_wipe.outcomes import VIEWS
                 self._cancel_requested = False
+                self.screen = Screen.WORKING
                 self.error = VIEWS["stop_unconfirmed"].announcement
                 return
             if observed is not None and (
@@ -904,7 +996,7 @@ class Wizard:
                 cancelled = origin == "user" and observed is not None and not observed.ok
             # _write_evidence and _finish outside lock to avoid I/O under lock
             need_evidence = res
-        self._finish(need_evidence, cancelled=cancelled, interrupted=interrupted)
+        self._finish(need_evidence, cancelled=cancelled, interrupted=interrupted, from_stop=True)
         self.arm_done_keyboard()
 
     def _write_evidence(
@@ -1677,7 +1769,7 @@ class Wizard:
 
     def open_advanced(self) -> None:
         with self._lock:
-            if self.screen in (Screen.SPLASH, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
+            if self.screen in (Screen.SPLASH, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
                 return
             self._advanced_from = self.screen
             self.screen = Screen.ADVANCED
@@ -1689,12 +1781,9 @@ class Wizard:
             self.screen = self._advanced_from or Screen.METHOD
 
     def back(self) -> None:
-        # Under _lock like every other screen mutation: confirm_erase holds
-        # the lock from its LAST_CHANCE gate through runner.start, so a
-        # concurrent back() either wins (confirm then refuses, nothing
-        # started) or waits and becomes a no-op once WORKING (no mapping).
-        # Without this, a back-out landing mid-confirm leaves the UI on
-        # METHOD while nwipe is already running.
+        # The start claim moves to CHECKING under this same lock. Back either
+        # wins before the claim, or becomes a no-op throughout checking,
+        # working and stopping; it never waits for discovery or termination.
         with self._lock:
             if self.screen == Screen.SHUTDOWN_CONFIRM:
                 self.keep_report_session()

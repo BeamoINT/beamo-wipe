@@ -601,46 +601,47 @@ def test_sigusr1_not_sent_during_startup_before_nwipe_masks_it(tmp_path, monkeyp
 
 
 def test_sigusr1_sent_after_nwipe_ready_marker(tmp_path, monkeypatch):
-    """Once nwipe has logged options (handler installed), SIGUSR1 is used for progress."""
-    import stat
-    import time
-
+    """Readiness gates signaling, independent of host scheduling or sleeps."""
+    import signal
     from beamo_wipe.nwipe_runner import NwipeRunner
 
+    signals = []
+
+    class FakeProc:
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def send_signal(self, value):
+            signals.append(value)
+
+        def terminate(self):
+            self.returncode = 143
+
+        def wait(self, timeout):
+            return self.returncode
+
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
-    script = tmp_path / "fake_nwipe_ready"
-    script.write_text(
-        "#!/bin/sh\n"
-        "trap '' USR1\n"
-        "for arg in \"$@\"; do\n"
-        "  case \"$arg\" in --logfile=*)\n"
-        "    echo 'Program options are set as follows...' >> \"${arg#--logfile=}\" ;;\n"
-        "  esac\n"
-        "done\n"
-        "sleep 4\n"
-        "exit 0\n",
-        encoding="utf-8",
-    )
-    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setattr("beamo_wipe.nwipe_runner.subprocess.Popen", lambda *a, **kw: FakeProc())
+    monkeypatch.setattr("beamo_wipe.nwipe_runner.time.monotonic", lambda: 3.0)
     req = WipeRequest(
-        device="/dev/vda",
-        method=MethodId.EVERYDAY,
-        boot_device="/dev/sr0",
+        device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0",
         logfile=str(tmp_path / "nwipe-vda.log"),
     )
-    runner = NwipeRunner(binary=str(script))
+    runner = NwipeRunner(binary=str(tmp_path / "fake_nwipe_ready"))
     runner.start(req)
-    deadline = time.monotonic() + 2.5
-    while time.monotonic() < deadline:
+    try:
         runner.poll(req)
-        if runner._sigusr1_armed and runner._last_sigusr1 > 0:
-            break
-        time.sleep(0.05)
-    alive = runner._proc is not None and runner._proc.poll() is None
-    runner.cancel()
-    assert runner._sigusr1_armed
-    assert runner._last_sigusr1 > 0
-    assert alive
+        assert not runner._sigusr1_armed and not signals
+        (tmp_path / "nwipe-vda.log").write_text("Program options are set as follows...\n")
+        runner.poll(req)
+        assert runner._sigusr1_armed
+        assert runner._last_sigusr1 == 3.0
+        assert signals == [signal.SIGUSR1]
+        assert runner._proc.poll() is None
+    finally:
+        runner.cancel()
 
 
 def test_nwipe_runner_busy_skip_log_is_failure(tmp_path, monkeypatch):

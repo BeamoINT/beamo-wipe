@@ -33,7 +33,7 @@ def test_button_history_never_counts_as_an_export(tmp_path, wanted, status):
     [
         s
         for s in Screen
-        if s not in {Screen.WORKING, Screen.REFRESHING, Screen.SHUTDOWN_CONFIRM}
+        if s not in {Screen.WORKING, Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING, Screen.SHUTDOWN_CONFIRM}
     ],
 )
 def test_request_cancel_and_explicit_discard_from_every_idle_screen(screen):

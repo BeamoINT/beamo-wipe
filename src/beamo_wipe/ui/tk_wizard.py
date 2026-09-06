@@ -138,6 +138,8 @@ _STEP_ORDER = {
     Screen.LIMITS: (5, limits.TITLE, limits.TITLE),
     Screen.REFRESHING: (0, "", "Checking disks again"),
     Screen.LAST_CHANCE: (6, "Step 6 of 8", C.TITLE_LAST),
+    Screen.CHECKING: (6, "Step 6 of 8", "Checking disk"),
+    Screen.STOPPING: (7, "Step 7 of 8", "Stopping erase"),
     Screen.WORKING: (7, "Step 7 of 8", C.TITLE_WORKING),
     Screen.DONE: (8, "Step 8 of 8", C.TITLE_DONE_OK),
 }
@@ -1033,7 +1035,11 @@ class TkWizard:
             child.destroy()
 
     def _nav(self, fn: Callable[[], None]) -> Callable[[], None]:
+        expected_screen = self.w.screen
+
         def wrapped() -> None:
+            if self.w.screen != expected_screen:
+                return
             fn()
             if self.w.wants_shutdown:
                 self._teardown()
@@ -1071,7 +1077,7 @@ class TkWizard:
 
     def _tick(self) -> None:
         try:
-            prev = self.w.screen
+            prev = self._shown
             self.w.tick()
             if self.w.screen != prev:
                 self._arm_shutdown_enter_if_idle()
@@ -1098,9 +1104,9 @@ class TkWizard:
                 log_diag("ui", "tk_runtime_failed", type(exc).__name__)
             except Exception:
                 pass
-            if self.w.screen == Screen.WORKING:
+            if self.w.screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
                 try:
-                    self.w.cancel_wipe(origin="system")
+                    self.w.interface_failed()
                 except Exception as cancel_exc:
                     try:
                         from beamo_wipe.diagnostics import log_diag
@@ -1153,6 +1159,14 @@ class TkWizard:
             Screen.CONFIRM: self._confirm,
             Screen.METHOD: self._method,
             Screen.LAST_CHANCE: self._last,
+            Screen.CHECKING: lambda: self._status_screen(
+                "info", "Checking disk",
+                "Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.",
+            ),
+            Screen.STOPPING: lambda: self._status_screen(
+                "warn", "Stopping erase",
+                "Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.",
+            ),
             Screen.WORKING: self._working,
             Screen.ADVANCED: self._advanced,
             Screen.LIMITS: self._limits,
@@ -2261,7 +2275,7 @@ class TkWizard:
         self._primary_btn(
             row,
             C.BTN_ERASE,
-            self.w.confirm_erase,
+            self._click_erase,
             enabled=self.w.erase_enabled,
             danger=True,
         )
@@ -2498,7 +2512,7 @@ class TkWizard:
         if self.w.screen == Screen.WORKING:
             # Working: Esc triggers visible cancel (fail-safe interruption)
             try:
-                self.w.cancel_wipe()
+                self.w.begin_cancel()
             except Exception as exc:
                 try:
                     from beamo_wipe.diagnostics import log_diag
@@ -2561,10 +2575,13 @@ class TkWizard:
         self.w.arm_done_keyboard()
         emit_serial_marker("BEAMO_WIPE_KEY_SPACE_RELEASED")
 
+    def _click_erase(self) -> None:
+        self.w.begin_erase()
+
     def _click_cancel(self) -> None:
         """Visible cancel on WORKING. Never silently ignored."""
         try:
-            self.w.cancel_wipe()
+            self.w.begin_cancel()
         except Exception as exc:
             try:
                 from beamo_wipe.diagnostics import log_diag
@@ -2619,7 +2636,7 @@ class TkWizard:
         elif screen == Screen.METHOD:
             self.w.continue_method()
         elif screen == Screen.LAST_CHANCE and self.w.erase_enabled:
-            self.w.confirm_erase()
+            self._click_erase()
         elif screen == Screen.DONE:
             self.w.accept_done_keyboard()
         elif screen == Screen.ADVANCED:
@@ -2702,7 +2719,7 @@ class TkWizard:
             # Window close on WORKING is now an explicit cancel (visible
             # evidence with "interrupted" outcome) instead of silently blocked.
             try:
-                self.w.cancel_wipe()
+                self.w.begin_cancel()
             except Exception as exc:
                 try:
                     from beamo_wipe.diagnostics import log_diag

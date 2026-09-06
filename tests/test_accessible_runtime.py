@@ -11,7 +11,7 @@ from dataclasses import replace
 import pytest
 
 pytest.importorskip("gi")
-from beamo_wipe.ui.accessible_wizard import AccessibleWizard, Gtk, Gdk  # noqa: E402
+from beamo_wipe.ui.accessible_wizard import AccessibleWizard, Gtk, Gdk, GLib  # noqa: E402
 from beamo_wipe.demo import make_demo_wizard  # noqa: E402
 from beamo_wipe.models import DiskKind, MethodId, Screen  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
@@ -137,9 +137,11 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     app.update_status()
     assert app.actions["Erase now"].get_sensitive()
     app.actions["Erase now"].clicked()
+    wait_transition(app)
     assert wizard.screen == Screen.WORKING and wizard.runner.started
     assert "Check disks again (F5)" not in app.actions
     app.actions["Cancel erase"].clicked()
+    wait_transition(app)
     assert wizard.screen == Screen.DONE
 
 
@@ -251,7 +253,7 @@ def test_callback_failure_stops_with_system_origin(ui, monkeypatch):
     app = ui()
     app.w.screen = Screen.WORKING
     origins = []
-    monkeypatch.setattr(app.w, "cancel_wipe", lambda **kw: origins.append(kw["origin"]))
+    monkeypatch.setattr(app.w, "begin_cancel", lambda **kw: origins.append(kw["origin"]))
     app._runtime_failure(RuntimeError, RuntimeError("fake"), None)
     assert app.failed and origins == ["system"]
 
@@ -534,3 +536,59 @@ def test_accessible_evidence_failure_retry(ui, tmp_path, monkeypatch):
     app.tick()
     assert not w.evidence_error and w.can_save_report
     assert 'Retry evidence save' not in app.actions
+
+
+def wait_transition(app):
+    import time
+    deadline = time.monotonic() + 3
+    while app.w.screen in {Screen.CHECKING, Screen.STOPPING} and time.monotonic() < deadline:
+        drain()
+        time.sleep(0.005)
+    assert app.w.screen not in {Screen.CHECKING, Screen.STOPPING}
+    app.tick()
+
+
+@pytest.mark.parametrize("phase", ["checking", "stopping"])
+def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phase):
+    from test_busy_transitions import Barrier
+    w = make_demo_wizard(); w.preview = False
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
+    w.runner._clock = lambda: 0
+    w.skip_splash(); w.accept_what(); w.set_owner(True); w.continue_owner()
+    w.select_disk(w.selectable[0].path); w.continue_pick()
+    w.set_confirm_input(w.confirm.token); w.continue_confirm(); w.continue_method()
+    w._erase_until = 0
+    barrier = Barrier()
+    if phase == "stopping":
+        w.confirm_erase()
+    app = ui(w)
+    if phase == "checking":
+        original = w.runner.start
+        def slow(request):
+            barrier.wait(); original(request)
+        monkeypatch.setattr(w.runner, "start", slow)
+        stale = app.actions["Erase now"]
+        stale.clicked()
+    else:
+        original = w.runner.cancel
+        def slow():
+            barrier.wait(); original()
+        monkeypatch.setattr(w.runner, "cancel", slow)
+        stale = app.actions["Cancel erase"]
+        stale.clicked()
+    try:
+        assert barrier.entered.wait(2)
+        beats = []
+        GLib.idle_add(lambda: beats.append(True) or False)
+        drain(); app.tick()
+        assert beats
+        title = "Checking disk" if phase == "checking" else "Stopping erase"
+        assert title in text(app)
+        assert title in [v.get_accessible().get_name() for v in widgets(app.window)]
+        assert not app.actions
+        stale.emit("clicked"); app._close()
+        assert not app.closed and not w.wants_shutdown
+    finally:
+        barrier.join(w)
+    wait_transition(app)

@@ -284,6 +284,7 @@ def test_keyboard_only_flow_reaches_working(ui):
     root.update()
     assert wiz.erase_enabled
     key("Return")
+    _wait_transition(wiz, app)
     assert wiz.screen == Screen.WORKING
 
 
@@ -310,6 +311,7 @@ def test_held_enter_does_not_erase_when_countdown_completes(ui, tmp_path, monkey
     root.update()
     (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
     root.update()
+    _wait_transition(wiz, app)
     assert wiz.screen == Screen.WORKING
 
 
@@ -1039,3 +1041,54 @@ def test_evidence_failure_warning_and_retry_layout(ui, tmp_path, monkeypatch, si
         buttons = [x for x in walk(app.root) if isinstance(x, _Button)]
         retry = next(x for x in buttons if x.itemcget(x._label, 'text') == 'Retry evidence save')
         assert retry._enabled == (phase == 'done')
+
+
+def _wait_transition(w, app):
+    deadline = time.monotonic() + 3
+    while w.screen in {Screen.CHECKING, Screen.STOPPING} and time.monotonic() < deadline:
+        app.root.update()
+        time.sleep(0.005)
+    assert w.screen not in {Screen.CHECKING, Screen.STOPPING}
+    app._tick()
+
+
+@pytest.mark.parametrize("phase", ["checking", "stopping"])
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_busy_transition_renders_and_pumps_events(ui, monkeypatch, tmp_path, phase, size):
+    from test_busy_transitions import Barrier
+    w, app = ui(size=size)
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
+    w.runner._clock = lambda: 0
+    _drive_to(w, app, Screen.LAST_CHANCE)
+    w._erase_until = 0
+    barrier = Barrier()
+    if phase == "checking":
+        original = w.runner.start
+        def slow(request):
+            barrier.wait(); original(request)
+        monkeypatch.setattr(w.runner, "start", slow)
+        app._nav(w.begin_erase)()
+    else:
+        w.confirm_erase(); app._draw()
+        original = w.runner.cancel
+        def slow():
+            barrier.wait(); original()
+        monkeypatch.setattr(w.runner, "cancel", slow)
+        app._click_cancel()
+    try:
+        assert barrier.entered.wait(2)
+        beats = []
+        app.root.after_idle(lambda: beats.append("event loop alive"))
+        app.root.update(); app._tick()
+        assert beats == ["event loop alive"]
+        assert app._shown == (Screen.CHECKING if phase == "checking" else Screen.STOPPING)
+        assert app._primary is None
+        assert _clipping_problems(app) == []
+        assert _off_window_problems(app) == []
+        app._close(); app._on_escape(); app._on_return()
+        assert not w.wants_shutdown and w.screen == app._shown
+    finally:
+        barrier.join(w)
+    _wait_transition(w, app)
+    assert app._shown == w.screen

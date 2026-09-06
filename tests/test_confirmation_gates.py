@@ -135,7 +135,7 @@ def test_model_states_and_invariants_exist():
     from beamo_wipe.wizard import Wizard
     from beamo_wipe.safety import assert_ready_to_wipe
 
-    src = inspect.getsource(Wizard.confirm_erase)
+    src = inspect.getsource(Wizard._claim_start) + inspect.getsource(Wizard._perform_start)
     # Must check every gate explicitly
     assert "erase_enabled" in src
     assert "selected is None" in src

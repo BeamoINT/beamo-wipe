@@ -269,11 +269,11 @@ def test_post_cancel_poll_result_never_finishes_as_engine_failed(
     assert wiz.screen.value == "working"
     # cancel_wipe's first half ran (claim set, runner cancelled), then a
     # tick lands before cancel_wipe resumes.
-    wiz._cancel_requested = True
+    assert wiz._claim_stop()
     wiz.runner.cancel()
     wiz.tick()
-    assert wiz.screen.value == "working"
-    wiz.cancel_wipe()
+    assert wiz.screen.value == "stopping"
+    wiz._perform_stop("user")
     assert wiz.screen.value == "done"
     assert wiz.evidence is not None
     assert wiz.evidence["outcome"] == "interrupted"
