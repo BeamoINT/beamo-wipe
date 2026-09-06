@@ -23,6 +23,11 @@ environment. Opening the application and approving permissions are explicit;
 Windows publisher warnings and Linux execution policies still apply. See
 [desktop design and evidence limits](docs/desktop-entry-design.md).
 
+To preview the new desktop launcher with Go installed, run
+`go run . --preview` from the `desktop/` directory. This opens the local browser
+interface with simulated readiness; its restart button does not restart the
+computer or erase anything.
+
 ## See the UI on this computer
 
 Nothing is erased. Fake disks only. This is the way to look at the screens

@@ -1,5 +1,12 @@
 # Beamo Wipe — Boot and Hardware Compatibility Matrix
 
+**Desktop-entry development update (2026-09-06):** the release matrix below
+records the earlier v0.2.5 configuration. The new launcher, FAT32 USB image,
+and signed Debian EFI components are described in
+[desktop-entry-design.md](desktop-entry-design.md). Its executed validation
+and remaining hardware requirements are recorded separately; older Secure
+Boot rows below must not be used as evidence for the new image.
+
 Shutdown actions described below now request the shared shutdown decision:
 when a report was requested but no current verified export is confirmed,
 **Shut down without saving?** requires a separate choice. **Keep session open**
