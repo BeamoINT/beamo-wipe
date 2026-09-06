@@ -849,6 +849,17 @@ boot_probe() {
   fi
   if [[ "$exercise_export" == yes ]]; then
     drive_report_export "$label" "$qmp_socket"
+  elif [[ "$label" == *-usb ]]; then
+    # A visible welcome screen alone does not prove the new FAT32 layout is
+    # recognized as protected boot media. Reach the disposable target's exact
+    # confirmation without accepting it or starting an erase in these probes.
+    send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
+    send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20
+    send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_PICK 20
+    send_key_for_marker "$label" "$qmp_socket" down BEAMO_WIPE_SCREEN_PICK 20
+    send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_CONFIRM 20
+    wait_for_marker "$label" BEAMO_WIPE_CONFIRM_FOCUSED 20
+    type_token_for_marker "$label" "$qmp_socket" "$QEMU_TARGET_SERIAL" BEAMO_WIPE_CONFIRM_MATCHED 20
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "QEMU $label exited immediately after its final marker" >&2

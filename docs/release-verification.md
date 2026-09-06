@@ -11,8 +11,21 @@ Each release publishes a machine-readable manifest that links the ISO to its sou
 | `beamo-wipe-0.2.5-amd64.manifest.json` | Release provenance (this doc) | same | `dist/` |
 | `beamo-wipe-0.2.5-amd64.manifest.json.sha256` | Manifest checksum | same | `dist/` |
 | `SHA256SUMS` | `sha256sum` of ISO + manifest | same | `dist/` |
+| `beamo-wipe-0.2.5-amd64.img` | Desktop-readable FAT32 USB image with BIOS/UEFI boot | same | `dist/` after the USB-image builder |
+| `beamo-wipe-0.2.5-amd64.img.sha256` | USB image checksum | same | alongside image |
+| `beamo-wipe-0.2.5-amd64.img.json` | USB image size, layout, checksum, and source ISO checksum | same | alongside image |
 
-All are under `dist/` after `./scripts/build-iso.sh`. Cloud Build discards them by default. An explicitly authorized `./scripts/ci-cloud.sh --publish-release` uploads only after the full QEMU gate and writes `RELEASE_COMPLETE.txt` last under a unique build-ID path.
+The ISO artifacts are under `dist/` after `./scripts/build-iso.sh`. The hosted
+QEMU phase also runs `./scripts/build-usb-image.sh` on its isolated amd64 Linux
+worker. It boots the resulting `.img` through BIOS, UEFI, and enrolled Secure
+Boot firmware. The publisher requires these USB boot logs and verifies the
+image metadata against the actual image and source ISO before any upload.
+These new image artifacts are development additions; they do not retroactively
+change the previously published v0.2.5 release.
+
+Cloud Build discards artifacts by default. An explicitly authorized
+`./scripts/ci-cloud.sh --publish-release` uploads only after the full QEMU gate
+and writes `RELEASE_COMPLETE.txt` last under a unique build-ID path.
 
 ## What the manifest contains
 

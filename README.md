@@ -80,7 +80,8 @@ becomes success.
 - Not a wipe from inside Windows. The PC must boot this USB.
 - Not DoD / NSA / NIST “certified.” Not a Blancco replacement.
 - Not a new wipe engine. The only eraser is [nwipe](https://github.com/martijnvanbrummelen/nwipe) **v0.42**.
-- Not plug-and-play. You will use the firmware boot menu (often F12, Esc, or F9).
+- Opening the application is explicit. The firmware boot menu (often F12,
+  Esc, or F9) remains necessary when guided restart is unavailable.
 
 Listing language we are allowed to use: [docs/claims.md](docs/claims.md).
 Controller and erase limits: [docs/storage-and-controller-limits.md](docs/storage-and-controller-limits.md)

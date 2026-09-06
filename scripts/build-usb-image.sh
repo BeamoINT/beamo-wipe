@@ -39,7 +39,10 @@ for entry in "$TREE"/* "$TREE"/.[!.]*; do
   [[ -e "$entry" ]] || continue
   mcopy -s -i "$FAT" "$entry" ::/
 done
-syslinux --install --directory isolinux "$FAT"
+# Syslinux stores this path in its boot files. A relative "isolinux" installs
+# successfully but boots to "No configuration file found" on BIOS; the
+# filesystem-root path is required (verified with the same FAT image in QEMU).
+syslinux --install --directory /isolinux "$FAT"
 python3 - "$FAT" "$OUT" "$ISO" <<'PY'
 import hashlib,json,pathlib,secrets,shutil,struct,sys
 fat,out,iso=map(pathlib.Path,sys.argv[1:])
