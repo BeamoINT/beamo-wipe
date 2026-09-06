@@ -179,12 +179,13 @@ def test_helper_page_renders_boot_keys_as_key_caps():
 
 
 def test_helper_page_documents_secure_boot_path():
-    """The unsigned stick is refused by Secure Boot firmware, so the
-    helper must tell owners how to allow it in their own settings."""
+    """Signed components still depend on firmware trust and revocation state."""
     html = (ROOT / "helper" / "index.html").read_text(encoding="utf-8").lower()
     assert "secure boot" in html
     assert "firmware" in html
-    assert "disabled" in html
+    assert "signed boot components" in html
+    assert "revocation" in html
+    assert "does not change secure boot" in html
 
 
 def _luminance(hex_color: str) -> float:
