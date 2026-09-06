@@ -1092,3 +1092,17 @@ def test_busy_transition_renders_and_pumps_events(ui, monkeypatch, tmp_path, pha
         barrier.join(w)
     _wait_transition(w, app)
     assert app._shown == w.screen
+
+
+def test_rebuilt_last_chance_rejects_old_erase_callback(ui, monkeypatch):
+    w, app = ui()
+    _drive_to(w, app, Screen.LAST_CHANCE)
+    w._erase_until = 0
+    calls = []
+    monkeypatch.setattr(w, "begin_erase", lambda: calls.append("erase"))
+    stale = app._nav(w.begin_erase)
+    app._draw()
+    stale()
+    assert not calls
+    app._nav(w.begin_erase)()
+    assert calls == ["erase"]

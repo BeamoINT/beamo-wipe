@@ -354,3 +354,25 @@ def test_uncertain_cleanup_blocks_even_a_previously_unstarted_runner(
     monkeypatch.setattr("beamo_wipe.nwipe_runner.subprocess.Popen", forbidden)
     with pytest.raises(SafetyError, match="cleanup"):
         runner.start(w._wipe_request)
+
+
+def test_stale_tk_callback_cannot_reactivate_same_named_screen():
+    from types import SimpleNamespace
+
+    pytest.importorskip("tkinter")
+    from beamo_wipe.ui.tk_wizard import TkWizard
+
+    calls = []
+    ui = SimpleNamespace(
+        w=SimpleNamespace(screen=Screen.LAST_CHANCE, wants_shutdown=False),
+        _draw_generation=1,
+        _draw=lambda: None,
+        _teardown=lambda: None,
+        _arm_shutdown_enter_if_idle=lambda: None,
+    )
+    stale = TkWizard._nav(ui, lambda: calls.append("stale"))
+    ui._draw_generation += 1
+    stale()
+    assert not calls
+    TkWizard._nav(ui, lambda: calls.append("current"))()
+    assert calls == ["current"]

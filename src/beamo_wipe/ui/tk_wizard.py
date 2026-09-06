@@ -1036,9 +1036,10 @@ class TkWizard:
 
     def _nav(self, fn: Callable[[], None]) -> Callable[[], None]:
         expected_screen = self.w.screen
+        generation = getattr(self, "_draw_generation", 0)
 
         def wrapped() -> None:
-            if self.w.screen != expected_screen:
+            if self.w.screen != expected_screen or generation != getattr(self, "_draw_generation", 0):
                 return
             fn()
             if self.w.wants_shutdown:
@@ -1117,6 +1118,7 @@ class TkWizard:
             self._teardown()
 
     def _draw(self) -> None:
+        self._draw_generation = getattr(self, "_draw_generation", 0) + 1
         assert self._body is not None and self._footer is not None
         if self._pick_canvas is not None:
             try:
