@@ -22,26 +22,37 @@ function show(v) {
   $("inspect").hidden = v.ready; $("confirm").hidden = !v.ready;
   if (!v.ready) $("help").open = true;
 }
-async function action(fn) {
+async function action(fn, focusId = "title") {
   if (busy) return; busy = true;
+  const fromButton = document.activeElement?.tagName === "BUTTON";
   document.querySelectorAll("button").forEach(b => b.disabled = true);
   $("status").className = ""; $("status").textContent = "Checking…";
   try { await fn(); } catch (err) {
+    $("title").textContent="The request could not finish";
+    $("detail").textContent="Nothing was erased by this launcher. Check again or use the boot instructions below.";
     $("status").className="error"; $("status").textContent=err.message || "The launcher is no longer connected. Open it again from the USB.";
     $("confirm").hidden=true; $("inspect").hidden=false; $("help").open=true;
-  } finally { busy=false; document.querySelectorAll("button").forEach(b => b.disabled=false); }
+    focusId="status";
+  } finally {
+    busy=false; document.querySelectorAll("button").forEach(b => b.disabled=false);
+    // Announce the result without moving focus onto an action that a held key
+    // could activate. Preserve focus if the user moved elsewhere while waiting.
+    if (fromButton && document.activeElement === document.body) $(focusId)?.focus();
+  }
 }
 $("inspect").onclick=()=>action(async()=>{show(await api("check"));$("status").textContent="";});
 $("restart").onclick=()=>action(async()=>{
   $("status").textContent="Requesting permission to restart…";
   const result=await api("restart",true);
   $("status").textContent=result.message; $("confirm").hidden=true; $("inspect").hidden=false;
-});
+}, "status");
 $("close").onclick=()=>action(async()=>{
   await api("close"); token="";
   try { sessionStorage.removeItem("beamo-session"); } catch (_) {}
   $("close").remove();
-  document.querySelector("main").textContent="Beamo Wipe is closed. You can close this tab. Nothing was erased by the launcher.";
+  const main=document.querySelector("main");
+  main.textContent="Beamo Wipe is closed. You can close this tab. Nothing was erased by the launcher.";
+  main.tabIndex=-1; main.focus();
 });
 action(async()=>{const state=await api("state");show(state.preview?state:await api("check"));$("status").textContent="";});
 setInterval(()=>{if(token&&!busy)api("state").catch(()=>{});},30000);

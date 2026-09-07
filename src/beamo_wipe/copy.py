@@ -35,7 +35,7 @@ WHAT_LEAD = "Nothing starts until you say so."
 WHAT_BULLETS = (
     "You will pick a disk. Everything on it will be erased. "
     "You cannot get the files back.",
-    "This is for regular Windows PCs that start from this USB. "
+    "For 64-bit Intel/AMD Windows or Linux PCs that start from this USB. "
     "Not Apple Silicon Macs. Not Chromebooks.",
 )
 
@@ -76,7 +76,7 @@ DONE_FAIL = VIEWS["engine_failed"].announcement
 
 NOT_LIVE_ERROR = (
     "Beamo Wipe only erases disks after you start the computer from this USB. "
-    "It will not erase a disk from Windows. "
+    "It will not erase a disk from Windows or an installed Linux system. "
     "Run ./preview to see the screens on this computer, or start from the USB."
 )
 

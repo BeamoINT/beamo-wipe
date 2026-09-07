@@ -343,9 +343,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .primary { background: var(--primary); color: #fff; min-width: 160px; }
   .primary:hover:not(:disabled) { background: var(--primary-dark); }
   .primary:active:not(:disabled) { background: var(--primary-press); }
-  .danger { background: var(--danger); color: #fff; min-width: 160px; }
-  .danger:hover:not(:disabled) { background: var(--danger-dark); }
-  .danger:active:not(:disabled) { background: var(--danger-press); }
+  button.btn.danger { background: var(--danger); color: #fff; min-width: 160px; }
+  button.btn.danger:hover:not(:disabled) { background: var(--danger-dark); }
+  button.btn.danger:active:not(:disabled) { background: var(--danger-press); }
   .secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border-strong); }
   .secondary:hover:not(:disabled) { background: var(--surface-alt); }
   .secondary:active:not(:disabled) { background: #E6EAF0; }
@@ -713,7 +713,7 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p><p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p><p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
