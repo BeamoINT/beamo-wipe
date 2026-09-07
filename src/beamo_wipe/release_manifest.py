@@ -203,8 +203,8 @@ def live_build_inputs() -> Dict[str, Any]:
         if sub.is_symlink():
             raise RuntimeError("desktop source contains a symlink")
         if sub.is_file():
-            rel = str(sub.relative_to(ROOT)).encode()
-            desktop_h.update(f"{len(rel)}:".encode() + rel)
+            rel_blob = str(sub.relative_to(ROOT)).encode()
+            desktop_h.update(f"{len(rel_blob)}:".encode() + rel_blob)
             desktop_h.update(sha256_file(sub).encode())
     inputs["desktop/"] = desktop_h.hexdigest()
     for rel in (

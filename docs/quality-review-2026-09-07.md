@@ -7,7 +7,7 @@ acceptance; it is not a claim of flawless universal operation or formal accessib
 certification.
 
 Reviewed baseline: `c8cb71506c80b071641d3297d1879c8a495afc6c`.
-Corrected runtime: `90bcc69419bf8a81b1a3cbabdd079b4f90151eb3` (including
+Interface correction revision: `90bcc69419bf8a81b1a3cbabdd079b4f90151eb3` (including
 interface changes in `45b1fcec858502f04d1bc4baa9fbfdbb43fa4748`).
 No disk-discovery, target-selection, confirmation-gate, firmware-write, erase-engine,
 report-storage, or image-layout logic changed in this review.
@@ -23,6 +23,7 @@ report-storage, or image-layout logic changed in this review.
 | Final warning in the browser preview inherited white text from the erase-button CSS | Scope destructive-button styles to buttons | Final warning contrast increased from 1.16:1 to 15.54:1; the real Tk warning already used dark text |
 | Storage limits in the browser preview used an unstyled browser-default button | Use the existing help-button style | Method screenshot inspected; action remains available |
 | Boot-help table forced horizontal scrolling at narrow widths | Allow explanatory text and the source link to wrap | At 375 pixels the page was 559 pixels wide before the fix; final checks fit at 320, 375, 768, 1024 and 1440 pixels |
+| Advisory type check reported two errors in desktop provenance hashing | Reuse the byte-path variable instead of assigning bytes to the text-path variable | Same hash algorithm; local mypy changed from two errors to no issues in 28 source files |
 | Welcome and boot help still described only Windows PCs | Describe 64-bit Intel/AMD Windows or Linux PCs; clarify that erasure still requires the live environment | Rendered welcome inspected; shared copy and helper checks passed |
 
 The contrast values are calculated from the rendered foreground/background colors.
@@ -40,7 +41,7 @@ screen-reader user or novice user study was performed.
 - Reviewed packaging of embedded launcher assets into the FAT32 image and the
   source/checksum checks at staging and readback. Normal BIOS/UEFI boot remains
   part of the final hosted validation.
-- Final local Python: **1,404 passed, 138 skipped**, 36.10 seconds. The skips include
+- Final local Python: **1,404 passed, 138 skipped**, 28.74 seconds. The skips include
   Linux/display-specific tests; they are not counted as passes. JUnit and console
   results were captured. The suite uses fake disks and dry-run isolation.
 - Local Go race tests and vet: **PASS**. Bounded EFI parser fuzzing: **578,048
@@ -76,12 +77,15 @@ the project GitHub repository.
 One local suite run failed because the ignored live-build staging directory still
 contained the old `copy.py`. The staging consistency check correctly rejected it.
 The two changed generated Python copies were refreshed using the normal source
-inputs; the complete unfiltered local suite then passed. No assertion was weakened.
+inputs; the complete unfiltered local suite then passed. No assertion was weakened. The final type-only change likewise refreshed its generated staging copy.
 
 Build `9bb7db24-146f-4118-b98a-8f7e93e9f71d` was canceled after the help-page
 wrapping defect was found. Build `25c2a3e7-f00a-497d-823d-1d74e9485a7f` was
 canceled immediately because its snapshot included uncommitted review artifacts.
-Neither is counted as a passing full gate. The evidence files were committed
+Build `d3629b1c-9171-4340-ba0b-1fcda85ae1bb` passed 1,583 Python tests,
+launcher race/vet/fuzz, and the negative gate, but was canceled during image
+building to include the advisory type-check correction. None of these is counted
+as a passing full gate. The evidence files were committed
 before resubmitting; the source-cleanliness requirement was not bypassed.
 
 Initial gallery automation changed only the URL fragment, which does not reload
