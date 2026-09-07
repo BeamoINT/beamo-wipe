@@ -1,114 +1,149 @@
-# Google Cloud USB simulation — 2026-09-06
+# Google Cloud USB simulation — September 6, 2026
 
-Status: Validation continues after a reproduced keyboard safety defect. The
-original-source primary matrix and focused repeat passed, but their results
-do not validate the new fix. New-source hosted and VM checks are pending.
-The NVMe default-method run timed out at 27% progress; it is not counted as passed.
+The requested VM validation passed, and it found a keyboard safety defect that
+was reproduced, fixed, rebuilt, and validated. This is evidence for the tested
+configurations, not a universal compatibility or flawless-operation guarantee.
+The VM, its disk, and the temporary IAP firewall, NAT, router, subnet, and
+network were deleted. Independent absence checks passed at
+`2026-09-07T01:35:32.838482Z`.
 
-The user requested a new Google Cloud VM and an accurate virtual USB test.
-VM `beamo-usb-lab-0906b` (ID `2885835090945917987`) runs in project
-`beamo-wipe`, zone `us-central1-a`, with no public IP. A temporary SSH rule allows only Google IAP source addresses
-on the dedicated test network for authenticated diagnostics.
-It has a two-hour automatic deletion limit. Dedicated NAT/router/subnet/network
-resources must also be removed after evidence is captured.
+Final runtime revision: `eee3b9834cdb0b833f5e52b33ec5c28d2e9a8578`.
+The full hosted gate
+[`b097a80e-3607-42ea-bf79-12e56bd0cc2c`](https://console.cloud.google.com/cloud-build/builds/b097a80e-3607-42ea-bf79-12e56bd0cc2c?project=368895881889)
+finished **SUCCESS** at `2026-09-07T01:22:22.370086Z`. ISO and QEMU were enabled;
+release publication was disabled. Hosted Python: **1,583 passed, 12 skipped**.
+Local Python: **1,404 passed, 138 skipped**. Launcher, lint, preview, negative
+safety, ISO, and QEMU stages all passed.
 
-Runtime source: `f7e28ccd6ea39b4b4de37765f66d204f61047e4d`. The local checkout
-at `ebd2366816d72909c787881c6687573f26fa2320` adds documentation only. The
-source archive is generation `1788735346552207` of
-`gs://beamo-wipe_cloudbuild/source/1788735344.782105-f934dcaf53a5452a98ae29e5abd8d4fb.tgz`.
-The VM builds the pinned launchers, ISO, and FAT32 image from that source.
+## What the VM actually simulated
 
-## Simulation fidelity
+Google Cloud VM `beamo-usb-lab-0906b` (ID `2885835090945917987`) used an
+x64 `n2-standard-8` host in project `beamo-wipe`, zone `us-central1-a`, with a
+100 GB disposable boot disk. It had no public IP. Temporary SSH access used
+Google IAP on a dedicated network; all lab network resources are included in
+cleanup. The VM had a two-hour automatic deletion limit.
 
-QEMU emulates the PC firmware, an xHCI USB controller, and a removable USB mass
-storage device backed by the actual FAT32 image. The boot USB is writable in
-this run; software protection is not hidden behind a read-only QEMU device.
-The guest sees USB transport and a serial number, rather than an ordinary
-virtio disk relabeled as USB. Only regular image files are passed to QEMU.
+QEMU 7.2.22 emulated PC firmware, an xHCI controller, and a removable USB
+mass-storage device backed by the actual FAT32 product image. The guest saw
+USB transport and a serial number. This was not a virtio disk renamed “USB.”
+The boot USB was **writable** at the emulated-device level. An unrelated
+writable 3 GiB canary disk was attached too. Full-file hashes checked that
+both retained their bytes. Only newly created regular image files were passed
+to QEMU; no physical user disk was erased.
 
-Project policy currently disables hardware-assisted nested virtualization.
-It was inspected through the existing Resource Manager API and not changed.
-The x64 cloud host therefore runs QEMU TCG, not emulation on the development Mac.
+The project disallows hardware-assisted nested virtualization. That policy
+was inspected and preserved. The x64 cloud host used QEMU TCG; these results
+are not performance benchmarks for physical computers.
 
-## Original-source results (f7e28cc)
+## Results
 
-| Check | Evidence required | Current result |
-| --- | --- | --- |
-| BIOS USB full erase | Real wizard confirmation and nwipe completion; read back all 1 GiB initially filled with nonzero bytes | PASS |
-| Correct disk only | Writable boot USB and unrelated writable 3 GiB canary disk retain their full SHA-256 hashes | PASS |
-| Report export | Hot-inserted report USB; completion, checksum, clean-FAT, read-only verification and unmount | PASS |
-| Ordinary BIOS and UEFI ISO boot | Actual welcome-screen markers | PASS |
-| UEFI and enrolled Secure Boot USB | Welcome screen, target confirmation, actual SecureBoot=1 for enrolled probe | PASS |
-| USB insertion into running Linux | QMP hotplug after the installed guest requests insertion; native Linux enumeration | PASS |
-| Readiness failure cases | No exact EFI entry, pending one-time boot request, duplicate exact entries, and unconfirmed restart all refused | PASS |
-| Guided handoff | Production app readiness/restart; firmware enters USB and live welcome screen appears | PASS |
-| Visible UI | Captured QEMU screenshots of completed erase/report and Secure Boot confirmation | PASS |
-| Focused keyboard repeat | Same full writable-USB erase with emulator keyboard trace and strict release acknowledgements | PASS |
-| Default Everyday method | Emulated NVMe target; real PRNG overwrite and nwipe read-back verification, verified exported result, independent target scan | TIMEOUT at 27%; rerun pending |
-| Cleanup | Receipts saved; VM/disk/IAP firewall/NAT/router/subnet/network absent | RUNNING |
+| Check | Result and exact scope |
+| --- | --- |
+| Ordinary BIOS and UEFI ISO boot | PASS in the full hosted gate for the final revision |
+| BIOS, UEFI, and enrolled Secure Boot USB | PASS in the full hosted gate for the final revision; the Secure Boot probe requires the actual guest variable to equal 1 |
+| Full quick-zero erase and report export | PASS on a disposable 1 GiB target in the final hosted gate; original-source writable-USB VM runs also passed twice |
+| Default Everyday method on NVMe | PASS on the final rebuilt USB: real PRNG overwrite and nwipe read-back verification of a 1 GiB emulated NVMe disk |
+| Independent NVMe readback | PASS: all 1,024 initially nonzero MiB blocks changed; exported result independently required `outcome=verified`, `verify=last`, and `verified=true` |
+| Correct disk only | PASS: writable boot USB and unrelated writable 3 GiB canary retained their full SHA-256 hashes |
+| Report export | PASS: hot-inserted report USB, completion manifest, content checksums, clean FAT, read-only validation, and unmount checks |
+| Held Enter on final USB | PASS: 30-second hold stayed on Method; release followed by a distinct press advanced once to Last chance, with no Working transition |
+| Linux USB insertion and guided restart | PASS on the original-source VM: hot-insertion into an installed Debian fixture, production launcher, real firmware restart, and live welcome screen |
+| Launcher refusal cases | PASS: absent exact EFI entry, pending BootNext, duplicate exact entries, and unconfirmed restart were refused |
+| Visible UI | Actual QEMU screenshots inspected for completed erase/report, NVMe verification, and Secure Boot target confirmation |
 
-The extra test harness is outside the product source and does not alter the
-built USB payload. The desktop fixture uses a root service and headless browser
-URL capture. It boots an installed Debian root filesystem extracted from the
-built ISO, on a separate ext4 disk without `boot=live`; this is not independent
-Ubuntu/Fedora distribution coverage. The test explicitly opens the launcher;
-it does not demonstrate automatic application launch on insertion. It first tests the natural missing-entry fallback, then seeds exact
-EFI entries only inside the disposable virtual PC to exercise supported and
-ambiguous cases. The production launcher itself only writes BootNext.
+The desktop launcher and USB-layout code did not change in the final keyboard
+fix. The Linux handoff result remains evidence for those unchanged components;
+it is not relabeled as a fresh handoff run of the final image.
 
-This run does not represent a physical USB controller, physical firmware trust
-store, Windows 10/11 desktop, Linux graphical permission prompt, or novice
-usability test. Those limits remain separate from the requested VM simulation.
-No release publication or physical disk erasure is part of this run.
+## Keyboard defect and correction
 
-## Intermittent input result
+The VM trace showed an autorepeat release processed while Enter was still held.
+Three isolated Xvfb regressions then reproduced a scheduling defect: when Tk
+idled between the X11 release and matching press, Enter could skip Method or
+claim an erase after the countdown, and Space could toggle ownership twice.
+All three failed before the fix and passed afterward.
 
-The first BIOS USB attempt reached DONE but failed the strict fresh Enter-release
-acknowledgement. It did not run independent target readback or report export and
-is recorded as a failed attempt, not a pass. A second attempt with the identical
-product image and input sequence passed the release check, full erase, report
-export, and all firmware probes. Additional diagnostics were added to the
-external harness only. No product fix or established root cause is claimed.
-The focused repeat with emulator keyboard tracing also passed the strict
-release acknowledgement, full 1 GiB readback, report export, and protected-disk
-hashes. That is two passing full quick-zero runs after the initial failed
-attempt. It does not establish the cause of the initial failure.
+The fix retains the server release timestamp and rejects the matching repeat
+press even if an idle callback already ran. It applies to Enter and Space,
+including buttons and the ownership control. A separate physical press still
+works. Owner confirmation, exact target confirmation, the five-second delay,
+boot-media exclusion, and the nwipe-only engine remain required.
 
-The quick-zero screen correctly says that nwipe did not perform verification.
-The test host independently read every byte of the 1 GiB target afterward. A
-separate default Everyday run will require actual nwipe read-back verification.
+A physical X-server experiment used genuinely held XTest input and actual
+server timestamps while deliberately processing idle callbacks between repeat
+events. The original handler advanced to Last chance; the fixed handler stayed
+on Method. A normal 30-second QEMU hold on the original image did not reproduce
+that particular event ordering. The final rebuilt-image hold test additionally
+proved that releasing the key permits a distinct subsequent press.
 
-## Primary run identity
+## Retained failures and test corrections
 
-- QEMU 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3), x64 TCG.
-- Runtime source: `f7e28ccd6ea39b4b4de37765f66d204f61047e4d`.
-- ISO SHA-256: `b20dd3afaf9026af0da1341faf53dac04a990ce64b7114325df22a63d8b64c4e`.
-- USB image SHA-256 before and after both the firmware matrix and Linux handoff:
-  `f0f9ebf4340bce60f889da4b21ad07f733f4b2742908e58eb50be60e70ef7bc7`.
-- Unrelated writable 3 GiB canary SHA-256 before and after the matrix:
-  `3ce2c364a9d4d9b0e019cafbfa4561318f4ec7ce6853c538f0e765efa40c44a8`.
-- The newly built desktop launchers passed native Linux race tests, vet, and
-  532,808 fuzz executions; both Windows and Linux binaries built successfully.
+- The first original-source BIOS USB attempt reached Done but missed the
+  required fresh Enter-release acknowledgement. It was not counted as a pass.
+  Two subsequent full runs passed. Its exact cause was not established; the
+  separately reproduced autorepeat defect must not be presented as a proven
+  explanation of that initial missing acknowledgement.
+- The first 1 GiB NVMe run exceeded the test's 300-second deadline at 27%
+  progress. The bounded deadline was increased to 1,800 seconds for emulation.
+- A corrected-image NVMe attempt completed and passed independent target
+  readback, but the final checker incorrectly expected the report's
+  `verification.requested` field to be boolean. The schema uses `"last"`.
+  The assertion was corrected, report data was retained, and the full test
+  reran successfully. No product change was made to accommodate that mistake.
 
-The installed Linux fixture first booted without a USB device. The host then
-used QMP `device_add` to insert the removable xHCI mass-storage device. After
-negative-case checks, the production launcher requested the one-time restart.
-OVMF actually loaded BootBEEF from the USB partition and EFI loader, and the
-shipped live application emitted `BEAMO_WIPE_SCREEN_WHAT`. This passed with
-the original USB image unchanged.
+These attempts remain in the receipts. Passing retries do not erase them.
 
-The emulated NVMe check covers the disk address range visible to nwipe. It does
-not emulate physical flash remapping or prove a hardware sanitize operation.
+## Image and source identity
 
-## Keyboard safety correction
+Final VM image, rebuilt directly from the committed fix:
 
-The successful trace contained an autorepeat release processed while Enter was
-still held. Three isolated Xvfb regressions reproduced a separate safety defect:
-if Tk idles between the X11 release and matching press, Enter can skip Method
-or claim erase after the countdown, and Space can toggle ownership twice.
-All three failed before the fix and passed afterward. The fix retains the
-server release timestamp and rejects the matching repeat press even after an
-idle callback, for both Enter and Space. A separate physical press still works.
-Local Python checks passed (1,404 passed, 138 skipped); isolated Linux Tk runtime
-checks also passed. The required full hosted gate and rebuilt USB verification
-remain pending. No release is authorized or published.
+- ISO SHA-256: `bc1f457501f54acc8f4ab423c204f2ab1610482791214a23144e0cc8367244b1`
+- USB image SHA-256: `7cf084d644af3ecf29c04487888bcfc55e8132c6d62eb1fe8805ba518b896f08`
+- Final independently scanned NVMe target SHA-256:
+  `d25a7c61a63c7dfc87d82d035403e262745d7549469ab164988a20a439dd77bb`
+
+The original VM matrix and Linux handoff used runtime
+`f7e28ccd6ea39b4b4de37765f66d204f61047e4d`, USB SHA-256
+`f0f9ebf4340bce60f889da4b21ad07f733f4b2742908e58eb50be60e70ef7bc7`, and
+ISO SHA-256 `b20dd3afaf9026af0da1341faf53dac04a990ce64b7114325df22a63d8b64c4e`.
+The canary's unchanged SHA-256 was
+`3ce2c364a9d4d9b0e019cafbfa4561318f4ec7ce6853c538f0e765efa40c44a8`.
+The original and final artifact identities are kept separate.
+
+## Limits
+
+The installed Linux fixture booted a Debian root filesystem extracted from the
+ISO on a separate ext4 disk without `boot=live`. It used a root service and
+headless browser URL capture. The test explicitly opened the launcher; it did
+not demonstrate automatic application launch on insertion, a Linux graphical
+permission prompt, or independent Ubuntu/Fedora distribution coverage.
+
+The fixture first checked the natural missing-entry fallback, then created
+exact and ambiguous EFI entries only inside the disposable PC to exercise
+those cases. The production launcher itself only writes BootNext. Its final
+request was followed by OVMF actually loading the USB EFI file and the live
+application emitting its welcome marker.
+
+This run does not certify Windows 10/11 desktop insertion/UAC/firmware handoff,
+physical USB ports and controllers, physical firmware trust stores, or novice
+usability. Earlier native Windows API/PowerShell fixture results are linked in
+[desktop validation](desktop-validation-2026-09-06.md); they are not consumer
+Windows USB acceptance. See the [hardware checklist](desktop-hardware-acceptance.md).
+
+The emulated NVMe check covers storage addresses exposed to nwipe. It does not
+emulate physical flash remapping or prove hardware sanitization. Apple Silicon
+support and automatic application launch are not added by this validation.
+No physical USB was flashed and no release was published.
+
+## Evidence
+
+- [Original VM matrix and Linux handoff receipt](evidence/vm-usb-lab-20260906.txt)
+- [Keyboard before/after, final hosted gate, and rebuilt-image receipts](evidence/vm-keyboard-fix-20260906.txt)
+- [Final NVMe erase and verified report screenshot](evidence/vm-20260906-nvme-verified.png)
+- [Original quick-zero completion screenshot](evidence/vm-20260906-bios-usb.png)
+- [Original Secure Boot confirmation screenshot](evidence/vm-20260906-secureboot-usb.png)
+- [Original NVMe timeout screenshot](evidence/vm-20260906-nvme-timeout.png)
+
+The receipts preserve source IDs, image hashes, deployed fixture hashes,
+validation output, external test fixtures, and cleanup verification. The large
+VM disks and build artifacts are disposable; durable evidence is stored here.

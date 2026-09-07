@@ -1,10 +1,13 @@
 # Desktop USB validation — 2026-09-06
 
-Current runtime source: `f7e28ccd6ea39b4b4de37765f66d204f61047e4d` on
+Current runtime source: `eee3b9834cdb0b833f5e52b33ec5c28d2e9a8578` on
 `codex/desktop-entry`, integrated into the local project. Its full build
-`67eda7ba-a18b-4ce9-90bd-da8d9932b838` is **SUCCESS**. Native launcher checks,
-ISO/USB BIOS/UEFI/Secure Boot validation, and the separate actual Linux firmware
-handoff passed. Physical Windows/Linux desktop acceptance remains unproven.
+`b097a80e-3607-42ea-bf79-12e56bd0cc2c` is **SUCCESS**. The
+[additional VM validation](vm-usb-simulation-2026-09-06.md) records the keyboard
+safety correction, writable-USB/NVMe tests, final hosted gate, and cleanup.
+The original desktop integration and actual Linux handoff used `f7e28cc`;
+that launcher code is unchanged. Earlier evidence below retains its original
+revision identities. Physical Windows/Linux desktop acceptance remains unproven.
 No release has been published. Validation images are ephemeral; no physical
 USB was flashed and the existing public v0.2.5 release was not replaced. This report distinguishes implemented behavior
 from runtime, boot, and hardware evidence.
@@ -177,10 +180,20 @@ evidence. No release, signing, or manufacturing readiness is claimed here.
 | Supported configurations and limitations | This report, desktop design, boot card, platform refusal, manifest compatibility wording | Documented; universal compatibility is not claimed |
 | Delivery and cleanup | Integrated local branch; publication disabled; Windows and Linux test resources removed | Complete within local implementation scope |
 
-Implementation and all available automated integration gates have passed. The
-overall goal remains open for physical Windows/Linux desktop acceptance,
-including Windows 10/11 prompts and firmware handoff, Linux desktop launch and
-polkit behavior, and physical firmware trust/port coverage. No suitable physical
-PC or user-provided acceptance results were available in this session. The
-[hardware checklist](desktop-hardware-acceptance.md) records these as NOT TESTED;
-no universal or flawless-operation claim is made.
+Implementation and the requested Google Cloud VM validation are complete.
+Physical Windows/Linux desktop acceptance remains a separate unverified release
+qualification step: Windows 10/11 prompts and firmware handoff, Linux desktop
+launch and polkit behavior, and physical firmware trust/port coverage. The
+[hardware checklist](desktop-hardware-acceptance.md) still records those as NOT
+TESTED; no universal or flawless-operation claim is made.
+
+The [subsequent USB simulation report](vm-usb-simulation-2026-09-06.md) records
+the stronger writable-USB and NVMe tests, actual Linux hot-insertion and restart,
+and a newly reproduced split-autorepeat confirmation defect. That defect was
+fixed in `eee3b9834cdb0b833f5e52b33ec5c28d2e9a8578`. The full hosted gate
+`b097a80e-3607-42ea-bf79-12e56bd0cc2c` passed for that revision, including
+1,583 Python tests and the complete firmware/erase matrix. Rebuilt-image NVMe
+verification and held-key tests passed; the new test VM and dedicated network
+resources were deleted and their absence verified. Original intermittent input
+and test-harness failures are retained in that report rather than counted as
+passes or silently attributed to the keyboard fix.
