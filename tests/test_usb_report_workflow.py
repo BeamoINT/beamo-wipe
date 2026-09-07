@@ -1338,6 +1338,7 @@ def test_owner_card_space_suppresses_x11_autorepeat_pair():
     app._owner_var = FakeVar()
     app._space_held = False
     app._space_release_after = None
+    app._space_release_time = None
     app._space_action_active = False
     draw_count = []
     app._draw = lambda: draw_count.append(True)

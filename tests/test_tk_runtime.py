@@ -8,6 +8,7 @@ minimum size) and broken keyboard flows that source inspection cannot see.
 """
 
 import time
+from types import SimpleNamespace
 
 import pytest
 from test_result_presentations import CASES as RESULT_CASES, case_evidence
@@ -1265,3 +1266,52 @@ def test_isolated_x11_physical_return_release_after_start(ui, tmp_path, monkeypa
         xtst.XTestFakeKeyEvent(connection, code, 0, 0)
         x11.XFlush(connection)
         x11.XCloseDisplay(connection)
+
+
+def test_split_repeat_does_not_skip_method(ui):
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.CONFIRM)
+    app._confirm_var.set(wiz.confirm.token)
+    app.root.update()
+    app._on_return(SimpleNamespace(time=100))
+    assert wiz.screen == Screen.METHOD
+    app._on_return_release(SimpleNamespace(time=200))
+    app.root.update_idletasks()
+    app._on_return(SimpleNamespace(time=200))
+    assert wiz.screen == Screen.METHOD
+
+
+def test_split_repeat_cannot_erase_after_countdown(ui, tmp_path, monkeypatch):
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.METHOD)
+    app._on_return(SimpleNamespace(time=100))
+    assert wiz.screen == Screen.LAST_CHANCE
+    wiz._erase_until = 0
+    wiz.tick()
+    app._on_return_release(SimpleNamespace(time=200))
+    app.root.update_idletasks()
+    app._on_return(SimpleNamespace(time=200))
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not getattr(wiz.runner, "started", False)
+    # A separate physical press must still work.
+    app._on_return_release(SimpleNamespace(time=300))
+    app.root.update_idletasks()
+    app._on_return(SimpleNamespace(time=400))
+    _wait_transition(wiz, app)
+    assert wiz.screen == Screen.WORKING
+
+
+def test_split_space_repeat_does_not_toggle_owner_twice(ui):
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.OWNER)
+    app._owner_key(SimpleNamespace(time=100))
+    assert wiz.owner_ok
+    app._on_space_release(SimpleNamespace(time=200))
+    app.root.update_idletasks()
+    app._owner_key(SimpleNamespace(time=200))
+    assert wiz.owner_ok
+    app._on_space_release(SimpleNamespace(time=300))
+    app.root.update_idletasks()
+    app._owner_key(SimpleNamespace(time=400))
+    assert not wiz.owner_ok

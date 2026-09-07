@@ -677,7 +677,7 @@ class _Button(tk.Canvas):
     def _key(self, _event=None) -> str:
         app = getattr(self.winfo_toplevel(), "_tk_wizard", None)
         if app is not None:
-            if not app._claim_space_press():
+            if not app._claim_space_press(_event):
                 return "break"
             app._space_action_active = True
         if self._enabled and self._command is not None:
@@ -895,8 +895,10 @@ class TkWizard:
         self._pick_gen = 0
         self._return_held = False
         self._return_release_after: Optional[str] = None
+        self._return_release_time: Optional[int] = None
         self._space_held = False
         self._space_release_after: Optional[str] = None
+        self._space_release_time: Optional[int] = None
         self._space_action_active = False
         self._fatal_ui = False
         self._accessible_requested = False
@@ -1674,7 +1676,7 @@ class TkWizard:
 
     def _owner_key(self, _event=None) -> str:
         """Toggle ownership once per physical Space press."""
-        if not self._claim_space_press():
+        if not self._claim_space_press(_event):
             return "break"
         self._space_action_active = True
         try:
@@ -2564,15 +2566,21 @@ class TkWizard:
             self._draw()
         return "break"
 
+    @staticmethod
+    def _key_event_time(event) -> Optional[int]:
+        value = getattr(event, "time", None)
+        return value if isinstance(value, int) and value > 0 else None
+
     def _on_return_release(self, _event=None) -> str:
         # X11 autorepeat is a queued KeyRelease/KeyPress pair. Defer clearing
-        # until the event queue is idle; the repeat press cancels this callback
-        # and remains one physical key hold.
+        # until idle for queued pairs. _on_return also recognizes split pairs
+        # by server timestamp if this callback has already run.
         if self._return_release_after is not None:
             try:
                 self.root.after_cancel(self._return_release_after)
             except tk.TclError:
                 pass
+        self._return_release_time = self._key_event_time(_event)
         self._return_release_after = self.root.after_idle(self._release_return)
         return "break"
 
@@ -2582,7 +2590,7 @@ class TkWizard:
         self.w.arm_done_keyboard()
         emit_serial_marker("BEAMO_WIPE_KEY_RETURN_RELEASED")
 
-    def _claim_space_press(self) -> bool:
+    def _claim_space_press(self, event=None) -> bool:
         """Claim a new physical Space press; suppress X11 repeat pairs."""
         if self._space_release_after is not None:
             try:
@@ -2590,19 +2598,24 @@ class TkWizard:
             except tk.TclError:
                 pass
             self._space_release_after = None
-        if self._space_held:
+        repeat = (self._space_release_time is not None
+                  and self._space_release_time == self._key_event_time(event))
+        if self._space_held or repeat:
+            self._space_held = True
             return False
         self._space_held = True
+        self._space_release_time = None
         return True
 
     def _on_space_release(self, _event=None) -> str:
-        # Like Return, X11 autorepeat queues Release/Press pairs. Only an idle
-        # queue proves that the physical key was actually released.
+        # Defer queued X11 repeat pairs; _claim_space_press also rejects a
+        # matching server timestamp when the pair spans idle callbacks.
         if self._space_release_after is not None:
             try:
                 self.root.after_cancel(self._space_release_after)
             except tk.TclError:
                 pass
+        self._space_release_time = self._key_event_time(_event)
         self._space_release_after = self.root.after_idle(self._release_space)
         return "break"
 
@@ -2653,9 +2666,17 @@ class TkWizard:
             except tk.TclError:
                 pass
             self._return_release_after = None
-        if self._return_held:
+        # X11 repeat Release/Press events have the same server timestamp.
+        # They can arrive in separate event-loop batches: after_idle alone
+        # then clears the hold too early. Retain that timestamp across idle
+        # so the matching repeat can never advance another safety screen.
+        repeat = (self._return_release_time is not None
+                  and self._return_release_time == self._key_event_time(_event))
+        if self._return_held or repeat:
+            self._return_held = True
             return "break"
         self._return_held = True
+        self._return_release_time = None
         screen = self.w.screen
         before = screen
         if screen == Screen.SHUTDOWN_CONFIRM:
@@ -2711,7 +2732,7 @@ class TkWizard:
             return "break"
         if event.keysym in ("Return", "KP_Enter", "Escape", "Tab"):
             return None
-        if event.keysym == "space" and not self._claim_space_press():
+        if event.keysym == "space" and not self._claim_space_press(event):
             return "break"
         if self.w.screen == Screen.SPLASH:
             self.w.skip_splash()

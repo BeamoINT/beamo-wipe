@@ -1,0 +1,935 @@
+Google Cloud writable USB simulation, 2026-09-06/07 UTC
+=======================================================
+VM beamo-usb-lab-0906b; project beamo-wipe; zone us-central1-a; ID 2885835090945917987.
+No public IP. Temporary authenticated IAP-only SSH firewall.
+Source f7e28ccd6ea39b4b4de37765f66d204f61047e4d; local ebd2366 adds docs only.
+No product source changed by the lab harness. No release publication.
+
+Attempt 1: FAIL, not accepted as a pass
+=======================================
+FAIL exit=1
+[qemu-verify] worker_os=Linux worker_arch=x86_64
+[qemu-verify] artifact checksums verified
+[qemu-verify] live filesystem package and permission policy verified
+/var/tmp/lab-suite.sh: line 329: 140077 Killed                  sudo unshare --mount --propagation private -- sh -c 'mount -t vfat -o rw,nodev,nosuid,noexec,nosymfollow,umask=077 "$1" "$2" && kill -KILL $$' sh "$REPORT_LOOP" "$REPORT_MOUNT" > "$EVIDENCE_DIR/report-helper-crash.txt" 2>&1
+[qemu-verify] private report helper crash left no host-namespace mount
+[qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+[qemu-verify] disposable target and boot loop identities verified
+[qemu-verify] pinned nwipe boundary and anonymized logging verified
+Formatting '/tmp/beamo-wipe-qemu.IlQXsh/canary.raw', fmt=raw size=3221225472
+QEMU bios-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_METHOD count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_LAST_CHANCE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_METHOD count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_LAST_CHANCE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WORKING count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_DONE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=5
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+QEMU bios-usb never emitted a new exact marker BEAMO_WIPE_KEY_RETURN_RELEASED
+ABORT: qemu verification failed at line 745 (exit 1)
+
+Attempt 2: complete primary matrix and Linux hotplug handoff
+============================================================
+PASS
+
+desktop-output
+==============
+ok  	beamo-wipe/desktop	1.023s
+fuzz: elapsed: 0s, gathering baseline coverage: 0/3 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 3/3 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 119852 (39939/sec), new interesting: 14 (total: 17)
+fuzz: elapsed: 6s, execs: 232334 (37498/sec), new interesting: 25 (total: 28)
+fuzz: elapsed: 9s, execs: 331001 (32892/sec), new interesting: 30 (total: 33)
+fuzz: elapsed: 12s, execs: 425226 (31400/sec), new interesting: 36 (total: 39)
+fuzz: elapsed: 15s, execs: 532808 (35865/sec), new interesting: 41 (total: 44)
+fuzz: elapsed: 15s, execs: 532808 (0/sec), new interesting: 41 (total: 44)
+PASS
+ok  	beamo-wipe/desktop	15.097s
+Built Windows and Linux desktop launchers. Runtime and firmware tests remain separate gates.
+
+suite-output
+============
+[qemu-verify] worker_os=Linux worker_arch=x86_64
+[qemu-verify] artifact checksums verified
+[qemu-verify] live filesystem package and permission policy verified
+/var/tmp/lab-suite.sh: line 334:  1588 Killed                  sudo unshare --mount --propagation private -- sh -c 'mount -t vfat -o rw,nodev,nosuid,noexec,nosymfollow,umask=077 "$1" "$2" && kill -KILL $$' sh "$REPORT_LOOP" "$REPORT_MOUNT" > "$EVIDENCE_DIR/report-helper-crash.txt" 2>&1
+[qemu-verify] private report helper crash left no host-namespace mount
+[qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+[qemu-verify] disposable target and boot loop identities verified
+[qemu-verify] pinned nwipe boundary and anonymized logging verified
+Formatting '/tmp/beamo-wipe-qemu.6YQkJH/canary.raw', fmt=raw size=3221225472
+QEMU bios-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_METHOD count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_LAST_CHANCE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_METHOD count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_LAST_CHANCE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WORKING count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_DONE count=4
+QEMU bios-usb observed exact marker BEAMO_WIPE_REPORT_SAVING count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_REPORT_SAVED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_STARTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_EVIDENCE_VERIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_SCAN_ONE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_SELECT_ONE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_SCAN_TWO count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_SELECTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_IDENTIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_DECODED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_SELECTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_IDENTIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_OPENED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RW_MOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_BUNDLE_WRITTEN count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RW_UNMOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RO_MOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_READBACK_VERIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RO_UNMOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=7
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=2
+[qemu-verify] bios-usb boot completed the shipped Wizard report export
+[qemu-verify] shipped Wizard zeroed the entire 1 GiB nonzero target
+[qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+QEMU uefi observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU uefi observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+[qemu-verify] uefi boot reached the shipped Tk WHAT screen
+QEMU bios observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU bios observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+[qemu-verify] bios boot reached the shipped Tk WHAT screen
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU uefi-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU uefi-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+QEMU uefi-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+[qemu-verify] uefi-usb boot reached the shipped Tk WHAT screen
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+[qemu-verify] secureboot-usb boot reached the shipped Tk WHAT screen
+/tmp/beamo-wipe-qemu.6YQkJH/boot-usb.img: OK
+/tmp/beamo-wipe-qemu.6YQkJH/canary.raw: OK
+[qemu-verify] writable boot USB and writable canary disk remained byte-identical
+[qemu-verify] PASS; evidence=/tmp/beamo-wipe-qemu.6YQkJH/evidence
+
+handoff-output
+==============
+Handoff test accelerator=TCG on isolated x86_64 host
+BEAMO_QMP_USB_HOTPLUGGED
+/var/tmp/beamo-lab-handoff/boot-usb.img: OK
+BEAMO_DESKTOP_HANDOFF_PASS
+f0f9ebf4340bce60f889da4b21ad07f733f4b2742908e58eb50be60e70ef7bc7  /var/tmp/beamo-lab-handoff/boot-usb.img
+BEAMO_DESKTOP_WAIT_USB
+BEAMO_DESKTOP_USB_INSERTED
+BEAMO_DESKTOP_NO_ENTRY_FALLBACK
+BEAMO_DESKTOP_UNCONFIRMED_RESTART_REFUSED
+BEAMO_DESKTOP_PENDING_BOOT_REFUSED
+BEAMO_DESKTOP_AMBIGUOUS_ENTRY_REFUSED
+BEAMO_DESKTOP_CHECK_READY
+BEAMO_DESKTOP_RESTART_REQUESTED
+BEAMO_WIPE_SECURE_BOOT=0
+BEAMO_WIPE_BOOT_FINDMNT_MULTIROW
+BEAMO_WIPE_SCREEN_SPLASH
+BEAMO_WIPE_SCREEN_WHAT
+f0f9ebf4340bce60f889da4b21ad07f733f4b2742908e58eb50be60e70ef7bc7  dist/beamo-wipe-0.2.5-amd64.img
+b20dd3afaf9026af0da1341faf53dac04a990ce64b7114325df22a63d8b64c4e  dist/beamo-wipe-0.2.5-amd64.iso
+
+Primary evidence: source-commit.txt
+===================================
+f7e28ccd6ea39b4b4de37765f66d204f61047e4d
+
+Primary evidence: qemu-version.txt
+==================================
+QEMU emulator version 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3)
+Copyright (c) 2003-2022 Fabrice Bellard and the QEMU Project developers
+
+Primary evidence: summary.txt
+=============================
+iso_sha256=b20dd3afaf9026af0da1341faf53dac04a990ce64b7114325df22a63d8b64c4e
+nwipe_sha256=209c9293deef590192245c7482fd7e65145dfaa20e545dfc82c0946a64c6508e
+bios=pass
+uefi=pass
+bios_usb=pass
+uefi_usb=pass
+secureboot_usb=pass
+report_export=pass
+
+Primary evidence: checksums.txt
+===============================
+beamo-wipe-0.2.5-amd64.iso: OK
+beamo-wipe-0.2.5-amd64.img: OK
+beamo-wipe-0.2.5-amd64.manifest.json: OK
+
+Primary evidence: protected-before.sha256
+=========================================
+f0f9ebf4340bce60f889da4b21ad07f733f4b2742908e58eb50be60e70ef7bc7  /tmp/beamo-wipe-qemu.6YQkJH/boot-usb.img
+3ce2c364a9d4d9b0e019cafbfa4561318f4ec7ce6853c538f0e765efa40c44a8  /tmp/beamo-wipe-qemu.6YQkJH/canary.raw
+
+Primary evidence: guest-target-readback.txt
+===========================================
+read 1073741824/1073741824 bytes at offset 0
+1 GiB, 1 ops; 00.26 sec (3.831 GiB/sec and 3.8313 ops/sec)
+
+Primary evidence: report-bundle.txt
+===================================
+session=report-f99b57f969415547e63d9dee
+outcome=completed
+files=COMPLETE,README.txt,nwipe.log,nwipe.log.sha256,result.json,result.json.sha256
+
+Primary evidence: report-fsck.txt
+=================================
+fsck.fat 4.2 (2021-01-31)
+/dev/loop0: 9 files, 31/129022 clusters
+
+Primary evidence: report-mount.txt
+==================================
+/dev/loop0 vfat ro,nosuid,nodev,noexec,relatime,nosymfollow,fmask=0077,dmask=0077,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro /tmp/beamo-wipe-qemu.6YQkJH/report-usb
+
+Screenshot bios-usb.png
+=======================
+3894dbfdb5faf1dd1e036ac5c90558e960492bd585c43462353e4764d67efafd
+
+Screenshot secureboot-usb.png
+=============================
+e32059e08157fcfb1743256f5789d88775cc482628af81c205e5ff2d9d420a75
+
+repeat result
+=============
+[qemu-verify] worker_os=Linux worker_arch=x86_64
+[qemu-verify] artifact checksums verified
+[qemu-verify] live filesystem package and permission policy verified
+/tmp/beamo-repeat.sh: line 334:  7706 Killed                  sudo unshare --mount --propagation private -- sh -c 'mount -t vfat -o rw,nodev,nosuid,noexec,nosymfollow,umask=077 "$1" "$2" && kill -KILL $$' sh "$REPORT_LOOP" "$REPORT_MOUNT" > "$EVIDENCE_DIR/report-helper-crash.txt" 2>&1
+[qemu-verify] private report helper crash left no host-namespace mount
+[qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+[qemu-verify] disposable target and boot loop identities verified
+[qemu-verify] pinned nwipe boundary and anonymized logging verified
+Formatting '/tmp/beamo-wipe-qemu.2zSfQI/canary.raw', fmt=raw size=3221225472
+QEMU bios-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_METHOD count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_LAST_CHANCE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_METHOD count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_LAST_CHANCE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WORKING count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_DONE count=4
+QEMU bios-usb observed exact marker BEAMO_WIPE_REPORT_SAVING count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_REPORT_SAVED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_STARTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_EVIDENCE_VERIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_SCAN_ONE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_SELECT_ONE count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_SCAN_TWO count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_SELECTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_IDENTIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_DECODED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_SELECTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_IDENTIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_WORKER_OPENED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RW_MOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_BUNDLE_WRITTEN count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RW_UNMOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RO_MOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_READBACK_VERIFIED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_EXPORT_RO_UNMOUNTED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=6
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=2
+[qemu-verify] bios-usb boot completed the shipped Wizard report export
+[qemu-verify] shipped Wizard zeroed the entire 1 GiB nonzero target
+[qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+/tmp/beamo-wipe-qemu.2zSfQI/boot-usb.img: OK
+/tmp/beamo-wipe-qemu.2zSfQI/canary.raw: OK
+[qemu-verify] FOCUSED_REPEAT_PASS; evidence=/tmp/beamo-wipe-qemu.2zSfQI/evidence
+
+Harness suite.sh SHA256
+=======================
+4b6a3d3b6ccd213824b16a6f64e5a6cbc1ee50a09417cf37f50f8ad9e2d1eede
+
+Harness guest.py SHA256
+=======================
+6cda601b8219ab261413ed2d18966b685c0e20be45c46f6696b3f3e2c8e311a8
+
+Harness host.sh SHA256
+======================
+496a62e380de1e8ad7e20f8a9080737a2d56c05da5aec81843eea383e2dbf3cb
+
+Harness hotplug.py SHA256
+=========================
+ab7393614832e0f18580e30743c804ef6e7ea8a800a9b6122008d08fea6463bd
+
+Harness repeat.sh SHA256
+========================
+d6bb39b53a57cc2d4cd56b19014963f418421b2229bc001acbea565a29fb5145
+
+Harness default.sh SHA256
+=========================
+23dbbb247c4e42925b1f04bd7b3e7c9379889029819d5f176f467ed6b0967381
+
+Primary harness diff from runtime scripts/qemu-verify.sh
+========================================================
+--- runtime/scripts/qemu-verify.sh
++++ lab/suite.sh
+@@ -10,12 +10,17 @@
+ on_error() {
+   local rc="$1" line="$2"
+   trap - ERR
++  for probe in bios-usb uefi bios uefi-usb secureboot-usb; do
++    if [[ -S "${RUN_ROOT:-}/$probe.qmp" ]]; then
++      qmp_request "$RUN_ROOT/$probe.qmp" screendump "$EVIDENCE_DIR/$probe.ppm" || true
++    fi
++  done
+   printf 'ABORT: qemu verification failed at line %s (exit %s)\n' "$line" "$rc" >&2
+   exit "$rc"
+ }
+ trap 'on_error "$?" "$LINENO"' ERR
+ 
+-ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
++ROOT=/workspace-lab
+ cd "$ROOT"
+ 
+ if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
+@@ -423,8 +428,14 @@
+ # BIOS and UEFI get only the ISO and the disposable qcow2 file. The BIOS run
+ # drives every shipped Tk safety gate and hotplugs the file-backed FAT32 report
+ # disk only after DONE. UEFI still has to reach the real Tk WHAT screen.
++USB_RUNTIME_IMAGE="$RUN_ROOT/boot-usb.img"
++cp "$USB_IMAGE" "$USB_RUNTIME_IMAGE"
++CANARY="$RUN_ROOT/canary.raw"
++qemu-img create -f raw "$CANARY" 3G
++qemu-io -f raw -c 'write -P 0xcc 0 1M' -c 'write -P 0xcc 1536M 1M' -c 'write -P 0xcc 3071M 1M' "$CANARY" >"$EVIDENCE_DIR/canary-prefill.txt"
++sha256sum "$USB_RUNTIME_IMAGE" "$CANARY" >"$EVIDENCE_DIR/protected-before.sha256"
+ qemu-img create -f qcow2 "$TARGET" 1G >>"$EVIDENCE_DIR/qemu-img.txt" 2>&1
+-qemu-io -f qcow2 -c 'write -P 0xa5 0 1M' "$TARGET" \
++qemu-io -f qcow2 -c 'write -P 0xa5 0 1G' "$TARGET" \
+   >>"$EVIDENCE_DIR/qemu-img.txt" 2>&1
+ 
+ qmp_request() {
+@@ -468,6 +479,8 @@
+     execute("qmp_capabilities", {}, "capabilities")
+     if action == "query":
+         execute("query-status", {}, "query")
++    elif action == "screendump":
++        execute("screendump", {"filename": value}, action)
+     elif action == "key-tap":
+         key = {"type": "qcode", "data": value}
+         execute(
+@@ -788,14 +801,15 @@
+ }
+ 
+ drive_report_export() {
+-  local label="$1" qmp_socket="$2"
++  local label="$1" qmp_socket="$2" token="$QEMU_TARGET_SERIAL"
++  if [[ "$label" == *-usb ]]; then token=1; fi
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
+   send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_PICK 20
+   send_key_for_marker "$label" "$qmp_socket" down BEAMO_WIPE_SCREEN_PICK 20
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_CONFIRM 20
+   wait_for_marker "$label" BEAMO_WIPE_CONFIRM_FOCUSED 20
+-  type_token_for_marker "$label" "$qmp_socket" "$QEMU_TARGET_SERIAL" BEAMO_WIPE_CONFIRM_MATCHED 20
++  type_token_for_marker "$label" "$qmp_socket" "$token" BEAMO_WIPE_CONFIRM_MATCHED 20
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_METHOD 20
+   send_key_for_marker "$label" "$qmp_socket" 3 BEAMO_WIPE_SCREEN_METHOD 20
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_LAST_CHANCE 20
+@@ -822,8 +836,8 @@
+   if [[ "$label" == secureboot-usb ]]; then machine="q35,accel=kvm:tcg,smm=on"; fi
+   local media_args=(-cdrom "$ISO" -boot order=d)
+   if [[ "$label" == *-usb ]]; then
+-    media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=on,file=$USB_IMAGE"
+-      -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,bootindex=1")
++    media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=off,file=$USB_RUNTIME_IMAGE"
++      -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,removable=true,bootindex=1")
+   fi
+   qemu-system-x86_64 -machine "$machine" -m 1024 -nic none \
+     -device qemu-xhci,id=beamo-xhci \
+@@ -831,6 +845,8 @@
+     -blockdev "driver=file,node-name=beamo-target-file,filename=$TARGET" \
+     -blockdev "driver=qcow2,node-name=beamo-target,file=beamo-target-file" \
+     -device "virtio-blk-pci,drive=beamo-target,serial=$QEMU_TARGET_SERIAL" \
++    -drive "if=none,id=canary,format=raw,file=$CANARY" \
++    -device "virtio-blk-pci,drive=canary,serial=CANARY01" \
+     -display none -serial "file:$EVIDENCE_DIR/${label}-serial.txt" \
+     -qmp "unix:$qmp_socket,server=on,wait=off" \
+     -no-reboot >"$EVIDENCE_DIR/${label}-qemu.txt" 2>&1 &
+@@ -869,6 +885,7 @@
+     wait "$pid" || true
+     return 1
+   fi
++  qmp_request "$qmp_socket" screendump "$EVIDENCE_DIR/${label}.ppm"
+   stop_pid "$pid"
+   if [[ "$label" == bios ]]; then BIOS_PID=""; else UEFI_PID=""; fi
+   # Retain only allowlisted marker counts in hosted logs on successful runs
+@@ -881,16 +898,16 @@
+   fi
+ }
+ 
+-boot_probe bios yes
++boot_probe bios-usb yes
+ 
+ # The GUI path must have changed the exact nonzero region seeded above. QEMU is
+ # stopped, so qemu-io has exclusive access to the file-backed target.
+-qemu-io -f qcow2 -c 'read -P 0x00 0 1M' "$TARGET" \
++qemu-io -f qcow2 -c 'read -P 0x00 0 1G' "$TARGET" \
+   >"$EVIDENCE_DIR/guest-target-readback.txt" 2>&1 || {
+   echo "shipped Wizard reported success but did not zero the guest target" >&2
+   exit 2
+ }
+-log "shipped Wizard zeroed the guest target prefill"
++log "shipped Wizard zeroed the entire 1 GiB nonzero target"
+ 
+ # QEMU is gone before the host opens the report image. Re-prove a read-only
+ # loop, require a clean FAT, mount read-only, and independently validate every
+@@ -1001,7 +1018,7 @@
+   boot_probe uefi no -bios "$OVMF_CODE"
+ fi
+ 
+-boot_probe bios-usb no
++boot_probe bios no
+ cp "$OVMF_VARS" "$RUN_ROOT/ovmf-usb-vars.fd"
+ boot_probe uefi-usb no \
+   -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+@@ -1021,4 +1038,6 @@
+ printf 'iso_sha256=%s\nnwipe_sha256=%s\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nreport_export=pass\n' \
+   "$(sha256sum "$ISO" | awk '{print $1}')" "$shipped_sha" \
+   >"$EVIDENCE_DIR/summary.txt"
++sha256sum -c "$EVIDENCE_DIR/protected-before.sha256"
++log "writable boot USB and writable canary disk remained byte-identical"
+ log "PASS; evidence=$EVIDENCE_DIR"
+
+Complete external fixture: guest.py
+===================================
+import json, os, pathlib, struct, subprocess, time, urllib.request, urllib.parse
+
+def marker(text):
+    with open('/dev/ttyS0','w') as f: f.write(text+'\n')
+
+def run(*args): return subprocess.check_output(args, text=True).strip()
+
+try:
+    assert 'boot=live' not in pathlib.Path('/proc/cmdline').read_text().split()
+    marker('BEAMO_DESKTOP_WAIT_USB')
+    for _ in range(150):
+        scan=json.loads(run('/usr/bin/lsblk','--json','--tree','--output','PATH,TYPE,TRAN,SERIAL'))['blockdevices']
+        if any(d.get('serial')=='BEAMOBOOT' and d.get('tran')=='usb' and any(c.get('type')=='part' for c in d.get('children',[])) for d in scan): break
+        time.sleep(.2)
+    else: raise RuntimeError('emulated USB was not inserted')
+    marker('BEAMO_DESKTOP_USB_INSERTED')
+    disks=json.loads(run('/usr/bin/lsblk','--json','--tree','--bytes','--output','PATH,TYPE,TRAN,SERIAL,PTUUID,START,SIZE,LOG-SEC'))['blockdevices']
+    usb=[d for d in disks if d.get('tran')=='usb' and d.get('serial')=='BEAMOBOOT']
+    assert len(usb)==1
+    disk=usb[0]; parts=[p for p in disk['children'] if p['type']=='part']; assert len(parts)==1
+    part=parts[0]; sector=int(disk['log-sec']); assert sector==512
+    root=pathlib.Path('/media/beamo'); root.mkdir(parents=True,exist_ok=True)
+    subprocess.run(['/usr/bin/mount','-o','ro',part['path'],str(root)],check=True)
+    exe=root/'Start Beamo Wipe Linux'; assert exe.is_file()
+    proc=subprocess.Popen([str(exe)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    urlfile=pathlib.Path('/run/beamo-browser-url')
+    for _ in range(100):
+        if urlfile.exists(): break
+        assert proc.poll() is None
+        time.sleep(.1)
+    url=urllib.parse.urlsplit(urlfile.read_text().strip()); assert url.hostname=='127.0.0.1'
+    origin=f'{url.scheme}://{url.netloc}'
+    def api(action,confirm=False):
+        req=urllib.request.Request(origin+'/api/'+action,data=json.dumps({'confirm':confirm}).encode(),headers={'Content-Type':'application/json','X-Beamo-Token':url.fragment,'Origin':origin},method='POST')
+        with urllib.request.urlopen(req,timeout=30) as response:return json.load(response)
+    view=api('check'); assert not view['ready'], view
+    marker('BEAMO_DESKTOP_NO_ENTRY_FALLBACK')
+    # Seed an exact existing boot entry only in this disposable virtual PC.
+    # This models the documented supported firmware case; it is not product code.
+    sig=struct.pack('<I',int(disk['ptuuid'],16))+bytes(12)
+    hd=bytes([4,1])+struct.pack('<H',42)+struct.pack('<IQQ',1,int(part['start']),int(part['size'])//sector)+sig+bytes([1,1])
+    name='\\EFI\\BOOT\\BOOTX64.EFI\0'.encode('utf-16-le')
+    path=hd+bytes([4,4])+struct.pack('<H',4+len(name))+name+bytes([127,255,4,0])
+    raw=struct.pack('<IH',1,len(path))+'Beamo test USB\0'.encode('utf-16-le')+path
+    efidir=pathlib.Path('/sys/firmware/efi/efivars'); suffix='-8be4df61-93ca-11d2-aa0d-00e098032b8c'
+    entry=efidir/('BootBEEF'+suffix); entry.write_bytes(struct.pack('<I',7)+raw)
+    order=efidir/('BootOrder'+suffix); old=order.read_bytes(); assert len(old)>=6
+    order.write_bytes(old+struct.pack('<H',0xBEEF))
+    nextvar=efidir/('BootNext'+suffix)
+    assert not nextvar.exists()
+    view=api('check'); assert view['ready'], view
+    try: api('restart',False)
+    except urllib.error.HTTPError as exc: assert exc.code==409
+    else: raise RuntimeError('unconfirmed restart accepted')
+    assert not nextvar.exists()
+    marker('BEAMO_DESKTOP_UNCONFIRMED_RESTART_REFUSED')
+    pending=struct.pack('<I',7)+old[4:6]
+    nextvar.write_bytes(pending)
+    view=api('check'); assert not view['ready'], view
+    assert nextvar.read_bytes()==pending
+    nextvar.unlink()
+    marker('BEAMO_DESKTOP_PENDING_BOOT_REFUSED')
+    duplicate=efidir/('BootBEF0'+suffix)
+    duplicate.write_bytes(struct.pack('<I',7)+raw)
+    order.write_bytes(old+struct.pack('<HH',0xBEEF,0xBEF0))
+    view=api('check'); assert not view['ready'], view
+    duplicate.unlink(); order.write_bytes(old+struct.pack('<H',0xBEEF))
+    marker('BEAMO_DESKTOP_AMBIGUOUS_ENTRY_REFUSED')
+    view=api('check'); assert view['ready'], view
+    marker('BEAMO_DESKTOP_CHECK_READY')
+    marker('BEAMO_DESKTOP_RESTART_REQUESTED')
+    try: api('restart',True)
+    except Exception: pass  # A normal reboot can close the HTTP connection.
+    time.sleep(60)
+    raise RuntimeError('desktop did not reboot')
+except Exception as exc:
+    marker('BEAMO_DESKTOP_FAILURE='+type(exc).__name__+':'+str(exc)[:300])
+    raise
+
+Complete external fixture: host.sh
+==================================
+#!/bin/bash
+set -euo pipefail
+ROOT=/workspace-lab
+ISO=$ROOT/dist/beamo-wipe-0.2.5-amd64.iso
+USB=$ROOT/dist/beamo-wipe-0.2.5-amd64.img
+TEST=/var/tmp/beamo-lab-handoff
+mkdir -p "$TEST"
+SOURCE_USB="$USB"
+USB="$TEST/boot-usb.img"
+cp "$SOURCE_USB" "$USB"
+sha256sum "$USB" > "$TEST/usb-before.sha256"
+echo "Handoff test accelerator=TCG on isolated x86_64 host"
+if [[ ! -d "$TEST/extracted" ]]; then
+ xorriso -osirrox on -indev "$ISO" -extract / "$TEST/extracted" >"$TEST/extract.log" 2>&1
+fi
+if [[ ! -d "$TEST/root" ]]; then
+ unsquashfs -d "$TEST/root" "$TEST/extracted/live/filesystem.squashfs" >"$TEST/unsquash.log" 2>&1
+fi
+DESKTOP="$TEST/root"
+# This is a separate installed test OS copy. The USB payload is unchanged.
+rm -f "$DESKTOP/etc/systemd/system/multi-user.target.wants/beamo-wipe-kiosk.service"
+ln -sfn /dev/null "$DESKTOP/etc/systemd/system/beamo-wipe-kiosk.service"
+cp /var/tmp/beamo-guest.py "$DESKTOP/root/beamo-handoff.py"
+cat > "$DESKTOP/usr/bin/xdg-open" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" > /run/beamo-browser-url
+EOF
+chmod 755 "$DESKTOP/usr/bin/xdg-open"
+cat > "$DESKTOP/etc/systemd/system/beamo-desktop-test.service" <<'EOF'
+[Unit]
+Description=Disposable desktop firmware handoff test
+After=local-fs.target systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /root/beamo-handoff.py
+StandardOutput=journal+console
+StandardError=journal+console
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -sfn ../beamo-desktop-test.service "$DESKTOP/etc/systemd/system/multi-user.target.wants/beamo-desktop-test.service"
+: > "$DESKTOP/etc/fstab"
+truncate -s 3G "$TEST/root.ext4"
+mkfs.ext4 -q -F -d "$DESKTOP" "$TEST/root.ext4"
+UUID=$(blkid -s UUID -o value "$TEST/root.ext4")
+KERNEL=$(basename "$(find "$DESKTOP/boot" -name 'vmlinuz-*' -type f | head -1)")
+INITRD=$(basename "$(find "$DESKTOP/boot" -name 'initrd.img-*' -type f | head -1)")
+[[ -n "$KERNEL" && -n "$INITRD" ]]
+cat > "$TEST/grub.cfg" <<EOF
+set timeout=0
+insmod part_msdos
+insmod ext2
+insmod search_fs_uuid
+ls
+ls (hd0,msdos2)/boot/
+search --fs-uuid --set=root $UUID
+linux /boot/$KERNEL root=UUID=$UUID rw console=ttyS0,115200 systemd.unit=multi-user.target
+initrd /boot/$INITRD
+boot
+EOF
+grub-mkstandalone -O x86_64-efi -o "$TEST/bootx64.efi" "boot/grub/grub.cfg=$TEST/grub.cfg"
+truncate -s 64M "$TEST/esp.fat"
+mkfs.vfat -F 32 "$TEST/esp.fat" >/dev/null
+mmd -i "$TEST/esp.fat" ::/EFI ::/EFI/BOOT
+mcopy -i "$TEST/esp.fat" "$TEST/bootx64.efi" ::/EFI/BOOT/BOOTX64.EFI
+python3 - "$TEST" <<'PY'
+import pathlib,struct,shutil,sys
+p=pathlib.Path(sys.argv[1]); fat=p/'esp.fat'; root=p/'root.ext4'; boot=bytearray(512)
+boot[440:444]=struct.pack('<I',0x44534b54)
+for i,(start,size,typ) in enumerate([(2048,fat.stat().st_size//512,0xef),(2048+fat.stat().st_size//512,root.stat().st_size//512,0x83)]):
+ boot[446+i*16:462+i*16]=struct.pack('<B3sB3sII',0,b'\xfe\xff\xff',typ,b'\xfe\xff\xff',start,size)
+boot[510:]=b'\x55\xaa'
+with (p/'desktop.img').open('wb') as out:
+ out.write(boot);out.seek(1048576)
+ for source in (fat,root):
+  with source.open('rb') as f:shutil.copyfileobj(f,out,1048576)
+PY
+cp /usr/share/OVMF/OVMF_VARS_4M.fd "$TEST/vars.fd"
+: > "$TEST/serial.txt"
+qemu-system-x86_64 -machine q35,accel=tcg -cpu max -m 2048 -nic none \
+ -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+ -drive "if=pflash,format=raw,file=$TEST/vars.fd" \
+ -drive "if=none,id=desktop,format=raw,file=$TEST/desktop.img" \
+ -device virtio-blk-pci,drive=desktop,serial=DESKTOPTEST,bootindex=1 \
+ -qmp "unix:$TEST/qmp,server=on,wait=off" -device qemu-xhci,id=beamo-xhci -drive "if=none,id=usb,format=raw,readonly=off,file=$USB" \
+ -display none -serial "file:$TEST/serial.txt" >"$TEST/qemu.txt" 2>&1 &
+pid=$!
+trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+attached=0
+for tick in $(seq 1 900); do
+ if [[ "$attached" == 0 ]] && grep -q '^BEAMO_DESKTOP_WAIT_USB' "$TEST/serial.txt"; then
+  python3 /var/tmp/lab-hotplug.py "$TEST/qmp"
+  attached=1
+ fi
+ if (( tick % 30 == 0 )); then
+  tail -c 16000 "$TEST/serial.txt" | curl -fsS -X PUT -H 'Metadata-Flavor: Google' --data-binary @- http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/beamo-lab/handoff-progress >/dev/null || true
+ fi
+ if grep -q 'error: no such device:' "$TEST/serial.txt"; then tail -n 35 "$TEST/serial.txt"; exit 1; fi
+ if grep -q '^BEAMO_DESKTOP_FAILURE=' "$TEST/serial.txt"; then tail -n 35 "$TEST/serial.txt"; exit 1; fi
+ if grep -q '^BEAMO_DESKTOP_RESTART_REQUESTED' "$TEST/serial.txt" && grep -q '^BEAMO_WIPE_SCREEN_WHAT' "$TEST/serial.txt"; then
+  sha256sum -c "$TEST/usb-before.sha256"
+  echo BEAMO_DESKTOP_HANDOFF_PASS
+  sha256sum "$USB"
+  grep '^BEAMO_' "$TEST/serial.txt"
+  exit 0
+ fi
+ kill -0 "$pid" || { cat "$TEST/qemu.txt"; exit 1; }
+ sleep 1
+done
+tail -n 50 "$TEST/serial.txt"
+echo 'Handoff timed out'; exit 1
+
+Complete external fixture: hotplug.py
+=====================================
+import socket,json,sys
+with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as s:
+ s.settimeout(15);s.connect(sys.argv[1]);f=s.makefile('rwb',buffering=0)
+ def call(cmd,args,ident):
+  f.write((json.dumps({'execute':cmd,'arguments':args,'id':ident})+'\r\n').encode())
+  while True:
+   r=json.loads(f.readline())
+   if r.get('id')==ident:
+    if 'error' in r:raise RuntimeError(r['error'])
+    return r
+ assert 'QMP' in json.loads(f.readline())
+ call('qmp_capabilities',{},'cap')
+ call('device_add',{'driver':'usb-storage','drive':'usb','id':'beamo-stick','serial':'BEAMOBOOT','bootindex':2,'bus':'beamo-xhci.0','removable':True},'insert')
+ print('BEAMO_QMP_USB_HOTPLUGGED')
+
+External fixture diff: repeat.sh
+================================
+--- lab/suite.sh
++++ lab/repeat.sh
+@@ -839,7 +839,8 @@
+     media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=off,file=$USB_RUNTIME_IMAGE"
+       -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,removable=true,bootindex=1")
+   fi
+-  qemu-system-x86_64 -machine "$machine" -m 1024 -nic none \
++  printf '%s\n' input_event_key_qcode ps2_keyboard_event ps2_put_keycode > "$RUN_ROOT/keyboard-events"
++  qemu-system-x86_64 -trace "events=$RUN_ROOT/keyboard-events,file=$EVIDENCE_DIR/$label-keyboard-trace.txt" -machine "$machine" -m 1024 -nic none \
+     -device qemu-xhci,id=beamo-xhci \
+     "$@" "${media_args[@]}" \
+     -blockdev "driver=file,node-name=beamo-target-file,filename=$TARGET" \
+@@ -1003,41 +1004,5 @@
+ REPORT_LOOP_RO=""
+ log "guest report passed clean-FAT, completion, checksum, read-only, and unmount checks"
+ 
+-OVMF_CODE=""
+-for candidate in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd; do
+-  if [[ -f "$candidate" ]]; then OVMF_CODE="$candidate"; break; fi
+-done
+-[[ -n "$OVMF_CODE" ]] || { echo "OVMF firmware missing" >&2; exit 2; }
+-OVMF_VARS="${OVMF_CODE/CODE/VARS}"
+-if [[ -f "$OVMF_VARS" ]]; then
+-  cp "$OVMF_VARS" "$RUN_ROOT/ovmf-vars.fd"
+-  boot_probe uefi no \
+-    -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+-    -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-vars.fd"
+-else
+-  boot_probe uefi no -bios "$OVMF_CODE"
+-fi
+-
+-boot_probe bios no
+-cp "$OVMF_VARS" "$RUN_ROOT/ovmf-usb-vars.fd"
+-boot_probe uefi-usb no \
+-  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+-  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-usb-vars.fd"
+-
+-# Enrolled Microsoft keys and SMM enforcement. A bare OVMF boot is not
+-# Secure Boot evidence. The guest must report the actual firmware variable.
+-SECURE_CODE=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+-SECURE_VARS=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
+-[[ -f "$SECURE_CODE" && -f "$SECURE_VARS" ]] || { echo "Enrolled Secure Boot firmware missing" >&2; exit 2; }
+-cp "$SECURE_VARS" "$RUN_ROOT/secureboot-vars.fd"
+-boot_probe secureboot-usb no \
+-  -global driver=cfi.pflash01,property=secure,value=on \
+-  -drive "if=pflash,format=raw,readonly=on,file=$SECURE_CODE" \
+-  -drive "if=pflash,format=raw,file=$RUN_ROOT/secureboot-vars.fd"
+-
+-printf 'iso_sha256=%s\nnwipe_sha256=%s\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nreport_export=pass\n' \
+-  "$(sha256sum "$ISO" | awk '{print $1}')" "$shipped_sha" \
+-  >"$EVIDENCE_DIR/summary.txt"
+ sha256sum -c "$EVIDENCE_DIR/protected-before.sha256"
+-log "writable boot USB and writable canary disk remained byte-identical"
+-log "PASS; evidence=$EVIDENCE_DIR"
++log "FOCUSED_REPEAT_PASS; evidence=$EVIDENCE_DIR"
+
+External fixture diff: default.sh
+=================================
+--- lab/suite.sh
++++ lab/default.sh
+@@ -811,7 +811,7 @@
+   wait_for_marker "$label" BEAMO_WIPE_CONFIRM_FOCUSED 20
+   type_token_for_marker "$label" "$qmp_socket" "$token" BEAMO_WIPE_CONFIRM_MATCHED 20
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_METHOD 20
+-  send_key_for_marker "$label" "$qmp_socket" 3 BEAMO_WIPE_SCREEN_METHOD 20
++  send_key_for_marker "$label" "$qmp_socket" 1 BEAMO_WIPE_SCREEN_METHOD 20
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_LAST_CHANCE 20
+   sleep 6
+   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_WORKING 20
+@@ -839,12 +839,13 @@
+     media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=off,file=$USB_RUNTIME_IMAGE"
+       -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,removable=true,bootindex=1")
+   fi
+-  qemu-system-x86_64 -machine "$machine" -m 1024 -nic none \
++  printf '%s\n' input_event_key_qcode ps2_keyboard_event ps2_put_keycode > "$RUN_ROOT/keyboard-events"
++  qemu-system-x86_64 -trace "events=$RUN_ROOT/keyboard-events,file=$EVIDENCE_DIR/$label-keyboard-trace.txt" -machine "$machine" -m 1024 -nic none \
+     -device qemu-xhci,id=beamo-xhci \
+     "$@" "${media_args[@]}" \
+     -blockdev "driver=file,node-name=beamo-target-file,filename=$TARGET" \
+     -blockdev "driver=qcow2,node-name=beamo-target,file=beamo-target-file" \
+-    -device "virtio-blk-pci,drive=beamo-target,serial=$QEMU_TARGET_SERIAL" \
++    -device "nvme,drive=beamo-target,serial=$QEMU_TARGET_SERIAL" \
+     -drive "if=none,id=canary,format=raw,file=$CANARY" \
+     -device "virtio-blk-pci,drive=canary,serial=CANARY01" \
+     -display none -serial "file:$EVIDENCE_DIR/${label}-serial.txt" \
+@@ -902,12 +903,18 @@
+ 
+ # The GUI path must have changed the exact nonzero region seeded above. QEMU is
+ # stopped, so qemu-io has exclusive access to the file-backed target.
+-qemu-io -f qcow2 -c 'read -P 0x00 0 1G' "$TARGET" \
+-  >"$EVIDENCE_DIR/guest-target-readback.txt" 2>&1 || {
+-  echo "shipped Wizard reported success but did not zero the guest target" >&2
+-  exit 2
+-}
+-log "shipped Wizard zeroed the entire 1 GiB nonzero target"
++qemu-img convert -f qcow2 -O raw "$TARGET" "$RUN_ROOT/default-readback.raw"
++python3 - "$RUN_ROOT/default-readback.raw" <<'READBACK'
++import hashlib,pathlib,sys
++p=pathlib.Path(sys.argv[1]); assert p.stat().st_size==1024**3
++h=hashlib.sha256(); blocks=0
++with p.open('rb') as f:
++ while block:=f.read(1024**2):
++  assert block!=bytes([0xa5])*len(block), f'untouched block {blocks}'
++  h.update(block); blocks+=1
++assert blocks==1024
++print('Default-method independent readback: 1024 nonzero-prefilled MiB blocks changed; sha256='+h.hexdigest())
++READBACK
+ 
+ # QEMU is gone before the host opens the report image. Re-prove a read-only
+ # loop, require a clean FAT, mount read-only, and independently validate every
+@@ -985,8 +992,13 @@
+ if actual["result.json.sha256"] != f"{result_digest}  result.json\n".encode("ascii"):
+     raise SystemExit("result.json sidecar mismatch")
+ result = json.loads(actual["result.json"].decode("utf-8"))
+-if result.get("outcome") not in {"completed", "verified"}:
++if result.get("outcome") != "verified":
+     raise SystemExit("guest report is not a successful terminal wipe")
++assert result["method"]["nwipe_method"]=="prng"
++assert result["method"]["verify"]=="last"
++assert result["verification"]["requested"] is True
++assert result["verification"]["verified"] is True
++print("Default Everyday: nwipe PRNG overwrite and read-back verification passed")
+ print(f"session={session.name}")
+ print(f"outcome={result['outcome']}")
+ print(f"files={','.join(sorted(actual))}")
+@@ -1003,41 +1015,5 @@
+ REPORT_LOOP_RO=""
+ log "guest report passed clean-FAT, completion, checksum, read-only, and unmount checks"
+ 
+-OVMF_CODE=""
+-for candidate in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd; do
+-  if [[ -f "$candidate" ]]; then OVMF_CODE="$candidate"; break; fi
+-done
+-[[ -n "$OVMF_CODE" ]] || { echo "OVMF firmware missing" >&2; exit 2; }
+-OVMF_VARS="${OVMF_CODE/CODE/VARS}"
+-if [[ -f "$OVMF_VARS" ]]; then
+-  cp "$OVMF_VARS" "$RUN_ROOT/ovmf-vars.fd"
+-  boot_probe uefi no \
+-    -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+-    -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-vars.fd"
+-else
+-  boot_probe uefi no -bios "$OVMF_CODE"
+-fi
+-
+-boot_probe bios no
+-cp "$OVMF_VARS" "$RUN_ROOT/ovmf-usb-vars.fd"
+-boot_probe uefi-usb no \
+-  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+-  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-usb-vars.fd"
+-
+-# Enrolled Microsoft keys and SMM enforcement. A bare OVMF boot is not
+-# Secure Boot evidence. The guest must report the actual firmware variable.
+-SECURE_CODE=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+-SECURE_VARS=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
+-[[ -f "$SECURE_CODE" && -f "$SECURE_VARS" ]] || { echo "Enrolled Secure Boot firmware missing" >&2; exit 2; }
+-cp "$SECURE_VARS" "$RUN_ROOT/secureboot-vars.fd"
+-boot_probe secureboot-usb no \
+-  -global driver=cfi.pflash01,property=secure,value=on \
+-  -drive "if=pflash,format=raw,readonly=on,file=$SECURE_CODE" \
+-  -drive "if=pflash,format=raw,file=$RUN_ROOT/secureboot-vars.fd"
+-
+-printf 'iso_sha256=%s\nnwipe_sha256=%s\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nreport_export=pass\n' \
+-  "$(sha256sum "$ISO" | awk '{print $1}')" "$shipped_sha" \
+-  >"$EVIDENCE_DIR/summary.txt"
+ sha256sum -c "$EVIDENCE_DIR/protected-before.sha256"
+-log "writable boot USB and writable canary disk remained byte-identical"
+-log "PASS; evidence=$EVIDENCE_DIR"
++log "DEFAULT_METHOD_PASS; evidence=$EVIDENCE_DIR"
+
+remote-harness-sha.txt
+======================
+4b6a3d3b6ccd213824b16a6f64e5a6cbc1ee50a09417cf37f50f8ad9e2d1eede  /var/tmp/lab-suite.sh
+6cda601b8219ab261413ed2d18966b685c0e20be45c46f6696b3f3e2c8e311a8  /var/tmp/beamo-guest.py
+496a62e380de1e8ad7e20f8a9080737a2d56c05da5aec81843eea383e2dbf3cb  /var/tmp/beamo-handoff-host.sh
+ab7393614832e0f18580e30743c804ef6e7ea8a800a9b6122008d08fea6463bd  /var/tmp/lab-hotplug.py
+d6bb39b53a57cc2d4cd56b19014963f418421b2229bc001acbea565a29fb5145  /tmp/beamo-repeat.sh
+23dbbb247c4e42925b1f04bd7b3e7c9379889029819d5f176f467ed6b0967381  /tmp/beamo-default.sh
+
+Focused repeat keyboard trace
+=============================
+input_event_key_qcode con -1, key qcode ret, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode ret, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode spc, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 60 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x29
+input_event_key_qcode con -1, key qcode spc, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 60 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x29
+input_event_key_qcode con -1, key qcode ret, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode ret, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode down, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 101 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xe0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x72
+input_event_key_qcode con -1, key qcode down, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 101 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xe0
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x72
+input_event_key_qcode con -1, key qcode ret, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode ret, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode 1, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 9 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x16
+input_event_key_qcode con -1, key qcode 1, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 9 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x16
+input_event_key_qcode con -1, key qcode ret, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode ret, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode 3, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 11 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x26
+input_event_key_qcode con -1, key qcode 3, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 11 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x26
+input_event_key_qcode con -1, key qcode ret, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode ret, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode ret, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode ret, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 35 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x5a
+input_event_key_qcode con -1, key qcode tab, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 22 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x0d
+input_event_key_qcode con -1, key qcode tab, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 22 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x0d
+input_event_key_qcode con -1, key qcode spc, down 1
+ps2_keyboard_event 0x55cc4d18e360 qcode 60 down 1 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0x29
+input_event_key_qcode con -1, key qcode spc, down 0
+ps2_keyboard_event 0x55cc4d18e360 qcode 60 down 0 modifier 0x0 modifiers 0x0 set 2 xlate 1
+ps2_put_keycode 0x55cc4d18e360 keycode 0xf0
+ps2_put_keycode 0x55cc4d18e360 keycode 0x29
+
+Input command reference
+=======================
+QEMU input-send-event down/up follows the upstream QMP interface:
+https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html#command-input-send-event
+The first missing guest release acknowledgement remains an intermittent result; subsequent passes alone do not establish a root cause or product fix.
