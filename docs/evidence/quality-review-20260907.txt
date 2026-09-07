@@ -1,0 +1,321 @@
+Quality review validation receipt
+
+{
+  "reviewed_source": {
+    "commit": "fd39d5c8ad6246764163593b1d59365cd726d260",
+    "archive_sha256": "4da974d61e12caf8be7e5eb18c7120188a110044764bb46b4d69b76d25dbe670",
+    "matched_files": 155,
+    "roots": [
+      "src",
+      "desktop",
+      "helper",
+      "scripts",
+      "packaging",
+      "tests"
+    ]
+  },
+  "build": {
+    "id": "8496a9c0-4249-4a34-8ad7-f62c303b1904",
+    "status": "SUCCESS",
+    "createTime": "2026-09-07T02:36:52.258594997Z",
+    "startTime": "2026-09-07T02:37:35.835939439Z",
+    "finishTime": "2026-09-07T03:00:20.634270Z",
+    "substitutions": {
+      "_PUBLISH_RELEASE": "false",
+      "_SKIP_ISO": "false",
+      "_SKIP_QEMU": "false"
+    },
+    "source": {
+      "storageSource": {
+        "bucket": "beamo-wipe_cloudbuild",
+        "generation": "1788748611679752",
+        "object": "source/1788748609.699227-0882791dc97b495b8fbc22bd98942b4c.tgz"
+      }
+    },
+    "sourceProvenance": {
+      "fileHashes": {
+        "gs://beamo-wipe_cloudbuild/source/1788748609.699227-0882791dc97b495b8fbc22bd98942b4c.tgz#1788748611679752": {
+          "fileHash": [
+            {
+              "type": "MD5",
+              "value": "PjruulYY2IclFWcxVMpd2Q=="
+            },
+            {
+              "type": "SHA256",
+              "value": "Tal01h4Syvi-fl6xjHEgGIoRAER2S7RrTWm3bSXb5nA="
+            }
+          ]
+        }
+      },
+      "resolvedStorageSource": {
+        "bucket": "beamo-wipe_cloudbuild",
+        "generation": "1788748611679752",
+        "object": "source/1788748609.699227-0882791dc97b495b8fbc22bd98942b4c.tgz"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "desktop-launchers",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T02:39:22.111028043Z",
+        "startTime": "2026-09-07T02:37:40.575496562Z"
+      }
+    },
+    {
+      "id": "lint",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T02:38:08.767586274Z",
+        "startTime": "2026-09-07T02:37:40.575698223Z"
+      }
+    },
+    {
+      "id": "python-tests",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T02:40:39.488905136Z",
+        "startTime": "2026-09-07T02:37:40.575747972Z"
+      }
+    },
+    {
+      "id": "preview",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T02:37:55.689756625Z",
+        "startTime": "2026-09-07T02:37:40.575594023Z"
+      }
+    },
+    {
+      "id": "negative-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T02:41:23.534641930Z",
+        "startTime": "2026-09-07T02:40:39.489071250Z"
+      }
+    },
+    {
+      "id": "iso-build",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T02:47:42.084408569Z",
+        "startTime": "2026-09-07T02:41:23.534815690Z"
+      }
+    },
+    {
+      "id": "qemu-verify",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T03:00:09.593278023Z",
+        "startTime": "2026-09-07T02:47:42.084830509Z"
+      }
+    },
+    {
+      "id": "publish-release",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T03:00:20.244712372Z",
+        "startTime": "2026-09-07T03:00:09.594636902Z"
+      }
+    }
+  ],
+  "local_python": {
+    "tests": "1542",
+    "skipped": "138",
+    "failures": "0",
+    "errors": "0",
+    "time": "28.723"
+  },
+  "local_go": {
+    "race": "pass",
+    "vet": "pass",
+    "fuzz_executions": 578048
+  },
+  "browser": "Chromium 152.0.7977.76; embedded non-destructive preview; details and screenshots in review report"
+}
+
+Hosted validation excerpts (including deliberate negative-test output)
+
+Step #0 - "desktop-launchers": Pulling image: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #3 - "preview": Pulling image: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #1 - "lint": Pulling image: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #2 - "python-tests": Pulling image: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #3 - "preview": docker.io/library/debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443: Pulling from library/debian
+Step #2 - "python-tests": docker.io/library/debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443: Pulling from library/debian
+Step #1 - "lint": docker.io/library/debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443: Pulling from library/debian
+Step #0 - "desktop-launchers": docker.io/library/debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443: Pulling from library/debian
+Step #2 - "python-tests": Digest: sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #0 - "desktop-launchers": Digest: sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #0 - "desktop-launchers": Status: Image is up to date for debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #2 - "python-tests": Status: Downloaded newer image for debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #1 - "lint": Digest: sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #1 - "lint": Status: Image is up to date for debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #2 - "python-tests": docker.io/library/debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #0 - "desktop-launchers": docker.io/library/debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #3 - "preview": Digest: sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #3 - "preview": Status: Image is up to date for debian@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #1 - "lint": docker.io/library/debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #3 - "preview": docker.io/library/debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Finished Step #3 - "preview"
+Step #1 - "lint": All checks passed!
+Step #1 - "lint": All checks passed!
+Step #1 - "lint": All checks passed!
+Step #1 - "lint": Success: no issues found in 28 source files
+Finished Step #1 - "lint"
+Step #2 - "python-tests": dbus-daemon[6783]: [session uid=0 pid=6783] Successfully activated service 'org.a11y.Bus'
+Step #2 - "python-tests": dbus-daemon[6804]: Successfully activated service 'org.a11y.atspi.Registry'
+Step #0 - "desktop-launchers": fuzz: elapsed: 15s, execs: 537670 (29873/sec), new interesting: 41 (total: 44)
+Step #0 - "desktop-launchers": fuzz: elapsed: 15s, execs: 537670 (0/sec), new interesting: 41 (total: 44)
+Finished Step #0 - "desktop-launchers"
+Step #2 - "python-tests": 1583 passed, 12 skipped in 122.61s (0:02:02)
+Finished Step #2 - "python-tests"
+Step #4 - "negative-test": Already have image (with digest): debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Finished Step #4 - "negative-test"
+Step #5 - "iso-build": Already have image (with digest): debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #5 - "iso-build": I: Base system installed successfully.
+Step #5 - "iso-build": P: Begin creating binary sha256sum.txt...
+Step #5 - "iso-build": Writing to 'stdio:live-image-amd64.hybrid.iso' completed successfully.
+Step #5 - "iso-build": P: Build completed successfully
+Step #5 - "iso-build": Manifest SHA256: 07e1e33b1fc149938d2948567117ebce68b495b0306fead2a31ea06ac4b47e47
+Step #5 - "iso-build": Sidecar written: beamo-wipe-0.2.5-amd64.manifest.json.sha256
+Step #5 - "iso-build": -rw------- 1 root root  103 Sep  7 02:47 dist/beamo-wipe-0.2.5-amd64.manifest.json.sha256
+Step #5 - "iso-build": Consumer: sha256sum -c beamo-wipe-0.2.5-amd64.iso.sha256 (from dist/)
+Step #5 - "iso-build": Consumer: sha256sum -c SHA256SUMS (from dist/)
+Step #5 - "iso-build": -rw-r--r-- 1 root root  196 Sep  7 02:47 dist/SHA256SUMS
+Step #5 - "iso-build": -rw------- 1 root root   93 Sep  7 02:47 dist/beamo-wipe-0.2.5-amd64.iso.sha256
+Step #5 - "iso-build": -rw------- 1 root root  103 Sep  7 02:47 dist/beamo-wipe-0.2.5-amd64.manifest.json.sha256
+Finished Step #5 - "iso-build"
+Step #6 - "qemu-verify": Already have image (with digest): debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #6 - "qemu-verify": Unpacking ipxe-qemu (1.0.0+git-20190125.36a4c85-5.1) ...
+Step #6 - "qemu-verify": Setting up ipxe-qemu (1.0.0+git-20190125.36a4c85-5.1) ...
+Step #6 - "qemu-verify": [ci-hosted] controlled QEMU verification (disposable qcow2, TCG where KVM absent)
+Step #6 - "qemu-verify": [qemu-verify] worker_os=Linux worker_arch=x86_64
+Step #6 - "qemu-verify": [qemu-verify] artifact checksums verified
+Step #6 - "qemu-verify": [qemu-verify] live filesystem package and permission policy verified
+Step #6 - "qemu-verify": [qemu-verify] private report helper crash left no host-namespace mount
+Step #6 - "qemu-verify": [qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+Step #6 - "qemu-verify": [qemu-verify] disposable target and boot loop identities verified
+Step #6 - "qemu-verify": [qemu-verify] pinned nwipe boundary and anonymized logging verified
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=2
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_METHOD count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_LAST_CHANCE count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_METHOD count=2
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_LAST_CHANCE count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_WORKING count=2
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_SCREEN_DONE count=4
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_REPORT_SAVING count=2
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_REPORT_SAVED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_STARTED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_EVIDENCE_VERIFIED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_SCAN_ONE count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_SELECT_ONE count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_SCAN_TWO count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_SELECTED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_IDENTIFIED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_DECODED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_SELECTED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_IDENTIFIED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_OPENED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RW_MOUNTED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_BUNDLE_WRITTEN count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RW_UNMOUNTED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RO_MOUNTED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_READBACK_VERIFIED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RO_UNMOUNTED count=1
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=7
+Step #6 - "qemu-verify": QEMU bios observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=2
+Step #6 - "qemu-verify": [qemu-verify] bios boot completed the shipped Wizard report export
+Step #6 - "qemu-verify": [qemu-verify] shipped Wizard zeroed the guest target prefill
+Step #6 - "qemu-verify": [qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+Step #6 - "qemu-verify": QEMU uefi observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+Step #6 - "qemu-verify": QEMU uefi observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+Step #6 - "qemu-verify": [qemu-verify] uefi boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+Step #6 - "qemu-verify": QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+Step #6 - "qemu-verify": [qemu-verify] bios-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+Step #6 - "qemu-verify": QEMU uefi-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+Step #6 - "qemu-verify": [qemu-verify] uefi-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+Step #6 - "qemu-verify": [qemu-verify] secureboot-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] PASS; evidence=/tmp/beamo-wipe-qemu.3PDuPl/evidence
+Step #6 - "qemu-verify": [ci-hosted] QEMU evidence copied to qemu-evidence/
+Finished Step #6 - "qemu-verify"
+Step #7 - "publish-release": Already have image (with digest): debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+Step #7 - "publish-release": Release publication disabled; verified artifacts remain ephemeral.
+Finished Step #7 - "publish-release"
+
+
+Local mypy after correction
+src/beamo_wipe/session_recovery.py:85: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+Success: no issues found in 28 source files
+
+Build cleanup verification
+[
+  {
+    "id": "8496a9c0-4249-4a34-8ad7-f62c303b1904",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "d3629b1c-9171-4340-ba0b-1fcda85ae1bb",
+    "status": "CANCELLED"
+  },
+  {
+    "id": "25c2a3e7-f00a-497d-823d-1d74e9485a7f",
+    "status": "CANCELLED"
+  },
+  {
+    "id": "9bb7db24-146f-4118-b98a-8f7e93e9f71d",
+    "status": "CANCELLED"
+  }
+]
+
+Cleanup: three superseded builds CANCELLED; final build SUCCESS. Local preview processes exited, ports 8769/8770 no longer listening, dedicated Go cache removed. Storage report before/after commands exited 0; no apply action.

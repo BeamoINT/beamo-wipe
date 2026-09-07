@@ -64,9 +64,26 @@ screen-reader user or novice user study was performed.
 
 ## Final hosted gate
 
-The final clean-source build is pending. ISO and QEMU will be enabled; publication
-will be disabled. This section will be updated from the completed build before
-reporting completion.
+Build [8496a9c0-4249-4a34-8ad7-f62c303b1904](https://console.cloud.google.com/cloud-build/builds/8496a9c0-4249-4a34-8ad7-f62c303b1904?project=368895881889)
+finished **SUCCESS** at `2026-09-07T03:00:20.634270Z` for clean source
+`fd39d5c8ad6246764163593b1d59365cd726d260`. All eight stages passed:
+launcher, lint, Python, preview, negative safety, ISO, QEMU, and the disabled
+publication step. **1,583 Python tests passed, 12 skipped**. The advisory
+mypy check is also clean across 28 source files. Native Linux launcher race/vet tests and 537,670 bounded
+firmware-parser fuzz executions passed; both platform launchers compiled.
+
+The rebuilt ISO and FAT32 USB passed BIOS/UEFI ISO boot, BIOS erase and report
+export, and BIOS/UEFI/enrolled Secure Boot USB target confirmation. Independent
+readback confirmed the disposable target was zeroed; report verification checked
+clean FAT, completion metadata, content checksums, read-only inspection, and unmount.
+The Secure Boot test requires the guest firmware variable to be enabled; a normal
+UEFI boot alone does not satisfy it. Publication was explicitly disabled.
+
+The uploaded archive was independently downloaded and checked: commit `fd39d5c`,
+all 155 tracked files checked across source/desktop/helper/scripts/packaging/tests
+matched the reviewed checkout, and archive SHA-256 was
+`4da974d61e12caf8be7e5eb18c7120188a110044764bb46b4d69b76d25dbe670`. The [validation receipt](evidence/quality-review-20260907.txt)
+contains source provenance, build status, stage results, counts, and log excerpts.
 
 The static USB help page was additionally inspected at 375, 1024 and 1440 pixels;
 the final wrapping fix passed at all five launcher widths. Its source link is
@@ -77,7 +94,8 @@ the project GitHub repository.
 One local suite run failed because the ignored live-build staging directory still
 contained the old `copy.py`. The staging consistency check correctly rejected it.
 The two changed generated Python copies were refreshed using the normal source
-inputs; the complete unfiltered local suite then passed. No assertion was weakened. The final type-only change likewise refreshed its generated staging copy.
+inputs; the complete unfiltered local suite then passed. No assertion was weakened. The final type-only change likewise refreshed its
+generated staging copy.
 
 Build `9bb7db24-146f-4118-b98a-8f7e93e9f71d` was canceled after the help-page
 wrapping defect was found. Build `25c2a3e7-f00a-497d-823d-1d74e9485a7f` was
@@ -85,8 +103,7 @@ canceled immediately because its snapshot included uncommitted review artifacts.
 Build `d3629b1c-9171-4340-ba0b-1fcda85ae1bb` passed 1,583 Python tests,
 launcher race/vet/fuzz, and the negative gate, but was canceled during image
 building to include the advisory type-check correction. None of these is counted
-as a passing full gate. The evidence files were committed
-before resubmitting; the source-cleanliness requirement was not bypassed.
+as a passing full gate. The evidence files were committed before resubmitting; the source-cleanliness requirement was not bypassed.
 
 Initial gallery automation changed only the URL fragment, which does not reload
 this preview's initial-state code. Those captures were not accepted as coverage of
@@ -118,5 +135,14 @@ or published by this review.
 - [Desktop connection failure and recovery](evidence/quality-20260907-desktop-error.png)
 - [Corrected final-warning preview](evidence/quality-20260907-live-last.png)
 - [Consistent Windows/Linux welcome](evidence/quality-20260907-live-what.png)
-
 - [Boot help at a narrow viewport](evidence/quality-20260907-helper-narrow.png)
+
+## Cleanup
+
+The final build is SUCCESS and all three superseded builds are independently
+confirmed CANCELLED. All three local Go previews exited after Close; both static
+preview servers were stopped and their ports checked. The dedicated 253 MiB Go
+build cache created for this review was removed. No dedicated VM or network was
+created in this review; Cloud Build supplied its managed disposable workers.
+Both required storage reports completed successfully in read-only mode. No storage
+cleanup action was applied; only this review's known disposable Go cache was removed.
