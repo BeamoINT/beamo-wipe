@@ -1,0 +1,23 @@
+{
+  "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+  "python": "3.13.5",
+  "pytest": "pytest 8.3.5",
+  "go": "go version go1.26.5 linux/amd64",
+  "go_archive_sha256": "5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053",
+  "tools": {
+    "docker": null,
+    "qemu-system-x86_64": null,
+    "qemu-img": null,
+    "gcloud": "/home/box/.local/bin/gcloud",
+    "Xvfb": "/usr/bin/Xvfb",
+    "shellcheck": "/usr/bin/shellcheck"
+  },
+  "go_top_level": {
+    "run": 22,
+    "output": 45,
+    "pass": 21,
+    "skip": 1
+  },
+  "go_pass_including_subtests": 41,
+  "host_inventory_opt_in": false
+}

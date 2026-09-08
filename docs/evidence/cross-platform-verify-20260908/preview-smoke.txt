@@ -1,0 +1,19 @@
+/home/box/beamo-wipe/web-preview/index.html
+--web: exit 0
+/home/box/beamo-wipe/helper/index.html
+--helper: exit 0
+
+============================================================
+Beamo Wipe splash
+PREVIEW on this computer — fake disks — nothing is erased
+============================================================
+You already started from this USB. Next you will pick a disk to erase.
+Press Enter… --console: exit 0
+
+============================================================
+Beamo Wipe splash
+PREVIEW on this computer — fake disks — nothing is erased
+============================================================
+You already started from this USB. Next you will pick a disk to erase.
+Press Enter… --plain-console: exit 0
+Tk window remained running for 5 seconds: timeout exit 124

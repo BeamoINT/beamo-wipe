@@ -93,6 +93,47 @@ class Tcl:
         wrapper.chmod(0o755)
     env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin', 'PYTHONPATH': str(tmp_path)}
     env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
-    result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), '--console'],
+    env.pop('BEAMO_WIPE_UI', None)
+    result = subprocess.run([str(FIXTURE.parents[2] / 'preview')],
                             env=env, capture_output=True, text=True, check=True, timeout=15)
     assert result.stdout.strip() == 'selected=python3.13 dry=1 demo=1'
+
+
+@pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                  ['--gallery'], ['--helper'], ['--version'], ['--help']])
+def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+    import os
+    import subprocess
+
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    probe_log = tmp_path / 'probes'
+    (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+    (fake_bin / 'uname').chmod(0o755)
+    # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+    # must never attempt to create an Aqua window just to select Python.
+    for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+        wrapper = fake_bin / name
+        wrapper.write_text('''#!/bin/sh
+if [ "$1" = -c ]; then
+  printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+  exit 1
+fi
+printf '%s\\n' "$@"
+''')
+        wrapper.chmod(0o755)
+    env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+           'FAKE_PROBE_LOG': str(probe_log)}
+    env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+    env.pop('BEAMO_WIPE_UI', None)
+    result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                            capture_output=True, text=True, timeout=15, check=True)
+    args = result.stdout.splitlines()
+    assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+    if not mode:
+        assert '--console' in args
+        assert 'Tk 8.6.13' in result.stderr
+        assert probe_log.is_file()
+    else:
+        assert args[3:] == mode
+        assert not probe_log.exists()

@@ -225,7 +225,9 @@ The desktop `./preview` launcher prefers an installed modern Python/Tk on macOS.
 Python 3.10.0 with Tk 8.6.11 can abort when closing a native window. Python
 3.14.7 with Tk 9.0.4 was verified to close cleanly. An explicit runtime can be
 selected with `BEAMO_WIPE_PREVIEW_PYTHON=python3.14 ./preview`. This affects only
-the fake-device desktop preview, not the live Linux launcher.
+the fake-device desktop preview, not the live Linux launcher. Automatic selection
+falls back to the keyboard preview if no usable Tk 8.6.13 or newer is found.
+Console, web, helper, help, and version modes do not open Tk probe windows.
 
 At method selection, **Storage limits (L)** opens the supported limits offline.
 The warning includes inaccessible, remapped, over-provisioned, and controller-managed

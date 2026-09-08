@@ -2,10 +2,13 @@
 
 **Cross-platform verification (2026-09-08):** current source checks, the actual
 platform boundaries, and outstanding gates are recorded in
-[the cross-platform evidence](evidence/cross-platform-20260908/README.md).
-The historical rows below do not prove that this feature branch boots or wipes:
-its hosted gate is blocked by Cloud Build bucket access. Native Windows/macOS
-runtime and physical acceptance remain separate requirements.
+[the independent second-pass evidence](evidence/cross-platform-verify-20260908/README.md)
+and [the first pass](evidence/cross-platform-20260908/README.md).
+The PR gate passed at `1ccac62`, but skips QEMU; direct full-gate submission
+remains blocked by Cloud Build bucket access. Evaluate subsequent commits using
+their own check results. Historical rows below do not prove current firmware
+boot or wipe behavior. Native Windows/macOS runtime and physical acceptance
+remain separate requirements.
 
 **Desktop-entry development update (2026-09-06):** the release matrix below
 records the earlier v0.2.6 configuration. The new launcher, FAT32 USB image,
@@ -220,7 +223,7 @@ Preview/dry-run cannot exec real `NwipeRunner`: `test_confirm_erase_refuses_real
 
 - **SSDs:** Overwrite via `prng`/`dodshort`/`zero` is **not a formal certificate**; controller wear-leveling may retain data (SSD footer on pick screen, `docs/storage-and-controller-limits.md` §3, evidence `warnings[]`). Customers needing certified SSD erasure must use vendor secure-erase tool per model or physical destruction per `docs/storage-and-controller-limits.md` §5.
 - **Missing/duplicate metadata:** Falls back to label → `Unknown model`, then token falls back to device name (`sda`); same-size disks force serial inspection — degraded but still safe.
-- **eMMC/mmcblk:** `mmcblk0boot0/1/rpmb` (4 MiB) are hidden — correct (they are not wipe targets) but a machine with only eMMC storage will show no other disk → `PICK_EMPTY`.
+- **eMMC/mmcblk:** `mmcblk0boot0/1/rpmb` (4 MiB) are hidden — correct (they are not wipe targets) the ordinary `mmcblk0` user-data device remains eligible when all disk safety checks pass. Only firmware-area nodes alone yield `PICK_EMPTY`.
 - **USB hubs / keyboard hubs:** May hide the stick from firmware boot menu; degraded boot findability (try direct port, disable Fast Boot per `docs/boot-card.md`).
 - **800×600 and HiDPI:** Render but need scroll / exhibit clipping at non-gate DPI; not automated at those DPIs.
 - **Secure Boot enabled:** Degraded to **unsupported** unless user disables it; we do not ship a bypass.
@@ -345,7 +348,7 @@ BEAMO_WIPE_VERSION=0.2.6 ./scripts/qemu-verify.sh
 - **RAID / Intel RST / mdadm / LVM** — may expose `dm-0`/`md127` or hide members; not supported, not listed, not claimed.
 - **USB-C / Thunderbolt docks** — additional hubs not enumerated in `docs/boot-card.md`.
 - **Serial over non-standard encoding** — `udev` `\xHH` decoding covers typical, but exotic USB hub serials may still fall back to device name (still safe via `SAFE_TOKEN_RE`).
-- **Concurrent `nwipe` lock** — `pinned_nwipe_already_running` checks `/proc/*/exe` → fails open when `/proc` unreadable (preview case), correct on live USB where `/proc` is readable.
+- **Concurrent `nwipe` lock** — `pinned_nwipe_already_running` checks `/proc/*/exe` and refuses on an unreadable process list or permission failure. Exited processes and kernel threads without an executable are ignored; preview cannot invoke the real engine.
 
 ---
 

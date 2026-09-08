@@ -1,0 +1,19 @@
+...............                                                          [100%]
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_cross_platform_20260908.py::test_injected_inventory_never_reads_host_boot_metadata
+PASSED tests/test_cross_platform_20260908.py::test_fixture_cli_refresh_stays_on_fake_machine
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[darwin]
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[win32]
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[freebsd14]
+PASSED tests/test_cross_platform_20260908.py::test_production_discovery_still_reads_boot_metadata
+PASSED tests/test_cross_platform_20260908.py::test_macos_preview_checks_loaded_tk_patch_not_tcl
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode0]
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode1]
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode2]
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode3]
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode4]
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode5]
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode6]
+PASSED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode7]
+15 passed in 0.16s

@@ -1,0 +1,1 @@
+Attempted fixture-only desktop preview in Codex In-app Browser. Browser returned its "This page crashed" interstitial; navigation to the generated data URL was blocked by Browser Use URL policy. No bypass attempted. Browser inventory exposes only Codex In-app Browser. Browser click-through is NOT VERIFIED. Direct HTTP lifecycle passed separately.

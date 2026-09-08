@@ -1,0 +1,136 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_______ test_builder_refuses_existing_success_sidecars[file-.img.sha256] _______
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_0')
+suffix = '.img.sha256', kind = 'file'
+
+    @pytest.mark.parametrize('suffix', ['.img.sha256', '.img.json'])
+    @pytest.mark.parametrize('kind', ['file', 'dangling-symlink'])
+    def test_builder_refuses_existing_success_sidecars(tmp_path, suffix, kind):
+        # Execute the production preflight in a disposable repo with no real ISO.
+        # Refusal must precede provenance checks, extraction, or output creation.
+        from beamo_wipe import __version__
+        script = tmp_path / 'scripts/build-usb-image.sh'
+        script.parent.mkdir()
+        script.write_text((ROOT / 'scripts/build-usb-image.sh').read_text().split('TMP_IMAGE=', 1)[0])
+        package = tmp_path / 'src/beamo_wipe'
+        package.mkdir(parents=True)
+        (package / '__init__.py').write_text(f'__version__ = {__version__!r}\n')
+        dist = tmp_path / 'dist'
+        dist.mkdir()
+        stem = f'beamo-wipe-{__version__}-amd64'
+        (dist / (stem + '.iso')).write_bytes(b'fixture; must not be extracted')
+        sidecar = dist / (stem + suffix)
+        if kind == 'file':
+            sidecar.write_bytes(b'previous receipt')
+        else:
+            sidecar.symlink_to('missing-receipt')
+        result = subprocess.run(['bash', str(script)], capture_output=True, text=True, timeout=10)
+>       assert result.returncode == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['bash', '/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_0/scripts/build-usb-image.s...^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named \'beamo_wipe.release_manifest\'\n').returncode
+
+tests/test_usb_image_readback.py:127: AssertionError
+________ test_builder_refuses_existing_success_sidecars[file-.img.json] ________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_1')
+suffix = '.img.json', kind = 'file'
+
+    @pytest.mark.parametrize('suffix', ['.img.sha256', '.img.json'])
+    @pytest.mark.parametrize('kind', ['file', 'dangling-symlink'])
+    def test_builder_refuses_existing_success_sidecars(tmp_path, suffix, kind):
+        # Execute the production preflight in a disposable repo with no real ISO.
+        # Refusal must precede provenance checks, extraction, or output creation.
+        from beamo_wipe import __version__
+        script = tmp_path / 'scripts/build-usb-image.sh'
+        script.parent.mkdir()
+        script.write_text((ROOT / 'scripts/build-usb-image.sh').read_text().split('TMP_IMAGE=', 1)[0])
+        package = tmp_path / 'src/beamo_wipe'
+        package.mkdir(parents=True)
+        (package / '__init__.py').write_text(f'__version__ = {__version__!r}\n')
+        dist = tmp_path / 'dist'
+        dist.mkdir()
+        stem = f'beamo-wipe-{__version__}-amd64'
+        (dist / (stem + '.iso')).write_bytes(b'fixture; must not be extracted')
+        sidecar = dist / (stem + suffix)
+        if kind == 'file':
+            sidecar.write_bytes(b'previous receipt')
+        else:
+            sidecar.symlink_to('missing-receipt')
+        result = subprocess.run(['bash', str(script)], capture_output=True, text=True, timeout=10)
+>       assert result.returncode == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['bash', '/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_1/scripts/build-usb-image.s...^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named \'beamo_wipe.release_manifest\'\n').returncode
+
+tests/test_usb_image_readback.py:127: AssertionError
+_ test_builder_refuses_existing_success_sidecars[dangling-symlink-.img.sha256] _
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_2')
+suffix = '.img.sha256', kind = 'dangling-symlink'
+
+    @pytest.mark.parametrize('suffix', ['.img.sha256', '.img.json'])
+    @pytest.mark.parametrize('kind', ['file', 'dangling-symlink'])
+    def test_builder_refuses_existing_success_sidecars(tmp_path, suffix, kind):
+        # Execute the production preflight in a disposable repo with no real ISO.
+        # Refusal must precede provenance checks, extraction, or output creation.
+        from beamo_wipe import __version__
+        script = tmp_path / 'scripts/build-usb-image.sh'
+        script.parent.mkdir()
+        script.write_text((ROOT / 'scripts/build-usb-image.sh').read_text().split('TMP_IMAGE=', 1)[0])
+        package = tmp_path / 'src/beamo_wipe'
+        package.mkdir(parents=True)
+        (package / '__init__.py').write_text(f'__version__ = {__version__!r}\n')
+        dist = tmp_path / 'dist'
+        dist.mkdir()
+        stem = f'beamo-wipe-{__version__}-amd64'
+        (dist / (stem + '.iso')).write_bytes(b'fixture; must not be extracted')
+        sidecar = dist / (stem + suffix)
+        if kind == 'file':
+            sidecar.write_bytes(b'previous receipt')
+        else:
+            sidecar.symlink_to('missing-receipt')
+        result = subprocess.run(['bash', str(script)], capture_output=True, text=True, timeout=10)
+>       assert result.returncode == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['bash', '/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_2/scripts/build-usb-image.s...^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named \'beamo_wipe.release_manifest\'\n').returncode
+
+tests/test_usb_image_readback.py:127: AssertionError
+__ test_builder_refuses_existing_success_sidecars[dangling-symlink-.img.json] __
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_3')
+suffix = '.img.json', kind = 'dangling-symlink'
+
+    @pytest.mark.parametrize('suffix', ['.img.sha256', '.img.json'])
+    @pytest.mark.parametrize('kind', ['file', 'dangling-symlink'])
+    def test_builder_refuses_existing_success_sidecars(tmp_path, suffix, kind):
+        # Execute the production preflight in a disposable repo with no real ISO.
+        # Refusal must precede provenance checks, extraction, or output creation.
+        from beamo_wipe import __version__
+        script = tmp_path / 'scripts/build-usb-image.sh'
+        script.parent.mkdir()
+        script.write_text((ROOT / 'scripts/build-usb-image.sh').read_text().split('TMP_IMAGE=', 1)[0])
+        package = tmp_path / 'src/beamo_wipe'
+        package.mkdir(parents=True)
+        (package / '__init__.py').write_text(f'__version__ = {__version__!r}\n')
+        dist = tmp_path / 'dist'
+        dist.mkdir()
+        stem = f'beamo-wipe-{__version__}-amd64'
+        (dist / (stem + '.iso')).write_bytes(b'fixture; must not be extracted')
+        sidecar = dist / (stem + suffix)
+        if kind == 'file':
+            sidecar.write_bytes(b'previous receipt')
+        else:
+            sidecar.symlink_to('missing-receipt')
+        result = subprocess.run(['bash', str(script)], capture_output=True, text=True, timeout=10)
+>       assert result.returncode == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['bash', '/tmp/pytest-of-box/pytest-29/test_builder_refuses_existing_3/scripts/build-usb-image.s...^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named \'beamo_wipe.release_manifest\'\n').returncode
+
+tests/test_usb_image_readback.py:127: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[file-.img.sha256]
+FAILED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[file-.img.json]
+FAILED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[dangling-symlink-.img.sha256]
+FAILED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[dangling-symlink-.img.json]
+4 failed, 15 deselected in 0.29s

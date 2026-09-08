@@ -1,0 +1,23 @@
+...................                                                      [100%]
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files0]
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files1]
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files2]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[None]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[launcher]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[manifest]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[offset]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-offset]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-size]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-active]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-type]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-magic]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-signature]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-extra-partition]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[trailing-data]
+PASSED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[file-.img.sha256]
+PASSED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[file-.img.json]
+PASSED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[dangling-symlink-.img.sha256]
+PASSED tests/test_usb_image_readback.py::test_builder_refuses_existing_success_sidecars[dangling-symlink-.img.json]
+19 passed in 1.62s

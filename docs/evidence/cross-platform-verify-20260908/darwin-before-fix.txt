@@ -1,0 +1,397 @@
+.......FFFFFFFF                                                          [100%]
+=================================== FAILURES ===================================
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode0] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t0')
+mode = []
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+>           assert '--console' in args
+E           AssertionError: assert '--console' in ['-m', 'beamo_wipe', '--preview']
+
+tests/test_cross_platform_20260908.py:133: AssertionError
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode1] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t1')
+mode = ['--console']
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+            assert '--console' in args
+            assert 'Tk 8.6.13' in result.stderr
+            assert probe_log.is_file()
+        else:
+            assert args[3:] == mode
+>           assert not probe_log.exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t1/probes').exists
+
+tests/test_cross_platform_20260908.py:138: AssertionError
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode2] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t2')
+mode = ['--plain-console']
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+            assert '--console' in args
+            assert 'Tk 8.6.13' in result.stderr
+            assert probe_log.is_file()
+        else:
+            assert args[3:] == mode
+>           assert not probe_log.exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t2/probes').exists
+
+tests/test_cross_platform_20260908.py:138: AssertionError
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode3] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t3')
+mode = ['--web']
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+            assert '--console' in args
+            assert 'Tk 8.6.13' in result.stderr
+            assert probe_log.is_file()
+        else:
+            assert args[3:] == mode
+>           assert not probe_log.exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t3/probes').exists
+
+tests/test_cross_platform_20260908.py:138: AssertionError
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode4] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t4')
+mode = ['--gallery']
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+            assert '--console' in args
+            assert 'Tk 8.6.13' in result.stderr
+            assert probe_log.is_file()
+        else:
+            assert args[3:] == mode
+>           assert not probe_log.exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t4/probes').exists
+
+tests/test_cross_platform_20260908.py:138: AssertionError
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode5] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t5')
+mode = ['--helper']
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+            assert '--console' in args
+            assert 'Tk 8.6.13' in result.stderr
+            assert probe_log.is_file()
+        else:
+            assert args[3:] == mode
+>           assert not probe_log.exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t5/probes').exists
+
+tests/test_cross_platform_20260908.py:138: AssertionError
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode6] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t6')
+mode = ['--version']
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+            assert '--console' in args
+            assert 'Tk 8.6.13' in result.stderr
+            assert probe_log.is_file()
+        else:
+            assert args[3:] == mode
+>           assert not probe_log.exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t6/probes').exists
+
+tests/test_cross_platform_20260908.py:138: AssertionError
+__________ test_macos_without_supported_tk_uses_safe_fallback[mode7] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t7')
+mode = ['--help']
+
+    @pytest.mark.parametrize('mode', [[], ['--console'], ['--plain-console'], ['--web'],
+                                      ['--gallery'], ['--helper'], ['--version'], ['--help']])
+    def test_macos_without_supported_tk_uses_safe_fallback(tmp_path, mode):
+        import os
+        import subprocess
+
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        probe_log = tmp_path / 'probes'
+        (fake_bin / 'uname').write_text("#!/bin/sh\nprintf 'Darwin\\n'\n")
+        (fake_bin / 'uname').chmod(0o755)
+        # All candidates simulate a Tk that is absent or too old. Non-Tk modes
+        # must never attempt to create an Aqua window just to select Python.
+        for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+            wrapper = fake_bin / name
+            wrapper.write_text('''#!/bin/sh
+    if [ "$1" = -c ]; then
+      printf 'probe\\n' >> "$FAKE_PROBE_LOG"
+      exit 1
+    fi
+    printf '%s\\n' "$@"
+    ''')
+            wrapper.chmod(0o755)
+        env = {**os.environ, 'PATH': f'{fake_bin}:/usr/bin:/bin',
+               'FAKE_PROBE_LOG': str(probe_log)}
+        env.pop('BEAMO_WIPE_PREVIEW_PYTHON', None)
+        env.pop('BEAMO_WIPE_UI', None)
+        result = subprocess.run([str(FIXTURE.parents[2] / 'preview'), *mode], env=env,
+                                capture_output=True, text=True, timeout=15, check=True)
+        args = result.stdout.splitlines()
+        assert args[:3] == ['-m', 'beamo_wipe', '--preview']
+        if not mode:
+            assert '--console' in args
+            assert 'Tk 8.6.13' in result.stderr
+            assert probe_log.is_file()
+        else:
+            assert args[3:] == mode
+>           assert not probe_log.exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = PosixPath('/tmp/pytest-of-box/pytest-23/test_macos_without_supported_t7/probes').exists
+
+tests/test_cross_platform_20260908.py:138: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_cross_platform_20260908.py::test_injected_inventory_never_reads_host_boot_metadata
+PASSED tests/test_cross_platform_20260908.py::test_fixture_cli_refresh_stays_on_fake_machine
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[darwin]
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[win32]
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[freebsd14]
+PASSED tests/test_cross_platform_20260908.py::test_production_discovery_still_reads_boot_metadata
+PASSED tests/test_cross_platform_20260908.py::test_macos_preview_checks_loaded_tk_patch_not_tcl
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode0]
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode1]
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode2]
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode3]
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode4]
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode5]
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode6]
+FAILED tests/test_cross_platform_20260908.py::test_macos_without_supported_tk_uses_safe_fallback[mode7]
+8 failed, 7 passed in 0.21s
