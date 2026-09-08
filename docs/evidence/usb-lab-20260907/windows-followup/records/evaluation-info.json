@@ -1,0 +1,27 @@
+{
+    "children": [
+        {
+            "name": "file",
+            "info": {
+                "children": [
+                ],
+                "virtual-size": 10208214528,
+                "filename": "evaluation.vhd",
+                "format": "file",
+                "actual-size": 10208219136,
+                "format-specific": {
+                    "type": "file",
+                    "data": {
+                    }
+                },
+                "dirty-flag": false
+            }
+        }
+    ],
+    "virtual-size": 42949672960,
+    "filename": "evaluation.vhd",
+    "cluster-size": 524288,
+    "format": "vpc",
+    "actual-size": 10208219136,
+    "dirty-flag": false
+}

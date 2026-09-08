@@ -1,0 +1,80 @@
+<Events><ns0:Event xmlns:ns0="http://schemas.microsoft.com/win/2004/08/events/event">
+	<ns0:System>
+		<ns0:Provider Name="Microsoft-Windows-Kernel-PnP" Guid="{9c205a39-1250-487d-abd7-e831c6290539}" />
+		<ns0:EventID>411</ns0:EventID>
+		<ns0:Version>0</ns0:Version>
+		<ns0:Level>2</ns0:Level>
+		<ns0:Task>0</ns0:Task>
+		<ns0:Opcode>0</ns0:Opcode>
+		<ns0:Keywords>0x4000000000000000</ns0:Keywords>
+		<ns0:TimeCreated SystemTime="2026-09-07T22:00:44.945293500+00:00" />
+		<ns0:Correlation ActivityID="{00000000-0000-0000-0000-000000000000}" />
+		<ns0:Execution ProcessID="4" ThreadID="1964" ProcessorID="0" KernelTime="5250" UserTime="0" />
+		<ns0:Channel>Microsoft-Windows-Kernel-PnP/Configuration</ns0:Channel>
+		<ns0:Computer />
+	</ns0:System>
+	<ns0:EventData>
+		<ns0:Data Name="DeviceInstanceId">USB\VID_46F4&amp;PID_0003\MSFT30USBLABTRACE</ns0:Data>
+		<ns0:Data Name="DriverName">uaspstor.inf</ns0:Data>
+		<ns0:Data Name="ClassGuid">{4d36e97b-e325-11ce-bfc1-08002be10318}</ns0:Data>
+		<ns0:Data Name="ServiceName">UASPStor</ns0:Data>
+		<ns0:Data Name="LowerFilters" />
+		<ns0:Data Name="UpperFilters" />
+		<ns0:Data Name="Problem">0xA</ns0:Data>
+		<ns0:Data Name="Status">0xC0000001</ns0:Data>
+	</ns0:EventData>
+	<ns0:RenderingInfo Culture="en-US">
+		<ns0:Level>Error </ns0:Level>
+		<ns0:Opcode>Info </ns0:Opcode>
+		<ns0:Message>Device USB\VID_46F4&amp;PID_0003\MSFT30USBLABTRACE had a problem starting.
+
+Driver Name: uaspstor.inf
+Class GUID: {4d36e97b-e325-11ce-bfc1-08002be10318}
+Service: UASPStor
+Lower Filters: 
+Upper Filters: 
+Problem: 0xA
+Problem Status: 0xC0000001 </ns0:Message>
+		<ns0:Channel>Device Configuration </ns0:Channel>
+		<ns0:Provider>Microsoft-Windows-Kernel-PnP </ns0:Provider>
+	</ns0:RenderingInfo>
+</ns0:Event>
+<ns0:Event xmlns:ns0="http://schemas.microsoft.com/win/2004/08/events/event">
+	<ns0:System>
+		<ns0:Provider Name="Microsoft-Windows-USB-USBHUB3" Guid="{ac52ad17-cc01-4f85-8df5-4dce4333c99b}" />
+		<ns0:EventID>123</ns0:EventID>
+		<ns0:Version>1</ns0:Version>
+		<ns0:Level>2</ns0:Level>
+		<ns0:Task>12</ns0:Task>
+		<ns0:Opcode>2</ns0:Opcode>
+		<ns0:Keywords>0x4000000000002009</ns0:Keywords>
+		<ns0:TimeCreated SystemTime="2026-09-07T22:01:55.755024300+00:00" />
+		<ns0:Correlation ActivityID="{00000000-0000-0000-0000-000000000000}" />
+		<ns0:Execution ProcessID="4" ThreadID="268" ProcessorID="0" KernelTime="8880" UserTime="0" />
+		<ns0:Channel>Microsoft-Windows-USB-USBHUB3-Analytic</ns0:Channel>
+		<ns0:Computer />
+	</ns0:System>
+	<ns0:EventData>
+		<ns0:Data Name="fid_PortNumber">       2</ns0:Data>
+		<ns0:Data Name="fid_PreviousPortStatus">0x263</ns0:Data>
+		<ns0:Data Name="fid_CurrentPortStatus">0x2A0</ns0:Data>
+		<ns0:Data Name="fid_CurrentPortChange">0x1</ns0:Data>
+		<ns0:Data Name="fid_Event">0xBC9</ns0:Data>
+		<ns0:Data Name="fid_idVendor">0x46F4</ns0:Data>
+		<ns0:Data Name="fid_idProduct">0x3</ns0:Data>
+		<ns0:Data Name="fid_bcdDevice">0x0</ns0:Data>
+	</ns0:EventData>
+	<ns0:RenderingInfo Culture="en-US">
+		<ns0:Level>Error </ns0:Level>
+		<ns0:Opcode>Stop </ns0:Opcode>
+		<ns0:Keywords>
+			<ns0:Keyword>Default</ns0:Keyword>
+			<ns0:Keyword>Power</ns0:Keyword>
+			<ns0:Keyword>HWVerifyHub</ns0:Keyword>
+		</ns0:Keywords>
+		<ns0:Task>USB Port </ns0:Task>
+		<ns0:Message>Failure during Port Change Request </ns0:Message>
+		<ns0:Channel>This is the Analytic channel to which internal Analytic events from the USBHUB3 driver are sent. </ns0:Channel>
+	</ns0:RenderingInfo>
+</ns0:Event>
+</Events>

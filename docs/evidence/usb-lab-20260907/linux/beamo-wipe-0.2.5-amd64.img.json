@@ -1,0 +1,9 @@
+{
+  "image": "beamo-wipe-0.2.5-amd64.img",
+  "iso": "beamo-wipe-0.2.5-amd64.iso",
+  "iso_sha256": "f5a9902692dbcc545224fa60af20d447a8700aa198c1ec07c8b4357b4c7d1d45",
+  "layout": "MBR, one active FAT32 partition at sector 2048",
+  "schema_version": 1,
+  "sha256": "0e1253417b388e38e9938113ee9e4030a8440a2e0bdb3d6f3d0883ebee31e43c",
+  "size": 2147483648
+}

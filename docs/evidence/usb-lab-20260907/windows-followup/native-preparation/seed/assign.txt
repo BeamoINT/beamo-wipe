@@ -1,0 +1,7 @@
+select disk 0
+detail disk
+select partition 1
+assign letter=S
+select partition 3
+assign letter=W
+exit

@@ -1,0 +1,20 @@
+{
+  "method": "wimlib native NTFS volume extraction; copied allocated extents into private GPT image",
+  "partitions": [
+    {
+      "source": "efi.fat",
+      "offset": 1048576,
+      "logical_size": 272629760,
+      "copied_allocated_bytes": 4214784,
+      "allocated_bytes_sha256": "7c1cb24eb25cd5ea12a37108d8bbe03eeda41f5c7fe4803d4eafda1ce843b239"
+    },
+    {
+      "source": "windows.ntfs",
+      "offset": 290455552,
+      "logical_size": 85607841792,
+      "copied_allocated_bytes": 13358686208,
+      "allocated_bytes_sha256": "6f680084df79fdffb17b0e55101fc9cb2550bf8cebbe41f23f226a5391ffc55c"
+    }
+  ],
+  "completed_epoch": 1788806836.138907
+}

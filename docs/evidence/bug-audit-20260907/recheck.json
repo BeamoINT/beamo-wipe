@@ -1,0 +1,16 @@
+{
+  "checked_at": "2026-09-08T00:13:51.555060+00:00",
+  "audited_files_matched": 11,
+  "checkouts": [
+    "/Users/HP/dev/Beamo Wipe",
+    "/private/tmp/beamo-wipe-bug-audit-20260907"
+  ],
+  "base_commit": "f7b6490036d62281e2133da642557cee6710f081",
+  "preflight_exit": 2,
+  "preflight_output": "ERROR: uncommitted source state (git status --porcelain not empty)\nCommit the audited paths, or set ALLOW_DIRTY=1 for a local non-release build\n",
+  "status": "blocked",
+  "reason": "Strict ISO provenance requires committed source; current task still requires every gate before any commit.",
+  "commit_created": false,
+  "pushed": false,
+  "released": false
+}

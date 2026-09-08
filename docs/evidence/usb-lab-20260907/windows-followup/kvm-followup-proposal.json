@@ -1,0 +1,11 @@
+{
+  "status": "PROPOSED_NOT_APPLIED",
+  "project": "beamo-wipe",
+  "constraint": "constraints/compute.disableNestedVirtualization",
+  "temporary_booleanPolicy": {
+    "enforced": false
+  },
+  "scope": "One temporary private N2 USB-test host with a three-hour automatic deletion limit",
+  "restore": "Restore the prior project inheritance after teardown, using fresh policy revision checks; verify effective enforcement returns to true",
+  "requires": "Explicit authorization to change the currently enforced project policy"
+}

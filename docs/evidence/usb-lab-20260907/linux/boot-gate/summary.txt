@@ -1,0 +1,8 @@
+iso_sha256=f5a9902692dbcc545224fa60af20d447a8700aa198c1ec07c8b4357b4c7d1d45
+nwipe_sha256=c098395d4c9d144582a64a15905a5a9792d9d47cc375677bf0441175d7f7d6a6
+bios=pass
+uefi=pass
+bios_usb=pass
+uefi_usb=pass
+secureboot_usb=pass
+report_export=pass

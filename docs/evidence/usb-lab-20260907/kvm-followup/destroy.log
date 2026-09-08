@@ -1,0 +1,12 @@
+Deleted [https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-b/instances/beamo-usb-kvm-0907].
+Updated [https://www.googleapis.com/compute/v1/projects/beamo-wipe/regions/us-central1/routers/beamo-usb-kvm-0907].
+Deleted [https://www.googleapis.com/compute/v1/projects/beamo-wipe/regions/us-central1/routers/beamo-usb-kvm-0907].
+Deleted [https://www.googleapis.com/compute/v1/projects/beamo-wipe/global/firewalls/beamo-usb-kvm-0907-iap].
+Deleted [https://www.googleapis.com/compute/v1/projects/beamo-wipe/regions/us-central1/subnetworks/beamo-usb-kvm-0907].
+Deleted [https://www.googleapis.com/compute/v1/projects/beamo-wipe/global/networks/beamo-usb-kvm-0907].
+WARNING: The following filter keys were not present in any resource : name
+WARNING: The following filter keys were not present in any resource : name
+WARNING: The following filter keys were not present in any resource : name
+WARNING: The following filter keys were not present in any resource : name
+WARNING: The following filter keys were not present in any resource : name
+WARNING: The following filter keys were not present in any resource : name

@@ -1,0 +1,1 @@
+/dev/loop0 vfat ro,nosuid,nodev,noexec,relatime,nosymfollow,fmask=0077,dmask=0077,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro /tmp/beamo-wipe-qemu.nSttgK/report-usb

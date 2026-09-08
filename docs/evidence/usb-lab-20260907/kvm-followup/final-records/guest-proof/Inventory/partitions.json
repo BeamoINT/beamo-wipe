@@ -1,0 +1,66 @@
+[
+    {
+        "DiskNumber":  0,
+        "DriveLetter":  null,
+        "PartitionNumber":  1,
+        "Offset":  1048576,
+        "Size":  272629760,
+        "Guid":  "{bc7401a9-9240-4b44-9b75-e005c65f552a}"
+    },
+    {
+        "DiskNumber":  0,
+        "DriveLetter":  null,
+        "PartitionNumber":  2,
+        "Offset":  273678336,
+        "Size":  16777216,
+        "Guid":  "{369f1bf3-7047-473d-82ff-e7f1bb5db248}"
+    },
+    {
+        "DiskNumber":  0,
+        "DriveLetter":  "C",
+        "PartitionNumber":  3,
+        "Offset":  290455552,
+        "Size":  84836089856,
+        "Guid":  "{21c0b2e8-70c1-43e5-8210-eb362cb846b1}"
+    },
+    {
+        "DiskNumber":  0,
+        "DriveLetter":  null,
+        "PartitionNumber":  4,
+        "Offset":  85126545408,
+        "Size":  770703360,
+        "Guid":  "{ee36de71-49a7-4b23-9f05-5bdeab01b126}"
+    },
+    {
+        "DiskNumber":  3,
+        "DriveLetter":  "G",
+        "PartitionNumber":  1,
+        "Offset":  1048576,
+        "Size":  2146435072,
+        "Guid":  null
+    },
+    {
+        "DiskNumber":  1,
+        "DriveLetter":  "D",
+        "PartitionNumber":  1,
+        "Offset":  0,
+        "Size":  67108864,
+        "Guid":  null
+    },
+    {
+        "DiskNumber":  4,
+        "DriveLetter":  "H",
+        "PartitionNumber":  1,
+        "Offset":  0,
+        "Size":  67108864,
+        "Guid":  null
+    },
+    {
+        "DiskNumber":  2,
+        "DriveLetter":  "F",
+        "PartitionNumber":  1,
+        "Offset":  0,
+        "Size":  67108864,
+        "Guid":  null
+    }
+]

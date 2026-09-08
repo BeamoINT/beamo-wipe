@@ -1,0 +1,60 @@
+{
+  "status": "INTERRUPTED_BY_CLEAN_GUEST_SHUTDOWN",
+  "qemu_process_exited": true,
+  "exit_utc": "2026-09-07T22:19:59Z",
+  "cases": [
+    {
+      "case": "settled-desktop-packaged-check",
+      "evidence": {
+        "result": {
+          "hashes": {
+            "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db",
+            "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e"
+          },
+          "exit_code": 0,
+          "volume": "G",
+          "driveType": "Removable",
+          "check": {
+            "ready": false,
+            "preview": false,
+            "title": "Use the computer's boot menu",
+            "detail": "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+            "version": "0.2.5"
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "case": "etw-uas-attached",
+      "evidence": {
+        "epoch": 1788818445.724158,
+        "profile": "usb3-uas"
+      }
+    },
+    {
+      "case": "etw-uas-detached",
+      "evidence": {
+        "epoch": 1788818517.8202825,
+        "native_code10_rows": 10
+      }
+    }
+  ],
+  "images_before": {
+    "tools": "05a03c06f217b0de2b1fd642935c3acc0a9394189bc2a70a59ad1f37ebbf83f0",
+    "product": "21832071c4b28c4d8a2815e9d2a9c853e1396ed3d56433c1ea3ffc0906300c67",
+    "diag": "3013b522cc42c42e54250d9c73669ba0400c328fe05c8a06f3f5388a64ee02cb",
+    "export": "b83928957d0db53c3a23f23023676ca60422a66c2aa44bfd14771a2e20ffde95",
+    "uasdiag": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "newtools": "5c054c019b9595fefc7eb1623655db25d6f74b7bc4c20a6a6ba620355c0ba78e"
+  },
+  "images_after": {
+    "tools": "05a03c06f217b0de2b1fd642935c3acc0a9394189bc2a70a59ad1f37ebbf83f0",
+    "product": "fb64e05c4d6b418622433b6f86162fa869b257401d582a2fbf41850125829cac",
+    "diag": "3013b522cc42c42e54250d9c73669ba0400c328fe05c8a06f3f5388a64ee02cb",
+    "export": "7071cdd4bb6d65c1b08b20b6a4d8321a0800a7ba438abae3503aeef969dec9cd",
+    "uasdiag": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "newtools": "5c054c019b9595fefc7eb1623655db25d6f74b7bc4c20a6a6ba620355c0ba78e"
+  },
+  "scratch_removed": true
+}

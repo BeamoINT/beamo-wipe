@@ -1,0 +1,874 @@
+{
+  "guest-proof/Handoff/fixture-before.json": {
+    "bytes": 930,
+    "sha256": "49c042401335802c26fa14d75e7acb4760359f727d736a0f22c36fff26874169"
+  },
+  "guest-proof/Handoff/fixture-installed.json": {
+    "bytes": 139,
+    "sha256": "fc98acfab2ea4ee26cd1119f5f32e3b61dc668e6d45e356266c886d12e19e216"
+  },
+  "guest-proof/Handoff/launcher-ready.json": {
+    "bytes": 255,
+    "sha256": "1cd8a0b98cac27680cbcb337ff95f53a0b98d2fe01f27b5bf773ea738a096993"
+  },
+  "guest-proof/Inventory/disks.json": {
+    "bytes": 1997,
+    "sha256": "c875bf45111c5c05f0cbdbda360d0df0cea2233faa04d8d3a10e5d2092e7467b"
+  },
+  "guest-proof/Inventory/layout.json": {
+    "bytes": 225,
+    "sha256": "18619c2482b745905302a2690c9ab2ac08f403dcb1506e54abfd5f82caa6139f"
+  },
+  "guest-proof/Inventory/partitions.json": {
+    "bytes": 1621,
+    "sha256": "a208f4276e63629ec0ff0d576f655253980aeac1299cb722e46f2f39af7e1364"
+  },
+  "guest-proof/Inventory/receipt.json": {
+    "bytes": 112,
+    "sha256": "8ef35ce396f1028482aadce2016147737fd9e6ccf7d56f38c788ba6a53d34ff6"
+  },
+  "guest-proof/Inventory/stderr.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "guest-proof/Inventory/stdout.txt": {
+    "bytes": 416,
+    "sha256": "6933fb8aef3b31d35046b8211d2f0f063998770d1dbd54c7991be9b7104de631"
+  },
+  "guest-proof/NativeTests/native-tests.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "guest-proof/NativeTestsPrevious/receipt.json": {
+    "bytes": 349,
+    "sha256": "bea361f072df2a5c299cac69cf832a4c04707515c6fad07e230242b41097f4b8"
+  },
+  "guest-proof/NativeTestsPrevious/stderr.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "guest-proof/NativeTestsPrevious/stdout.txt": {
+    "bytes": 4314,
+    "sha256": "e163dc2473ffa76278160285431d9133cb4b8eb4f54457b607b4dc9febd51f73"
+  },
+  "guest-proof/NativeTestsUpdated/receipt.json": {
+    "bytes": 349,
+    "sha256": "bea361f072df2a5c299cac69cf832a4c04707515c6fad07e230242b41097f4b8"
+  },
+  "guest-proof/NativeTestsUpdated/stderr.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "guest-proof/NativeTestsUpdated/stdout.txt": {
+    "bytes": 4230,
+    "sha256": "f22aa93cc0c2036f93b3638148738fd2fe93934ce7c97bc295f59c6cbe3b8e43"
+  },
+  "guest-proof/Trace/direct-lr.xml": {
+    "bytes": 7986992,
+    "sha256": "dafeb7bc163ac942ff9c4282cad6ebeb24973cbb6aacbfaa392ed5349b666de0"
+  },
+  "guest-proof/Trace/direct.etl": {
+    "bytes": 1048576,
+    "sha256": "7f8f0edd01415784abb79aae9182fec497e93d53c4fd586557b9ae49255586b6"
+  },
+  "guest-proof/Trace/direct.xml": {
+    "bytes": 7986889,
+    "sha256": "39690bc3a970de1c90786037a1d74a679cd83d6ed887a305995213d9924067a2"
+  },
+  "guest-proof/Trace/started.txt": {
+    "bytes": 35,
+    "sha256": "c3b26a5cb332ceea49e9e51b0be738502263e44e776cdf27e01f3e35f4018c76"
+  },
+  "guest-proof/Trace/summary.txt": {
+    "bytes": 26926,
+    "sha256": "8dc9a80789f7b03f49e487e6612eedc3ee63b836759ea565063f47945e23ae95"
+  },
+  "guest-proof/Trace/usb_000001.etl": {
+    "bytes": 4063232,
+    "sha256": "ac003cdab9bf8fd2f241ae48cead314e223ce2bd8c4ffcd62121d66a3d73aca3"
+  },
+  "guest-proof/diagnostics.ps1": {
+    "bytes": 979,
+    "sha256": "e17491efffe62b0d819069a404b1d0f53d29a047b47c00711b86bb81df149e7c"
+  },
+  "guest-proof/native-upd": {
+    "bytes": 3,
+    "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354"
+  },
+  "guest-proof/native-updated-direct.txt": {
+    "bytes": 4152,
+    "sha256": "c89e25016133bd9425bb10bd182fd7128f6cd1702a8ab50203f3265ddd6bf125"
+  },
+  "guest-proof/windows_probe.ps1": {
+    "bytes": 5246,
+    "sha256": "acff03515ce63cf3f7da9ed62bfe5433daab475577ff30b5f1243ce2a832d800"
+  },
+  "handoff/2-tools.pcap": {
+    "bytes": 1677227,
+    "sha256": "af3b155848291c21ab80fbea57fe96b7e24dbbe3530548b3776134c0d82db7a2"
+  },
+  "handoff/3-newtools.pcap": {
+    "bytes": 1045759,
+    "sha256": "64b3219ec95f6ddb8640544e867f97b22799bc28594666e5f4943c92429b2e0a"
+  },
+  "handoff/4-export.pcap": {
+    "bytes": 994407,
+    "sha256": "2bb79f11e3a8249adb5c87d67ccb695247652cc1b2dd1dc21d8c170343202e7f"
+  },
+  "handoff/bootindex-diagnosis.json": {
+    "bytes": 320,
+    "sha256": "7f5bed70e8016de3f87773638bc2226c794528d1c1511237b3cc8ca3eb9187b8"
+  },
+  "handoff/export-receipt.json": {
+    "bytes": 4146,
+    "sha256": "652a0fef7677730852adb3b5aa64661e943397bcece01143ee802b32186749d9"
+  },
+  "handoff/export-verified.json": {
+    "bytes": 870,
+    "sha256": "1520aeb515b6db65568704409a04a4aa7cadce61caffc927e96ff19c3ff235ae"
+  },
+  "handoff/live-serial.txt": {
+    "bytes": 279,
+    "sha256": "b1cd37591aa8aae6557296a6f8013fe90a30896f8afeea91837cb1015aacc1f7"
+  },
+  "handoff/process-exit.json": {
+    "bytes": 241,
+    "sha256": "68c1422ed8f75e40214190c674015831ad8f0e9b4ca93995e3b1b81d6b91ef70"
+  },
+  "handoff/qmp.jsonl": {
+    "bytes": 245151,
+    "sha256": "5e8abc79c7d1c6f4e5a7e920fada752d519247923200e958c5b479b002b46c80"
+  },
+  "handoff/receipt.json": {
+    "bytes": 571,
+    "sha256": "ca6a3beb8912032bca25e38aa1d3c9d9dc7f9c1c970dcdd39a2a3ace8bd5792b"
+  },
+  "handoff/second-restart-click.json": {
+    "bytes": 213,
+    "sha256": "fa1e2ad34089cf2e47a4637f227ca2eb6def874bac0eef8706e133a2f9042117"
+  },
+  "identity/beamo-wipe-0.2.5-amd64.manifest.json": {
+    "bytes": 5422,
+    "sha256": "4fd443d50e9a366c0f9b041f33c0d894365c19aae4eff3584f880176975c7071"
+  },
+  "identity/beamo-wipe-0.2.5-amd64.manifest.json.sha256": {
+    "bytes": 103,
+    "sha256": "30050909b1bffdda4cf41fc4444aab0a36b122a07595fa6ff56cb70545a5cdef"
+  },
+  "identity/desktop-build.json": {
+    "bytes": 319,
+    "sha256": "a98bbc64139f0dbccf83f98935f64d83aa3dd4f163d02f4c5008a14f69f0e932"
+  },
+  "identity/diagnostics-resume.jsonl": {
+    "bytes": 464486,
+    "sha256": "495c2d26d4a2626ca675b6c063768a30d434b744cb8134920e3b7438722a1755"
+  },
+  "identity/diagnostics.jsonl": {
+    "bytes": 941049,
+    "sha256": "00b12ed7d7753ac71852928feaef887f4d7d14d7e4857ba4dec2b81b35f4b4d4"
+  },
+  "identity/guest-process-inventory.json": {
+    "bytes": 71,
+    "sha256": "82ff95c9e31ca9eee81725c0e2d2cef38d6e46003ee32ef3642fdcfa3906567c"
+  },
+  "identity/host-progress.jsonl": {
+    "bytes": 5331,
+    "sha256": "6e15ef106421f51fd272d1940b4382ff0a0569214619de44c6627f06a90a885d"
+  },
+  "identity/linux-updated-matrix.log": {
+    "bytes": 416,
+    "sha256": "9d4de4cb4814ee3c9233570b11ef3514d9931984d1848eac6eb9ebd5a298ac96"
+  },
+  "identity/native-ready.json": {
+    "bytes": 1406,
+    "sha256": "3f73b1d1ceefdfcf8ce9825311f6b6c4888e791a7775017b89e8ef3eaa9f887f"
+  },
+  "identity/resume-command.json": {
+    "bytes": 1291,
+    "sha256": "e421d5120c642c016a6551af62bc4850421c8b374de3f7607a5fe9685c74f9d3"
+  },
+  "identity/shutdown-history.json": {
+    "bytes": 708,
+    "sha256": "6b103b614742ef0e30e124c0a08cf26f9c03890a510fc8217e44ac3b4a78cc8c"
+  },
+  "identity/source.json": {
+    "bytes": 283,
+    "sha256": "d2762365a600892a888cf7252548b10222093d94653c2b59d111eb81f36baba5"
+  },
+  "identity/uas-native-errors.json": {
+    "bytes": 13401,
+    "sha256": "65c071961ce55c01c4dfb2fb8ef763bd4b5ff6c59116f1973e3ca571e5f73447"
+  },
+  "identity/updated-boot-gate.log": {
+    "bytes": 7154,
+    "sha256": "5870c29cf93fef4ec01c64ced35071e17fd66397eafec80a96b48985f4e4c5a3"
+  },
+  "identity/updated-product-build.log": {
+    "bytes": 284489,
+    "sha256": "acf2a6828dc5d6d5ebca833409292389385c166ae593395b6f680d0a664b2c3a"
+  },
+  "identity/windows11-updated-bot.log": {
+    "bytes": 258,
+    "sha256": "82070d7ddcc7dce925ed0dd3b2df5c782539b886bf1aab8ea949f03f2d8984a5"
+  },
+  "native-final/Handoff/fixture-before.json": {
+    "bytes": 930,
+    "sha256": "49c042401335802c26fa14d75e7acb4760359f727d736a0f22c36fff26874169"
+  },
+  "native-final/Handoff/fixture-installed.json": {
+    "bytes": 139,
+    "sha256": "fc98acfab2ea4ee26cd1119f5f32e3b61dc668e6d45e356266c886d12e19e216"
+  },
+  "native-final/Handoff/launcher-ready.json": {
+    "bytes": 255,
+    "sha256": "1cd8a0b98cac27680cbcb337ff95f53a0b98d2fe01f27b5bf773ea738a096993"
+  },
+  "native-final/NativeTestsUpdated/receipt.json": {
+    "bytes": 349,
+    "sha256": "bea361f072df2a5c299cac69cf832a4c04707515c6fad07e230242b41097f4b8"
+  },
+  "native-final/NativeTestsUpdated/stderr.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "native-final/NativeTestsUpdated/stdout.txt": {
+    "bytes": 4230,
+    "sha256": "f22aa93cc0c2036f93b3638148738fd2fe93934ce7c97bc295f59c6cbe3b8e43"
+  },
+  "native-final/Trace/summary.txt": {
+    "bytes": 26926,
+    "sha256": "8dc9a80789f7b03f49e487e6612eedc3ee63b836759ea565063f47945e23ae95"
+  },
+  "native-final/direct-pass.txt": {
+    "bytes": 4152,
+    "sha256": "c89e25016133bd9425bb10bd182fd7128f6cd1702a8ab50203f3265ddd6bf125"
+  },
+  "native-final/native-updated-direct.txt": {
+    "bytes": 4152,
+    "sha256": "c89e25016133bd9425bb10bd182fd7128f6cd1702a8ab50203f3265ddd6bf125"
+  },
+  "native-initial/NativeTestsUpdated/receipt.json": {
+    "bytes": 349,
+    "sha256": "bea361f072df2a5c299cac69cf832a4c04707515c6fad07e230242b41097f4b8"
+  },
+  "native-initial/NativeTestsUpdated/stderr.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "native-initial/NativeTestsUpdated/stdout.txt": {
+    "bytes": 4314,
+    "sha256": "e163dc2473ffa76278160285431d9133cb4b8eb4f54457b607b4dc9febd51f73"
+  },
+  "native-initial/Trace/summary.txt": {
+    "bytes": 26926,
+    "sha256": "8dc9a80789f7b03f49e487e6612eedc3ee63b836759ea565063f47945e23ae95"
+  },
+  "native-initial/native-updated-direct.txt": {
+    "bytes": 4239,
+    "sha256": "5e1cb5e9b585958768c6d2b5cc205a96b6f6f14df1d980dafeebeab5ea19a66c"
+  },
+  "setup/build-native-tests.sh": {
+    "bytes": 540,
+    "sha256": "66d8376a782431e960394431df52ab60e0a82fab2f828e2c76e917f05dee3ad7"
+  },
+  "setup/combo-win11.py": {
+    "bytes": 425,
+    "sha256": "1cce86e944b3c74e10d3a9567aecab2a974d070e49e321088f464ee87d4e913e"
+  },
+  "setup/desktop-tests.sha256": {
+    "bytes": 95,
+    "sha256": "e7dd9699336e1f5a641411fca0b4b449a8031f6679d03fdbded59be3e303528e"
+  },
+  "setup/export-checks.ps1": {
+    "bytes": 1125,
+    "sha256": "c420a5f47f6a2f9f717bddf0bf5f24d9b50aadc891535db4c48ab9d35e655acd"
+  },
+  "setup/install-exact-entry.ps1": {
+    "bytes": 6238,
+    "sha256": "3ea222fdb0795060fb25f822dae6141924adf89ab7358a45a1d4228887aca560"
+  },
+  "setup/interactive-win11.py": {
+    "bytes": 2186,
+    "sha256": "1dbea4ffb44196166e4c2f5114d95096a1274bb930563223e0f34c3405b7ec82"
+  },
+  "setup/prepare-win11-seed.py": {
+    "bytes": 5785,
+    "sha256": "cd392b4091252e55e57259a0b821fe6af76e02c062836f8666862152e001f3da"
+  },
+  "setup/progress.py": {
+    "bytes": 608,
+    "sha256": "6b6a28d43dcfb190cf0b3eb89c41f90017ee8eb574e592e87bbc26157ba6dc7c"
+  },
+  "setup/rebuild-updated.sh": {
+    "bytes": 522,
+    "sha256": "3e4980f8200526c6a2e3aea835f003d1efbc3a6e7799149daba1d11de2a7505b"
+  },
+  "setup/run-win11-matrix.py": {
+    "bytes": 1515,
+    "sha256": "df11d562c87bb834b35857de77390fb76fa833b94b2caf0fceaa3020018bc1c9"
+  },
+  "setup/screen-win11.py": {
+    "bytes": 314,
+    "sha256": "5d3a492448ea58f506aa4ca8c6d73731b3b8ffab8dd0a1de0c639b48f6ae7815"
+  },
+  "setup/start-trace.ps1": {
+    "bytes": 910,
+    "sha256": "a01b8f129f301e576bbf3ee7d331e149ceed10b1fe077c6515c3241621538bdb"
+  },
+  "setup/start-win11.sh": {
+    "bytes": 1888,
+    "sha256": "463ccc3e722836ce23853c808fa3758a60fe2fa7cc30c1dc59b0691318dd521b"
+  },
+  "setup/stop-trace.ps1": {
+    "bytes": 731,
+    "sha256": "db87ee64539852369ec7a155c09c852f833ffae0461dbab8342e7691f9defa26"
+  },
+  "setup/windows_probe_resume.ps1": {
+    "bytes": 5246,
+    "sha256": "acff03515ce63cf3f7da9ed62bfe5433daab475577ff30b5f1243ce2a832d800"
+  },
+  "updated-boot/accessible-runtime.txt": {
+    "bytes": 50,
+    "sha256": "f194d090f872f277b16e45ea47c8dae525fe325ec0d96e4d88dfe73bb74ddcdd"
+  },
+  "updated-boot/bios-qemu.txt": {
+    "bytes": 73,
+    "sha256": "22377c2f1c8c4305f69bed58a650e1414cde587cd956054fd63cba6883e102fa"
+  },
+  "updated-boot/bios-serial.txt": {
+    "bytes": 1716,
+    "sha256": "db2fde21c57f1e8e1e8577b7c7ea807f6b51ddd6422234a5326c970d7af4e9f0"
+  },
+  "updated-boot/bios-usb-qemu.txt": {
+    "bytes": 73,
+    "sha256": "22377c2f1c8c4305f69bed58a650e1414cde587cd956054fd63cba6883e102fa"
+  },
+  "updated-boot/bios-usb-serial.txt": {
+    "bytes": 539,
+    "sha256": "9048d4b18c56c5af9b86a13753af93b1c5f7453fcbe2f4f58d6fc49045975866"
+  },
+  "updated-boot/checksums.txt": {
+    "bytes": 103,
+    "sha256": "279a44be22c02b74f1e813463f11626017f42e6e3e1a7c6a6bc023dbc7fe1c85"
+  },
+  "updated-boot/fake-disk-e2e.txt": {
+    "bytes": 80,
+    "sha256": "9352925e5e271773731e7ca3a390daf15479f6b144d2d059ca8d677d62821619"
+  },
+  "updated-boot/fixed-vulnerabilities.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "updated-boot/guest-target-readback.txt": {
+    "bytes": 101,
+    "sha256": "c77c855aa0624a98ea14188dd712fffe9763597d4393d53280287d903426266c"
+  },
+  "updated-boot/isoinfo.txt": {
+    "bytes": 751,
+    "sha256": "c29d015333dffdc21491a0a1fe9a2bd5d5844c57cb70f4a0861c15d3cd706999"
+  },
+  "updated-boot/nwipe-boundary.txt": {
+    "bytes": 8749,
+    "sha256": "30b025eb307a147a11fedc406e64b1a1072335993d9ad39c2777797cf4dde398"
+  },
+  "updated-boot/nwipe-invalid-target.txt": {
+    "bytes": 160,
+    "sha256": "8ee1520429babad4f7d66276342638d5c14c10a3fe01b29708eacbd1cdb36761"
+  },
+  "updated-boot/nwipe-version.txt": {
+    "bytes": 19,
+    "sha256": "e1874e8d51cf24603bf55c07024bdde08de5d9e7d8835f35b2e16d7ba1261a1d"
+  },
+  "updated-boot/qemu-img.txt": {
+    "bytes": 353,
+    "sha256": "f292f5c938bd5b2882c809b1251ac75de3ad8920d50c2b2c237066d593bbf715"
+  },
+  "updated-boot/qemu-version.txt": {
+    "bytes": 140,
+    "sha256": "644029d4f5b751be647de66e2aa70cf8591432bef98592bd8e7d8fdaf5aac6de"
+  },
+  "updated-boot/report-bundle.txt": {
+    "bytes": 142,
+    "sha256": "bf4c7267ddaf4948dcfae50ad9a9da7422ceb5f62b7b46e9b49c1e5a8b86b686"
+  },
+  "updated-boot/report-fsck.txt": {
+    "bytes": 66,
+    "sha256": "20dac5eecfdff1b7e251284e6fdc8db8986116f92ee66734b15e5eb73c881258"
+  },
+  "updated-boot/report-helper-crash.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "updated-boot/report-image.txt": {
+    "bytes": 105,
+    "sha256": "f49c139b0b7339e051e204b9980f180e98dbd118755715ffd80c14bbc8b46393"
+  },
+  "updated-boot/report-mount.txt": {
+    "bytes": 189,
+    "sha256": "29fce80d2f8dc6ac53a919237ca55c9ee42dd0c3ce91ba22eabef26e2d7adbc6"
+  },
+  "updated-boot/run.txt": {
+    "bytes": 980,
+    "sha256": "46ee555bbba44646ce92099fe43497b5f5161fe4956a9a037b410e7a158da322"
+  },
+  "updated-boot/secureboot-usb-qemu.txt": {
+    "bytes": 73,
+    "sha256": "22377c2f1c8c4305f69bed58a650e1414cde587cd956054fd63cba6883e102fa"
+  },
+  "updated-boot/secureboot-usb-serial.txt": {
+    "bytes": 963,
+    "sha256": "24a4fcd35e6a7879e5eb6796ebc3a8d18fb8b3d0702a8b0f8dab75d1b881a1c6"
+  },
+  "updated-boot/source-commit.txt": {
+    "bytes": 41,
+    "sha256": "87effd8b9afec27ab94ff534594b108cd966617c64c60b67266fe95d4aeddac1"
+  },
+  "updated-boot/summary.txt": {
+    "bytes": 241,
+    "sha256": "b16ccf01b513a15065c712ff992ea75fa5d00edd971470bf0b3dd73df6c9bbcf"
+  },
+  "updated-boot/uefi-qemu.txt": {
+    "bytes": 73,
+    "sha256": "22377c2f1c8c4305f69bed58a650e1414cde587cd956054fd63cba6883e102fa"
+  },
+  "updated-boot/uefi-serial.txt": {
+    "bytes": 494,
+    "sha256": "6ff1dfb7705e641e136e4ccebf069e20cd4f4f385c5ef4ad354b62fe940c0def"
+  },
+  "updated-boot/uefi-usb-qemu.txt": {
+    "bytes": 73,
+    "sha256": "22377c2f1c8c4305f69bed58a650e1414cde587cd956054fd63cba6883e102fa"
+  },
+  "updated-boot/uefi-usb-serial.txt": {
+    "bytes": 923,
+    "sha256": "21448e43e29301e3824114e097412891ef5690b7fac58280db72398f00e896be"
+  },
+  "updated-boot/untested-physical.txt": {
+    "bytes": 122,
+    "sha256": "48644be4cea5ff33f4e334b9b90597efe2687f810c464232a216312da1823ab5"
+  },
+  "updated-linux/1-canary.pcap": {
+    "bytes": 116243,
+    "sha256": "3753ee9ac2bc3aead121b18a7886e82a133d27595f0dcc6b38f43554a38fef27"
+  },
+  "updated-linux/10-duplicateb.pcap": {
+    "bytes": 103873,
+    "sha256": "c8d8510950b4bda9eb4eb6aab7c1ccc13d6ab723f057a97687f998ca4462c152"
+  },
+  "updated-linux/11-fault.pcap": {
+    "bytes": 115121,
+    "sha256": "253951c9c8c27ace4f7d784d99196e531f39289bd4915faa6995ed3752699317"
+  },
+  "updated-linux/12-disconnect.pcap": {
+    "bytes": 106111,
+    "sha256": "60506188c24e3cbf421168bddf8e88a920e9fd70ab308f540cfa7e7170c25775"
+  },
+  "updated-linux/13-disconnect.pcap": {
+    "bytes": 103877,
+    "sha256": "d9459ca02cad750941dd71a1f3462ea0f9e11e807b3b43bc924f6745fb0b153d"
+  },
+  "updated-linux/2-profile0.pcap": {
+    "bytes": 414520,
+    "sha256": "e1def39d4b73ed09a01386d9e1dac32a30159b566e1362ffecbfc2a272da597e"
+  },
+  "updated-linux/3-profile0.pcap": {
+    "bytes": 279488,
+    "sha256": "b4367566ed84d62fe96eb9a235d95b658cd18a78c162b35e7a71ecfc7d0941d6"
+  },
+  "updated-linux/4-profile1.pcap": {
+    "bytes": 160695,
+    "sha256": "38036a3255c6f2291addbfd5478ed0c66a746d7804133f9935a64e93a58cbfd4"
+  },
+  "updated-linux/5-profile1.pcap": {
+    "bytes": 106107,
+    "sha256": "f909ddcd5881617e294965ac4c16aceea94b6bdb9e4ab800887e302ced01e796"
+  },
+  "updated-linux/6-profile2.pcap": {
+    "bytes": 158586,
+    "sha256": "a5c22c7f17152c7f4b2a685898ecbc79e4736bf0b7f4e203f1daed00b481cd5f"
+  },
+  "updated-linux/7-profile2.pcap": {
+    "bytes": 108030,
+    "sha256": "4cf04c3c80ecd01bf668640baac664a05f79ed6724d4f14929401ac550f10511"
+  },
+  "updated-linux/8-protected.pcap": {
+    "bytes": 104237,
+    "sha256": "490f3f1d4abc87322961cd5dda1e0aa3c48df4b4c378048af05a4e21e18a36bb"
+  },
+  "updated-linux/9-duplicatea.pcap": {
+    "bytes": 103873,
+    "sha256": "098cc45c97e1af747b7d0976d4b8f339a4ac889f3252dd8dce29ce466047f791"
+  },
+  "updated-linux/command.json": {
+    "bytes": 980,
+    "sha256": "7727d78f981e19ec5074267ce7749a1b3aa5163a4e865251dcf05e21b2acba51"
+  },
+  "updated-linux/progress.json": {
+    "bytes": 38478,
+    "sha256": "49030af84631702f9c1fcd5a8fb9b03955d116eec4d7853541fadb8f264c96d1"
+  },
+  "updated-linux/qemu.log": {
+    "bytes": 80,
+    "sha256": "1a358e2daa5ffb7d2c9032616396a729eb509189802a488d6096287a8a560142"
+  },
+  "updated-linux/qmp.jsonl": {
+    "bytes": 30643,
+    "sha256": "7d11898c3698b5086d08595d59b896d55c680f0a92c0dc83bc7815e92b9fe124"
+  },
+  "updated-linux/receipt.json": {
+    "bytes": 43036,
+    "sha256": "dd21053aa1479d56fa294ed1ae37314790a6f6799ffe8ac5999bffeff1894567"
+  },
+  "updated-linux/serial.log": {
+    "bytes": 71638,
+    "sha256": "3cec534263ac79461e5c369fabb4ac11889a781e754a4ca6b7b1e55e92100f3d"
+  },
+  "windows-interactive/1-tools.pcap": {
+    "bytes": 1651798,
+    "sha256": "b531b34705234a20bdc8fa736bc3cb5bd8c28e30e400f55a79c5e69c6e7def88"
+  },
+  "windows-interactive/3-diag.pcap": {
+    "bytes": 784772,
+    "sha256": "7f4bc71296a79180b96f259c51e84546f8ae01763c6bb34b107d5e2647521fea"
+  },
+  "windows-interactive/4-export.pcap": {
+    "bytes": 155742,
+    "sha256": "840388720d3bc7e60cd07e74585c2b8bea471546f417bfaed696d488fac30f92"
+  },
+  "windows-interactive/5-uasdiag.pcap": {
+    "bytes": 2180,
+    "sha256": "7a30e2bf4e4eb3020bb9249ac6457e8062ea9d0e6047aa1e4a7810f649b060e2"
+  },
+  "windows-interactive/6-newtools.pcap": {
+    "bytes": 1003386,
+    "sha256": "f70ea596f78b5113021cb8bc8cd35697141021d7ded4f3d7a29d3a2d77d2e918"
+  },
+  "windows-interactive/7-export.pcap": {
+    "bytes": 683094,
+    "sha256": "9c3ecb186e4e255ad7e449123dae5b7d319a02c787ce1daaeabdd54014acb59e"
+  },
+  "windows-interactive/8-diag.pcap": {
+    "bytes": 286064,
+    "sha256": "86365213d58794b9f5dba76f5f702a51a98f03893930804a0231c35ec940b8c1"
+  },
+  "windows-interactive/after-native-test-command.png": {
+    "bytes": 51071,
+    "sha256": "fbe2c077260b87210ea7e0354f11d6760fc0730a85e694b850601b2706581a6e"
+  },
+  "windows-interactive/desktop-before-launcher.png": {
+    "bytes": 3057,
+    "sha256": "05713dbacb00cfa92e8cad1581147b0f1349f6ee14c97d122440aff36011bd53"
+  },
+  "windows-interactive/direct-trace-status.png": {
+    "bytes": 113288,
+    "sha256": "acf6efb78f89f6c4b02f046e495dd97ccf486ca2e3e3130572cb70bf34662251"
+  },
+  "windows-interactive/etw-errors.xml": {
+    "bytes": 3445,
+    "sha256": "2a035bb9ecc53a10578a90f1972cf68889cc142172a68c24e55709e8fcbc980a"
+  },
+  "windows-interactive/export-native-results.png": {
+    "bytes": 70110,
+    "sha256": "e3f178681ff01ef9bb863732aac165ce0eb30f8209a5a24fedd3a64f7e4247be"
+  },
+  "windows-interactive/export-stage-current.png": {
+    "bytes": 116701,
+    "sha256": "519f84b5636a8f86357191ae9591151f4e3d6b70df8f3812b5025dce9d4fdc3d"
+  },
+  "windows-interactive/final-after-restart.png": {
+    "bytes": 11401,
+    "sha256": "08c944012aa039b31230a7f16ab5505e70d0284082d2201b1f6ecb3f9fb566cd"
+  },
+  "windows-interactive/final-beamo-live-progress.png": {
+    "bytes": 7829,
+    "sha256": "7a6482574e475465b62e52a806d449b2a28f27b91f1422115a3c7a36b95079ad"
+  },
+  "windows-interactive/final-boot-progress.png": {
+    "bytes": 11401,
+    "sha256": "08c944012aa039b31230a7f16ab5505e70d0284082d2201b1f6ecb3f9fb566cd"
+  },
+  "windows-interactive/final-current.png": {
+    "bytes": 67350,
+    "sha256": "ffd4a98d3a7f7b5aea3a851044be1bb88533a1eb083498a9d92918b5cb65975f"
+  },
+  "windows-interactive/final-fixture-command.png": {
+    "bytes": 66983,
+    "sha256": "2d19cb4c68656780065f73f776878184684609c27f20ee8d2c8b7b5d10d62edc"
+  },
+  "windows-interactive/final-fixture-progress.png": {
+    "bytes": 67037,
+    "sha256": "05cd25f14737bdf1d05ad8e522d862225d8e49888d758e92933478f4ed613a7a"
+  },
+  "windows-interactive/final-fixture-repeat-progress.png": {
+    "bytes": 141852,
+    "sha256": "9347fdc6d068f702f928e2106f70cf1dc08a89c38f8ae7b57f91d8c63252c912"
+  },
+  "windows-interactive/final-launcher-first-open.png": {
+    "bytes": 59810,
+    "sha256": "65c4f845d95a3a08749e8f2b9ae48f80195034b647442638e2cac1d227f48163"
+  },
+  "windows-interactive/final-live-awake.png": {
+    "bytes": 4664,
+    "sha256": "14caed12bfa3cb98e121cec86774f052e2eb4dd692069789d23a1a9088b50ffb"
+  },
+  "windows-interactive/final-live-final.png": {
+    "bytes": 46337,
+    "sha256": "3a1c2aa09ed59446068d06adbf0d7831fa6efdfa98ae876bacc343bcb8a51f44"
+  },
+  "windows-interactive/final-live-render.png": {
+    "bytes": 46337,
+    "sha256": "3a1c2aa09ed59446068d06adbf0d7831fa6efdfa98ae876bacc343bcb8a51f44"
+  },
+  "windows-interactive/final-live-tty1.png": {
+    "bytes": 46337,
+    "sha256": "3a1c2aa09ed59446068d06adbf0d7831fa6efdfa98ae876bacc343bcb8a51f44"
+  },
+  "windows-interactive/final-live-wizard.png": {
+    "bytes": 3057,
+    "sha256": "05713dbacb00cfa92e8cad1581147b0f1349f6ee14c97d122440aff36011bd53"
+  },
+  "windows-interactive/final-login-complete.png": {
+    "bytes": 665941,
+    "sha256": "a56873edc8bb8b45aa7b7b4409b9ee61e4d7d73a91febbf4e33df9d565453a53"
+  },
+  "windows-interactive/final-login.png": {
+    "bytes": 423946,
+    "sha256": "ed9ed208638c8323cb0ad5c2e23e1424dde76b7d0e03eead5b4557c88aed5086"
+  },
+  "windows-interactive/final-post-reboot-2.png": {
+    "bytes": 5794,
+    "sha256": "cea30f4962a38a24452737fd2003c84632a45eac4cca6c0038d759e4034c9a18"
+  },
+  "windows-interactive/final-post-reboot-3.png": {
+    "bytes": 491220,
+    "sha256": "d88276b0787d3b252d1a3586b1aeabedfd2c3ba54abd93b2892e52162eec1dd1"
+  },
+  "windows-interactive/final-post-reboot.png": {
+    "bytes": 3358,
+    "sha256": "7a86d7dc72d8e88817b1f88625557a1c353648ef42566c7e09235221a87e6ae3"
+  },
+  "windows-interactive/final-probe-start.png": {
+    "bytes": 166444,
+    "sha256": "b9e6fb99e0d95e392a4e55a2509130f342eec81bbbb67f379368395e41cf3b16"
+  },
+  "windows-interactive/final-ready-ui.png": {
+    "bytes": 68559,
+    "sha256": "90712264e611046dbc26e9ed58e760f49e070630e82a2f52ddb604955fb81c2b"
+  },
+  "windows-interactive/final-repeat-app.png": {
+    "bytes": 67699,
+    "sha256": "85ffcacc058c8b65a9c9e8f1f412eab8f20fd8e59db967037378e5657ae30007"
+  },
+  "windows-interactive/final-repeat-checked.png": {
+    "bytes": 74382,
+    "sha256": "ca5256eee1f63f6725550628acebe2e9e1110ad99dea768ed5fbfe0ae95360f5"
+  },
+  "windows-interactive/final-repeat-readiness.png": {
+    "bytes": 188995,
+    "sha256": "722bc72983c0a9aed86cb4d17880535619b90e5777fd0c216fa53f3a896ef2da"
+  },
+  "windows-interactive/final-repeat-ui.png": {
+    "bytes": 168756,
+    "sha256": "d8236d41ab66f2832f6fc261df849aff98835674ba0f12bb6282fc3038289695"
+  },
+  "windows-interactive/final-restart-request.png": {
+    "bytes": 70796,
+    "sha256": "5b9f15a68f609b6f20b2585027001fa86c7e55f99e1cb0cfab89cb1e1f39cac4"
+  },
+  "windows-interactive/final-restart-result.png": {
+    "bytes": 11401,
+    "sha256": "08c944012aa039b31230a7f16ab5505e70d0284082d2201b1f6ecb3f9fb566cd"
+  },
+  "windows-interactive/final-run-dialog.png": {
+    "bytes": 53386,
+    "sha256": "aadf82d6d52fb2c418d6dfc618567672d1d3accb036d8a3be10a9b489d49d9cc"
+  },
+  "windows-interactive/final-second-boot-destination.png": {
+    "bytes": 27159,
+    "sha256": "dc4efad3b56a2eddf41a1a92e29f7c96c9e4d77741b39d3350aac4e21136f4a8"
+  },
+  "windows-interactive/final-second-restart-progress.png": {
+    "bytes": 4720,
+    "sha256": "6c1f3656b17945139533ba0ce25869cb785ed44944dd270bb75df1e1e06215a2"
+  },
+  "windows-interactive/final-second-restart-result.png": {
+    "bytes": 53864,
+    "sha256": "29d5c336b7059104fb8e53ba2765dc2ee0fd82db2cceb1b53a65f29b513824af"
+  },
+  "windows-interactive/final-second-session.png": {
+    "bytes": 424613,
+    "sha256": "63cbfc0b9c822b778bbda217509a9f754759e09dc4fe2f6eb7502ce1b24a3449"
+  },
+  "windows-interactive/final-welcome-checked.png": {
+    "bytes": 3057,
+    "sha256": "05713dbacb00cfa92e8cad1581147b0f1349f6ee14c97d122440aff36011bd53"
+  },
+  "windows-interactive/final-wizard-arrival.png": {
+    "bytes": 7829,
+    "sha256": "7a6482574e475465b62e52a806d449b2a28f27b91f1422115a3c7a36b95079ad"
+  },
+  "windows-interactive/native-test-receipt-console.png": {
+    "bytes": 72154,
+    "sha256": "fb6ff4d0a01e6564afb8c94f23d6c0ce1817c6518aba534002a97797040dc209"
+  },
+  "windows-interactive/native-tests-direct-console.png": {
+    "bytes": 120487,
+    "sha256": "4d8fdee46e8075d7c281d9bd512762854c9a7d140585eb0bd7a0e832dc43d961"
+  },
+  "windows-interactive/native-tests-running.png": {
+    "bytes": 95060,
+    "sha256": "1171583e642c330f49886fdfc7523d98e3e0226ebedaf57314307640cbc825dd"
+  },
+  "windows-interactive/native-updated-direct.png": {
+    "bytes": 110333,
+    "sha256": "20849e321266dce97d78107d789d2ff3ec6261df3d0ddc2f0e99a167438d2b4e"
+  },
+  "windows-interactive/progress.json": {
+    "bytes": 1000,
+    "sha256": "b4f3edeeebbebe70025dbf5c3d374523967ff4031bdd36e39163c1e01c6d585b"
+  },
+  "windows-interactive/qmp.jsonl": {
+    "bytes": 557024,
+    "sha256": "6d20f265bb249a60e0afc17eefa7aaaf3dd6b193b0e87637297e772b9502d478"
+  },
+  "windows-interactive/receipt.json": {
+    "bytes": 2272,
+    "sha256": "42ef11d6df0fdcccc0774e0cbdee1b71f72cb2b30b31edb028111daa637c9820"
+  },
+  "windows-interactive/trace-direct-current.png": {
+    "bytes": 147446,
+    "sha256": "45eb54670a4200c46a42ed2cb7d11ad043df789e868d5381e5e42e382a7bb7bc"
+  },
+  "windows-interactive/trace-native-errors.json": {
+    "bytes": 31362,
+    "sha256": "d5ab4dc12a0967c43e014aff7aaba2e97cea58cf5db080ea2e96e2a3cbf2d753"
+  },
+  "windows-interactive/trace-reconfigured-status.png": {
+    "bytes": 107582,
+    "sha256": "4729a3848d9fb31fee1978e8ce95990536cfc3dcddc2a0a15589fa9b4dc8656d"
+  },
+  "windows-interactive/trace-status.png": {
+    "bytes": 104203,
+    "sha256": "5cc9a7e3071914d95fe1fbd6c6f17bc411d78780ea191bfb8a46418df262f9ea"
+  },
+  "windows-interactive/verified-export-current.png": {
+    "bytes": 122102,
+    "sha256": "e82669ea37c78571ae2724e7b8a3d8617ee2154816f634a983884b449c32c030"
+  },
+  "windows-interactive/volume-inventory-console.png": {
+    "bytes": 88652,
+    "sha256": "27f8228ac9c6c04cf1767acba8755f30915de57ff4fbcaf7fb75c3acbc330735"
+  },
+  "windows11-bot-initial-failed/1-canary.pcap": {
+    "bytes": 1423640,
+    "sha256": "891820db50b66334f9b0d82a79c69763d3a0dd413344c9df9bab05a50ce3b9a0"
+  },
+  "windows11-bot-initial-failed/2-profile0.pcap": {
+    "bytes": 157789,
+    "sha256": "2a9ccf7c8879d24e954bfb21d5bd3d8ddc3615704319613020e6ede3e5b52105"
+  },
+  "windows11-bot-initial-failed/3-profile0.pcap": {
+    "bytes": 134661,
+    "sha256": "490c206f38612f20efcaa1e184a575a78ff5f8f3e61f58941b1ff992174dba84"
+  },
+  "windows11-bot-initial-failed/4-profile1.pcap": {
+    "bytes": 286820,
+    "sha256": "44db040b95ace8a4ff1e1d27b8b6a525fcb106fd0db2cf072ee709461422e396"
+  },
+  "windows11-bot-initial-failed/5-profile1.pcap": {
+    "bytes": 226020,
+    "sha256": "2111896c98182d3e6478299c9282575c23144d8244e965300427b37ee6362cf6"
+  },
+  "windows11-bot-initial-failed/6-protected.pcap": {
+    "bytes": 505354,
+    "sha256": "d3bd350c8f11604ee4717c41d6045590faa5661a712c5953fb20bb8a3d40dfd3"
+  },
+  "windows11-bot-initial-failed/progress.json": {
+    "bytes": 9772,
+    "sha256": "33bbc4f914c823d3a27f7ea369adbb53010a4514b404995522d8715df9e7bf39"
+  },
+  "windows11-bot-initial-failed/qmp.jsonl": {
+    "bytes": 12396,
+    "sha256": "0e9d5e90a2c3102b24ee3cf8d6ca2356969c798e3d2e02c36ee21bd2b23420e7"
+  },
+  "windows11-bot-initial-failed/receipt.json": {
+    "bytes": 12410,
+    "sha256": "4de4cfd763835f293fba2dcfc69cd1b341a317fc0dea9ac0a3cfec7ccd36d5dd"
+  },
+  "windows11-full-failed/1-canary.pcap": {
+    "bytes": 1676024,
+    "sha256": "55139a75584676b05b5c72bb9f104ef95b10e066b2a1bd4d77b2335d71a60654"
+  },
+  "windows11-full-failed/2-profile0.pcap": {
+    "bytes": 190285,
+    "sha256": "27d79c028536961b34cd5c819e95b72fa89c3cf3d5f974d829145110132d16cf"
+  },
+  "windows11-full-failed/3-profile0.pcap": {
+    "bytes": 106192,
+    "sha256": "35c12f5ef9b5d6022840a465cfd142f2a8864d84f016f72634f982d27dac4b22"
+  },
+  "windows11-full-failed/4-profile1.pcap": {
+    "bytes": 138252,
+    "sha256": "90453e0752e6d8f7e311d5549d746d1fe5e58209cfd16005cda81c42fa8043e2"
+  },
+  "windows11-full-failed/5-profile1.pcap": {
+    "bytes": 314280,
+    "sha256": "50a601adaf096bde4124cd77cc47e93122570ce6f7c1fb359340be2ca5e49c21"
+  },
+  "windows11-full-failed/6-profile2.pcap": {
+    "bytes": 2352,
+    "sha256": "227e40f2e7dcf8e3035714b67ddfee2a4cd173750fea212669dcfadbd58e41cf"
+  },
+  "windows11-full-failed/enumeration-timeout.json": {
+    "bytes": 1691,
+    "sha256": "49d19318975218d5d2147aaf96a4c4275efea8c92351d40bdc2fbe5299d6cf15"
+  },
+  "windows11-full-failed/progress.json": {
+    "bytes": 6947,
+    "sha256": "28363201341ddec8d01ddf85f7881fd103ed23482ef15ce9fd51ecf03c1e66ed"
+  },
+  "windows11-full-failed/qmp.jsonl": {
+    "bytes": 11185,
+    "sha256": "6eb9192ea7a4ac8fca8e22ad0ffd7f23231f39db4efdd174786ebedb3228850b"
+  },
+  "windows11-full-failed/receipt.json": {
+    "bytes": 9252,
+    "sha256": "84f67804b8999e69e2242600af3099a204296e036b9efbcdd0c09bb32152c52a"
+  },
+  "windows11-updated-bot/1-canary.pcap": {
+    "bytes": 2265344,
+    "sha256": "481302c94b21fc0472b32055b9cc313e31e60f6364807e7749a6186744a20e2d"
+  },
+  "windows11-updated-bot/2-profile0.pcap": {
+    "bytes": 221053,
+    "sha256": "6fe0c0d177ceb991244490cf3bb6041717239685f503449bed69065f6b3dff77"
+  },
+  "windows11-updated-bot/3-profile0.pcap": {
+    "bytes": 103992,
+    "sha256": "8ccf4cf177e6b4824997bfd3de524921fc7edae6aff05d884933ff66410d8bce"
+  },
+  "windows11-updated-bot/4-profile1.pcap": {
+    "bytes": 176316,
+    "sha256": "783095f7833cf8086c1042e8d2649952b7e12dc504f400397b4a62649057cd25"
+  },
+  "windows11-updated-bot/5-profile1.pcap": {
+    "bytes": 172612,
+    "sha256": "bd0cc66aeafc3cfc682050f745750c1cc4a9dff666919a8325eafab4ddb6aacc"
+  },
+  "windows11-updated-bot/6-protected.pcap": {
+    "bytes": 269054,
+    "sha256": "07a5a9d639e1d7ae0cce3b082903eb5012d0db33f66f809520aaf158af2d9d82"
+  },
+  "windows11-updated-bot/progress.json": {
+    "bytes": 11428,
+    "sha256": "8f572cfc10cc9ac3cf563e74387bef5dd21c8cebc8e4a51c2c64436701271f8f"
+  },
+  "windows11-updated-bot/qmp.jsonl": {
+    "bytes": 14121,
+    "sha256": "e98e973559369a42316d344892b983fe43ceffa597b8dca5a2ceed544f9a45cf"
+  },
+  "windows11-updated-bot/receipt.json": {
+    "bytes": 14166,
+    "sha256": "1c758c3206ba88502fe63bcc8bfc99a8967d60b5056e3e5ca100908f63874ed4"
+  }
+}

@@ -1,0 +1,114 @@
+.........................ssss........................................... [  4%]
+........................................................................ [  9%]
+........................................................................ [ 13%]
+........................................................................ [ 18%]
+........................................................................ [ 22%]
+........................................................................ [ 27%]
+........................................................................ [ 31%]
+....................................................................F..F [ 36%]
+........................................................................ [ 40%]
+........................................................................ [ 45%]
+........................................................................ [ 49%]
+................................sss..s.ssssssss......................... [ 54%]
+........................................................................ [ 58%]
+........................................................................ [ 63%]
+........................................................................ [ 67%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 81%]
+..........................sssssssssssssssssssssssssssssssss..sssssssssss [ 86%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 90%]
+sssssssssssssssss.................F..................................... [ 95%]
+........................................................................ [ 99%]
+.....                                                                    [100%]
+=================================== FAILURES ===================================
+___________________ test_iso_build_uses_https_debian_mirrors ___________________
+
+    def test_iso_build_uses_https_debian_mirrors():
+        text = (ROOT / "packaging/live/inside-docker.sh").read_text(encoding="utf-8")
+        assert "https://deb.debian.org/debian/" in text
+        assert "https://security.debian.org/" in text
+        assert "ip=frommedia" in text
+        assert "--bootappend-live-failsafe" in text
+        failsafe = [
+            line
+            for line in text.splitlines()
+            if "--bootappend-live-failsafe" in line
+        ]
+        assert failsafe
+        assert "noswap" in failsafe[0]
+        assert "ip=frommedia" in failsafe[0]
+        assert "nopersistence" in failsafe[0]
+        assert "http://deb.debian.org/debian/" not in text
+>       bootstrap = (ROOT / "packaging/live/config/bootstrap").read_text(encoding="utf-8")
+
+tests/test_live_image.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/pathlib.py:1132: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/tmp/beamo-wipe-bugfix-20260908/packaging/live/config/bootstrap')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return self._accessor.open(self, mode, buffering, encoding, errors,
+                                   newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/beamo-wipe-bugfix-20260908/packaging/live/config/bootstrap'
+
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/pathlib.py:1117: FileNotFoundError
+__________________ test_live_config_xinit_cannot_hijack_kiosk __________________
+
+    def test_live_config_xinit_cannot_hijack_kiosk():
+        """Debian live-config 0140-xinit writes an infinite startx loop on tty1
+        before ~/.profile. Without nox11autologin (and a stub profile.d file),
+        the wizard never starts."""
+>       binary = (ROOT / "packaging/live/config/binary").read_text(encoding="utf-8")
+
+tests/test_live_image.py:196: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/pathlib.py:1132: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/tmp/beamo-wipe-bugfix-20260908/packaging/live/config/binary')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return self._accessor.open(self, mode, buffering, encoding, errors,
+                                   newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/beamo-wipe-bugfix-20260908/packaging/live/config/binary'
+
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/pathlib.py:1117: FileNotFoundError
+__________________ test_qmp_retains_events_and_rejects_errors __________________
+
+request = <FixtureRequest for <Function test_qmp_retains_events_and_rejects_errors>>
+
+    def test_qmp_retains_events_and_rejects_errors(request):
+        directory = tempfile.TemporaryDirectory(prefix="usblab-test-", dir="/private/tmp" if Path("/private/tmp").exists() else "/tmp")
+        request.addfinalizer(directory.cleanup)
+        path = Path(directory.name) / "qmp"
+        server = socket.socket(socket.AF_UNIX)
+>       server.bind(str(path))
+E       PermissionError: [Errno 1] Operation not permitted
+
+tests/test_usb_lab.py:41: PermissionError
+=========================== short test summary info ============================
+FAILED tests/test_live_image.py::test_iso_build_uses_https_debian_mirrors - F...
+FAILED tests/test_live_image.py::test_live_config_xinit_cannot_hijack_kiosk
+FAILED tests/test_usb_lab.py::test_qmp_retains_events_and_rejects_errors - Pe...
+3 failed, 1437 passed, 150 skipped in 44.32s

@@ -137,9 +137,9 @@ def test_send_upload_rejects_short_or_growing_input_before_success(monkeypatch):
 
 
 def test_release_includes_the_desktop_readable_usb_image():
-    names = {p.name for p in PUBLISHER._release_inputs('0.2.5')}
-    assert {'beamo-wipe-0.2.5-amd64.img', 'beamo-wipe-0.2.5-amd64.img.sha256',
-            'beamo-wipe-0.2.5-amd64.img.json'} <= names
+    names = {p.name for p in PUBLISHER._release_inputs('0.2.6')}
+    assert {'beamo-wipe-0.2.6-amd64.img', 'beamo-wipe-0.2.6-amd64.img.sha256',
+            'beamo-wipe-0.2.6-amd64.img.json'} <= names
 
 
 @pytest.mark.parametrize('damage', ['', 'image', 'iso', 'sidecar', 'metadata'])
@@ -147,7 +147,7 @@ def test_usb_release_binding_rejects_changed_artifacts(tmp_path, damage):
     import hashlib
     import json
 
-    version = '0.2.5'
+    version = '0.2.6'
     iso = tmp_path / f'beamo-wipe-{version}-amd64.iso'
     image = tmp_path / f'beamo-wipe-{version}-amd64.img'
     iso.write_bytes(b'fixture ISO')

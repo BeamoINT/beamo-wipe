@@ -1,0 +1,1092 @@
+[
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:00:52.2130167+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:00:58.9605110+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:05.6782311+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:12.4201294+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:19.0890519+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:25.9473430+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:33.1762887+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:40.2318593+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:47.0181562+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "pnp": [
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABTRACE",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABDIAG&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABDIAG",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\BEAMOBOOT",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABTOOLS",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\BEAMOBOOT&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABTOOLS&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "setupInProgress": 0,
+    "secureBoot": true,
+    "time": "2026-09-07T22:01:53.9616244+00:00",
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  }
+]

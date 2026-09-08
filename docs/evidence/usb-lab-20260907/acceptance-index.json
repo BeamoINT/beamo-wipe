@@ -1,0 +1,227 @@
+{
+  "product_source": "f7b6490036d62281e2133da642557cee6710f081",
+  "harness_snapshot": "c6540e09e1ad717c9932800edaae8908e840583f",
+  "assessment": "LINUX_AND_WINDOWS_BOT_VERIFIED_WITH_DOCUMENTED_LIMITS",
+  "matrices": [
+    {
+      "receipt": "linux/attempt-5/receipt.json",
+      "status": "PASS",
+      "completed_cases": [
+        "usb2-bot-enumerate-write-unplug-reconnect",
+        "usb3-bot-enumerate-write-unplug-reconnect",
+        "usb3-uas-enumerate-write-unplug-reconnect",
+        "write-protection",
+        "duplicate-identity-refused",
+        "injected-read-io-error",
+        "unplug-during-io-and-replacement-identity",
+        "usb2-bot-beamo-packaged-launcher",
+        "usb3-bot-beamo-packaged-launcher",
+        "usb3-uas-beamo-packaged-launcher",
+        "unrelated-canary-unchanged"
+      ],
+      "scratch_removed": true,
+      "qemu_exited": true
+    },
+    {
+      "receipt": "windows/linux-rootports/receipt.json",
+      "status": "PASS",
+      "completed_cases": [
+        "usb2-bot-enumerate-write-unplug-reconnect",
+        "usb3-bot-enumerate-write-unplug-reconnect",
+        "usb3-uas-enumerate-write-unplug-reconnect",
+        "write-protection",
+        "duplicate-identity-refused",
+        "injected-read-io-error",
+        "unplug-during-io-and-replacement-identity",
+        "usb2-bot-beamo-packaged-launcher",
+        "usb3-bot-beamo-packaged-launcher",
+        "usb3-uas-beamo-packaged-launcher",
+        "unrelated-canary-unchanged"
+      ],
+      "scratch_removed": true,
+      "qemu_exited": true
+    },
+    {
+      "receipt": "windows/windows-results-2022-1/receipt.json",
+      "status": "FAIL",
+      "completed_cases": [
+        "windows-os",
+        "usb2-bot-windows-write-unplug-reconnect",
+        "usb3-bot-windows-write-unplug-reconnect"
+      ],
+      "scratch_removed": true,
+      "qemu_exited": null
+    },
+    {
+      "receipt": "windows/windows-results-2022-2/receipt.json",
+      "status": "FAIL",
+      "completed_cases": [
+        "windows-os",
+        "usb2-bot-windows-write-unplug-reconnect",
+        "usb3-bot-windows-write-unplug-reconnect"
+      ],
+      "scratch_removed": true,
+      "qemu_exited": null
+    },
+    {
+      "receipt": "windows/windows-results-bot/receipt.json",
+      "status": "FAIL",
+      "completed_cases": [
+        "windows-os",
+        "usb2-bot-windows-write-unplug-reconnect",
+        "usb3-bot-windows-write-unplug-reconnect"
+      ],
+      "scratch_removed": true,
+      "qemu_exited": null
+    },
+    {
+      "receipt": "windows-followup/records/server-full/receipt.json",
+      "status": "FAIL",
+      "completed_cases": [
+        "windows-os",
+        "usb2-bot-windows-write-unplug-reconnect",
+        "usb3-bot-windows-write-unplug-reconnect"
+      ],
+      "requested_profiles": [
+        "usb2-bot",
+        "usb3-bot",
+        "usb3-uas"
+      ],
+      "scratch_removed": true,
+      "guest_process_exit_receipt": "windows-followup/records/server-process-exit.json"
+    },
+    {
+      "receipt": "windows-followup/records/server-bot/receipt.json",
+      "status": "PASS",
+      "completed_cases": [
+        "windows-os",
+        "usb2-bot-windows-write-unplug-reconnect",
+        "usb3-bot-windows-write-unplug-reconnect",
+        "windows-write-protection",
+        "usb2-bot-windows-beamo-packaged-launcher",
+        "usb3-bot-windows-beamo-packaged-launcher",
+        "windows-canary-unchanged"
+      ],
+      "requested_profiles": [
+        "usb2-bot",
+        "usb3-bot"
+      ],
+      "scratch_removed": true,
+      "guest_process_exit_receipt": "windows-followup/records/server-process-exit.json"
+    },
+    {
+      "receipt": "kvm-followup/final-records/updated-linux/receipt.json",
+      "status": "PASS",
+      "scratch_removed": true,
+      "qemu_exited": true,
+      "source": "22f40612bc9b4d0f6399951ed8828b4c16dbf848",
+      "completed_cases": [
+        "usb2-bot-enumerate-write-unplug-reconnect",
+        "usb3-bot-enumerate-write-unplug-reconnect",
+        "usb3-uas-enumerate-write-unplug-reconnect",
+        "write-protection",
+        "duplicate-identity-refused",
+        "injected-read-io-error",
+        "unplug-during-io-and-replacement-identity",
+        "usb2-bot-beamo-packaged-launcher",
+        "usb3-bot-beamo-packaged-launcher",
+        "usb3-uas-beamo-packaged-launcher",
+        "unrelated-canary-unchanged"
+      ],
+      "requested_profiles": null
+    },
+    {
+      "receipt": "kvm-followup/final-records/windows11-updated-bot/receipt.json",
+      "status": "PASS",
+      "scratch_removed": true,
+      "qemu_exited": null,
+      "source": "22f40612bc9b4d0f6399951ed8828b4c16dbf848",
+      "completed_cases": [
+        "windows-os",
+        "usb2-bot-windows-write-unplug-reconnect",
+        "usb3-bot-windows-write-unplug-reconnect",
+        "windows-write-protection",
+        "usb2-bot-windows-beamo-packaged-launcher",
+        "usb3-bot-windows-beamo-packaged-launcher",
+        "windows-canary-unchanged"
+      ],
+      "requested_profiles": [
+        "usb2-bot",
+        "usb3-bot"
+      ],
+      "guest_process_exit_receipt": "kvm-followup/final-records/handoff/process-exit.json"
+    }
+  ],
+  "windows_limitations": [
+    "Historical first Windows run used an automatic full-speed hub and is invalid for USB3 speed coverage",
+    "Full Server follow-up fails UAS startup: UASPStor Code 10, ProblemStatus 0xC0000001; exact cause unproven",
+    "Separate explicit Server BOT scope passes all seven cases; this does not cover UAS",
+    "Server GUI BIOS fallback, Check again, help and keyboard Close verified; no UAC prompt or timing claim",
+    "Server 2025 never reached ready native matrix",
+    "Earlier Windows 11 TCG setup incomplete; later KVM Windows 11 setup complete and BOT/handoff verified. Windows 10 untested; UAC and physical acceptance unproven.",
+    "Native inventory fixture timing is inconsistent; one direct PASS and separate deadline failures retained",
+    "Expired evaluation license caused one clean shutdown; no bypass; future runs need a currently valid image",
+    "Handoff uses fixture-seeded EFI entry and corrected host boot indices; startup was slow"
+  ],
+  "physical_acceptance": "NOT_ESTABLISHED",
+  "cloud_cleanup": "ALL_THREE_LABS_CLEANUP_VERIFIED",
+  "publication": "NOT_PERFORMED",
+  "followup": {
+    "name": "beamo-usb-win-0907",
+    "vm_created": true,
+    "instance_id": "6798786404839282832",
+    "zone": "us-central1-b",
+    "status": "CLEANUP_VERIFIED",
+    "automatic_delete_time": "2026-09-07T19:29:52.643923Z",
+    "state": "windows-followup/cloud-cleanup.json",
+    "ssh_key_cleanup": "windows-followup/ssh-key-cleanup.json"
+  },
+  "native_image_preparation": {
+    "receipt": "windows-followup/native-preparation/receipt.json",
+    "verified_regions": [
+      "EFI",
+      "Windows"
+    ],
+    "GPT_layout_verified": true,
+    "booted": false,
+    "counts_as_client_acceptance": false
+  },
+  "kvm_followup": {
+    "instance_id": "5538341188545978192",
+    "name": "beamo-usb-kvm-0907",
+    "zone": "us-central1-b",
+    "state": "kvm-followup/cloud-state.json",
+    "kvm_verified": "kvm-followup/kvm-verified.json",
+    "status": "LINUX_BOOT_WINDOWS11_BOT_AND_FIXTURE_HANDOFF_VERIFIED",
+    "temporary_project_policy_exception": "REMOVED_PRIOR_INHERITED_ENFORCEMENT_RESTORED",
+    "deadline_cleanup": "kvm-followup/deadline-cleanup-armed.json",
+    "linux_proof": "kvm-followup/linux-records/linux/receipt.json",
+    "boot_proof": "kvm-followup/linux-records/boot/summary.txt",
+    "handoff": "kvm-followup/final-records/handoff/receipt.json",
+    "final_transfer": "kvm-followup/final-transfer-verified.json",
+    "cloud_cleanup": "CLEANUP_VERIFIED",
+    "policy_restoration": "kvm-followup/policy-restoration.json",
+    "ssh_key_cleanup": "kvm-followup/ssh-key-cleanup.json"
+  },
+  "updated_product_source": "22f40612bc9b4d0f6399951ed8828b4c16dbf848",
+  "windows_client_attempt_tcg": {
+    "receipt": "windows-followup/windows11-final/receipt.json",
+    "status": "NO_COMPLETED_NATIVE_CLIENT_MATRIX",
+    "native_version": "10.0.26200.6584",
+    "SystemSetupInProgress": 1,
+    "valid_native_json_rows": 0,
+    "qemu_process_exited": true
+  },
+  "windows_client_kvm": {
+    "status": "BOT_AND_FIXTURE_HANDOFF_VERIFIED",
+    "caption": "Microsoft Windows 11 Enterprise Evaluation",
+    "version": "10.0.26200",
+    "build": "26200",
+    "SystemSetupInProgress": 0,
+    "SecureBoot": true,
+    "receipt": "kvm-followup/final-records/windows11-updated-bot/receipt.json",
+    "handoff": "kvm-followup/final-records/handoff/receipt.json",
+    "native_tests": "DIRECT_PASS_AND_SEPARATE_TIMING_FAILURES",
+    "qemu_process_exited": true
+  }
+}

@@ -1,0 +1,4 @@
+Formatting '/tmp/beamo-wipe-qemu.nSttgK/target.raw', fmt=raw size=268435456
+Formatting '/tmp/beamo-wipe-qemu.nSttgK/target.qcow2', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=1073741824 lazy_refcounts=off refcount_bits=16
+wrote 1048576/1048576 bytes at offset 0
+1 MiB, 1 ops; 00.01 sec (128.133 MiB/sec and 128.1325 ops/sec)

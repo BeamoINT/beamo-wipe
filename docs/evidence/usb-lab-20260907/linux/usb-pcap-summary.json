@@ -1,0 +1,93 @@
+{
+  "/lab/results-5/1-canary.pcap": {
+    "sha256": "4be22ea29e715d8d0aaf4be9bfdfbde627e11b2b19317cae87f854370444e88b",
+    "packets": 1006,
+    "payload_bytes": 103035,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "/lab/results-5/10-duplicateb.pcap": {
+    "sha256": "748bc08c26d02f1963eecc3284d44b94296b7592d06f88f1ecd23f0a7f4a28e1",
+    "packets": 842,
+    "payload_bytes": 90741,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "/lab/results-5/11-fault.pcap": {
+    "sha256": "93e8934175bf93b9476ce822edf412b4c8df45aa4c6db6120cf7b9654874b5de",
+    "packets": 942,
+    "payload_bytes": 100389,
+    "snaplen_truncated_packets": 122,
+    "linktype": 220
+  },
+  "/lab/results-5/12-disconnect.pcap": {
+    "sha256": "6a952f17605e100a3b71446d6697708dddce14a7cab1b55b917fe1238ca2b057",
+    "packets": 864,
+    "payload_bytes": 92627,
+    "snaplen_truncated_packets": 116,
+    "linktype": 220
+  },
+  "/lab/results-5/13-disconnect.pcap": {
+    "sha256": "9628fee1e1ff19731b54504ce6734c43d8baed5821e3e4e69d94ee8f40658b53",
+    "packets": 842,
+    "payload_bytes": 90745,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "/lab/results-5/2-profile0.pcap": {
+    "sha256": "f24bc4fdfc1b35dda843108e92006c72db7d2039fdaec89044c7352edd6daff2",
+    "packets": 2642,
+    "payload_bytes": 389419,
+    "snaplen_truncated_packets": 813,
+    "linktype": 220
+  },
+  "/lab/results-5/3-profile0.pcap": {
+    "sha256": "f5364d06c4b697791c2502de6ef4f4fdcb4053dcd4d2e956682415df3548417a",
+    "packets": 1742,
+    "payload_bytes": 257243,
+    "snaplen_truncated_packets": 538,
+    "linktype": 220
+  },
+  "/lab/results-5/4-profile1.pcap": {
+    "sha256": "8291f2f279b0d4bbce59a22b6269a4949963889fe91443647b6fb03e349dbbf1",
+    "packets": 1314,
+    "payload_bytes": 140739,
+    "snaplen_truncated_packets": 176,
+    "linktype": 220
+  },
+  "/lab/results-5/5-profile1.pcap": {
+    "sha256": "99d9470202e12430747311d28761eb01b740079faac5afaf6e0598e1297c6a48",
+    "packets": 864,
+    "payload_bytes": 92623,
+    "snaplen_truncated_packets": 116,
+    "linktype": 220
+  },
+  "/lab/results-5/6-profile2.pcap": {
+    "sha256": "3006ba8375e1ec6e3f07c8bcbac47e02cca0f0e2bf7e91e6b8e4b00a44c77d3f",
+    "packets": 1342,
+    "payload_bytes": 137826,
+    "snaplen_truncated_packets": 155,
+    "linktype": 220
+  },
+  "/lab/results-5/7-profile2.pcap": {
+    "sha256": "c35b6d50eef073c1b00cb42481bb54daaed805b5a3d2b3d4b499a659052f8745",
+    "packets": 918,
+    "payload_bytes": 93318,
+    "snaplen_truncated_packets": 102,
+    "linktype": 220
+  },
+  "/lab/results-5/8-protected.pcap": {
+    "sha256": "03927e072e4bf049fbede266227e8a74ccbdfb2380c13ef147e2933201132795",
+    "packets": 846,
+    "payload_bytes": 91041,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "/lab/results-5/9-duplicatea.pcap": {
+    "sha256": "b48a4e0a099c8d4e9fc70b8fe2a44f4e9368937724aa91d0f94498194642ca8e",
+    "packets": 842,
+    "payload_bytes": 90741,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  }
+}

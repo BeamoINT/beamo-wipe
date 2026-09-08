@@ -1,0 +1,6 @@
+{
+  "utc": "2026-09-07T19:20:06.207121+00:00",
+  "active_qemu_or_swtpm": [],
+  "all_test_guests_and_tpms_exited": true,
+  "note": "The transient TPM unit was already unloaded after QEMU exited; process inventory is the independent check."
+}

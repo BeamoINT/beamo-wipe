@@ -1,0 +1,9 @@
+{
+  "status": "FAIL",
+  "cases": [],
+  "product_source_sha256": "0e1253417b388e38e9938113ee9e4030a8440a2e0bdb3d6f3d0883ebee31e43c",
+  "images_before_sha256": {},
+  "images_after_sha256": {},
+  "scratch_removed": true,
+  "packet_captures": {}
+}

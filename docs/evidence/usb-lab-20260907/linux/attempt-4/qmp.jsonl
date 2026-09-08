@@ -1,0 +1,9 @@
+{"direction": "receive", "message": {"QMP": {"version": {"qemu": {"micro": 22, "minor": 2, "major": 7}, "package": "Debian 1:7.2+dfsg-7+deb12u18+b3"}, "capabilities": ["oob"]}}}
+{"direction": "send", "message": {"execute": "qmp_capabilities", "arguments": {}, "id": 1}}
+{"direction": "receive", "message": {"return": {}, "id": 1}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "canary", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-9c154440/canary.raw"}}, "id": 2}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788758083, "microseconds": 357335}, "event": "RTC_CHANGE", "data": {"offset": -1, "qom-path": "/machine/unattached/device[8]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788758084, "microseconds": 17823}, "event": "RTC_CHANGE", "data": {"offset": -1, "qom-path": "/machine/unattached/device[8]"}}}
+{"direction": "receive", "message": {"return": {}, "id": 2}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "canary", "drive": "canary", "bus": "xhci.0", "serial": "USBLABCANARY", "removable": true, "pcap": "/lab/results-4/1-canary.pcap"}, "id": 3}}
+{"direction": "receive", "message": {"return": {}, "id": 3}}

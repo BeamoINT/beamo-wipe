@@ -1,0 +1,1 @@
+cmd /k powershell -NoProfile -Command "'{0:X8}' -f (Get-PnpDeviceProperty -InstanceId 'USB\VID_46F4&PID_0003\MSFT30USBLABPROFILE2' -KeyName DEVPKEY_Device_ProblemStatus).Data"

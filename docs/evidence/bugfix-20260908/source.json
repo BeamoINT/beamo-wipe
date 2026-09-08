@@ -1,0 +1,51 @@
+{
+  "observed_utc": "2026-09-08T01:37:29.461535+00:00",
+  "baseline_head": "f7b6490036d62281e2133da642557cee6710f081",
+  "baseline_branch": "codex/desktop-entry",
+  "isolated_checkout": "/private/tmp/beamo-wipe-bugfix-20260908",
+  "baseline_was_dirty": true,
+  "files": {
+    "scripts/qemu-verify.sh": {
+      "before_sha256": "e022027615af69188badcd13746655abfddd9090fea5e718107502bdba73596f",
+      "after_sha256": "828fe82ebcf60d00e857212e2c0f3e0cf1f2a67df5f1cd5aae42f1e5abe42f72"
+    },
+    "src/beamo_wipe/copy.py": {
+      "before_sha256": "e95e3effbc45c048aaf23d9df98af4f16cdc487107b81d35ec408524a9b23731",
+      "after_sha256": "97e31cc3965c459ae9d19d6079c6b6603ac54f168622e0021ee4d952e3776fe5"
+    },
+    "src/beamo_wipe/discover.py": {
+      "before_sha256": "3e82083701fa57947130b0ccb0a7564150e01ca43a49e75d3518c555d160da5a",
+      "after_sha256": "7351d817e084b948d15b63db99507fba6337c4958c47458987a8865ab651e9f2"
+    },
+    "src/beamo_wipe/support_export.py": {
+      "before_sha256": "a9c06cecab2cea829a1235095412e12cbccc6d6570e7819fa598a1c70befee41",
+      "after_sha256": "54ebfa488750a0676073469ae321de0b4e9fbf3d3c699a1d6652dea94dfb1faa"
+    },
+    "src/beamo_wipe/ui/tk_wizard.py": {
+      "before_sha256": "6002cea8c3ca369f0244f7cc813d567095d344caaf03cbf45daf7b8229e25a89",
+      "after_sha256": "88a8140bee941087118aed4ff77b4232cfb61b12ff8202812fbbd28aa8b400f8"
+    },
+    "tests/test_tk_runtime.py": {
+      "before_sha256": "e725db5fa7c8f62ebd02a0d3d73133f5ba48ed1e4a1d9fb44cdaac2336d564d7",
+      "after_sha256": "862f0fc56fb7eea081b873a13f03c00b6b1ef8fd52f5f3c794990ea6970c35bf"
+    },
+    "tests/test_audit_20260908_boot.py": {
+      "before_sha256": null,
+      "after_sha256": "b4a5e7716ecc51821e988a24e262cfa291d734eefd61ef0ad53a0f9a71ab62a8"
+    },
+    "tests/test_audit_20260908_discovery.py": {
+      "before_sha256": null,
+      "after_sha256": "c69e4095eae5179cfd7624679319ef682c7530fcabe5f09ccaa76aa3de0484e5"
+    },
+    "tests/test_audit_20260908_reports.py": {
+      "before_sha256": null,
+      "after_sha256": "5809259f1c1a39a7e2d7bcead770a7b66cec8ae7c62e4676d6d514bdd942c59a"
+    },
+    "tests/test_audit_20260908_wizard.py": {
+      "before_sha256": null,
+      "after_sha256": "2631a5b3d931af82269f90fae51ea4691a7b7117bc7eb902a43d36ab4da4490e"
+    }
+  },
+  "status": "blocked_hosted_provenance_requires_commit",
+  "commit_push_release_performed": false
+}

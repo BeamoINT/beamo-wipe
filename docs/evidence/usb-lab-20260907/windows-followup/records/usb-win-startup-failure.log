@@ -1,0 +1,5 @@
+Sep 07 16:32:06 beamo-usb-win-0907 systemd[1]: /run/systemd/transient/usb-win-windows.service:7: Ignoring unknown escape sequences: "timeout 600 bash -c 'until grep -q SETUP_READY /var/log/usb-sim-setup.log\; do sleep 5\; done' && bash /tmp/windows-start.sh > /lab/windows-start.log 2>&1"
+Sep 07 16:32:06 beamo-usb-win-0907 systemd[1]: Started usb-win-windows.service - /bin/bash -c timeout 600 bash -c 'until grep -q SETUP_READY /var/log/usb-sim-setup.log; do sleep 5; done' && bash /tmp/windows-start.sh > /lab/windows-start.log 2>&1.
+Sep 07 16:32:06 beamo-usb-win-0907 bash[9348]: bash: -c: line 2: syntax error: unexpected end of file
+Sep 07 16:32:06 beamo-usb-win-0907 systemd[1]: usb-win-windows.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Sep 07 16:32:06 beamo-usb-win-0907 systemd[1]: usb-win-windows.service: Failed with result 'exit-code'.

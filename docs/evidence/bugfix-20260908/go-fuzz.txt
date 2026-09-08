@@ -1,0 +1,10 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/3 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 3/3 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 157355 (52411/sec), new interesting: 19 (total: 22)
+fuzz: elapsed: 6s, execs: 315720 (52811/sec), new interesting: 33 (total: 36)
+fuzz: elapsed: 9s, execs: 467412 (50563/sec), new interesting: 43 (total: 46)
+fuzz: elapsed: 12s, execs: 572646 (35084/sec), new interesting: 46 (total: 49)
+fuzz: elapsed: 15s, execs: 685250 (37533/sec), new interesting: 48 (total: 51)
+fuzz: elapsed: 15s, execs: 685250 (0/sec), new interesting: 48 (total: 51)
+PASS
+ok  	beamo-wipe/desktop	15.310s

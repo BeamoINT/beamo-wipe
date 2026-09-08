@@ -1,0 +1,6 @@
+{
+  "booleanPolicy": {},
+  "constraint": "constraints/compute.disableNestedVirtualization",
+  "etag": "CODB_NQGEJidrqwC",
+  "updateTime": "2026-09-07T20:38:56.629903Z"
+}

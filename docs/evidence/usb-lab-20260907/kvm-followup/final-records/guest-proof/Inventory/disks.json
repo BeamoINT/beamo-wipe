@@ -1,0 +1,62 @@
+[
+    {
+        "Number":  0,
+        "SerialNumber":  "QM00001",
+        "UniqueId":  "     ATAQEMU HARDDISK",
+        "Signature":  null,
+        "BusType":  "SATA",
+        "PartitionStyle":  "GPT",
+        "IsBoot":  true,
+        "IsSystem":  true,
+        "LogicalSectorSize":  512,
+        "Size":  85899345920
+    },
+    {
+        "Number":  3,
+        "SerialNumber":  "BEAMOBOOT",
+        "UniqueId":  "USBSTOR\\DISK\u0026VEN_QEMU\u0026PROD_QEMU_HARDDISK\u0026REV_2.5+\\BEAMOBOOT\u00260:USB-L936V0GNL67",
+        "Signature":  3040810019,
+        "BusType":  "USB",
+        "PartitionStyle":  "MBR",
+        "IsBoot":  false,
+        "IsSystem":  false,
+        "LogicalSectorSize":  512,
+        "Size":  2147483648
+    },
+    {
+        "Number":  1,
+        "SerialNumber":  "PROBESEED",
+        "UniqueId":  "USBSTOR\\DISK\u0026VEN_QEMU\u0026PROD_QEMU_HARDDISK\u0026REV_2.5+\\PROBESEED\u00260:USB-L936V0GNL67",
+        "Signature":  1,
+        "BusType":  "USB",
+        "PartitionStyle":  "MBR",
+        "IsBoot":  false,
+        "IsSystem":  false,
+        "LogicalSectorSize":  512,
+        "Size":  67108864
+    },
+    {
+        "Number":  4,
+        "SerialNumber":  "USBLABDIAG",
+        "UniqueId":  "USBSTOR\\DISK\u0026VEN_QEMU\u0026PROD_QEMU_HARDDISK\u0026REV_2.5+\\USBLABDIAG\u00260:USB-L936V0GNL67",
+        "Signature":  1,
+        "BusType":  "USB",
+        "PartitionStyle":  "MBR",
+        "IsBoot":  false,
+        "IsSystem":  false,
+        "LogicalSectorSize":  512,
+        "Size":  67108864
+    },
+    {
+        "Number":  2,
+        "SerialNumber":  "USBLABTOOLS",
+        "UniqueId":  "USBSTOR\\DISK\u0026VEN_QEMU\u0026PROD_QEMU_HARDDISK\u0026REV_2.5+\\USBLABTOOLS\u00260:USB-L936V0GNL67",
+        "Signature":  1,
+        "BusType":  "USB",
+        "PartitionStyle":  "MBR",
+        "IsBoot":  false,
+        "IsSystem":  false,
+        "LogicalSectorSize":  512,
+        "Size":  67108864
+    }
+]

@@ -1,0 +1,14 @@
+{
+  "utc_epoch": 1788822657.291943,
+  "actual_packaged_launcher": true,
+  "ui_ready_verified": true,
+  "firmware_entry_seeded": true,
+  "host_bootindices": [
+    -1,
+    -1
+  ],
+  "mouse": [
+    350,
+    558
+  ]
+}

@@ -1,0 +1,23 @@
+PASS windows-os
+PASS usb2-bot-windows-write-unplug-reconnect
+PASS usb3-bot-windows-write-unplug-reconnect
+Traceback (most recent call last):
+  File "/tmp/windows-bot.py", line 6, in <module>
+    windows_matrix.main()
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 120, in main
+    lab.matrix(args.product_image, args.firmware)
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 62, in matrix
+    result = self.probe('write', serial='USBLABPROTECTED')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/lab/harness/tools/usb_lab/lab.py", line 178, in probe
+    response = self.guest.read()
+               ^^^^^^^^^^^^^^^^^
+  File "/lab/harness/tools/usb_lab/lab.py", line 60, in read
+    line = self.file.readline(1024**2)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 106, in interrupted
+    raise KeyboardInterrupt('Lab interrupted; preserving failed-run evidence')
+KeyboardInterrupt: Lab interrupted; preserving failed-run evidence

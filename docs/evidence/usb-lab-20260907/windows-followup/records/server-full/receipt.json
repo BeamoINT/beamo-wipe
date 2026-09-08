@@ -1,0 +1,282 @@
+{
+  "status": "FAIL",
+  "requested_profiles": [
+    "usb2-bot",
+    "usb3-bot",
+    "usb3-uas"
+  ],
+  "firmware": "bios",
+  "cases": [
+    {
+      "case": "windows-os",
+      "evidence": {
+        "result": {
+          "disks": [
+            {
+              "size": 42949672960,
+              "serial": "QM00001",
+              "readonly": false,
+              "offline": false,
+              "transport": "SATA",
+              "number": 0,
+              "friendlyName": "QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "PROBESEED",
+              "readonly": true,
+              "offline": false,
+              "transport": "USB",
+              "number": 1,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            }
+          ],
+          "pnp": [
+            {
+              "Index": 1,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "PROBESEED"
+            },
+            {
+              "Index": 0,
+              "Model": "QEMU HARDDISK",
+              "PNPDeviceID": "SCSI\\DISK&VEN_QEMU&PROD_HARDDISK\\4&35424867&0&000000",
+              "InterfaceType": "IDE",
+              "SerialNumber": "QM00001"
+            }
+          ],
+          "os": {
+            "Caption": "Microsoft Windows Server 2022 Datacenter Evaluation",
+            "Version": "10.0.20348",
+            "BuildNumber": "20348"
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "case": "usb2-bot-windows-write-unplug-reconnect",
+      "evidence": {
+        "inventory": {
+          "disks": [
+            {
+              "size": 42949672960,
+              "serial": "QM00001",
+              "readonly": false,
+              "offline": false,
+              "transport": "SATA",
+              "number": 0,
+              "friendlyName": "QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "PROBESEED",
+              "readonly": true,
+              "offline": false,
+              "transport": "USB",
+              "number": 1,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABCANARY",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 2,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABPROFILE0",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 3,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            }
+          ],
+          "pnp": [
+            {
+              "Index": 1,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "PROBESEED"
+            },
+            {
+              "Index": 0,
+              "Model": "QEMU HARDDISK",
+              "PNPDeviceID": "SCSI\\DISK&VEN_QEMU&PROD_HARDDISK\\4&35424867&0&000000",
+              "InterfaceType": "IDE",
+              "SerialNumber": "QM00001"
+            },
+            {
+              "Index": 2,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABCANARY"
+            },
+            {
+              "Index": 3,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE0&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABPROFILE0"
+            }
+          ],
+          "os": {
+            "Caption": "Microsoft Windows Server 2022 Datacenter Evaluation",
+            "Version": "10.0.20348",
+            "BuildNumber": "20348"
+          }
+        },
+        "readback": {
+          "result": {
+            "sha256": "ece111abf5080946de58a56859e3924607a2f2ae73e240fc5c155724cf98257e"
+          },
+          "ok": true
+        }
+      }
+    },
+    {
+      "case": "usb3-bot-windows-write-unplug-reconnect",
+      "evidence": {
+        "inventory": {
+          "disks": [
+            {
+              "size": 42949672960,
+              "serial": "QM00001",
+              "readonly": false,
+              "offline": false,
+              "transport": "SATA",
+              "number": 0,
+              "friendlyName": "QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "PROBESEED",
+              "readonly": true,
+              "offline": false,
+              "transport": "USB",
+              "number": 1,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABCANARY",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 2,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABPROFILE1",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 3,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            }
+          ],
+          "pnp": [
+            {
+              "Index": 1,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "PROBESEED"
+            },
+            {
+              "Index": 0,
+              "Model": "QEMU HARDDISK",
+              "PNPDeviceID": "SCSI\\DISK&VEN_QEMU&PROD_HARDDISK\\4&35424867&0&000000",
+              "InterfaceType": "IDE",
+              "SerialNumber": "QM00001"
+            },
+            {
+              "Index": 2,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABCANARY"
+            },
+            {
+              "Index": 3,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE1&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABPROFILE1"
+            }
+          ],
+          "os": {
+            "Caption": "Microsoft Windows Server 2022 Datacenter Evaluation",
+            "Version": "10.0.20348",
+            "BuildNumber": "20348"
+          }
+        },
+        "readback": {
+          "result": {
+            "sha256": "ece111abf5080946de58a56859e3924607a2f2ae73e240fc5c155724cf98257e"
+          },
+          "ok": true
+        }
+      }
+    }
+  ],
+  "product_source_sha256": "34e6fae3021f73defbb38b90381eab870d1399613b93162f0087169327ddb221",
+  "images_before_sha256": {
+    "canary": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile0": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile1": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile2": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a"
+  },
+  "images_after_sha256": {
+    "canary": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile0": "57010fda4c8ae9d11111803a516c1d4e3af99e39d6a67399440501b2bc103725",
+    "profile1": "57010fda4c8ae9d11111803a516c1d4e3af99e39d6a67399440501b2bc103725",
+    "profile2": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a"
+  },
+  "scratch_removed": true,
+  "packet_captures": {
+    "1-canary.pcap": {
+      "sha256": "eaca9c885449a43015b2ced481a08ca4c0a665cae578a9b906d227432df5206f",
+      "bytes": 1278444
+    },
+    "4-profile1.pcap": {
+      "sha256": "89eed0855b4b240cb189e2b64c08e4fbcd588f640cef55706fa2ea405093af1a",
+      "bytes": 680196
+    },
+    "2-profile0.pcap": {
+      "sha256": "45f03e9ff9fb09f2f86b4b8dc8a133cbbc399923096bcb670bc7c114e7cbdaa4",
+      "bytes": 507532
+    },
+    "3-profile0.pcap": {
+      "sha256": "806541c5aae3fa31687b1e31b2865fb0eaa6d658764eb164b2b22499b4689af6",
+      "bytes": 293249
+    },
+    "5-profile1.pcap": {
+      "sha256": "cd368a29983016a3b03bc565ba2a35e9f1fea130a7718ae84fcf0ff562fc0bd0",
+      "bytes": 292380
+    },
+    "6-profile2.pcap": {
+      "sha256": "5ada432b21fac9b0fb64ad442c140ad1f9c2ffecc626223b08bfc12d6e1f9e35",
+      "bytes": 2352
+    }
+  }
+}

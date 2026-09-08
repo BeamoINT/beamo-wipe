@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/tmp/windows-ready.py", line 6, in <module>
+    r=p.read()
+      ^^^^^^^^
+  File "/lab/harness/tools/usb_lab/lab.py", line 60, in read
+    line = self.file.readline(1024**2)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+TimeoutError: timed out

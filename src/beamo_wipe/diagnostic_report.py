@@ -220,12 +220,23 @@ def create_report(code: str, discovery, *, ui: str, session_started: float) -> b
     return (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
+def _unique_report_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate diagnostic field")
+        result[key] = value
+    return result
+
+
 def validate_report(data: bytes) -> dict:
     """Reject added fields, raw logs and identifiers even at the worker boundary."""
     try:
         if not isinstance(data, bytes) or not 0 < len(data) <= MAX_BYTES:
             raise ValueError()
-        p = json.loads(data)
+        # The original bytes are exported. Reject duplicate fields at every
+        # depth so an overwritten value cannot hide private text from validation.
+        p = json.loads(data, object_pairs_hook=_unique_report_fields)
         if set(p) != {
             "schema_version",
             "report_type",

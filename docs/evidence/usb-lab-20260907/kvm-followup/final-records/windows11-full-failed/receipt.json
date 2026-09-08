@@ -1,0 +1,282 @@
+{
+  "status": "FAIL",
+  "requested_profiles": [
+    "usb2-bot",
+    "usb3-bot",
+    "usb3-uas"
+  ],
+  "firmware": "uefi",
+  "cases": [
+    {
+      "case": "windows-os",
+      "evidence": {
+        "result": {
+          "disks": [
+            {
+              "size": 85899345920,
+              "serial": "QM00001",
+              "readonly": false,
+              "offline": false,
+              "transport": "SATA",
+              "number": 0,
+              "friendlyName": "QEMU HARDDISK",
+              "partitionStyle": "GPT"
+            },
+            {
+              "size": 67108864,
+              "serial": "PROBESEED",
+              "readonly": true,
+              "offline": false,
+              "transport": "USB",
+              "number": 1,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            }
+          ],
+          "pnp": [
+            {
+              "Index": 0,
+              "Model": "QEMU HARDDISK",
+              "PNPDeviceID": "SCSI\\DISK&VEN_QEMU&PROD_HARDDISK\\4&35424867&0&000000",
+              "InterfaceType": "IDE",
+              "SerialNumber": "QM00001"
+            },
+            {
+              "Index": 1,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "PROBESEED"
+            }
+          ],
+          "os": {
+            "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+            "Version": "10.0.26200",
+            "BuildNumber": "26200"
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "case": "usb2-bot-windows-write-unplug-reconnect",
+      "evidence": {
+        "inventory": {
+          "disks": [
+            {
+              "size": 85899345920,
+              "serial": "QM00001",
+              "readonly": false,
+              "offline": false,
+              "transport": "SATA",
+              "number": 0,
+              "friendlyName": "QEMU HARDDISK",
+              "partitionStyle": "GPT"
+            },
+            {
+              "size": 67108864,
+              "serial": "PROBESEED",
+              "readonly": true,
+              "offline": false,
+              "transport": "USB",
+              "number": 1,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABCANARY",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 2,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABPROFILE0",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 3,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            }
+          ],
+          "pnp": [
+            {
+              "Index": 0,
+              "Model": "QEMU HARDDISK",
+              "PNPDeviceID": "SCSI\\DISK&VEN_QEMU&PROD_HARDDISK\\4&35424867&0&000000",
+              "InterfaceType": "IDE",
+              "SerialNumber": "QM00001"
+            },
+            {
+              "Index": 1,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "PROBESEED"
+            },
+            {
+              "Index": 2,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABCANARY"
+            },
+            {
+              "Index": 3,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE0&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABPROFILE0"
+            }
+          ],
+          "os": {
+            "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+            "Version": "10.0.26200",
+            "BuildNumber": "26200"
+          }
+        },
+        "readback": {
+          "result": {
+            "sha256": "ece111abf5080946de58a56859e3924607a2f2ae73e240fc5c155724cf98257e"
+          },
+          "ok": true
+        }
+      }
+    },
+    {
+      "case": "usb3-bot-windows-write-unplug-reconnect",
+      "evidence": {
+        "inventory": {
+          "disks": [
+            {
+              "size": 85899345920,
+              "serial": "QM00001",
+              "readonly": false,
+              "offline": false,
+              "transport": "SATA",
+              "number": 0,
+              "friendlyName": "QEMU HARDDISK",
+              "partitionStyle": "GPT"
+            },
+            {
+              "size": 67108864,
+              "serial": "PROBESEED",
+              "readonly": true,
+              "offline": false,
+              "transport": "USB",
+              "number": 1,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABCANARY",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 2,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            },
+            {
+              "size": 67108864,
+              "serial": "USBLABPROFILE1",
+              "readonly": false,
+              "offline": false,
+              "transport": "USB",
+              "number": 3,
+              "friendlyName": "QEMU QEMU HARDDISK",
+              "partitionStyle": "MBR"
+            }
+          ],
+          "pnp": [
+            {
+              "Index": 0,
+              "Model": "QEMU HARDDISK",
+              "PNPDeviceID": "SCSI\\DISK&VEN_QEMU&PROD_HARDDISK\\4&35424867&0&000000",
+              "InterfaceType": "IDE",
+              "SerialNumber": "QM00001"
+            },
+            {
+              "Index": 1,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "PROBESEED"
+            },
+            {
+              "Index": 2,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABCANARY"
+            },
+            {
+              "Index": 3,
+              "Model": "QEMU QEMU HARDDISK USB Device",
+              "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE1&0",
+              "InterfaceType": "USB",
+              "SerialNumber": "USBLABPROFILE1"
+            }
+          ],
+          "os": {
+            "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+            "Version": "10.0.26200",
+            "BuildNumber": "26200"
+          }
+        },
+        "readback": {
+          "result": {
+            "sha256": "ece111abf5080946de58a56859e3924607a2f2ae73e240fc5c155724cf98257e"
+          },
+          "ok": true
+        }
+      }
+    }
+  ],
+  "product_source_sha256": "21832071c4b28c4d8a2815e9d2a9c853e1396ed3d56433c1ea3ffc0906300c67",
+  "images_before_sha256": {
+    "canary": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile0": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile1": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile2": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a"
+  },
+  "images_after_sha256": {
+    "canary": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a",
+    "profile0": "57010fda4c8ae9d11111803a516c1d4e3af99e39d6a67399440501b2bc103725",
+    "profile1": "57010fda4c8ae9d11111803a516c1d4e3af99e39d6a67399440501b2bc103725",
+    "profile2": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a"
+  },
+  "scratch_removed": true,
+  "packet_captures": {
+    "1-canary.pcap": {
+      "sha256": "55139a75584676b05b5c72bb9f104ef95b10e066b2a1bd4d77b2335d71a60654",
+      "bytes": 1676024
+    },
+    "4-profile1.pcap": {
+      "sha256": "90453e0752e6d8f7e311d5549d746d1fe5e58209cfd16005cda81c42fa8043e2",
+      "bytes": 138252
+    },
+    "2-profile0.pcap": {
+      "sha256": "27d79c028536961b34cd5c819e95b72fa89c3cf3d5f974d829145110132d16cf",
+      "bytes": 190285
+    },
+    "3-profile0.pcap": {
+      "sha256": "35c12f5ef9b5d6022840a465cfd142f2a8864d84f016f72634f982d27dac4b22",
+      "bytes": 106192
+    },
+    "5-profile1.pcap": {
+      "sha256": "50a601adaf096bde4124cd77cc47e93122570ce6f7c1fb359340be2ca5e49c21",
+      "bytes": 314280
+    },
+    "6-profile2.pcap": {
+      "sha256": "227e40f2e7dcf8e3035714b67ddfee2a4cd173750fea212669dcfadbd58e41cf",
+      "bytes": 2352
+    }
+  }
+}

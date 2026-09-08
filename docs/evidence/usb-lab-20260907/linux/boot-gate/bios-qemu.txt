@@ -1,0 +1,4 @@
+Could not access KVM kernel module: No such file or directory
+qemu-system-x86_64: failed to initialize kvm: No such file or directory
+qemu-system-x86_64: falling back to tcg
+qemu-system-x86_64: terminating on signal 15 from pid 261514 (bash)

@@ -1,0 +1,3 @@
+beamo-wipe-0.2.5-amd64.iso: OK
+beamo-wipe-0.2.5-amd64.img: OK
+beamo-wipe-0.2.5-amd64.manifest.json: OK

@@ -1,0 +1,2 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot9001 "USB Lab Exact Beamo Entry" from HD(1,MBR,0xC9AB0775,0x800,0x3FF800)/\EFI\BOOT\BOOTX64.EFI
+BdsDxe: starting Boot9001 "USB Lab Exact Beamo Entry" from HD(1,MBR,0xC9AB0

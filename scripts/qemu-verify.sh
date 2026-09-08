@@ -30,7 +30,7 @@ fi
 BOOT_WAIT_SECONDS=120
 if [[ ! -r /dev/kvm ]]; then BOOT_WAIT_SECONDS=300; fi
 
-VERSION="${BEAMO_WIPE_VERSION:-0.2.5}"
+VERSION="${BEAMO_WIPE_VERSION:-0.2.6}"
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "ABORT: invalid BEAMO_WIPE_VERSION" >&2
   exit 2
@@ -800,6 +800,9 @@ drive_report_export() {
   send_key_for_marker "$label" "$qmp_socket" 3 BEAMO_WIPE_SCREEN_METHOD 20
   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_LAST_CHANCE 20
   sleep 6
+  # The final screen starts with Back focused. Explicitly select Erase now;
+  # Return follows focus and must never erase from the safe default button.
+  send_key "$qmp_socket" tab
   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_WORKING 20
   wait_for_marker "$label" BEAMO_WIPE_SCREEN_DONE 300
 
@@ -807,6 +810,9 @@ drive_report_export() {
   # newly inserted USB that was absent from the wipe's protected baseline.
   qmp_request "$qmp_socket" hotplug-report "$REPORT_RAW"
   sleep 5
+  # From Shut down, Tab visits the keyboard-accessible Show more control,
+  # then Save report. Keep this in sync with the real Tk traversal test.
+  send_key "$qmp_socket" tab
   send_key "$qmp_socket" tab
   send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_REPORT_SAVING 20
   wait_for_report_saved "$label"

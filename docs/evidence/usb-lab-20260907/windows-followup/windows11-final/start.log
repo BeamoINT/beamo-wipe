@@ -1,0 +1,5 @@
+mkfs.fat 4.2 (2021-01-31)
+Private deployment seed prepared; no credential values emitted
+Formatting 'guest.qcow2', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=85899345920 lazy_refcounts=off refcount_bits=16
+Running as unit: usb-win11-tpm.service
+qemu-system-x86_64: terminating on signal 15 from pid 1 (/sbin/init)

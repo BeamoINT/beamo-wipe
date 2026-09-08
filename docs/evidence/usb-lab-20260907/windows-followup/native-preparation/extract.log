@@ -1,0 +1,17 @@
+xorriso 1.5.4 : RockRidge filesystem manipulator, libburnia project.
+
+Copying of file objects from ISO image to disk filesystem is: Enabled
+xorriso : NOTE : Loading ISO image tree from LBA 0
+xorriso : UPDATE :       1 nodes read in 1 seconds
+libisofs: WARNING : Found hidden El-Torito image. Its size could not be figured out, so image modify or boot image patching may lead to bad results.
+libisofs: NOTE : Found hidden El-Torito image for EFI.
+libisofs: NOTE : EFI image start and size: 536 * 2048 , 1 * 512
+xorriso : NOTE : Detected El-Torito boot information which currently is set to be discarded
+Drive current: -indev '/lab/windows-11/evaluation.iso'
+Media current: stdio file, overwriteable
+Media status : is written , is appendable
+Boot record  : El Torito
+Media summary: 1 session, 3463285 data blocks, 6764m data, 56.5g free
+Volume id    : 'CENA_X64FREE_EN-US_DV9'
+xorriso : FAILURE : Cannot determine attributes of (ISO) source file '/sources/install.wim' : No such file or directory
+xorriso : aborting : -abort_on 'FAILURE' encountered 'FAILURE'

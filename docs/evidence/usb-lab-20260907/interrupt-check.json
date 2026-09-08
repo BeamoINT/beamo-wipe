@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "purpose": "intentional SIGTERM cleanup regression",
+  "runner_exit": -2,
+  "qemu_exited": true,
+  "scratch_removed": true
+}

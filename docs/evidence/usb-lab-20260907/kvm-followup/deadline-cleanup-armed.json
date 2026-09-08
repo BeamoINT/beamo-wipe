@@ -1,0 +1,7 @@
+{
+  "live_exec_session": "46310",
+  "start_cleanup_utc": "2026-09-07T23:32:40Z",
+  "VM_automatic_delete_utc": "2026-09-07T23:42:40.635901Z",
+  "includes": "Exact lab teardown, conditional etag-protected policy restoration, exact temporary key revocation",
+  "status": "ARMED_NOT_YET_EXECUTED"
+}

@@ -1,0 +1,60 @@
+{
+  "project": "beamo-wipe",
+  "instance": "beamo-usb-win-0907",
+  "instance_id": "6798786404839282832",
+  "zone": "us-central1-b",
+  "machine_type": "e2-standard-8",
+  "deadline": "2026-09-07T19:29:52.643923Z",
+  "accelerator": "tcg",
+  "product_source": "f7b6490036d62281e2133da642557cee6710f081",
+  "harness_snapshot": "c6540e09e1ad717c9932800edaae8908e840583f",
+  "windows11": {
+    "status": "BOOTED_INSTALLED_OS_SETUP_INCOMPLETE_NO_NATIVE_MATRIX_GUEST_STOPPED",
+    "edition": "Windows 11 Enterprise Evaluation 25H2",
+    "architecture": "x86_64",
+    "image_index": 1,
+    "build": "26200.6584",
+    "bytes": 7092807680,
+    "sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+    "download_url": "https://aka.ms/Win11E-ISO-25H2-en-us",
+    "hash_document": "https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/microsoft/bade/documents/products-and-services/en-us/owned-and-operated/Verify-Download-Win11-Enterprise.pdf",
+    "uefi": "OVMF_CODE_4M.ms.fd + OVMF_VARS_4M.ms.fd",
+    "tpm": "swtpm TPM2",
+    "virtual_os_disk": "new 80 GiB qcow2",
+    "guest_network": false,
+    "requirements_bypassed": false,
+    "native_version": "10.0.26200.6584",
+    "SystemSetupInProgress": 1,
+    "last_install_percentage": 42,
+    "receipt": "windows11-final/receipt.json"
+  },
+  "windows_server2022": {
+    "status": "BOT_7_CASES_PASS_UAS_DEVICE_START_FAIL_GUI_VERIFIED_GUEST_STOPPED",
+    "firmware": "bios",
+    "sha256": "588355586a3b99f1d47cee02f4861680a7e1bcb353582fbe7da11e2988e7562f",
+    "guest_network": false,
+    "setup": "Removable answer file was not applied; initial setup completed manually. Exact precedence cause unverified.",
+    "clock_note": "Guest retained default Pacific time zone and interpreted the UTC RTC as local time; use host/QMP timing for cross-log chronology.",
+    "native_uas_problem_code": 10,
+    "native_uas_problem_status": "0xC0000001",
+    "native_uas_service": "UASPStor",
+    "evidence": "records/server-bot/receipt.json",
+    "process_exit": "records/server-process-exit.json"
+  },
+  "windows11_native_preparation": {
+    "status": "IMAGE_APPLY_AND_ALL_PARTITION_BYTES_VERIFIED_NOT_BOOTED",
+    "same_iso_and_image_index": true,
+    "regular_file_disk_bytes": 85899345920,
+    "efi_bytes_compared": 272629760,
+    "windows_bytes_compared": 85607841792,
+    "efi_sha256": "b0379a7e4af1188d7a2db17543d5ebf82aa87bb5f52de5d8fad4914fba17be53",
+    "windows_partition_sha256": "15d6b6329a418ae24450cb20941078b1d0148db60b77312074f93c08f88fcf8c",
+    "gpt_verified": true,
+    "boot_configuration_executed": false,
+    "verified_regions": [
+      "EFI",
+      "Windows"
+    ],
+    "MSR_check": "GPT layout validated"
+  }
+}

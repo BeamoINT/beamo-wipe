@@ -1,0 +1,38 @@
+[
+  {
+    "case": "settled-desktop-packaged-check",
+    "evidence": {
+      "result": {
+        "hashes": {
+          "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db",
+          "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e"
+        },
+        "exit_code": 0,
+        "volume": "G",
+        "driveType": "Removable",
+        "check": {
+          "ready": false,
+          "preview": false,
+          "title": "Use the computer's boot menu",
+          "detail": "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+          "version": "0.2.5"
+        }
+      },
+      "ok": true
+    }
+  },
+  {
+    "case": "etw-uas-attached",
+    "evidence": {
+      "epoch": 1788818445.724158,
+      "profile": "usb3-uas"
+    }
+  },
+  {
+    "case": "etw-uas-detached",
+    "evidence": {
+      "epoch": 1788818517.8202825,
+      "native_code10_rows": 10
+    }
+  }
+]

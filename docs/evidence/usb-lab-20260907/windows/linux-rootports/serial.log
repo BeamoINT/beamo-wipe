@@ -1,0 +1,1051 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HEFI stub: Loaded initrd from LINUX_EFI_INITRD_MEDIA_GUID device path
+[    0.000000] Linux version 6.1.0-52-amd64 (debian-kernel@lists.debian.org) (gcc-12 (Debian 12.2.0-14+deb12u1) 12.2.0, GNU ld (GNU Binutils for Debian) 2.40) #1 SMP PREEMPT_DYNAMIC Debian 6.1.180-1 (2026-08-03)
+[    0.000000] Command line: root=/dev/vda rw console=ttyS0,115200 systemd.unit=multi-user.target initrd=initrd
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x0000000000805fff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000806000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000007ea9ffff] usable
+[    0.000000] BIOS-e820: [mem 0x000000007eaa0000-0x000000007eba1fff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000007eba2000-0x000000007f4ebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000007f4ec000-0x000000007f76bfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000007f76c000-0x000000007f77dfff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000007f77e000-0x000000007f7fdfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000007f7fe000-0x000000007fef3fff] usable
+[    0.000000] BIOS-e820: [mem 0x000000007fef4000-0x000000007ff77fff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000007ff78000-0x000000007fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000b0000000-0x00000000bfffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] extended physical RAM map:
+[    0.000000] reserve setup_data: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] reserve setup_data: [mem 0x0000000000100000-0x0000000000805fff] usable
+[    0.000000] reserve setup_data: [mem 0x0000000000806000-0x0000000000807fff] ACPI NVS
+[    0.000000] reserve setup_data: [mem 0x0000000000808000-0x000000000080ffff] usable
+[    0.000000] reserve setup_data: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] reserve setup_data: [mem 0x0000000000900000-0x000000007dd10017] usable
+[    0.000000] reserve setup_data: [mem 0x000000007dd10018-0x000000007dd19c57] usable
+[    0.000000] reserve setup_data: [mem 0x000000007dd19c58-0x000000007ea9ffff] usable
+[    0.000000] reserve setup_data: [mem 0x000000007eaa0000-0x000000007eba1fff] reserved
+[    0.000000] reserve setup_data: [mem 0x000000007eba2000-0x000000007f4ebfff] usable
+[    0.000000] reserve setup_data: [mem 0x000000007f4ec000-0x000000007f76bfff] reserved
+[    0.000000] reserve setup_data: [mem 0x000000007f76c000-0x000000007f77dfff] ACPI data
+[    0.000000] reserve setup_data: [mem 0x000000007f77e000-0x000000007f7fdfff] ACPI NVS
+[    0.000000] reserve setup_data: [mem 0x000000007f7fe000-0x000000007fef3fff] usable
+[    0.000000] reserve setup_data: [mem 0x000000007fef4000-0x000000007ff77fff] reserved
+[    0.000000] reserve setup_data: [mem 0x000000007ff78000-0x000000007fffffff] ACPI NVS
+[    0.000000] reserve setup_data: [mem 0x00000000b0000000-0x00000000bfffffff] reserved
+[    0.000000] reserve setup_data: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] efi: EFI v2.70 by EDK II
+[    0.000000] efi: SMBIOS=0x7f520000 ACPI=0x7f77d000 ACPI 2.0=0x7f77d014 MEMATTR=0x7dd1f018 INITRD=0x7dd20f18 
+[    0.000000] secureboot: Secure boot disabled
+[    0.000000] SMBIOS 2.8 present.
+[    0.000000] DMI: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 0.0.0 02/06/2015
+[    0.000000] tsc: Fast TSC calibration using PIT
+[    0.000000] tsc: Detected 2799.994 MHz processor
+[    0.003320] last_pfn = 0x7fef4 max_arch_pfn = 0x10000000000
+[    0.004665] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.059585] Using GB pages for direct mapping
+[    0.070179] RAMDISK: [mem 0x76ac7000-0x7931dfff]
+[    0.070973] ACPI: Early table checksum verification disabled
+[    0.071592] ACPI: RSDP 0x000000007F77D014 000024 (v02 BOCHS )
+[    0.072013] ACPI: XSDT 0x000000007F77C0E8 000054 (v01 BOCHS  BXPC     00000001      01000013)
+[    0.072877] ACPI: FACP 0x000000007F778000 0000F4 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.073922] ACPI: DSDT 0x000000007F779000 00213C (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.074112] ACPI: FACS 0x000000007F7DC000 000040
+[    0.074216] ACPI: APIC 0x000000007F777000 000078 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.074265] ACPI: HPET 0x000000007F776000 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.074325] ACPI: MCFG 0x000000007F775000 00003C (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.074371] ACPI: WAET 0x000000007F774000 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.074410] ACPI: BGRT 0x000000007F773000 000038 (v01 INTEL  EDK2     00000002      01000013)
+[    0.074533] ACPI: Reserving FACP table memory at [mem 0x7f778000-0x7f7780f3]
+[    0.074584] ACPI: Reserving DSDT table memory at [mem 0x7f779000-0x7f77b13b]
+[    0.074597] ACPI: Reserving FACS table memory at [mem 0x7f7dc000-0x7f7dc03f]
+[    0.074609] ACPI: Reserving APIC table memory at [mem 0x7f777000-0x7f777077]
+[    0.074619] ACPI: Reserving HPET table memory at [mem 0x7f776000-0x7f776037]
+[    0.074628] ACPI: Reserving MCFG table memory at [mem 0x7f775000-0x7f77503b]
+[    0.074638] ACPI: Reserving WAET table memory at [mem 0x7f774000-0x7f774027]
+[    0.074647] ACPI: Reserving BGRT table memory at [mem 0x7f773000-0x7f773037]
+[    0.078659] No NUMA configuration found
+[    0.078702] Faking a node at [mem 0x0000000000000000-0x000000007fef3fff]
+[    0.079802] NODE_DATA(0) allocated [mem 0x7fe56000-0x7fe80fff]
+[    0.091690] Zone ranges:
+[    0.091749]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]
+[    0.091872]   DMA32    [mem 0x0000000001000000-0x000000007fef3fff]
+[    0.091893]   Normal   empty
+[    0.091919]   Device   empty
+[    0.091939] Movable zone start for each node
+[    0.091993] Early memory node ranges
+[    0.092040]   node   0: [mem 0x0000000000001000-0x000000000009ffff]
+[    0.092261]   node   0: [mem 0x0000000000100000-0x0000000000805fff]
+[    0.092275]   node   0: [mem 0x0000000000808000-0x000000000080ffff]
+[    0.092286]   node   0: [mem 0x0000000000900000-0x000000007ea9ffff]
+[    0.092337]   node   0: [mem 0x000000007eba2000-0x000000007f4ebfff]
+[    0.092348]   node   0: [mem 0x000000007f7fe000-0x000000007fef3fff]
+[    0.092738] Initmem setup node 0 [mem 0x0000000000001000-0x000000007fef3fff]
+[    0.094837] On node 0, zone DMA: 1 pages in unavailable ranges
+[    0.095197] On node 0, zone DMA: 96 pages in unavailable ranges
+[    0.095216] On node 0, zone DMA: 2 pages in unavailable ranges
+[    0.095416] On node 0, zone DMA: 240 pages in unavailable ranges
+[    0.101496] On node 0, zone DMA32: 258 pages in unavailable ranges
+[    0.101663] On node 0, zone DMA32: 786 pages in unavailable ranges
+[    0.101748] On node 0, zone DMA32: 268 pages in unavailable ranges
+[    0.102393] ACPI: PM-Timer IO Port: 0x608
+[    0.103105] ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
+[    0.103736] IOAPIC[0]: apic_id 0, version 32, address 0xfec00000, GSI 0-23
+[    0.103935] ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+[    0.104302] ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 high level)
+[    0.104374] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    0.104514] ACPI: INT_SRC_OVR (bus 0 bus_irq 10 global_irq 10 high level)
+[    0.104531] ACPI: INT_SRC_OVR (bus 0 bus_irq 11 global_irq 11 high level)
+[    0.104803] ACPI: Using ACPI (MADT) for SMP configuration information
+[    0.104879] ACPI: HPET id: 0x8086a201 base: 0xfed00000
+[    0.106555] smpboot: Allowing 1 CPUs, 0 hotplug CPUs
+[    0.108092] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    0.108146] PM: hibernation: Registered nosave memory: [mem 0x000a0000-0x000fffff]
+[    0.108166] PM: hibernation: Registered nosave memory: [mem 0x00806000-0x00807fff]
+[    0.108183] PM: hibernation: Registered nosave memory: [mem 0x00810000-0x008fffff]
+[    0.108199] PM: hibernation: Registered nosave memory: [mem 0x7dd22000-0x7dd2afff]
+[    0.108215] PM: hibernation: Registered nosave memory: [mem 0x7eaa0000-0x7eba1fff]
+[    0.108231] PM: hibernation: Registered nosave memory: [mem 0x7f4ec000-0x7f7fdfff]
+[    0.108427] [mem 0xc0000000-0xffbfffff] available for PCI devices
+[    0.108510] Booting paravirtualized kernel on bare hardware
+[    0.109033] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645519600211568 ns
+[    0.124068] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:1 nr_cpu_ids:1 nr_node_ids:1
+[    0.131533] percpu: Embedded 62 pages/cpu s217088 r8192 d28672 u2097152
+[    0.134598] Fallback order for Node 0: 0 
+[    0.135033] Built 1 zonelists, mobility grouping on.  Total pages: 512503
+[    0.135064] Policy zone: DMA32
+[    0.135358] Kernel command line: root=/dev/vda rw console=ttyS0,115200 systemd.unit=multi-user.target initrd=initrd
+[    0.137778] random: crng init done
+[    0.143538] Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.146384] Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.149004] mem auto-init: stack:all(zero), heap alloc:on, heap free:off
+[    0.195495] Memory: 194344K/2090548K available (14343K kernel code, 2338K rwdata, 9120K rodata, 2816K init, 17356K bss, 217328K reserved, 0K cma-reserved)
+[    0.204893] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.209216] ftrace: allocating 40450 entries in 159 pages
+[    0.269426] ftrace: allocated 159 pages with 6 groups
+[    0.283502] Dynamic Preempt: voluntary
+[    0.288862] rcu: Preemptible hierarchical RCU implementation.
+[    0.288920] rcu: 	RCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=1.
+[    0.289088] 	Trampoline variant of Tasks RCU enabled.
+[    0.289102] 	Rude variant of Tasks RCU enabled.
+[    0.289115] 	Tracing variant of Tasks RCU enabled.
+[    0.289292] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.289347] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=1
+[    0.338085] NR_IRQS: 524544, nr_irqs: 256, preallocated irqs: 16
+[    0.347529] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.354630] Console: colour dummy device 80x25
+[    0.383087] printk: console [ttyS0] enabled
+[    0.384870] ACPI: Core revision 20220331
+[    0.393040] clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
+[    0.400160] APIC: Switch to symmetric I/O mode setup
+[    0.401317] x2apic: IRQ remapping doesn't support X2APIC mode
+[    0.410076] ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
+[    0.431554] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x285c3aeaff3, max_idle_ns: 440795255742 ns
+[    0.432530] Calibrating delay loop (skipped), value calculated using timer frequency.. 5599.98 BogoMIPS (lpj=11199976)
+[    0.440239] x86/cpu: User Mode Instruction Prevention (UMIP) activated
+[    0.450826] Last level iTLB entries: 4KB 0, 2MB 0, 4MB 0
+[    0.451310] Last level dTLB entries: 4KB 0, 2MB 0, 4MB 0, 1GB 0
+[    0.453550] Spectre V1 : Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+[    0.454427] Spectre V2 : Mitigation: Retpolines
+[    0.454622] Spectre V2 : Spectre v2 / SpectreRSB: Filling RSB on context switch and VMEXIT
+[    0.454955] Speculative Store Bypass: Vulnerable
+[    0.461982] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[    0.471551] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[    0.471830] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[    0.472029] x86/fpu: Supporting XSAVE feature 0x008: 'MPX bounds registers'
+[    0.472182] x86/fpu: Supporting XSAVE feature 0x010: 'MPX CSR'
+[    0.472531] x86/fpu: Supporting XSAVE feature 0x200: 'Protection Keys User registers'
+[    0.472941] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[    0.473322] x86/fpu: xstate_offset[3]:  960, xstate_sizes[3]:   64
+[    0.473505] x86/fpu: xstate_offset[4]: 1024, xstate_sizes[4]:   64
+[    0.473681] x86/fpu: xstate_offset[9]: 2688, xstate_sizes[9]:    8
+[    0.473882] x86/fpu: Enabled xstate features 0x21f, context size is 2696 bytes, using 'standard' format.
+[    0.869050] Freeing SMP alternatives memory: 36K
+[    0.870283] pid_max: default: 32768 minimum: 301
+[    0.906530] LSM: Security Framework initializing
+[    0.908697] landlock: Up and running.
+[    0.908868] Yama: disabled by default; enable with sysctl kernel.yama.*
+[    0.913367] AppArmor: AppArmor initialized
+[    0.913607] TOMOYO Linux initialized
+[    0.914443] LSM support for eBPF active
+[    0.920204] Mount-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.920609] Mountpoint-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    1.076134] smpboot: CPU0: AMD QEMU TCG CPU version 2.5+ (family: 0x6, model: 0x6, stepping: 0x3)
+[    1.086360] cblist_init_generic: Setting adjustable number of callback queues.
+[    1.086684] cblist_init_generic: Setting shift to 0 and lim to 1.
+[    1.087312] cblist_init_generic: Setting adjustable number of callback queues.
+[    1.087564] cblist_init_generic: Setting shift to 0 and lim to 1.
+[    1.088523] cblist_init_generic: Setting adjustable number of callback queues.
+[    1.088777] cblist_init_generic: Setting shift to 0 and lim to 1.
+[    1.089543] Performance Events: PMU not available due to virtualization, using software events only.
+[    1.091598] signal: max sigframe size: 3632
+[    1.093199] rcu: Hierarchical SRCU implementation.
+[    1.093412] rcu: 	Max phase no-delay instances is 1000.
+[    1.101453] NMI watchdog: Perf NMI watchdog permanently disabled
+[    1.106397] smp: Bringing up secondary CPUs ...
+[    1.106688] smp: Brought up 1 node, 1 CPU
+[    1.106860] smpboot: Max logical packages: 1
+[    1.107084] smpboot: Total of 1 processors activated (5599.98 BogoMIPS)
+[    1.162798] node 0 deferred pages initialised in 44ms
+[    1.182791] devtmpfs: initialized
+[    1.188958] x86/mm: Memory block size: 128MB
+[    1.199172] ACPI: PM: Registering ACPI NVS region [mem 0x00806000-0x00807fff] (8192 bytes)
+[    1.199748] ACPI: PM: Registering ACPI NVS region [mem 0x00810000-0x008fffff] (983040 bytes)
+[    1.200352] ACPI: PM: Registering ACPI NVS region [mem 0x7f77e000-0x7f7fdfff] (524288 bytes)
+[    1.200722] ACPI: PM: Registering ACPI NVS region [mem 0x7ff78000-0x7fffffff] (557056 bytes)
+[    1.203451] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    1.204538] futex hash table entries: 256 (order: 2, 16384 bytes, linear)
+[    1.209228] pinctrl core: initialized pinctrl subsystem
+[    1.242816] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    1.249640] DMA: preallocated 256 KiB GFP_KERNEL pool for atomic allocations
+[    1.250940] DMA: preallocated 256 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[    1.252475] DMA: preallocated 256 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[    1.253014] audit: initializing netlink subsys (disabled)
+[    1.260790] audit: type=2000 audit(1788766275.856:1): state=initialized audit_enabled=0 res=1
+[    1.263781] thermal_sys: Registered thermal governor 'fair_share'
+[    1.263836] thermal_sys: Registered thermal governor 'bang_bang'
+[    1.264049] thermal_sys: Registered thermal governor 'step_wise'
+[    1.264181] thermal_sys: Registered thermal governor 'user_space'
+[    1.264351] thermal_sys: Registered thermal governor 'power_allocator'
+[    1.266736] cpuidle: using governor ladder
+[    1.267276] cpuidle: using governor menu
+[    1.284400] efi: Freeing EFI boot services memory: 83632K
+[    1.284950] acpiphp: ACPI Hot Plug PCI Controller Driver version: 0.5
+[    1.288884] PCI: MMCONFIG for domain 0000 [bus 00-ff] at [mem 0xb0000000-0xbfffffff] (base 0xb0000000)
+[    1.290072] PCI: MMCONFIG at [mem 0xb0000000-0xbfffffff] reserved in E820
+[    1.293869] PCI: Using configuration type 1 for base access
+[    1.314855] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[    1.395628] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[    1.395914] HugeTLB: 16380 KiB vmemmap can be freed for a 1.00 GiB page
+[    1.396177] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[    1.396378] HugeTLB: 28 KiB vmemmap can be freed for a 2.00 MiB page
+[    1.448225] ACPI: Added _OSI(Module Device)
+[    1.448454] ACPI: Added _OSI(Processor Device)
+[    1.448585] ACPI: Added _OSI(Processor Aggregator Device)
+[    1.491195] ACPI: 1 ACPI AML tables successfully acquired and loaded
+[    1.515843] ACPI: Interpreter enabled
+[    1.517798] ACPI: PM: (supports S0 S3 S4 S5)
+[    1.518021] ACPI: Using IOAPIC for interrupt routing
+[    1.519766] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[    1.520223] PCI: Using E820 reservations for host bridge windows
+[    1.522401] ACPI: Enabled 2 GPEs in block 00 to 3F
+[    1.560714] ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
+[    1.565024] acpi PNP0A08:00: _OSC: OS supports [ExtendedConfig ASPM ClockPM Segments MSI HPX-Type3]
+[    1.567179] acpi PNP0A08:00: _OSC: platform does not support [PCIeHotplug LTR]
+[    1.568881] acpi PNP0A08:00: _OSC: OS now controls [SHPCHotplug PME AER PCIeCapability]
+[    1.576223] PCI host bridge to bus 0000:00
+[    1.576683] pci_bus 0000:00: root bus resource [io  0x0000-0x0cf7 window]
+[    1.577025] pci_bus 0000:00: root bus resource [io  0x0d00-0xffff window]
+[    1.577223] pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000bffff window]
+[    1.577426] pci_bus 0000:00: root bus resource [mem 0x80000000-0xafffffff window]
+[    1.577627] pci_bus 0000:00: root bus resource [mem 0xc0000000-0xfebfffff window]
+[    1.577827] pci_bus 0000:00: root bus resource [mem 0xe000000000-0xe7ffffffff window]
+[    1.578261] pci_bus 0000:00: root bus resource [bus 00-ff]
+[    1.580688] pci 0000:00:00.0: [8086:29c0] type 00 class 0x060000
+[    1.587152] pci 0000:00:01.0: [1234:1111] type 00 class 0x030000
+[    1.589118] pci 0000:00:01.0: BAR 0 [mem 0xc0000000-0xc0ffffff pref]
+[    1.592194] pci 0000:00:01.0: BAR 2 [mem 0xc1014000-0xc1014fff]
+[    1.596967] pci 0000:00:01.0: ROM [mem 0xffff0000-0xffffffff pref]
+[    1.597555] pci 0000:00:01.0: BAR 0: assigned to efifb
+[    1.597964] pci 0000:00:01.0: Video device with shadowed ROM at [mem 0x000c0000-0x000dffff]
+[    1.603194] pci 0000:00:02.0: [1af4:1003] type 00 class 0x078000
+[    1.604895] pci 0000:00:02.0: BAR 0 [io  0x60c0-0x60ff]
+[    1.606506] pci 0000:00:02.0: BAR 1 [mem 0xc1013000-0xc1013fff]
+[    1.611320] pci 0000:00:02.0: BAR 4 [mem 0xe000000000-0xe000003fff 64bit pref]
+[    1.617415] pci 0000:00:03.0: [1b36:000d] type 00 class 0x0c0330
+[    1.618227] pci 0000:00:03.0: BAR 0 [mem 0xe000008000-0xe00000bfff 64bit]
+[    1.621707] pci 0000:00:03.0: enabling Extended Tags
+[    1.623313] pci 0000:00:04.0: [8086:24cd] type 00 class 0x0c0320
+[    1.624201] pci 0000:00:04.0: BAR 0 [mem 0xc1012000-0xc1012fff]
+[    1.630156] pci 0000:00:05.0: [1af4:1001] type 00 class 0x010000
+[    1.631587] pci 0000:00:05.0: BAR 0 [io  0x6000-0x607f]
+[    1.632837] pci 0000:00:05.0: BAR 1 [mem 0xc1011000-0xc1011fff]
+[    1.637226] pci 0000:00:05.0: BAR 4 [mem 0xe000004000-0xe000007fff 64bit pref]
+[    1.642856] pci 0000:00:1f.0: [8086:2918] type 00 class 0x060100
+[    1.644580] pci 0000:00:1f.0: quirk: [io  0x0600-0x067f] claimed by ICH6 ACPI/GPIO/TCO
+[    1.645696] pci 0000:00:1f.2: [8086:2922] type 00 class 0x010601
+[    1.649761] pci 0000:00:1f.2: BAR 4 [io  0x6100-0x611f]
+[    1.650759] pci 0000:00:1f.2: BAR 5 [mem 0xc1010000-0xc1010fff]
+[    1.654364] pci 0000:00:1f.3: [8086:2930] type 00 class 0x0c0500
+[    1.658072] pci 0000:00:1f.3: BAR 4 [io  0x6080-0x60bf]
+[    1.666988] ACPI: PCI: Interrupt link LNKA configured for IRQ 10
+[    1.668212] ACPI: PCI: Interrupt link LNKB configured for IRQ 10
+[    1.668955] ACPI: PCI: Interrupt link LNKC configured for IRQ 11
+[    1.669701] ACPI: PCI: Interrupt link LNKD configured for IRQ 11
+[    1.670383] ACPI: PCI: Interrupt link LNKE configured for IRQ 10
+[    1.671071] ACPI: PCI: Interrupt link LNKF configured for IRQ 10
+[    1.671819] ACPI: PCI: Interrupt link LNKG configured for IRQ 11
+[    1.672667] ACPI: PCI: Interrupt link LNKH configured for IRQ 11
+[    1.673017] ACPI: PCI: Interrupt link GSIA configured for IRQ 16
+[    1.673286] ACPI: PCI: Interrupt link GSIB configured for IRQ 17
+[    1.673533] ACPI: PCI: Interrupt link GSIC configured for IRQ 18
+[    1.673776] ACPI: PCI: Interrupt link GSID configured for IRQ 19
+[    1.674016] ACPI: PCI: Interrupt link GSIE configured for IRQ 20
+[    1.674265] ACPI: PCI: Interrupt link GSIF configured for IRQ 21
+[    1.674508] ACPI: PCI: Interrupt link GSIG configured for IRQ 22
+[    1.674748] ACPI: PCI: Interrupt link GSIH configured for IRQ 23
+[    1.682227] iommu: Default domain type: Translated 
+[    1.682469] iommu: DMA domain TLB invalidation policy: lazy mode 
+[    1.684687] pps_core: LinuxPPS API ver. 1 registered
+[    1.684899] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    1.685250] PTP clock support registered
+[    1.685766] EDAC MC: Ver: 3.0.0
+[    1.689295] Registered efivars operations
+[    1.702332] NetLabel: Initializing
+[    1.702520] NetLabel:  domain hash size = 128
+[    1.702666] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    1.704035] NetLabel:  unlabeled traffic allowed by default
+[    1.704220] PCI: Using ACPI for IRQ routing
+[    1.714337] pci 0000:00:01.0: vgaarb: setting as boot VGA device
+[    1.714634] pci 0000:00:01.0: vgaarb: bridge control possible
+[    1.714873] pci 0000:00:01.0: vgaarb: VGA device added: decodes=io+mem,owns=io+mem,locks=none
+[    1.715147] vgaarb: loaded
+[    1.716203] hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0
+[    1.716487] hpet0: 3 comparators, 64-bit 100.000000 MHz counter
+[    1.721854] clocksource: Switched to clocksource tsc-early
+[    1.827719] VFS: Disk quotas dquot_6.6.0
+[    1.831515] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[    1.839017] AppArmor: AppArmor Filesystem Enabled
+[    1.839782] pnp: PnP ACPI init
+[    1.845810] system 00:05: [mem 0xb0000000-0xbfffffff window] has been reserved
+[    1.848285] pnp: PnP ACPI: found 6 devices
+[    1.876785] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[    1.878445] NET: Registered PF_INET protocol family
+[    1.881118] IP idents hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[    2.108081] tcp_listen_portaddr_hash hash table entries: 1024 (order: 2, 16384 bytes, linear)
+[    2.109049] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    2.109672] TCP established hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[    2.111316] TCP bind hash table entries: 16384 (order: 7, 524288 bytes, linear)
+[    2.112115] TCP: Hash tables configured (established 16384 bind 16384)
+[    2.115303] MPTCP token hash table entries: 2048 (order: 4, 49152 bytes, linear)
+[    2.116107] UDP hash table entries: 1024 (order: 3, 32768 bytes, linear)
+[    2.116691] UDP-Lite hash table entries: 1024 (order: 3, 32768 bytes, linear)
+[    2.118847] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    2.119662] NET: Registered PF_XDP protocol family
+[    2.121242] pci_bus 0000:00: resource 4 [io  0x0000-0x0cf7 window]
+[    2.121466] pci_bus 0000:00: resource 5 [io  0x0d00-0xffff window]
+[    2.121639] pci_bus 0000:00: resource 6 [mem 0x000a0000-0x000bffff window]
+[    2.121825] pci_bus 0000:00: resource 7 [mem 0x80000000-0xafffffff window]
+[    2.122017] pci_bus 0000:00: resource 8 [mem 0xc0000000-0xfebfffff window]
+[    2.122203] pci_bus 0000:00: resource 9 [mem 0xe000000000-0xe7ffffffff window]
+[    2.129091] ACPI: \_SB_.GSIH: Enabled at IRQ 23
+[    2.137431] pci 0000:00:03.0: quirk_usb_early_handoff+0x0/0x760 took 13989 usecs
+[    2.143496] PCI: CLS 0 bytes, default 64
+[    2.156560] Trying to unpack rootfs image as initramfs...
+[    2.167191] Initialise system trusted keyrings
+[    2.177602] Key type blacklist registered
+[    2.180561] workingset: timestamp_bits=36 max_order=19 bucket_order=0
+[    2.207592] zbud: loaded
+[    2.247120] integrity: Platform Keyring initialized
+[    2.247778] integrity: Machine keyring initialized
+[    2.248316] Key type asymmetric registered
+[    2.248593] Asymmetric key parser 'x509' registered
+[    3.152387] tsc: Refined TSC clocksource calibration: 2799.993 MHz
+[    3.153184] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x285c3a1f60c, max_idle_ns: 440795288507 ns
+[    3.153662] clocksource: Switched to clocksource tsc
+[    6.526877] Freeing initrd memory: 41308K
+[    6.767043] alg: self-tests for CTR-KDF (hmac(sha256)) passed
+[    6.768008] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 248)
+[    6.769585] io scheduler mq-deadline registered
+[    6.784914] shpchp: Standard Hot Plug PCI Controller Driver version: 0.4
+[    6.791601] Serial: 8250/16550 driver, 4 ports, IRQ sharing enabled
+[    6.795163] 00:03: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+[    6.806904] Linux agpgart interface v0.103
+[    6.810113] AMD-Vi: AMD IOMMUv2 functionality not available on this system - This is not a bug.
+[    6.817444] i8042: PNP: PS/2 Controller [PNP0303:KBD,PNP0f13:MOU] at 0x60,0x64 irq 1,12
+[    6.822459] serio: i8042 KBD port at 0x60,0x64 irq 1
+[    6.823132] serio: i8042 AUX port at 0x60,0x64 irq 12
+[    6.826237] mousedev: PS/2 mouse device common for all mice
+[    6.831459] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input0
+[    6.832871] rtc_cmos 00:04: RTC can wake from S4
+[    6.840641] rtc_cmos 00:04: registered as rtc0
+[    6.841763] rtc_cmos 00:04: setting system clock to 2026-09-07T07:31:21 UTC (1788766281)
+[    6.846910] rtc_cmos 00:04: alarms up to one day, y3k, 242 bytes nvram, hpet irqs
+[    6.848176] ledtrig-cpu: registered to indicate activity on CPUs
+[    6.850571] efifb: probing for efifb
+[    6.851256] efifb: framebuffer at 0xc0000000, using 4000k, total 4000k
+[    6.851483] efifb: mode is 1280x800x32, linelength=5120, pages=1
+[    6.851675] efifb: scrolling: redraw
+[    6.851999] efifb: Truecolor: size=8:8:8:8, shift=24:16:8:0
+[    6.867423] Console: switching to colour frame buffer device 160x50
+[    6.873159] fb0: EFI VGA frame buffer device
+[    6.961190] NET: Registered PF_INET6 protocol family
+[    7.041946] Segment Routing with IPv6
+[    7.042538] In-situ OAM (IOAM) with IPv6
+[    7.043244] mip6: Mobile IPv6
+[    7.043698] NET: Registered PF_PACKET protocol family
+[    7.044809] mpls_gso: MPLS GSO support
+[    7.047647] IPI shorthand broadcast: enabled
+[    7.048801] sched_clock: Marking stable (7000123425, 47782772)->(7063935028, -16028831)
+[    7.052674] registered taskstats version 1
+[    7.053195] Loading compiled-in X.509 certificates
+[    7.132075] Loaded X.509 cert 'Build time autogenerated kernel key: afca5977a4af7c682ba5057cd656d8042d3ea671'
+[    7.140524] zswap: loaded using pool lzo/zbud
+[    7.144309] Key type .fscrypt registered
+[    7.144531] Key type fscrypt-provisioning registered
+[    7.223042] Key type encrypted registered
+[    7.223352] AppArmor: AppArmor sha1 policy hashing enabled
+[    7.225482] ima: No TPM chip found, activating TPM-bypass!
+[    7.225818] ima: Allocated hash algorithm: sha256
+[    7.228911] ima: No architecture policies found
+[    7.229853] evm: Initialising EVM extended attributes:
+[    7.230049] evm: security.selinux
+[    7.230205] evm: security.SMACK64 (disabled)
+[    7.230350] evm: security.SMACK64EXEC (disabled)
+[    7.230480] evm: security.SMACK64TRANSMUTE (disabled)
+[    7.230618] evm: security.SMACK64MMAP (disabled)
+[    7.230743] evm: security.apparmor
+[    7.230839] evm: security.ima
+[    7.230924] evm: security.capability
+[    7.231080] evm: HMAC attrs: 0x1
+[    7.569111] clk: Disabling unused clocks
+[    7.610479] Freeing unused decrypted memory: 2036K
+[    7.692597] Freeing unused kernel image (initmem) memory: 2816K
+[    7.693117] Write protecting the kernel read-only data: 26624k
+[    7.697787] Freeing unused kernel image (text/rodata gap) memory: 2040K
+[    7.699398] Freeing unused kernel image (rodata/data gap) memory: 1120K
+[    7.878537] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    7.879147] Run /init as init process
+Loading, please wait...
+Starting systemd-udevd version 252.39-1~deb12u2
+[    9.769876] input: Power Button as /devices/LNXSYSTM:00/LNXPWRBN:00/input/input2
+[    9.781357] ACPI: button: Power Button [PWRF]
+[   10.058223] lpc_ich 0000:00:1f.0: I/O space for GPIO uninitialized
+[   10.109067] ACPI: \_SB_.GSIA: Enabled at IRQ 16
+[   10.110181] i801_smbus 0000:00:1f.3: Enabling SMBus device
+[   10.110912] i801_smbus 0000:00:1f.3: SMBus using PCI interrupt
+[   10.142528] i2c i2c-0: 1/1 memory slots populated (from DMI)
+[   10.142820] i2c i2c-0: Memory type 0x07 not supported yet, not instantiating SPD
+[   10.383658] ACPI: \_SB_.GSIG: Enabled at IRQ 22
+[   10.430736] ACPI: \_SB_.GSIF: Enabled at IRQ 21
+[   10.615445] SCSI subsystem initialized
+[   10.845581] ACPI: bus type USB registered
+[   10.846438] usbcore: registered new interface driver usbfs
+[   10.846854] usbcore: registered new interface driver hub
+[   10.847365] usbcore: registered new device driver usb
+[   11.110847] ehci-pci 0000:00:04.0: EHCI Host Controller
+[   11.111633] ehci-pci 0000:00:04.0: new USB bus registered, assigned bus number 1
+[   11.134629] ehci-pci 0000:00:04.0: irq 23, io mem 0xc1012000
+[   11.150464] ehci-pci 0000:00:04.0: USB 2.0 started, EHCI 1.00
+[   11.176937] usb usb1: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 6.01
+[   11.177249] usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[   11.177448] usb usb1: Product: EHCI Host Controller
+[   11.177591] usb usb1: Manufacturer: Linux 6.1.0-52-amd64 ehci_hcd
+[   11.177751] usb usb1: SerialNumber: 0000:00:04.0
+[   11.214145] hub 1-0:1.0: USB hub found
+[   11.231822] hub 1-0:1.0: 6 ports detected
+[   11.291194] virtio_blk virtio1: 1/0/0 default/read/poll queues
+[   11.293652] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input3
+[   11.390961] virtio_blk virtio1: [vda] 8388608 512-byte logical blocks (4.29 GB/4.00 GiB)
+[   11.501113] xhci_hcd 0000:00:03.0: xHCI Host Controller
+[   11.501574] xhci_hcd 0000:00:03.0: new USB bus registered, assigned bus number 2
+[   11.522611] xhci_hcd 0000:00:03.0: hcc params 0x00087001 hci version 0x100 quirks 0x0000000000000010
+[   11.538193] xhci_hcd 0000:00:03.0: xHCI Host Controller
+[   11.538462] xhci_hcd 0000:00:03.0: new USB bus registered, assigned bus number 3
+[   11.538785] xhci_hcd 0000:00:03.0: Host supports USB 3.0 SuperSpeed
+[   11.548476] usb usb2: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 6.01
+[   11.548903] usb usb2: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[   11.549184] usb usb2: Product: xHCI Host Controller
+[   11.549373] usb usb2: Manufacturer: Linux 6.1.0-52-amd64 xhci-hcd
+[   11.549615] usb usb2: SerialNumber: 0000:00:03.0
+[   11.555629] ahci 0000:00:1f.2: AHCI 0001.0000 32 slots 6 ports 1.5 Gbps 0x3f impl SATA mode
+[   11.556335] ahci 0000:00:1f.2: flags: 64bit ncq only 
+[   11.561292] hub 2-0:1.0: USB hub found
+[   11.564148] hub 2-0:1.0: 4 ports detected
+[   11.576709] usb usb3: We don't know the algorithms for LPM for this host, disabling LPM.
+[   11.580662] usb usb3: New USB device found, idVendor=1d6b, idProduct=0003, bcdDevice= 6.01
+[   11.581073] usb usb3: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[   11.581352] usb usb3: Product: xHCI Host Controller
+[   11.581541] usb usb3: Manufacturer: Linux 6.1.0-52-amd64 xhci-hcd
+[   11.581777] usb usb3: SerialNumber: 0000:00:03.0
+[   11.589404] hub 3-0:1.0: USB hub found
+[   11.592097] hub 3-0:1.0: 4 ports detected
+[   11.644536] scsi host0: ahci
+[   11.667474] scsi host1: ahci
+[   11.684336] scsi host2: ahci
+[   11.701882] scsi host3: ahci
+[   11.718905] scsi host4: ahci
+[   11.732499] scsi host5: ahci
+[   11.733808] ata1: SATA max UDMA/133 abar m4096@0xc1010000 port 0xc1010100 irq 28
+[   11.734170] ata2: SATA max UDMA/133 abar m4096@0xc1010000 port 0xc1010180 irq 28
+[   11.734471] ata3: SATA max UDMA/133 abar m4096@0xc1010000 port 0xc1010200 irq 28
+[   11.734749] ata4: SATA max UDMA/133 abar m4096@0xc1010000 port 0xc1010280 irq 28
+[   11.735057] ata5: SATA max UDMA/133 abar m4096@0xc1010000 port 0xc1010300 irq 28
+[   11.735333] ata6: SATA max UDMA/133 abar m4096@0xc1010000 port 0xc1010380 irq 28
+[   12.053737] ata2: SATA link down (SStatus 0 SControl 300)
+[   12.056362] ata3: SATA link up 1.5 Gbps (SStatus 113 SControl 300)
+[   12.060467] ata3.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100
+[   12.060828] ata3.00: applying bridge limits
+[   12.062139] ata1: SATA link down (SStatus 0 SControl 300)
+[   12.063522] ata3.00: configured for UDMA/100
+[   12.067421] ata4: SATA link down (SStatus 0 SControl 300)
+[   12.067714] ata5: SATA link down (SStatus 0 SControl 300)
+[   12.068075] ata6: SATA link down (SStatus 0 SControl 300)
+[   12.077380] scsi 2:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5
+[   12.265342] sr 2:0:0:0: [sr0] scsi3-mmc drive: 4x/4x cd/rw xa/form2 tray
+[   12.336547] cdrom: Uniform CD-ROM driver Revision: 3.20
+Begin: Loading essential drivers ... done.
+Begin: Running /scripts/init-premount ... done.
+Begin: Mounting root file system ... Begin: Running /scripts/local-top ... done.
+Begin: Running /scripts/local-premount ... done.
+Warning: fsck not present, so skipping root file system
+[   13.607371] EXT4-fs (vda): mounted filesystem with ordered data mode. Quota mode: none.
+done.
+Begin: Running /scripts/local-bottom ... done.
+Begin: Running /scripts/init-bottom ... done.
+[   14.295365] Not activating Mandatory Access Control as /sbin/tomoyo-init does not exist.
+[   14.902131] systemd[1]: Inserted module 'autofs4'
+[   15.217505] systemd[1]: systemd 252.39-1~deb12u2 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -BPF_FRAMEWORK -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified)
+[   15.218520] systemd[1]: Detected virtualization qemu.
+[   15.218909] systemd[1]: Detected architecture x86-64.
+
+Welcome to [1mDebian GNU/Linux 12 (bookworm)[0m!
+
+[   15.230535] systemd[1]: Hostname set to <localhost.localdomain>.
+[   15.237189] systemd[1]: Initializing machine ID from random generator.
+[   17.787730] systemd[1]: Queued start job for default target multi-user.target.
+[   17.863036] systemd[1]: Created slice system-modprobe.slice - Slice /system/modprobe.
+[[0;32m  OK  [0m] Created slice [0;1;39msystem-modpr…lice[0m - Slice /system/modprobe.
+[   17.874347] systemd[1]: Started systemd-ask-password-console.path - Dispatch Password Requests to Console Directory Watch.
+[[0;32m  OK  [0m] Started [0;1;39msystemd-ask-passwo…quests to Console Directory Watch.
+[   17.877199] systemd[1]: Started systemd-ask-password-wall.path - Forward Password Requests to Wall Directory Watch.
+[[0;32m  OK  [0m] Started [0;1;39msystemd-ask-passwo… Requests to Wall Directory Watch.
+[   17.885605] systemd[1]: Set up automount proc-sys-fs-binfmt_misc.automount - Arbitrary Executable File Formats File System Automount Point.
+[[0;32m  OK  [0m] Set up automount [0;1;39mproc-sys-…rmats File System Automount Point.
+[   17.887633] systemd[1]: Reached target cryptsetup.target - Local Encrypted Volumes.
+[[0;32m  OK  [0m] Reached target [0;1;39mcryptsetup.…get[0m - Local Encrypted Volumes.
+[   17.889468] systemd[1]: Reached target integritysetup.target - Local Integrity Protected Volumes.
+[[0;32m  OK  [0m] Reached target [0;1;39mintegrityse…Local Integrity Protected Volumes.
+[   17.890869] systemd[1]: Reached target paths.target - Path Units.
+[[0;32m  OK  [0m] Reached target [0;1;39mpaths.target[0m - Path Units.
+[   17.892455] systemd[1]: Reached target remote-fs.target - Remote File Systems.
+[[0;32m  OK  [0m] Reached target [0;1;39mremote-fs.target[0m - Remote File Systems.
+[   17.893567] systemd[1]: Reached target slices.target - Slice Units.
+[[0;32m  OK  [0m] Reached target [0;1;39mslices.target[0m - Slice Units.
+[   17.894644] systemd[1]: Reached target swap.target - Swaps.
+[[0;32m  OK  [0m] Reached target [0;1;39mswap.target[0m - Swaps.
+[   17.895655] systemd[1]: Reached target veritysetup.target - Local Verity Protected Volumes.
+[[0;32m  OK  [0m] Reached target [0;1;39mveritysetup… - Local Verity Protected Volumes.
+[   17.900271] systemd[1]: Listening on systemd-initctl.socket - initctl Compatibility Named Pipe.
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-initc… initctl Compatibility Named Pipe.
+[   17.909731] systemd[1]: Listening on systemd-journald-audit.socket - Journal Audit Socket.
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-journ…socket[0m - Journal Audit Socket.
+[   17.914215] systemd[1]: Listening on systemd-journald-dev-log.socket - Journal Socket (/dev/log).
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-journ…t[0m - Journal Socket (/dev/log).
+[   17.918303] systemd[1]: Listening on systemd-journald.socket - Journal Socket.
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-journald.socket[0m - Journal Socket.
+[   17.923572] systemd[1]: Listening on systemd-udevd-control.socket - udev Control Socket.
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-udevd….socket[0m - udev Control Socket.
+[   17.926922] systemd[1]: Listening on systemd-udevd-kernel.socket - udev Kernel Socket.
+[[0;32m  OK  [0m] Listening on [0;1;39msystemd-udevd…l.socket[0m - udev Kernel Socket.
+[   17.928642] systemd[1]: Reached target sockets.target - Socket Units.
+[[0;32m  OK  [0m] Reached target [0;1;39msockets.target[0m - Socket Units.
+[   17.962137] systemd[1]: Mounting dev-hugepages.mount - Huge Pages File System...
+         Mounting [0;1;39mdev-hugepages.mount[0m - Huge Pages File System...
+[   18.009276] systemd[1]: Mounting dev-mqueue.mount - POSIX Message Queue File System...
+         Mounting [0;1;39mdev-mqueue.mount…POSIX Message Queue File System...
+[   18.069437] systemd[1]: Mounting sys-kernel-debug.mount - Kernel Debug File System...
+         Mounting [0;1;39msys-kernel-debug.…[0m - Kernel Debug File System...
+[   18.115809] systemd[1]: Mounting sys-kernel-tracing.mount - Kernel Trace File System...
+         Mounting [0;1;39msys-kernel-tracin…[0m - Kernel Trace File System...
+[   18.172169] systemd[1]: Starting keyboard-setup.service - Set the console keyboard layout...
+         Starting [0;1;39mkeyboard-setup.se…Set the console keyboard layout...
+[   18.222335] systemd[1]: Starting kmod-static-nodes.service - Create List of Static Device Nodes...
+         Starting [0;1;39mkmod-static-nodes…ate List of Static Device Nodes...
+[   18.278865] systemd[1]: Starting modprobe@configfs.service - Load Kernel Module configfs...
+         Starting [0;1;39mmodprobe@configfs…m - Load Kernel Module configfs...
+[   18.360827] systemd[1]: Starting modprobe@dm_mod.service - Load Kernel Module dm_mod...
+         Starting [0;1;39mmodprobe@dm_mod.s…[0m - Load Kernel Module dm_mod...
+[   18.506401] systemd[1]: Starting modprobe@efi_pstore.service - Load Kernel Module efi_pstore...
+         Starting [0;1;39mmodprobe@efi_psto…- Load Kernel Module efi_pstore...
+[   19.002574] systemd[1]: Starting modprobe@fuse.service - Load Kernel Module fuse...
+         Starting [0;1;39mmodprobe@fuse.ser…e[0m - Load Kernel Module fuse...
+[   19.052570] pstore: Using crash dump compression: deflate
+[   19.066645] pstore: Registered efi as persistent store backend
+[   19.094339] systemd[1]: Starting modprobe@loop.service - Load Kernel Module loop...
+         Starting [0;1;39mmodprobe@loop.ser…e[0m - Load Kernel Module loop...
+[   19.271366] systemd[1]: Starting systemd-journald.service - Journal Service...
+         Starting [0;1;39msystemd-journald.service[0m - Journal Service...
+[   19.362450] fuse: init (API version 7.38)
+[   19.389477] loop: module loaded
+[   19.415065] systemd[1]: Starting systemd-modules-load.service - Load Kernel Modules...
+         Starting [0;1;39msystemd-modules-l…rvice[0m - Load Kernel Modules...
+[   19.490617] systemd[1]: Starting systemd-remount-fs.service - Remount Root and Kernel File Systems...
+         Starting [0;1;39msystemd-remount-f…nt Root and Kernel File Systems...
+[   19.606772] systemd[1]: Starting systemd-udev-trigger.service - Coldplug All udev Devices...
+         Starting [0;1;39msystemd-udev-trig…[0m - Coldplug All udev Devices...
+[   19.878251] systemd[1]: Mounted dev-hugepages.mount - Huge Pages File System.
+[[0;32m  OK  [0m] Mounted [0;1;39mdev-hugepages.mount[0m - Huge Pages File System.
+[   19.917108] systemd[1]: Mounted dev-mqueue.mount - POSIX Message Queue File System.
+[[0;32m  OK  [0m] Mounted [0;1;39mdev-mqueue.mount[…- POSIX Message Queue File System.
+[   19.930048] systemd[1]: Mounted sys-kernel-debug.mount - Kernel Debug File System.
+[[0;32m  OK  [0m] Mounted [0;1;39msys-kernel-debug.m…nt[0m - Kernel Debug File System.
+[   19.950778] systemd[1]: Mounted sys-kernel-tracing.mount - Kernel Trace File System.
+[[0;32m  OK  [0m] Mounted [0;1;39msys-kernel-tracing…nt[0m - Kernel Trace File System.
+[   20.030335] systemd[1]: Finished kmod-static-nodes.service - Create List of Static Device Nodes.
+[[0;32m  OK  [0m] Finished [0;1;39mkmod-static-nodes…reate List of Static Device Nodes.
+[   20.090388] systemd[1]: modprobe@configfs.service: Deactivated successfully.
+[   20.117056] systemd[1]: Finished modprobe@configfs.service - Load Kernel Module configfs.
+[[0;32m  OK  [0m] Finished [0;1;39mmodprobe@configfs…[0m - Load Kernel Module configfs.
+[   20.179072] systemd[1]: modprobe@efi_pstore.service: Deactivated successfully.
+[   20.205060] systemd[1]: Finished modprobe@efi_pstore.service - Load Kernel Module efi_pstore.
+[[0;32m  OK  [0m] Finished [0;1;39mmodprobe@efi_psto…m - Load Kernel Module efi_pstore.
+[   20.215623] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[   20.228536] device-mapper: uevent: version 1.0.3
+[   20.232304] device-mapper: ioctl: 4.47.0-ioctl (2022-07-28) initialised: dm-devel@redhat.com
+[   20.252436] systemd[1]: modprobe@fuse.service: Deactivated successfully.
+[   20.268913] systemd[1]: Finished modprobe@fuse.service - Load Kernel Module fuse.
+[[0;32m  OK  [0m] Finished [0;1;39mmodprobe@fuse.service[0m - Load Kernel Module fuse.
+[   20.303002] systemd[1]: modprobe@dm_mod.service: Deactivated successfully.
+[   20.318916] systemd[1]: Finished modprobe@dm_mod.service - Load Kernel Module dm_mod.
+[[0;32m  OK  [0m] Finished [0;1;39mmodprobe@dm_mod.s…e[0m - Load Kernel Module dm_mod.
+[   20.355310] systemd[1]: modprobe@loop.service: Deactivated successfully.
+[   20.377756] systemd[1]: Finished modprobe@loop.service - Load Kernel Module loop.
+[[0;32m  OK  [0m] Finished [0;1;39mmodprobe@loop.service[0m - Load Kernel Module loop.
+[   20.408951] systemd[1]: Finished systemd-modules-load.service - Load Kernel Modules.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-modules-l…service[0m - Load Kernel Modules.
+[   20.440326] systemd[1]: Finished systemd-remount-fs.service - Remount Root and Kernel File Systems.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-remount-f…ount Root and Kernel File Systems.
+[   20.557593] systemd[1]: Mounting sys-fs-fuse-connections.mount - FUSE Control File System...
+         Mounting [0;1;39msys-fs-fuse-conne…[0m - FUSE Control File System...
+[   20.653522] systemd[1]: Mounting sys-kernel-config.mount - Kernel Configuration File System...
+         Mounting [0;1;39msys-kernel-config…ernel Configuration File System...
+[   20.661572] systemd[1]: systemd-firstboot.service - First Boot Wizard was skipped because of an unmet condition check (ConditionFirstBoot=yes).
+[   20.663630] systemd[1]: systemd-pstore.service - Platform Persistent Storage Archival was skipped because of an unmet condition check (ConditionDirectoryNotEmpty=/sys/fs/pstore).
+[   20.788283] systemd[1]: Starting systemd-random-seed.service - Load/Save Random Seed...
+         Starting [0;1;39msystemd-random-se…ice[0m - Load/Save Random Seed...
+[   20.791612] systemd[1]: systemd-repart.service - Repartition Root Disk was skipped because no trigger condition checks were met.
+[   20.894923] systemd[1]: Starting systemd-sysctl.service - Apply Kernel Variables...
+         Starting [0;1;39msystemd-sysctl.se…ce[0m - Apply Kernel Variables...
+[   21.043326] systemd[1]: Starting systemd-sysusers.service - Create System Users...
+         Starting [0;1;39msystemd-sysusers.…rvice[0m - Create System Users...
+[   21.366428] systemd[1]: Mounted sys-fs-fuse-connections.mount - FUSE Control File System.
+[[0;32m  OK  [0m] Mounted [0;1;39msys-fs-fuse-connec…nt[0m - FUSE Control File System.
+[   21.391165] systemd[1]: Mounted sys-kernel-config.mount - Kernel Configuration File System.
+[[0;32m  OK  [0m] Mounted [0;1;39msys-kernel-config.… Kernel Configuration File System.
+[   21.449087] systemd[1]: Finished systemd-random-seed.service - Load/Save Random Seed.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-random-se…rvice[0m - Load/Save Random Seed.
+[   21.459412] systemd[1]: first-boot-complete.target - First Boot Complete was skipped because of an unmet condition check (ConditionFirstBoot=yes).
+[   21.576609] systemd[1]: Finished systemd-sysctl.service - Apply Kernel Variables.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-sysctl.service[0m - Apply Kernel Variables.
+[   21.720783] systemd[1]: Finished systemd-sysusers.service - Create System Users.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-sysusers.service[0m - Create System Users.
+[   21.794930] systemd[1]: Starting systemd-tmpfiles-setup-dev.service - Create Static Device Nodes in /dev...
+         Starting [0;1;39msystemd-tmpfiles-…ate Static Device Nodes in /dev...
+[   22.020943] systemd[1]: Finished keyboard-setup.service - Set the console keyboard layout.
+[[0;32m  OK  [0m] Finished [0;1;39mkeyboard-setup.se…- Set the console keyboard layout.
+[   22.377167] systemd[1]: Finished systemd-tmpfiles-setup-dev.service - Create Static Device Nodes in /dev.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-tmpfiles-…reate Static Device Nodes in /dev.
+[   22.382189] systemd[1]: Reached target local-fs-pre.target - Preparation for Local File Systems.
+[[0;32m  OK  [0m] Reached target [0;1;39mlocal-fs-pr…reparation for Local File Systems.
+[   22.393162] systemd[1]: Reached target local-fs.target - Local File Systems.
+[[0;32m  OK  [0m] Reached target [0;1;39mlocal-fs.target[0m - Local File Systems.
+[   22.450576] systemd[1]: Starting console-setup.service - Set console font and keymap...
+         Starting [0;1;39mconsole-setup.ser…m - Set console font and keymap...
+[   22.550073] systemd[1]: Starting systemd-binfmt.service - Set Up Additional Binary Formats...
+         Starting [0;1;39msystemd-binfmt.se…et Up Additional Binary Formats...
+[   22.565406] systemd[1]: systemd-machine-id-commit.service - Commit a transient machine-id on disk was skipped because of an unmet condition check (ConditionPathIsMountPoint=/etc/machine-id).
+[   22.680927] systemd[1]: Starting systemd-udevd.service - Rule-based Manager for Device Events and Files...
+         Starting [0;1;39msystemd-udevd.ser…ger for Device Events and Files...
+[   22.888544] systemd[1]: Started systemd-journald.service - Journal Service.
+[[0;32m  OK  [0m] Started [0;1;39msystemd-journald.service[0m - Journal Service.
+         Starting [0;1;39msystemd-journal-f…h Journal to Persistent Storage...
+         Mounting [0;1;39mproc-sys-fs-binfm…utable File Formats File System...
+[   23.521058] systemd-journald[211]: Received client request to flush runtime journal.
+[[0;32m  OK  [0m] Mounted [0;1;39mproc-sys-fs-binfmt…ecutable File Formats File System.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-binfmt.se… Set Up Additional Binary Formats.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-journal-f…ush Journal to Persistent Storage.
+         Starting [0;1;39msystemd-tmpfiles-…te System Files and Directories...
+[[0;32m  OK  [0m] Started [0;1;39msystemd-udevd.serv…nager for Device Events and Files.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-udev-trig…e[0m - Coldplug All udev Devices.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-tmpfiles-…eate System Files and Directories.
+         Starting [0;1;39msystemd-udev-sett… Complete Device Initialization...
+         Starting [0;1;39msystemd-update-ut…rd System Boot/Shutdown in UTMP...
+[   26.980582] sr 2:0:0:0: Attached scsi generic sg0 type 5
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-update-ut…cord System Boot/Shutdown in UTMP.
+[   29.127357] parport_pc 00:02: reported by Plug and Play ACPI
+[   29.193261] parport0: PC-style at 0x378, irq 7 [PCSPP,TRISTATE]
+[   29.518110] iTCO_vendor_support: vendor-support=0
+[   29.662981] input: PC Speaker as /devices/platform/pcspkr/input/input4
+[   29.741272] iTCO_wdt iTCO_wdt.1.auto: Found a ICH9 TCO device (Version=2, TCOBASE=0x0660)
+[   29.781765] iTCO_wdt iTCO_wdt.1.auto: initialized. heartbeat=30 sec (nowayout=0)
+[   29.896565] cryptd: max_cpu_qlen set to 1000
+[[0m[0;31m*     [0m] (1 of 2) Job systemd-udev-settle.service/start running (12s / 3min 8s)
+M[K[[0;1;31m*[0m[0;31m*    [0m] (1 of 2) Job systemd-udev-settle.service/start running (12s / 3min 8s)
+[   31.202627] AVX2 version of gcm_enc/dec engaged.
+[   31.206668] ppdev: user-space parallel port driver
+[   31.220596] AES CTR mode by8 optimization enabled
+M[K[[0;31m*[0;1;31m*[0m[0;31m*   [0m] (1 of 2) Job systemd-udev-settle.service/start running (13s / 3min 8s)
+[   31.312943] ACPI: bus type drm_connector registered
+[   31.905526] Console: switching to colour dummy device 80x25
+[   31.921587] bochs-drm 0000:00:01.0: vgaarb: deactivate vga console
+[   31.936352] [drm] Found bochs VGA, ID 0xb0c5.
+[   31.936597] [drm] Framebuffer size 16384 kB @ 0xc0000000, mmio @ 0xc1014000.
+[   31.951225] [drm] Found EDID data blob.
+[   31.976502] [drm] Initialized bochs-drm 1.0.0 20130925 for 0000:00:01.0 on minor 0
+[   32.093337] fbcon: bochs-drmdrmfb (fb0) is primary device
+[   32.219330] Console: switching to colour frame buffer device 160x50
+[   32.280656] bochs-drm 0000:00:01.0: [drm] fb0: bochs-drmdrmfb frame buffer device
+M[K[ [0;31m*[0;1;31m*[0m[0;31m*  [0m] (2 of 2) Job console-setup.service/start running (15s / no limit)
+M[K[  [0;31m*[0;1;31m*[0m[0;31m* [0m] (2 of 2) Job console-setup.service/start running (16s / no limit)
+M[K[   [0;31m*[0;1;31m*[0m[0;31m*[0m] (2 of 2) Job console-setup.service/start running (16s / no limit)
+[   34.662694] kvm: Nested Virtualization enabled
+[   34.663004] SVM: kvm: Nested Paging enabled
+[   34.663532] SVM: Virtual GIF supported
+[   34.663676] SVM: PMU virtualization is disabled
+M[K[    [0;31m*[0;1;31m*[0m] (1 of 2) Job systemd-udev-settle.service/start running (17s / 3min 8s)
+M[K[[0;32m  OK  [0m] Finished [0;1;39msystemd-udev-sett…To Complete Device Initialization.
+[K[[0;32m  OK  [0m] Reached target [0;1;39msysinit.target[0m - System Initialization.
+[[0;32m  OK  [0m] Started [0;1;39mapt-daily.timer[0m - Daily apt download activities.
+[[0;32m  OK  [0m] Started [0;1;39mapt-daily-upgrade.… apt upgrade and clean activities.
+[[0;32m  OK  [0m] Started [0;1;39mdpkg-db-backup.tim… Daily dpkg database backup timer.
+[[0;32m  OK  [0m] Started [0;1;39me2scrub_all.timer…etadata Check for All Filesystems.
+[[0;32m  OK  [0m] Started [0;1;39mfstrim.timer[0m - Discard unused blocks once a week.
+[[0;32m  OK  [0m] Started [0;1;39msystemd-tmpfiles-c… Cleanup of Temporary Directories.
+[[0;32m  OK  [0m] Reached target [0;1;39mtimers.target[0m - Timer Units.
+[[0;32m  OK  [0m] Reached target [0;1;39mbasic.target[0m - Basic System.
+         Starting [0;1;39me2scrub_reap.serv…e ext4 Metadata Check Snapshots...
+[[0;32m  OK  [0m] Reached target [0;1;39mgetty.target[0m - Login Prompts.
+         Starting [0;1;39msystemd-user-sess…vice[0m - Permit User Sessions...
+[[0;32m  OK  [0m] Started [0;1;39musblab-probe.servi…- Disposable USB lab serial probe.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-user-sess…ervice[0m - Permit User Sessions.
+[     [0;31m*[0m] (1 of 2) Job console-setup.service/start running (19s / no limit)
+M[K[    [0;31m*[0;1;31m*[0m] (1 of 2) Job console-setup.service/start running (20s / no limit)
+M[K[   [0;31m*[0;1;31m*[0m[0;31m*[0m] (2 of 2) Job e2scrub_reap.service/start running (20s / no limit)
+M[K[  [0;31m*[0;1;31m*[0m[0;31m* [0m] (2 of 2) Job e2scrub_reap.service/start running (21s / no limit)
+M[K[ [0;31m*[0;1;31m*[0m[0;31m*  [0m] (2 of 2) Job e2scrub_reap.service/start running (21s / no limit)
+M[K[[0;31m*[0;1;31m*[0m[0;31m*   [0m] (1 of 2) Job console-setup.service/start running (22s / no limit)
+M[K[[0;1;31m*[0m[0;31m*    [0m] (1 of 2) Job console-setup.service/start running (22s / no limit)
+M[K[[0m[0;31m*     [0m] (1 of 2) Job console-setup.service/start running (23s / no limit)
+M[K[[0;1;31m*[0m[0;31m*    [0m] (2 of 2) Job e2scrub_reap.service/start running (23s / no limit)
+M[K[[0;31m*[0;1;31m*[0m[0;31m*   [0m] (2 of 2) Job e2scrub_reap.service/start running (24s / no limit)
+M[K[ [0;31m*[0;1;31m*[0m[0;31m*  [0m] (2 of 2) Job e2scrub_reap.service/start running (24s / no limit)
+M[K[  [0;31m*[0;1;31m*[0m[0;31m* [0m] (1 of 2) Job console-setup.service/start running (25s / no limit)
+[   43.022655] usb 3-1: new SuperSpeed USB device number 2 using xhci_hcd
+[   43.049070] usb 3-1: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   43.049364] usb 3-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   43.049545] usb 3-1: Product: QEMU USB HARDDRIVE
+[   43.049691] usb 3-1: Manufacturer: QEMU
+[   43.049791] usb 3-1: SerialNumber: USBLABCANARY
+[   43.339277] usb-storage 3-1:1.0: USB Mass Storage device detected
+[   43.364508] scsi host6: usb-storage 3-1:1.0
+[   43.372544] usbcore: registered new interface driver usb-storage
+[   43.452213] usbcore: registered new interface driver uas
+M[K[   [0;31m*[0;1;31m*[0m[0;31m*[0m] (1 of 2) Job console-setup.service/start running (25s / no limit)
+M[K[    [0;31m*[0;1;31m*[0m] (1 of 2) Job console-setup.service/start running (26s / no limit)
+[   44.372935] scsi 6:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   44.406575] scsi 6:0:0:0: Attached scsi generic sg1 type 0
+M[K[     [0;31m*[0m] (2 of 2) Job e2scrub_reap.service/start running (26s / no limit)
+[   44.701657] sd 6:0:0:0: Power-on or device reset occurred
+[   44.712691] sd 6:0:0:0: [sda] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   44.716496] sd 6:0:0:0: [sda] Write Protect is off
+[   44.722032] sd 6:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   44.755033] sd 6:0:0:0: [sda] Attached SCSI removable disk
+M[K[    [0;31m*[0;1;31m*[0m] (2 of 2) Job e2scrub_reap.service/start running (27s / no limit)
+M[K[   [0;31m*[0;1;31m*[0m[0;31m*[0m] (2 of 2) Job e2scrub_reap.service/start running (27s / no limit)
+[   46.860283] usb 1-1: new high-speed USB device number 2 using ehci-pci
+[   47.031460] usb 1-1: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   47.032076] usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   47.032375] usb 1-1: Product: QEMU USB HARDDRIVE
+[   47.032559] usb 1-1: Manufacturer: QEMU
+[   47.032716] usb 1-1: SerialNumber: USBLABPROFILE0
+[   47.047120] usb-storage 1-1:1.0: USB Mass Storage device detected
+[   47.065274] scsi host7: usb-storage 1-1:1.0
+M[K[  [0;31m*[0;1;31m*[0m[0;31m* [0m] (1 of 2) Job console-setup.service/start running (29s / no limit)
+[   48.090204] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   48.101430] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   48.103461] sd 7:0:0:0: Power-on or device reset occurred
+[   48.118713] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   48.121256] sd 7:0:0:0: [sdb] Write Protect is off
+[   48.124257] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   48.166520] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+M[K[ [0;31m*[0;1;31m*[0m[0;31m*  [0m] (1 of 2) Job console-setup.service/start running (30s / no limit)
+M[K[[0;31m*[0;1;31m*[0m[0;31m*   [0m] (1 of 2) Job console-setup.service/start running (30s / no limit)
+M[K[[0;1;31m*[0m[0;31m*    [0m] (2 of 2) Job e2scrub_reap.service/start running (31s / no limit)
+[   51.939485] usb 1-1: USB disconnect, device number 2
+[   53.107768] usb 1-1: new high-speed USB device number 3 using ehci-pci
+[   53.278898] usb 1-1: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   53.279236] usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   53.279421] usb 1-1: Product: QEMU USB HARDDRIVE
+[   53.279547] usb 1-1: Manufacturer: QEMU
+[   53.279646] usb 1-1: SerialNumber: USBLABPROFILE0
+[   53.298336] usb-storage 1-1:1.0: USB Mass Storage device detected
+[   53.318731] scsi host7: usb-storage 1-1:1.0
+[   54.326774] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   54.335588] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   54.342081] sd 7:0:0:0: Power-on or device reset occurred
+[   54.358932] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   54.361903] sd 7:0:0:0: [sdb] Write Protect is off
+[   54.366826] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   54.428521] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+M[K[[0m[0;31m*     [0m] (2 of 2) Job e2scrub_reap.service/start running (36s / no limit)
+M[K[[0;1;31m*[0m[0;31m*    [0m] (2 of 2) Job e2scrub_reap.service/start running (37s / no limit)
+M[K[[0;31m*[0;1;31m*[0m[0;31m*   [0m] (1 of 2) Job console-setup.service/start running (37s / no limit)
+[   57.163783] usb 1-1: USB disconnect, device number 3
+M[K[ [0;31m*[0;1;31m*[0m[0;31m*  [0m] (1 of 2) Job console-setup.service/start running (40s / no limit)
+[   59.336403] usb 3-2: new SuperSpeed USB device number 3 using xhci_hcd
+[   59.357058] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   59.357347] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   59.357526] usb 3-2: Product: QEMU USB HARDDRIVE
+[   59.357643] usb 3-2: Manufacturer: QEMU
+[   59.357741] usb 3-2: SerialNumber: USBLABPROFILE1
+[   59.373406] usb-storage 3-2:1.0: USB Mass Storage device detected
+[   59.389288] scsi host7: usb-storage 3-2:1.0
+[   60.401523] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   60.409859] sd 7:0:0:0: Power-on or device reset occurred
+[   60.411288] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   60.411799] sd 7:0:0:0: [sdb] Write Protect is off
+[   60.415344] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   60.417133] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   60.437003] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+M[K[  [0;31m*[0;1;31m*[0m[0;31m* [0m] (1 of 2) Job console-setup.service/start running (42s / no limit)
+M[K[   [0;31m*[0;1;31m*[0m[0;31m*[0m] (2 of 2) Job e2scrub_reap.service/start running (43s / no limit)
+M[K[    [0;31m*[0;1;31m*[0m] (2 of 2) Job e2scrub_reap.service/start running (43s / no limit)
+[   63.758612] usb 3-2: USB disconnect, device number 3
+[   63.780538] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[   63.781267] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+[   64.824309] usb 3-2: new SuperSpeed USB device number 4 using xhci_hcd
+[   64.844919] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   64.845212] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   64.845393] usb 3-2: Product: QEMU USB HARDDRIVE
+[   64.845513] usb 3-2: Manufacturer: QEMU
+[   64.845612] usb 3-2: SerialNumber: USBLABPROFILE1
+[   64.860729] usb-storage 3-2:1.0: USB Mass Storage device detected
+[   64.876617] scsi host7: usb-storage 3-2:1.0
+M[K[     [0;31m*[0m] (2 of 2) Job e2scrub_reap.service/start running (47s / no limit)
+M[K[    [0;31m*[0;1;31m*[0m] (1 of 2) Job console-setup.service/start running (47s / no limit)
+[   65.905533] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   65.913759] sd 7:0:0:0: Power-on or device reset occurred
+[   65.919054] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   65.919714] sd 7:0:0:0: [sdb] Write Protect is off
+[   65.922813] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   65.926005] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   65.949253] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+M[K[   [0;31m*[0;1;31m*[0m[0;31m*[0m] (1 of 2) Job console-setup.service/start running (48s / no limit)
+M[K[  [0;31m*[0;1;31m*[0m[0;31m* [0m] (1 of 2) Job console-setup.service/start running (48s / no limit)
+[   68.345268] usb 3-2: USB disconnect, device number 4
+[   68.372289] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[   68.372683] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+M[K[ [0;31m*[0;1;31m*[0m[0;31m*  [0m] (2 of 2) Job e2scrub_reap.service/start running (51s / no limit)
+M[K[[0;31m*[0;1;31m*[0m[0;31m*   [0m] (2 of 2) Job e2scrub_reap.service/start running (51s / no limit)
+[   69.648540] usb 3-2: new SuperSpeed USB device number 5 using xhci_hcd
+[   69.668917] usb 3-2: New USB device found, idVendor=46f4, idProduct=0003, bcdDevice= 0.00
+[   69.669217] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   69.669398] usb 3-2: Product: USB Attached SCSI HBA
+[   69.669524] usb 3-2: Manufacturer: QEMU
+[   69.669639] usb 3-2: SerialNumber: USBLABPROFILE2
+[   69.718785] scsi host7: uas
+[   69.746968] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   69.796691] sd 7:0:0:0: Power-on or device reset occurred
+[   69.806317] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   69.807567] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   69.815469] sd 7:0:0:0: [sdb] Write Protect is off
+[   69.823302] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   69.873918] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+M[K[[0;1;31m*[0m[0;31m*    [0m] (2 of 2) Job e2scrub_reap.service/start running (52s / no limit)
+M[K[[0m[0;31m*     [0m] (1 of 2) Job console-setup.service/start running (52s / no limit)
+M[K[[0;1;31m*[0m[0;31m*    [0m] (1 of 2) Job console-setup.service/start running (53s / no limit)
+M[K[[0;1;31mFAILED[0m] Failed to start [0;1;39mconsole-se…[0m - Set console font and keymap.
+[KSee 'systemctl status console-setup.service' for details.
+[   72.400904] usb 3-2: USB disconnect, device number 5
+[   72.429813] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[   72.668342] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_ERROR driverbyte=DRIVER_OK
+[[0;32m  OK  [0m] Finished [0;1;39me2scrub_reap.serv…ine ext4 Metadata Check Snapshots.
+[[0;32m  OK  [0m] Reached target [0;1;39mmulti-user.target[0m - Multi-User System.
+         Starting [0;1;39msystemd-update-ut… Record Runlevel Change in UTMP...
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-update-ut… - Record Runlevel Change in UTMP.
+[   73.320339] usb 3-2: new SuperSpeed USB device number 6 using xhci_hcd
+[   73.340763] usb 3-2: New USB device found, idVendor=46f4, idProduct=0003, bcdDevice= 0.00
+[   73.341064] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   73.341244] usb 3-2: Product: USB Attached SCSI HBA
+[   73.341366] usb 3-2: Manufacturer: QEMU
+[   73.341465] usb 3-2: SerialNumber: USBLABPROFILE2
+[   73.374338] scsi host7: uas
+[   73.389369] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   73.411113] sd 7:0:0:0: Power-on or device reset occurred
+[   73.413858] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   73.414478] sd 7:0:0:0: [sdb] Write Protect is off
+[   73.415098] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   73.421419] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   73.458761] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[   74.731697] usb 3-2: USB disconnect, device number 6
+[   74.758519] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[   74.996431] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_ERROR driverbyte=DRIVER_OK
+[   75.720270] usb 3-2: new SuperSpeed USB device number 7 using xhci_hcd
+[   75.740764] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   75.741053] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   75.741232] usb 3-2: Product: QEMU USB HARDDRIVE
+[   75.741349] usb 3-2: Manufacturer: QEMU
+[   75.741447] usb 3-2: SerialNumber: USBLABPROTECTED
+[   75.754628] usb-storage 3-2:1.0: USB Mass Storage device detected
+[   75.762819] scsi host7: usb-storage 3-2:1.0
+[   76.785241] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   76.794796] sd 7:0:0:0: Power-on or device reset occurred
+[   76.798955] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   76.799732] sd 7:0:0:0: [sdb] Write Protect is on
+[   76.804576] sd 7:0:0:0: [sdb] Write cache: disabled, read cache: enabled, doesn't support DPO or FUA
+[   76.806672] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   76.824324] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[   77.901410] usb 3-2: USB disconnect, device number 7
+[   78.648346] usb 3-2: new SuperSpeed USB device number 8 using xhci_hcd
+[   78.668843] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   78.669145] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   78.669328] usb 3-2: Product: QEMU USB HARDDRIVE
+[   78.669446] usb 3-2: Manufacturer: QEMU
+[   78.669544] usb 3-2: SerialNumber: USBLABDUPLICATE
+[   78.684449] usb-storage 3-2:1.0: USB Mass Storage device detected
+[   78.696284] scsi host7: usb-storage 3-2:1.0
+[   78.980360] usb 3-3: new SuperSpeed USB device number 9 using xhci_hcd
+[   79.000808] usb 3-3: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   79.001098] usb 3-3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   79.001280] usb 3-3: Product: QEMU USB HARDDRIVE
+[   79.001398] usb 3-3: Manufacturer: QEMU
+[   79.001496] usb 3-3: SerialNumber: USBLABDUPLICATE
+[   79.014368] usb-storage 3-3:1.0: USB Mass Storage device detected
+[   79.027141] scsi host8: usb-storage 3-3:1.0
+[   79.729462] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   79.737671] sd 7:0:0:0: Power-on or device reset occurred
+[   79.742936] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   79.743646] sd 7:0:0:0: [sdb] Write Protect is off
+[   79.744439] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   79.745879] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   79.767568] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[   80.049322] scsi 8:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   80.061415] sd 8:0:0:0: Power-on or device reset occurred
+[   80.068351] sd 8:0:0:0: [sdc] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   80.068976] sd 8:0:0:0: [sdc] Write Protect is off
+[   80.070150] sd 8:0:0:0: Attached scsi generic sg3 type 0
+[   80.071264] sd 8:0:0:0: [sdc] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   80.093881] sd 8:0:0:0: [sdc] Attached SCSI removable disk
+[   81.536737] usb 3-2: USB disconnect, device number 8
+[   81.556448] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[   81.556838] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+[   81.810578] usb 3-3: USB disconnect, device number 9
+[   81.832351] sd 8:0:0:0: [sdc] Synchronizing SCSI cache
+[   81.832751] sd 8:0:0:0: [sdc] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+[   82.552463] usb 3-2: new SuperSpeed USB device number 10 using xhci_hcd
+[   82.572766] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   82.573058] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   82.573249] usb 3-2: Product: QEMU USB HARDDRIVE
+[   82.573368] usb 3-2: Manufacturer: QEMU
+[   82.573467] usb 3-2: SerialNumber: USBLABFAULT
+[   82.588456] usb-storage 3-2:1.0: USB Mass Storage device detected
+[   82.601589] scsi host7: usb-storage 3-2:1.0
+[   83.633357] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   83.641698] sd 7:0:0:0: Power-on or device reset occurred
+[   83.646912] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   83.647595] sd 7:0:0:0: [sdb] Write Protect is off
+[   83.648361] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   83.649808] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   83.670134] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[   84.756517] sd 7:0:0:0: [sdb] tag#0 FAILED Result: hostbyte=DID_OK driverbyte=DRIVER_OK cmd_age=0s
+[   84.757097] sd 7:0:0:0: [sdb] tag#0 Sense Key : Aborted Command [current] 
+[   84.757408] sd 7:0:0:0: [sdb] tag#0 Add. Sense: I/O process terminated
+[   84.758113] sd 7:0:0:0: [sdb] tag#0 CDB: Read(10) 28 00 00 00 40 00 00 00 08 00
+[   84.758498] I/O error, dev sdb, sector 16384 op 0x0:(READ) flags 0x80700 phys_seg 1 prio class 2
+[   84.836840] sd 7:0:0:0: [sdb] tag#0 FAILED Result: hostbyte=DID_OK driverbyte=DRIVER_OK cmd_age=0s
+[   84.837156] sd 7:0:0:0: [sdb] tag#0 Sense Key : Aborted Command [current] 
+[   84.837332] sd 7:0:0:0: [sdb] tag#0 Add. Sense: I/O process terminated
+[   84.837502] sd 7:0:0:0: [sdb] tag#0 CDB: Read(10) 28 00 00 00 40 00 00 00 08 00
+[   84.837692] I/O error, dev sdb, sector 16384 op 0x0:(READ) flags 0x0 phys_seg 1 prio class 2
+[   84.838003] Buffer I/O error on dev sdb, logical block 2048, async page read
+[   84.842684] usb 3-2: USB disconnect, device number 10
+[   85.588342] usb 3-2: new SuperSpeed USB device number 11 using xhci_hcd
+[   85.608764] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   85.609054] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   85.609234] usb 3-2: Product: QEMU USB HARDDRIVE
+[   85.609351] usb 3-2: Manufacturer: QEMU
+[   85.609450] usb 3-2: SerialNumber: USBLABDISCONNECT
+[   85.623052] usb-storage 3-2:1.0: USB Mass Storage device detected
+[   85.630924] scsi host7: usb-storage 3-2:1.0
+[   86.641562] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   86.652309] sd 7:0:0:0: Power-on or device reset occurred
+[   86.661435] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   86.662237] sd 7:0:0:0: [sdb] Write Protect is off
+[   86.662726] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   86.663618] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   86.688296] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[   87.800145] usb 3-2: USB disconnect, device number 11
+[   87.824576] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[   87.824968] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+[   88.724306] usb 3-2: new SuperSpeed USB device number 12 using xhci_hcd
+[   88.744801] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   88.745122] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   88.745304] usb 3-2: Product: QEMU USB HARDDRIVE
+[   88.745445] usb 3-2: Manufacturer: QEMU
+[   88.745547] usb 3-2: SerialNumber: USBLABREPLACEMENT
+[   88.759049] usb-storage 3-2:1.0: USB Mass Storage device detected
+[   88.767350] scsi host7: usb-storage 3-2:1.0
+[   89.777232] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   89.786690] sd 7:0:0:0: Power-on or device reset occurred
+[   89.791274] sd 7:0:0:0: [sdb] 131072 512-byte logical blocks: (67.1 MB/64.0 MiB)
+[   89.792371] sd 7:0:0:0: [sdb] Write Protect is off
+[   89.795711] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   89.798029] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   89.811630] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[   90.887184] usb 3-2: USB disconnect, device number 12
+[   90.908299] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[   90.908689] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+[   98.204106] usb 1-1: new high-speed USB device number 4 using ehci-pci
+[   98.362075] usb 1-1: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[   98.362417] usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[   98.362612] usb 1-1: Product: QEMU USB HARDDRIVE
+[   98.362739] usb 1-1: Manufacturer: QEMU
+[   98.362840] usb 1-1: SerialNumber: BEAMOBOOT
+[   98.377368] usb-storage 1-1:1.0: USB Mass Storage device detected
+[   98.384808] scsi host7: usb-storage 1-1:1.0
+[   99.413352] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[   99.422003] sd 7:0:0:0: Power-on or device reset occurred
+[   99.428306] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[   99.439701] sd 7:0:0:0: [sdb] 4194304 512-byte logical blocks: (2.15 GB/2.00 GiB)
+[   99.444534] sd 7:0:0:0: [sdb] Write Protect is off
+[   99.447418] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[   99.480068]  sdb: sdb1
+[   99.485384] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[  102.657870] usb 1-1: USB disconnect, device number 4
+[  102.684289] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[  102.684683] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+[  108.916319] usb 3-2: new SuperSpeed USB device number 13 using xhci_hcd
+[  108.936735] usb 3-2: New USB device found, idVendor=46f4, idProduct=0001, bcdDevice= 0.00
+[  108.937048] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[  108.937238] usb 3-2: Product: QEMU USB HARDDRIVE
+[  108.937357] usb 3-2: Manufacturer: QEMU
+[  108.937455] usb 3-2: SerialNumber: BEAMOBOOT
+[  108.949491] usb-storage 3-2:1.0: USB Mass Storage device detected
+[  108.956246] scsi host7: usb-storage 3-2:1.0
+[  109.969788] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[  109.980389] sd 7:0:0:0: Power-on or device reset occurred
+[  109.987133] sd 7:0:0:0: [sdb] 4194304 512-byte logical blocks: (2.15 GB/2.00 GiB)
+[  109.987813] sd 7:0:0:0: [sdb] Write Protect is off
+[  109.989233] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[  109.991589] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[  110.001764]  sdb: sdb1
+[  110.004426] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[  112.937294] usb 3-2: USB disconnect, device number 13
+[  112.964170] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[  112.964563] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK
+[  119.080324] usb 3-2: new SuperSpeed USB device number 14 using xhci_hcd
+[  119.100693] usb 3-2: New USB device found, idVendor=46f4, idProduct=0003, bcdDevice= 0.00
+[  119.101004] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[  119.101216] usb 3-2: Product: USB Attached SCSI HBA
+[  119.101341] usb 3-2: Manufacturer: QEMU
+[  119.101440] usb 3-2: SerialNumber: BEAMOBOOT
+[  119.123134] scsi host7: uas
+[  119.137381] scsi 7:0:0:0: Direct-Access     QEMU     QEMU HARDDISK    2.5+ PQ: 0 ANSI: 5
+[  119.143024] sd 7:0:0:0: Power-on or device reset occurred
+[  119.144196] sd 7:0:0:0: [sdb] 4194304 512-byte logical blocks: (2.15 GB/2.00 GiB)
+[  119.144670] sd 7:0:0:0: [sdb] Write Protect is off
+[  119.148493] sd 7:0:0:0: [sdb] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[  119.156345] sd 7:0:0:0: Attached scsi generic sg2 type 0
+[  119.172621]  sdb: sdb1
+[  119.177193] sd 7:0:0:0: [sdb] Attached SCSI removable disk
+[  121.413293] usb 3-2: USB disconnect, device number 14
+[  121.452579] sd 7:0:0:0: [sdb] Synchronizing SCSI cache
+[  121.692481] sd 7:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=DID_ERROR driverbyte=DRIVER_OK
+[  127.206118] usb 3-1: USB disconnect, device number 2
+[  127.232427] sd 6:0:0:0: [sda] Synchronizing SCSI cache
+[  127.232815] sd 6:0:0:0: [sda] Synchronize Cache(10) failed: Result: hostbyte=DID_NO_CONNECT driverbyte=DRIVER_OK

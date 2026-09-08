@@ -1,0 +1,20 @@
+{
+  "1-visual.pcap": {
+    "sha256": "f70275576f98aa1f5db27e2fc91d90a752efd8dfba1f7dec38cfa53c812dd9d9",
+    "packets": 5656,
+    "payload_bytes": 468840,
+    "snaplen_truncated_packets": 180,
+    "linktype": 220,
+    "bytes": 559360,
+    "retained": true
+  },
+  "2-uasdiag.pcap": {
+    "sha256": "b584a1f812057ac919b6229fed26ee046ac12cbb56f1b01985dab19c9a84c56a",
+    "packets": 24,
+    "payload_bytes": 1784,
+    "snaplen_truncated_packets": 0,
+    "linktype": 220,
+    "bytes": 2192,
+    "retained": true
+  }
+}

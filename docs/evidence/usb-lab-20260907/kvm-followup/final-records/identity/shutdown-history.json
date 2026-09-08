@@ -1,0 +1,17 @@
+{
+  "result": [
+    {
+      "TimeCreated": "/Date(1788819584827)/",
+      "Id": 6006,
+      "ProviderName": "EventLog",
+      "Message": "The Event log service was stopped."
+    },
+    {
+      "TimeCreated": "/Date(1788819551878)/",
+      "Id": 1074,
+      "ProviderName": "User32",
+      "Message": "The process C:\\WINDOWS\\system32\\wlms\\wlms.exe (USB-L936V0GNL67) has initiated the shutdown of computer USB-L936V0GNL67 on behalf of user NT AUTHORITY\\SYSTEM for the following reason: Other (Planned)\r\n Reason Code: 0x80000000\r\n Shutdown Type: shutdown\r\n Comment: The license period for this installation of Windows has expired. The operating system is shutting down.\r\n"
+    }
+  ],
+  "ok": true
+}

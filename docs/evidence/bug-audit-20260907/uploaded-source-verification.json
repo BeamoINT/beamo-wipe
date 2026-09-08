@@ -1,0 +1,7 @@
+{
+  "build_id": "dfc25a99-86b4-4508-b3cf-54582d1516a5",
+  "source_commit": "579f5200e59347a2626fa4a09cea94c908202cd3",
+  "source_uri": "gs://beamo-wipe_cloudbuild/source/1788827560.093667-360da7abba7c4dc6a5e21fbaab2466bd.tgz#1788827572593514",
+  "archive_sha256": "94df513e0790fc3c18e2c470bbae137aaa505a89b86488d295c13db1d4fbe01f",
+  "audited_files_verified": 11
+}

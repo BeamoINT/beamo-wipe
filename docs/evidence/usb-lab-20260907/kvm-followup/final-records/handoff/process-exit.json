@@ -1,0 +1,7 @@
+{
+  "qemu_pid": 286259,
+  "qemu_exited": true,
+  "scratch_removed": true,
+  "termination": "QMP quit after wizard proof",
+  "units": "MainPID=0\nExecMainStatus=0\nActiveState=inactive\n\nMainPID=0\nExecMainStatus=0\nActiveState=inactive\n"
+}

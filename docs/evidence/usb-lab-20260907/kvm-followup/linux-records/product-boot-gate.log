@@ -1,0 +1,98 @@
+[qemu-verify] worker_os=Linux worker_arch=x86_64
+[qemu-verify] artifact checksums verified
+[qemu-verify] live filesystem package and permission policy verified
+scripts/qemu-verify.sh: line 329: 150169 Killed                  sudo unshare --mount --propagation private -- sh -c 'mount -t vfat -o rw,nodev,nosuid,noexec,nosymfollow,umask=077 "$1" "$2" && kill -KILL $$' sh "$REPORT_LOOP" "$REPORT_MOUNT" > "$EVIDENCE_DIR/report-helper-crash.txt" 2>&1
+[qemu-verify] private report helper crash left no host-namespace mount
+[qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+[qemu-verify] disposable target and boot loop identities verified
+[qemu-verify] pinned nwipe boundary and anonymized logging verified
+QEMU bios observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU bios observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU bios observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU bios observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU bios observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=2
+QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_METHOD count=1
+QEMU bios observed exact marker BEAMO_WIPE_RETURN_RESULT_LAST_CHANCE count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_METHOD count=2
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_LAST_CHANCE count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_WORKING count=1
+QEMU bios observed exact marker BEAMO_WIPE_SCREEN_DONE count=4
+QEMU bios observed exact marker BEAMO_WIPE_REPORT_SAVING count=2
+QEMU bios observed exact marker BEAMO_WIPE_REPORT_SAVED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_STARTED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_EVIDENCE_VERIFIED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_SCAN_ONE count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_SELECT_ONE count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_SCAN_TWO count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_SELECTED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_CONTROLLER_IDENTIFIED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_DECODED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_SELECTED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_IDENTIFIED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_WORKER_OPENED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RW_MOUNTED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_BUNDLE_WRITTEN count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RW_UNMOUNTED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RO_MOUNTED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_READBACK_VERIFIED count=1
+QEMU bios observed exact marker BEAMO_WIPE_EXPORT_RO_UNMOUNTED count=1
+QEMU bios observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=6
+QEMU bios observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=2
+[qemu-verify] bios boot completed the shipped Wizard report export
+[qemu-verify] shipped Wizard zeroed the guest target prefill
+[qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+QEMU uefi observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU uefi observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+[qemu-verify] uefi boot reached the shipped Tk WHAT screen
+QEMU bios-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU bios-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+QEMU bios-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+[qemu-verify] bios-usb boot reached the shipped Tk WHAT screen
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU uefi-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU uefi-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU uefi-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+QEMU uefi-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+[qemu-verify] uefi-usb boot reached the shipped Tk WHAT screen
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+[qemu-verify] secureboot-usb boot reached the shipped Tk WHAT screen
+[qemu-verify] PASS; evidence=/tmp/beamo-wipe-qemu.nSttgK/evidence

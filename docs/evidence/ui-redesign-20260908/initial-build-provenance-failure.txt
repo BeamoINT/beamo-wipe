@@ -1,0 +1,28 @@
+
+ERROR: build step 5 "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443" failed: step exited with non-zero status: 1
+ERROR
+Finished Step #5 - "iso-build"
+Step #5 - "iso-build": RuntimeError: untraceable source state: origin URL unavailable
+Step #5 - "iso-build":     raise RuntimeError("untraceable source state: origin URL unavailable")
+Step #5 - "iso-build":   File "/workspace/src/beamo_wipe/release_manifest.py", line 67, in git_remote_url
+Step #5 - "iso-build":                   ^^^^^^^^^^^^^^^^
+Step #5 - "iso-build":     "remote_url": git_remote_url(),
+Step #5 - "iso-build":   File "/workspace/src/beamo_wipe/release_manifest.py", line 373, in generate_manifest
+Step #5 - "iso-build":   File "<stdin>", line 5, in <module>
+Step #5 - "iso-build": Traceback (most recent call last):
+Step #5 - "iso-build": 
+Step #5 - "iso-build": During handling of the above exception, another exception occurred:
+Step #5 - "iso-build": 
+Step #5 - "iso-build": subprocess.CalledProcessError: Command '['git', 'config', '--get', 'remote.origin.url']' returned non-zero exit status 1.
+Step #5 - "iso-build":     raise CalledProcessError(retcode, process.args,
+Step #5 - "iso-build":   File "/usr/lib/python3.11/subprocess.py", line 571, in run
+Step #5 - "iso-build":            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step #5 - "iso-build":     return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+Step #5 - "iso-build":   File "/usr/lib/python3.11/subprocess.py", line 466, in check_output
+Step #5 - "iso-build":            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step #5 - "iso-build":     return subprocess.check_output(cmd, cwd=ROOT, text=True, **kw).strip()  # noqa: S603
+Step #5 - "iso-build":   File "/workspace/src/beamo_wipe/release_manifest.py", line 35, in _run
+Step #5 - "iso-build":           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step #5 - "iso-build":     raw = _run(["git", "config", "--get", "remote.origin.url"])
+Step #5 - "iso-build":   File "/workspace/src/beamo_wipe/release_manifest.py", line 65, in git_remote_url
+Step #5 - "iso-build": Traceback (most recent call last):

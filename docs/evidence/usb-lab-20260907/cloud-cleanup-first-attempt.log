@@ -1,0 +1,17 @@
+ERROR: (gcloud.compute.instances.delete) Could not fetch resource:
+ - The resource 'projects/beamo-wipe/zones/us-central1-a/instances/beamo-usb-sim-0907' was not found
+
+Traceback (most recent call last):
+  File "/Users/HP/dev/Beamo Wipe/tools/usb_lab/gcp_lab.py", line 118, in <module>
+    main()
+  File "/Users/HP/dev/Beamo Wipe/tools/usb_lab/gcp_lab.py", line 114, in main
+    (create if args.action == 'create' else destroy)(args)
+  File "/Users/HP/dev/Beamo Wipe/tools/usb_lab/gcp_lab.py", line 68, in destroy
+    command('compute', 'instances', 'delete', name, p, z)
+  File "/Users/HP/dev/Beamo Wipe/tools/usb_lab/gcp_lab.py", line 11, in command
+    return subprocess.check_output(['gcloud', *args, '--quiet', '--format=json'], text=True)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py", line 420, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py", line 524, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['gcloud', 'compute', 'instances', 'delete', 'beamo-usb-sim-0907', '--project=beamo-wipe', '--zone=us-central1-a', '--quiet', '--format=json']' returned non-zero exit status 1.

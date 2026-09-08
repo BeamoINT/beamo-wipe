@@ -41,6 +41,7 @@ func planView(p Plan, preview bool) view {
 		v.Title = "Use the computer's boot menu"
 		v.Detail = map[string]string{
 			"legacy":   "This computer does not offer the supported automatic restart path. Keep the USB connected and follow the boot instructions below.",
+			"timeout":  "The compatibility check took too long. Wait a moment, then choose Check again, or use the boot instructions below.",
 			"media":    "Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.",
 			"pending":  "Another application has already requested a special next startup. Beamo will not replace it. Complete that startup before trying again.",
 			"entry":    "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
@@ -53,6 +54,15 @@ func planView(p Plan, preview bool) view {
 		}
 	}
 	return v
+}
+
+// A deadline is inconclusive evidence, not evidence of the wrong USB.
+func inspectPlan(ctx context.Context, probe func(context.Context) Snapshot) Plan {
+	s := probe(ctx)
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return Plan{Problem: "timeout"}
+	}
+	return makePlan(s)
 }
 
 type app struct {
@@ -123,7 +133,7 @@ func (a *app) serve(w http.ResponseWriter, r *http.Request) {
 			a.mu.Unlock()
 			ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 			defer cancel()
-			p := makePlan(a.probe(ctx))
+			p := inspectPlan(ctx, a.probe)
 			a.mu.Lock()
 			a.p = p
 			a.current = planView(p, a.preview)
@@ -225,7 +235,7 @@ func run() error {
 	if len(os.Args) == 2 && os.Args[1] == "--check-json" {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		return json.NewEncoder(os.Stdout).Encode(planView(makePlan(platformProbe(ctx)), false))
+		return json.NewEncoder(os.Stdout).Encode(planView(inspectPlan(ctx, platformProbe), false))
 	}
 	if len(os.Args) == 2 && os.Args[1] == "--preview" {
 		preview = true

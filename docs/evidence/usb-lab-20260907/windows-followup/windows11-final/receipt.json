@@ -1,0 +1,14 @@
+{
+  "collected_utc": "2026-09-07T19:19:16.495672+00:00",
+  "status": "NO_COMPLETED_NATIVE_CLIENT_MATRIX",
+  "valid_native_json_rows": 0,
+  "matrices": {},
+  "qemu_process_exited": true,
+  "prior_qemu_pid": 145468,
+  "units": {
+    "usb-win11": "MainPID=0\nExecMainStartTimestamp=\nExecMainExitTimestamp=\nExecMainStatus=0\nActiveState=inactive\n",
+    "usb-win11-tpm": "MainPID=0\nExecMainStartTimestamp=\nExecMainExitTimestamp=\nExecMainStatus=0\nActiveState=inactive\n"
+  },
+  "original_iso_sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+  "no_installer_hardware_requirement_bypass": true
+}

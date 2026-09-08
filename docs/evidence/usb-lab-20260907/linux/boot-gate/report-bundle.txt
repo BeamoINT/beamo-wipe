@@ -1,0 +1,3 @@
+session=report-3ab942288eba48ec4a19ebd4
+outcome=completed
+files=COMPLETE,README.txt,nwipe.log,nwipe.log.sha256,result.json,result.json.sha256

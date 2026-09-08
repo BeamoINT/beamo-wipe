@@ -1,0 +1,11 @@
+{
+    "setupInProgress":  0,
+    "exitCode":  1,
+    "sha256":  "5785b16396b89ad53173d7a9171d71fc20b269b9ef2ff43376ad99751464e567",
+    "os":  {
+               "Caption":  "Microsoft Windows 11 Enterprise Evaluation",
+               "Version":  "10.0.26200",
+               "BuildNumber":  "26200"
+           },
+    "secureBoot":  true
+}

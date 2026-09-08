@@ -1,0 +1,15 @@
+{"direction": "receive", "message": {"QMP": {"version": {"qemu": {"micro": 2, "minor": 0, "major": 10}, "package": "Debian 1:10.0.2+ds-2+deb13u1~bpo12+1"}, "capabilities": ["oob"]}}}
+{"direction": "send", "message": {"execute": "qmp_capabilities", "arguments": {}, "id": 1}}
+{"direction": "receive", "message": {"return": {}, "id": 1}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "visual", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-btujytkb/visual.raw"}}, "id": 2}}
+{"direction": "receive", "message": {"return": {}, "id": 2}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "visual", "drive": "visual", "bus": "xhci.0", "port": "1", "serial": "BEAMOBOOT", "removable": true, "pcap": "/lab/server-visual/1-visual.pcap"}, "id": 3}}
+{"direction": "receive", "message": {"return": {}, "id": 3}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "uasdiag", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-btujytkb/uasdiag.raw"}}, "id": 4}}
+{"direction": "receive", "message": {"return": {}, "id": 4}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-uas", "id": "uasdiag", "bus": "xhci.0", "port": "2", "serial": "USBLABPROFILE2", "pcap": "/lab/server-visual/2-uasdiag.pcap"}, "id": 5}}
+{"direction": "receive", "message": {"return": {}, "id": 5}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "scsi-hd", "id": "uasdiag-lun", "bus": "uasdiag.0", "drive": "uasdiag", "serial": "USBLABPROFILE2", "removable": true}, "id": 6}}
+{"direction": "receive", "message": {"return": {}, "id": 6}}
+{"direction": "send", "message": {"execute": "qom-set", "arguments": {"path": "/machine/peripheral/uasdiag", "property": "attached", "value": true}, "id": 7}}
+{"direction": "receive", "message": {"return": {}, "id": 7}}

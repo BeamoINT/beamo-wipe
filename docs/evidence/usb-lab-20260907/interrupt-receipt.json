@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "status": "FAIL",
+  "accelerator": "tcg",
+  "firmware": "uefi",
+  "cases": [],
+  "qemu": "QEMU emulator version 10.0.2 (Debian 1:10.0.2+ds-2+deb13u1~bpo12+1)",
+  "fixture_sha256": {
+    "kernel": "d78b512d423b5220e10da9ac26e9091a369c53dea80556778240d24dd5723005",
+    "initrd": "4601b814e7845893ef2fbab98a0dc72db2dc392016d0e29a7944cb047ee8c8ec",
+    "root.ext4": "7e6c26c84317eb5166aa539142c1d3d176807ef69f1548c105b385ce009c8c61"
+  },
+  "product_sha256": null,
+  "scratch_removed": true,
+  "qemu_exited": true,
+  "packet_captures": {}
+}

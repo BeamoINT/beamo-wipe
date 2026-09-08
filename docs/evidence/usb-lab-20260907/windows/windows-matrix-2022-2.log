@@ -1,0 +1,14 @@
+PASS windows-os
+PASS usb2-bot-windows-write-unplug-reconnect
+PASS usb3-bot-windows-write-unplug-reconnect
+Traceback (most recent call last):
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 132, in <module>
+    main()
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 120, in main
+    lab.matrix(args.product_image, args.firmware)
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 38, in matrix
+    state = self.wait_disk(serial)
+            ^^^^^^^^^^^^^^^^^^^^^^
+  File "/lab/harness/tools/usb_lab/lab.py", line 196, in wait_disk
+    raise TimeoutError(f'Expected {count} USB devices with serial {serial}')
+TimeoutError: Expected 1 USB devices with serial USBLABPROFILE2

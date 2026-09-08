@@ -1,0 +1,12 @@
+{
+  "archive": "/tmp/usb-kvm-final-proof.tgz",
+  "sha256": "39f52ed089900bb5be391d67a0c155f00952416de7e2c65552c35460435e1c3f",
+  "bytes": 8003631,
+  "files": 218,
+  "fixture_password_absent": true,
+  "all_file_hashes_match": true,
+  "safe_archive_members": true,
+  "verified_files": 218,
+  "transfer_method": "SSH stdout stream after stalled SCP was terminated",
+  "stalled_scp_partial_was_not_accepted": true
+}

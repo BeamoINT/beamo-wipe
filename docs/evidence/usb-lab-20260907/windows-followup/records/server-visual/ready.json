@@ -1,0 +1,19 @@
+{
+  "result": {
+    "hashes": {
+      "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db",
+      "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e"
+    },
+    "exit_code": 0,
+    "volume": "F",
+    "driveType": "Removable",
+    "check": {
+      "ready": false,
+      "preview": false,
+      "title": "Use the computer's boot menu",
+      "detail": "This computer does not offer the supported automatic restart path. Keep the USB connected and follow the boot instructions below.",
+      "version": "0.2.5"
+    }
+  },
+  "ok": true
+}

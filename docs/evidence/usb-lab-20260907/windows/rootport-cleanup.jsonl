@@ -1,0 +1,33 @@
+{"direction": "receive", "message": {"QMP": {"version": {"qemu": {"micro": 2, "minor": 0, "major": 10}, "package": "Debian 1:10.0.2+ds-2+deb13u1~bpo12+1"}, "capabilities": ["oob"]}}}
+{"direction": "send", "message": {"execute": "qmp_capabilities", "arguments": {}, "id": 1}}
+{"direction": "receive", "message": {"return": {}, "id": 1}}
+{"direction": "send", "message": {"execute": "human-monitor-command", "arguments": {"command-line": "info usb"}, "id": 2}}
+{"direction": "receive", "message": {"return": "  Device 0.1, Port 1, Speed 5000 Mb/s, Product QEMU USB MSD, ID: seed\r\n  Device 0.2, Port 2, Speed 480 Mb/s, Product QEMU USB Tablet, ID: pointer\r\n  Device 0.3, Port 3, Speed 480 Mb/s, Product QEMU USB Keyboard, ID: keyboard\r\n  Device 0.4, Port 4, Speed 12 Mb/s, Product QEMU USB Hub\r\n  Device 0.0, Port 4.4, Speed 12 Mb/s, Product USB Attached SCSI HBA, ID: profile2\r\n", "id": 2}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "profile2"}, "id": 3}}
+{"direction": "receive", "message": {"return": {}, "id": 3}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 4}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788766219, "microseconds": 635375}, "event": "DEVICE_DELETED", "data": {"device": "profile2-lun", "path": "/machine/peripheral/profile2-lun"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788766219, "microseconds": 635449}, "event": "DEVICE_DELETED", "data": {"device": "profile2", "path": "/machine/peripheral/profile2"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 4}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "seed"}, "id": 5}}
+{"direction": "receive", "message": {"return": {}, "id": 5}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 6}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788766220, "microseconds": 633982}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/seed/seed.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788766220, "microseconds": 634044}, "event": "DEVICE_DELETED", "data": {"device": "seed", "path": "/machine/peripheral/seed"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 6}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "pointer"}, "id": 7}}
+{"direction": "receive", "message": {"return": {}, "id": 7}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 8}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788766221, "microseconds": 626965}, "event": "DEVICE_DELETED", "data": {"device": "pointer", "path": "/machine/peripheral/pointer"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 8}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "keyboard"}, "id": 9}}
+{"direction": "receive", "message": {"return": {}, "id": 9}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 10}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788766222, "microseconds": 637918}, "event": "DEVICE_DELETED", "data": {"device": "keyboard", "path": "/machine/peripheral/keyboard"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 10}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "profile2"}, "id": 11}}
+{"direction": "receive", "message": {"return": {}, "id": 11}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "seed"}, "id": 12}}
+{"direction": "receive", "message": {"return": {}, "id": 12}}
+{"direction": "send", "message": {"execute": "human-monitor-command", "arguments": {"command-line": "info usb"}, "id": 13}}
+{"direction": "receive", "message": {"return": "  Device 0.4, Port 4, Speed 12 Mb/s, Product QEMU USB Hub\r\n", "id": 13}}

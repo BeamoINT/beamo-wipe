@@ -1,0 +1,3 @@
+{"direction": "receive", "message": {"QMP": {"version": {"qemu": {"micro": 2, "minor": 0, "major": 10}, "package": "Debian 1:10.0.2+ds-2+deb13u1~bpo12+1"}, "capabilities": ["oob"]}}}
+{"direction": "send", "message": {"execute": "qmp_capabilities", "arguments": {}, "id": 1}}
+{"direction": "receive", "message": {"return": {}, "id": 1}}

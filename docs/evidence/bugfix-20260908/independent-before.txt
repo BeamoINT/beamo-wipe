@@ -1,0 +1,891 @@
+FFFFFFFFFFFFFFFFFFF..FFFFFFFFFFF.                                        [100%]
+=================================== FAILURES ===================================
+_____ test_mounted_flat_child_missing_parent_fails_closed[sda1-part-None] ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1020152a0>
+missing_parent = None, name = 'sda1', kind = 'part'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/sda1 | Serial: sda1', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_______ test_mounted_flat_child_missing_parent_fails_closed[sda1-part-] ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1024a22c0>
+missing_parent = '', name = 'sda1', kind = 'part'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/sda1 | Serial: sda1', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+____ test_mounted_flat_child_missing_parent_fails_closed[sda1-part-absent] _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025fbe50>
+missing_parent = 'absent', name = 'sda1', kind = 'part'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/sda1 | Serial: sda1', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_____ test_mounted_flat_child_missing_parent_fails_closed[dm-0-crypt-None] _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1024a3c70>
+missing_parent = None, name = 'dm-0', kind = 'crypt'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-0 | Serial: dm-0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_______ test_mounted_flat_child_missing_parent_fails_closed[dm-0-crypt-] _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025fa4a0>
+missing_parent = '', name = 'dm-0', kind = 'crypt'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-0 | Serial: dm-0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+____ test_mounted_flat_child_missing_parent_fails_closed[dm-0-crypt-absent] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1024a3670>
+missing_parent = 'absent', name = 'dm-0', kind = 'crypt'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-0 | Serial: dm-0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+______ test_mounted_flat_child_missing_parent_fails_closed[dm-1-lvm-None] ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025f9a20>
+missing_parent = None, name = 'dm-1', kind = 'lvm'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-1 | Serial: dm-1', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+________ test_mounted_flat_child_missing_parent_fails_closed[dm-1-lvm-] ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1024a19c0>
+missing_parent = '', name = 'dm-1', kind = 'lvm'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-1 | Serial: dm-1', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_____ test_mounted_flat_child_missing_parent_fails_closed[dm-1-lvm-absent] _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025fa290>
+missing_parent = 'absent', name = 'dm-1', kind = 'lvm'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-1 | Serial: dm-1', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_____ test_mounted_flat_child_missing_parent_fails_closed[md0-raid1-None] ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1024a1db0>
+missing_parent = None, name = 'md0', kind = 'raid1'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...ity='Fake disk | 32 GB | /dev/md0 | Serial: md0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_______ test_mounted_flat_child_missing_parent_fails_closed[md0-raid1-] ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10246bd90>
+missing_parent = '', name = 'md0', kind = 'raid1'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...ity='Fake disk | 32 GB | /dev/md0 | Serial: md0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+____ test_mounted_flat_child_missing_parent_fails_closed[md0-raid1-absent] _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1024a27a0>
+missing_parent = 'absent', name = 'md0', kind = 'raid1'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...ity='Fake disk | 32 GB | /dev/md0 | Serial: md0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_____ test_mounted_flat_child_missing_parent_fails_closed[dm-2-mpath-None] _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x102015330>
+missing_parent = None, name = 'dm-2', kind = 'mpath'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-2 | Serial: dm-2', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_______ test_mounted_flat_child_missing_parent_fails_closed[dm-2-mpath-] _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025e92a0>
+missing_parent = '', name = 'dm-2', kind = 'mpath'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-2 | Serial: dm-2', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+____ test_mounted_flat_child_missing_parent_fails_closed[dm-2-mpath-absent] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025fae00>
+missing_parent = 'absent', name = 'dm-2', kind = 'mpath'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...y='Fake disk | 32 GB | /dev/dm-2 | Serial: dm-2', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+__ test_mounted_flat_child_missing_parent_fails_closed[unknown0-unknown-None] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1026ed5a0>
+missing_parent = None, name = 'unknown0', kind = 'unknown'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...disk | 32 GB | /dev/unknown0 | Serial: unknown0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+____ test_mounted_flat_child_missing_parent_fails_closed[unknown0-unknown-] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1020149a0>
+missing_parent = '', name = 'unknown0', kind = 'unknown'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...disk | 32 GB | /dev/unknown0 | Serial: unknown0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+_ test_mounted_flat_child_missing_parent_fails_closed[unknown0-unknown-absent] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025f2fb0>
+missing_parent = 'absent', name = 'unknown0', kind = 'unknown'
+
+    @pytest.mark.parametrize("missing_parent", [None, "", "absent"])
+    @pytest.mark.parametrize("name,kind", [("sda1", "part"), ("dm-0", "crypt"), ("dm-1", "lvm"), ("md0", "raid1"), ("dm-2", "mpath"), ("unknown0", "unknown")])
+    def test_mounted_flat_child_missing_parent_fails_closed(monkeypatch, missing_parent, name, kind):
+        # A detached mounted child whose owner is unknown cannot establish that
+        # the separately listed physical disk is unmounted.
+        child = disk(name, type=kind, mountpoints=["/media/data"])
+        if missing_parent != "absent":
+            child["pkname"] = missing_parent
+        result = probe(monkeypatch, [disk("sda"), disk("sdb"), child])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size...disk | 32 GB | /dev/unknown0 | Serial: unknown0', reasons=('mounted or in use', 'unsupported device'))), error_code='').boot_identified
+
+tests/test_audit_20260908_discovery.py:36: AssertionError
+__________ test_missing_parent_retry_with_complete_ancestry_recovers ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025e99c0>
+
+    def test_missing_parent_retry_with_complete_ancestry_recovers(monkeypatch):
+        first = probe(monkeypatch, [disk("sda"), disk("sdb"), disk("sda1", type="part", mountpoints=["/media/data"])])
+>       assert first.selectable == ()
+E       AssertionError: assert (Disk(path='/...'Fake disk'),) == ()
+E         
+E         Left contains one more item: Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size_gb_label='32', kind=<D... 'SSD'>, bus='USB', label='', is_boot=False, read_only=False, wwn='', vendor='', mountpoints=(), raw_model='Fake disk')
+E         Use -v to get more diff
+
+tests/test_audit_20260908_discovery.py:42: AssertionError
+______ test_optional_log_io_failure_is_unavailable_and_retryable[5-fstat] ______
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1949/test_optional_log_io_failure_i0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1025f0100>
+operation = 'fstat', number = 5
+
+    @pytest.mark.parametrize("operation", ["fstat", "read", "lseek"])
+    @pytest.mark.parametrize("number", [errno.EIO, errno.EACCES])
+    def test_optional_log_io_failure_is_unavailable_and_retryable(
+        tmp_path, monkeypatch, operation, number
+    ):
+        """An unreadable optional log must not prevent saving terminal evidence."""
+        data = b"authenticated engine log\n"
+        path = tmp_path / "nwipe.log"
+        path.write_bytes(data)
+        options = {
+            "expected_sha256": hashlib.sha256(data).hexdigest(),
+            "expected_size_bytes": len(data),
+        }
+        original_close = support_export.os.close
+        closed = []
+    
+        def close(fd):
+            closed.append(fd)
+            return original_close(fd)
+    
+        def fail(*args, **kwargs):
+            raise OSError(number, "simulated log media error")
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(support_export.os, "close", close)
+            patch.setattr(support_export.os, operation, fail)
+            if operation == "lseek":
+                # A lower fixture limit exercises the real suffix seek without a
+                # large file or any block-device access.
+                patch.setattr(support_export, "MAX_LOG_BYTES", len(data) - 1)
+                options["expected_size_bytes"] = len(data) - 1
+>           assert support_export.read_export_log(str(path), **options) == (b"", "unavailable")
+
+tests/test_audit_20260908_reports.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:470: in read_export_log
+    before = os.fstat(fd)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (13,), kwargs = {}
+
+    def fail(*args, **kwargs):
+>       raise OSError(number, "simulated log media error")
+E       OSError: [Errno 5] simulated log media error
+
+tests/test_audit_20260908_reports.py:32: OSError
+______ test_optional_log_io_failure_is_unavailable_and_retryable[5-read] _______
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1949/test_optional_log_io_failure_i1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x102740130>
+operation = 'read', number = 5
+
+    @pytest.mark.parametrize("operation", ["fstat", "read", "lseek"])
+    @pytest.mark.parametrize("number", [errno.EIO, errno.EACCES])
+    def test_optional_log_io_failure_is_unavailable_and_retryable(
+        tmp_path, monkeypatch, operation, number
+    ):
+        """An unreadable optional log must not prevent saving terminal evidence."""
+        data = b"authenticated engine log\n"
+        path = tmp_path / "nwipe.log"
+        path.write_bytes(data)
+        options = {
+            "expected_sha256": hashlib.sha256(data).hexdigest(),
+            "expected_size_bytes": len(data),
+        }
+        original_close = support_export.os.close
+        closed = []
+    
+        def close(fd):
+            closed.append(fd)
+            return original_close(fd)
+    
+        def fail(*args, **kwargs):
+            raise OSError(number, "simulated log media error")
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(support_export.os, "close", close)
+            patch.setattr(support_export.os, operation, fail)
+            if operation == "lseek":
+                # A lower fixture limit exercises the real suffix seek without a
+                # large file or any block-device access.
+                patch.setattr(support_export, "MAX_LOG_BYTES", len(data) - 1)
+                options["expected_size_bytes"] = len(data) - 1
+>           assert support_export.read_export_log(str(path), **options) == (b"", "unavailable")
+
+tests/test_audit_20260908_reports.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:483: in read_export_log
+    chunk = os.read(fd, min(65536, remaining))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (13, 25), kwargs = {}
+
+    def fail(*args, **kwargs):
+>       raise OSError(number, "simulated log media error")
+E       OSError: [Errno 5] simulated log media error
+
+tests/test_audit_20260908_reports.py:32: OSError
+______ test_optional_log_io_failure_is_unavailable_and_retryable[5-lseek] ______
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1949/test_optional_log_io_failure_i2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1024a1f30>
+operation = 'lseek', number = 5
+
+    @pytest.mark.parametrize("operation", ["fstat", "read", "lseek"])
+    @pytest.mark.parametrize("number", [errno.EIO, errno.EACCES])
+    def test_optional_log_io_failure_is_unavailable_and_retryable(
+        tmp_path, monkeypatch, operation, number
+    ):
+        """An unreadable optional log must not prevent saving terminal evidence."""
+        data = b"authenticated engine log\n"
+        path = tmp_path / "nwipe.log"
+        path.write_bytes(data)
+        options = {
+            "expected_sha256": hashlib.sha256(data).hexdigest(),
+            "expected_size_bytes": len(data),
+        }
+        original_close = support_export.os.close
+        closed = []
+    
+        def close(fd):
+            closed.append(fd)
+            return original_close(fd)
+    
+        def fail(*args, **kwargs):
+            raise OSError(number, "simulated log media error")
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(support_export.os, "close", close)
+            patch.setattr(support_export.os, operation, fail)
+            if operation == "lseek":
+                # A lower fixture limit exercises the real suffix seek without a
+                # large file or any block-device access.
+                patch.setattr(support_export, "MAX_LOG_BYTES", len(data) - 1)
+                options["expected_size_bytes"] = len(data) - 1
+>           assert support_export.read_export_log(str(path), **options) == (b"", "unavailable")
+
+tests/test_audit_20260908_reports.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:479: in read_export_log
+    os.lseek(fd, before.st_size - MAX_LOG_BYTES, os.SEEK_SET)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (13, 1, 0), kwargs = {}
+
+    def fail(*args, **kwargs):
+>       raise OSError(number, "simulated log media error")
+E       OSError: [Errno 5] simulated log media error
+
+tests/test_audit_20260908_reports.py:32: OSError
+_____ test_optional_log_io_failure_is_unavailable_and_retryable[13-fstat] ______
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1949/test_optional_log_io_failure_i3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x102b83070>
+operation = 'fstat', number = 13
+
+    @pytest.mark.parametrize("operation", ["fstat", "read", "lseek"])
+    @pytest.mark.parametrize("number", [errno.EIO, errno.EACCES])
+    def test_optional_log_io_failure_is_unavailable_and_retryable(
+        tmp_path, monkeypatch, operation, number
+    ):
+        """An unreadable optional log must not prevent saving terminal evidence."""
+        data = b"authenticated engine log\n"
+        path = tmp_path / "nwipe.log"
+        path.write_bytes(data)
+        options = {
+            "expected_sha256": hashlib.sha256(data).hexdigest(),
+            "expected_size_bytes": len(data),
+        }
+        original_close = support_export.os.close
+        closed = []
+    
+        def close(fd):
+            closed.append(fd)
+            return original_close(fd)
+    
+        def fail(*args, **kwargs):
+            raise OSError(number, "simulated log media error")
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(support_export.os, "close", close)
+            patch.setattr(support_export.os, operation, fail)
+            if operation == "lseek":
+                # A lower fixture limit exercises the real suffix seek without a
+                # large file or any block-device access.
+                patch.setattr(support_export, "MAX_LOG_BYTES", len(data) - 1)
+                options["expected_size_bytes"] = len(data) - 1
+>           assert support_export.read_export_log(str(path), **options) == (b"", "unavailable")
+
+tests/test_audit_20260908_reports.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:470: in read_export_log
+    before = os.fstat(fd)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (13,), kwargs = {}
+
+    def fail(*args, **kwargs):
+>       raise OSError(number, "simulated log media error")
+E       PermissionError: [Errno 13] simulated log media error
+
+tests/test_audit_20260908_reports.py:32: PermissionError
+______ test_optional_log_io_failure_is_unavailable_and_retryable[13-read] ______
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1949/test_optional_log_io_failure_i4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1026540a0>
+operation = 'read', number = 13
+
+    @pytest.mark.parametrize("operation", ["fstat", "read", "lseek"])
+    @pytest.mark.parametrize("number", [errno.EIO, errno.EACCES])
+    def test_optional_log_io_failure_is_unavailable_and_retryable(
+        tmp_path, monkeypatch, operation, number
+    ):
+        """An unreadable optional log must not prevent saving terminal evidence."""
+        data = b"authenticated engine log\n"
+        path = tmp_path / "nwipe.log"
+        path.write_bytes(data)
+        options = {
+            "expected_sha256": hashlib.sha256(data).hexdigest(),
+            "expected_size_bytes": len(data),
+        }
+        original_close = support_export.os.close
+        closed = []
+    
+        def close(fd):
+            closed.append(fd)
+            return original_close(fd)
+    
+        def fail(*args, **kwargs):
+            raise OSError(number, "simulated log media error")
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(support_export.os, "close", close)
+            patch.setattr(support_export.os, operation, fail)
+            if operation == "lseek":
+                # A lower fixture limit exercises the real suffix seek without a
+                # large file or any block-device access.
+                patch.setattr(support_export, "MAX_LOG_BYTES", len(data) - 1)
+                options["expected_size_bytes"] = len(data) - 1
+>           assert support_export.read_export_log(str(path), **options) == (b"", "unavailable")
+
+tests/test_audit_20260908_reports.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:483: in read_export_log
+    chunk = os.read(fd, min(65536, remaining))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (13, 25), kwargs = {}
+
+    def fail(*args, **kwargs):
+>       raise OSError(number, "simulated log media error")
+E       PermissionError: [Errno 13] simulated log media error
+
+tests/test_audit_20260908_reports.py:32: PermissionError
+_____ test_optional_log_io_failure_is_unavailable_and_retryable[13-lseek] ______
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1949/test_optional_log_io_failure_i5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x102dbe140>
+operation = 'lseek', number = 13
+
+    @pytest.mark.parametrize("operation", ["fstat", "read", "lseek"])
+    @pytest.mark.parametrize("number", [errno.EIO, errno.EACCES])
+    def test_optional_log_io_failure_is_unavailable_and_retryable(
+        tmp_path, monkeypatch, operation, number
+    ):
+        """An unreadable optional log must not prevent saving terminal evidence."""
+        data = b"authenticated engine log\n"
+        path = tmp_path / "nwipe.log"
+        path.write_bytes(data)
+        options = {
+            "expected_sha256": hashlib.sha256(data).hexdigest(),
+            "expected_size_bytes": len(data),
+        }
+        original_close = support_export.os.close
+        closed = []
+    
+        def close(fd):
+            closed.append(fd)
+            return original_close(fd)
+    
+        def fail(*args, **kwargs):
+            raise OSError(number, "simulated log media error")
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(support_export.os, "close", close)
+            patch.setattr(support_export.os, operation, fail)
+            if operation == "lseek":
+                # A lower fixture limit exercises the real suffix seek without a
+                # large file or any block-device access.
+                patch.setattr(support_export, "MAX_LOG_BYTES", len(data) - 1)
+                options["expected_size_bytes"] = len(data) - 1
+>           assert support_export.read_export_log(str(path), **options) == (b"", "unavailable")
+
+tests/test_audit_20260908_reports.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:479: in read_export_log
+    os.lseek(fd, before.st_size - MAX_LOG_BYTES, os.SEEK_SET)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (13, 1, 0), kwargs = {}
+
+    def fail(*args, **kwargs):
+>       raise OSError(number, "simulated log media error")
+E       PermissionError: [Errno 13] simulated log media error
+
+tests/test_audit_20260908_reports.py:32: PermissionError
+__ test_terminal_export_preserves_evidence_when_log_read_fails_then_recovers ___
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1949/test_terminal_export_preserves0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x102614970>
+
+    def test_terminal_export_preserves_evidence_when_log_read_fails_then_recovers(
+        tmp_path, monkeypatch
+    ):
+        import json
+        import os
+        import subprocess
+        from dataclasses import asdict
+    
+        from beamo_wipe.evidence import write_evidence_atomic
+        from test_usb_report_workflow import _discovery, _payload
+    
+        log = tmp_path / "nwipe.log"
+        log_data = b"engine failure evidence\n"
+        log.write_bytes(log_data)
+        evidence = write_evidence_atomic(
+            {
+                "schema_version": 1,
+                "outcome": "failed",
+                "device": {"path": "/dev/nvme0n1"},
+                "logfile": str(log),
+                "log_checksum_sha256": hashlib.sha256(log_data).hexdigest(),
+                "log_snapshot_size_bytes": len(log_data),
+            },
+            log_dir=tmp_path,
+            device_path="/dev/nvme0n1",
+            target_device="/dev/nvme0n1",
+        )
+        evidence_data = evidence.read_bytes()
+        payload, disks = _payload()
+        fake_rdevs = {"/dev/sdb": 201, "/dev/nvme0n1": 202, "/dev/sdc": 301, "/dev/sdc1": 302}
+        monkeypatch.setattr(support_export, "_block_rdev", fake_rdevs.__getitem__)
+        monkeypatch.setattr(support_export, "_emit_export_marker", lambda *args: None)
+        exported = []
+    
+        def fake_worker(command, **kwargs):
+            # Exercise request decoding and actual bundle writes/readback on an
+            # ordinary directory. No mount command or process is started.
+            report, _, _, _, exported_log, status = support_export._decode_worker_request(
+                kwargs["input"].encode()
+            )
+            session, files = support_export.write_report_bundle(
+                tmp_path, report.data, exported_log, status
+            )
+            support_export.verify_report_bundle(tmp_path, session, files)
+            exported.append((status, files))
+            receipt = support_export.ExportReceipt(
+                True, True, "saved_verified_unmounted", report.sha256, session, status
+            )
+            return subprocess.CompletedProcess(command, 0, json.dumps(asdict(receipt)), "")
+    
+        original_read = os.read
+        log_stat = log.stat()
+    
+        def log_read_error(fd, size):
+            opened = os.fstat(fd)
+            if (opened.st_dev, opened.st_ino) == (log_stat.st_dev, log_stat.st_ino):
+                raise OSError(errno.EIO, "simulated optional-log read failure")
+            return original_read(fd, size)
+    
+        def export():
+            return support_export.export_to_new_usb(
+                evidence_path=evidence,
+                discovery=_discovery(disks),
+                target_path="/dev/nvme0n1",
+                scan=lambda: payload,
+                run=fake_worker,
+            )
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "read", log_read_error)
+>           receipt = export()
+
+tests/test_audit_20260908_reports.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_audit_20260908_reports.py:111: in export
+    return support_export.export_to_new_usb(
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:663: in export_to_new_usb
+    return _export_prepared(evidence, baseline_without_rdev, target_rdev=target_rdev,
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:735: in _export_prepared
+    log_data, log_status = read_export_log(
+../beamo-wipe-original-20260908/src/beamo_wipe/support_export.py:483: in read_export_log
+    chunk = os.read(fd, min(65536, remaining))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+fd = 13, size = 24
+
+    def log_read_error(fd, size):
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) == (log_stat.st_dev, log_stat.st_ino):
+>           raise OSError(errno.EIO, "simulated optional-log read failure")
+E           OSError: [Errno 5] simulated optional-log read failure
+
+tests/test_audit_20260908_reports.py:107: OSError
+_______________ test_enter_on_focused_back_never_erases[Return] ________________
+
+key = 'Return'
+
+    @pytest.mark.parametrize("key", ["Return", "KP_Enter"])
+    def test_enter_on_focused_back_never_erases(key):
+        wizard = _last_chance()
+        app = _app(wizard, _button(wizard.back))
+        app._on_return(SimpleNamespace(keysym=key, time=100))
+>       assert wizard.screen == Screen.METHOD
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.METHOD: 'method'>
+E         
+E         - method
+E         + last_chance
+
+tests/test_audit_20260908_wizard.py:57: AssertionError
+______________ test_enter_on_focused_back_never_erases[KP_Enter] _______________
+
+key = 'KP_Enter'
+
+    @pytest.mark.parametrize("key", ["Return", "KP_Enter"])
+    def test_enter_on_focused_back_never_erases(key):
+        wizard = _last_chance()
+        app = _app(wizard, _button(wizard.back))
+        app._on_return(SimpleNamespace(keysym=key, time=100))
+>       assert wizard.screen == Screen.METHOD
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.METHOD: 'method'>
+E         
+E         - method
+E         + last_chance
+
+tests/test_audit_20260908_wizard.py:57: AssertionError
+________ test_last_chance_enter_without_erase_focus_never_erases[None] _________
+
+focus = None
+
+    @pytest.mark.parametrize("focus", [None, object()])
+    def test_last_chance_enter_without_erase_focus_never_erases(focus):
+        wizard = _last_chance()
+        app = _app(wizard, focus)
+        app._on_return(SimpleNamespace(time=100))
+        assert wizard.screen == Screen.LAST_CHANCE
+>       app._click_erase.assert_not_called()
+
+tests/test_audit_20260908_wizard.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock id='4340530288'>
+
+    def assert_not_called(self):
+        """assert that the mock was never called.
+        """
+        if self.call_count != 0:
+            msg = ("Expected '%s' to not have been called. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to not have been called. Called 1 times.
+E           Calls: [call()].
+
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/unittest/mock.py:880: AssertionError
+_______ test_last_chance_enter_without_erase_focus_never_erases[focus1] ________
+
+focus = <object object at 0x100126ca0>
+
+    @pytest.mark.parametrize("focus", [None, object()])
+    def test_last_chance_enter_without_erase_focus_never_erases(focus):
+        wizard = _last_chance()
+        app = _app(wizard, focus)
+        app._on_return(SimpleNamespace(time=100))
+        assert wizard.screen == Screen.LAST_CHANCE
+>       app._click_erase.assert_not_called()
+
+tests/test_audit_20260908_wizard.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock id='4342988224'>
+
+    def assert_not_called(self):
+        """assert that the mock was never called.
+        """
+        if self.call_count != 0:
+            msg = ("Expected '%s' to not have been called. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to not have been called. Called 1 times.
+E           Calls: [call()].
+
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/unittest/mock.py:880: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[sda1-part-None]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[sda1-part-]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[sda1-part-absent]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-0-crypt-None]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-0-crypt-]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-0-crypt-absent]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-1-lvm-None]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-1-lvm-]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-1-lvm-absent]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[md0-raid1-None]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[md0-raid1-]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[md0-raid1-absent]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-2-mpath-None]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-2-mpath-]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[dm-2-mpath-absent]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[unknown0-unknown-None]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[unknown0-unknown-]
+FAILED tests/test_audit_20260908_discovery.py::test_mounted_flat_child_missing_parent_fails_closed[unknown0-unknown-absent]
+FAILED tests/test_audit_20260908_discovery.py::test_missing_parent_retry_with_complete_ancestry_recovers
+FAILED tests/test_audit_20260908_reports.py::test_optional_log_io_failure_is_unavailable_and_retryable[5-fstat]
+FAILED tests/test_audit_20260908_reports.py::test_optional_log_io_failure_is_unavailable_and_retryable[5-read]
+FAILED tests/test_audit_20260908_reports.py::test_optional_log_io_failure_is_unavailable_and_retryable[5-lseek]
+FAILED tests/test_audit_20260908_reports.py::test_optional_log_io_failure_is_unavailable_and_retryable[13-fstat]
+FAILED tests/test_audit_20260908_reports.py::test_optional_log_io_failure_is_unavailable_and_retryable[13-read]
+FAILED tests/test_audit_20260908_reports.py::test_optional_log_io_failure_is_unavailable_and_retryable[13-lseek]
+FAILED tests/test_audit_20260908_reports.py::test_terminal_export_preserves_evidence_when_log_read_fails_then_recovers
+FAILED tests/test_audit_20260908_wizard.py::test_enter_on_focused_back_never_erases[Return]
+FAILED tests/test_audit_20260908_wizard.py::test_enter_on_focused_back_never_erases[KP_Enter]
+FAILED tests/test_audit_20260908_wizard.py::test_last_chance_enter_without_erase_focus_never_erases[None]
+FAILED tests/test_audit_20260908_wizard.py::test_last_chance_enter_without_erase_focus_never_erases[focus1]
+30 failed, 3 passed in 0.90s

@@ -1,0 +1,23 @@
+{
+  "name": "beamo-usb-sim-0907",
+  "project": "beamo-wipe",
+  "zone": "us-central1-a",
+  "region": "us-central1",
+  "instance_id": "8042171882183819313",
+  "status": "CLEANUP_VERIFIED",
+  "deleted": [
+    "nat",
+    "router",
+    "firewall",
+    "subnet",
+    "network"
+  ],
+  "cleanup": {
+    "instances": [],
+    "disks": [],
+    "firewall-rules": [],
+    "routers": [],
+    "networks": [],
+    "networks subnets": []
+  }
+}

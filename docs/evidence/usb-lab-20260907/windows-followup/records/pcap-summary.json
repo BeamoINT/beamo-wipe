@@ -1,0 +1,100 @@
+{
+  "server-full/1-canary.pcap": {
+    "sha256": "eaca9c885449a43015b2ced481a08ca4c0a665cae578a9b906d227432df5206f",
+    "packets": 12118,
+    "payload_bytes": 1084532,
+    "snaplen_truncated_packets": 747,
+    "linktype": 220
+  },
+  "server-full/4-profile1.pcap": {
+    "sha256": "89eed0855b4b240cb189e2b64c08e4fbcd588f640cef55706fa2ea405093af1a",
+    "packets": 6392,
+    "payload_bytes": 577900,
+    "snaplen_truncated_packets": 425,
+    "linktype": 220
+  },
+  "server-full/2-profile0.pcap": {
+    "sha256": "45f03e9ff9fb09f2f86b4b8dc8a133cbbc399923096bcb670bc7c114e7cbdaa4",
+    "packets": 4780,
+    "payload_bytes": 431028,
+    "snaplen_truncated_packets": 311,
+    "linktype": 220
+  },
+  "server-full/3-profile0.pcap": {
+    "sha256": "806541c5aae3fa31687b1e31b2865fb0eaa6d658764eb164b2b22499b4689af6",
+    "packets": 2760,
+    "payload_bytes": 249065,
+    "snaplen_truncated_packets": 178,
+    "linktype": 220
+  },
+  "server-full/5-profile1.pcap": {
+    "sha256": "cd368a29983016a3b03bc565ba2a35e9f1fea130a7718ae84fcf0ff562fc0bd0",
+    "packets": 2756,
+    "payload_bytes": 248260,
+    "snaplen_truncated_packets": 176,
+    "linktype": 220
+  },
+  "server-full/6-profile2.pcap": {
+    "sha256": "5ada432b21fac9b0fb64ad442c140ad1f9c2ffecc626223b08bfc12d6e1f9e35",
+    "packets": 26,
+    "payload_bytes": 1912,
+    "snaplen_truncated_packets": 0,
+    "linktype": 220
+  },
+  "server-visual/1-visual.pcap": {
+    "sha256": "f70275576f98aa1f5db27e2fc91d90a752efd8dfba1f7dec38cfa53c812dd9d9",
+    "packets": 5656,
+    "payload_bytes": 468840,
+    "snaplen_truncated_packets": 180,
+    "linktype": 220
+  },
+  "server-visual/2-uasdiag.pcap": {
+    "sha256": "b584a1f812057ac919b6229fed26ee046ac12cbb56f1b01985dab19c9a84c56a",
+    "packets": 24,
+    "payload_bytes": 1784,
+    "snaplen_truncated_packets": 0,
+    "linktype": 220
+  },
+  "server-bot/1-canary.pcap": {
+    "sha256": "d8d950702dc437eaa8e0f1ddfabdb8043be0386d724420f1c92dd62c6017777c",
+    "packets": 9232,
+    "payload_bytes": 826888,
+    "snaplen_truncated_packets": 569,
+    "linktype": 220
+  },
+  "server-bot/6-protected.pcap": {
+    "sha256": "7ab78e9c1c1619040868f1028c135f3fc52b99a3d5281d60bead44492430e4cd",
+    "packets": 6396,
+    "payload_bytes": 577718,
+    "snaplen_truncated_packets": 423,
+    "linktype": 220
+  },
+  "server-bot/4-profile1.pcap": {
+    "sha256": "d3acb112f6c2fbb547af0254f4f4d25e008d81e14701e5a4e60689b99529c4c2",
+    "packets": 2562,
+    "payload_bytes": 231608,
+    "snaplen_truncated_packets": 166,
+    "linktype": 220
+  },
+  "server-bot/2-profile0.pcap": {
+    "sha256": "c98fe4c3efe6d8261c6c095dcfe257533ad45b900599aba53cba65ea28b6b69c",
+    "packets": 2592,
+    "payload_bytes": 233633,
+    "snaplen_truncated_packets": 165,
+    "linktype": 220
+  },
+  "server-bot/3-profile0.pcap": {
+    "sha256": "5e0ad7856e0f2fd4caebafc89099c4218732cd4c652b90b3cf6db7498726853c",
+    "packets": 612,
+    "payload_bytes": 54005,
+    "snaplen_truncated_packets": 29,
+    "linktype": 220
+  },
+  "server-bot/5-profile1.pcap": {
+    "sha256": "50fe07a8db0b892e8c63f3e35606318a8950fb88d706d746a4876553ecb32c79",
+    "packets": 2730,
+    "payload_bytes": 246792,
+    "snaplen_truncated_packets": 178,
+    "linktype": 220
+  }
+}

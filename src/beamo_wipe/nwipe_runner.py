@@ -853,10 +853,12 @@ class NwipeRunner:
                     self._update_progress(percent)
 
     def _acquire_wipe_lock(self, request: WipeRequest) -> None:
-        directory = os.path.dirname(request.logfile)
-        if not directory:
-            raise SafetyError("Cannot lock: log directory missing.")
-        lock_path = os.path.join(directory, "wipe.lock")
+        from beamo_wipe.safety import default_log_dir
+
+        # Approved logs may be in separate subdirectories. All runners must
+        # still contend for one lock, including during the pre-exec window
+        # before another pinned process is visible in /proc.
+        lock_path = os.path.join(default_log_dir(), "wipe.lock")
         try:
             fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         except OSError as exc:

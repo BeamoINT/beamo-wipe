@@ -1,0 +1,6 @@
+{
+    "bootOrderAfter":  "AQAEAAIAAAADAAGQ",
+    "secureBoot":  true,
+    "fixtureEntry":  "Boot9001",
+    "bootNextAbsent":  true
+}

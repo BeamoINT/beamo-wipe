@@ -1,0 +1,1066 @@
+[
+  {
+    "case": "usb2-bot-enumerate-write-unplug-reconnect",
+    "evidence": {
+      "inventory": {
+        "disks": [
+          {
+            "path": "/dev/sda",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABCANARY",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:03.0/usb3/3-1/3-1:1.0/host6/target6:0:0/6:0:0:0/block/sda",
+              "DEVNAME=/dev/sda",
+              "DEVTYPE=disk",
+              "DISKSEQ=12",
+              "MAJOR=8",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=45009577",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0001",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_SERIAL_SHORT=USBLABCANARY",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0001",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABCANARY",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080650:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=usb-storage",
+              "ID_PATH=pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_03_0-usb-0_1_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABCANARY-0:0 /dev/disk/by-path/pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0 /dev/disk/by-diskseq/12",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sdb",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABPROFILE0",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:04.0/usb1/1-1/1-1:1.0/host7/target7:0:0/7:0:0:0/block/sdb",
+              "DEVNAME=/dev/sdb",
+              "DEVTYPE=disk",
+              "DISKSEQ=13",
+              "MAJOR=8",
+              "MINOR=16",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=48672998",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0001",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABPROFILE0-0:0",
+              "ID_SERIAL_SHORT=USBLABPROFILE0",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0001",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABPROFILE0-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABPROFILE0",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080650:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=usb-storage",
+              "ID_PATH=pci-0000:00:04.0-usb-0:1:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_04_0-usb-0_1_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABPROFILE0-0:0 /dev/disk/by-diskseq/13 /dev/disk/by-path/pci-0000:00:04.0-usb-0:1:1.0-scsi-0:0:0:0",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sr0",
+            "type": "rom",
+            "tran": "sata",
+            "serial": "QM00005",
+            "size": 1073741312,
+            "ro": true,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:1f.2/ata3/host2/target2:0:0/2:0:0:0/block/sr0",
+              "DEVNAME=/dev/sr0",
+              "DEVTYPE=disk",
+              "DISKSEQ=3",
+              "MAJOR=11",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=12691958",
+              "ID_CDROM=1",
+              "SYSTEMD_MOUNT_DEVICE_BOUND=1",
+              "ID_CDROM_DVD=1",
+              "ID_ATA=1",
+              "ID_TYPE=cd",
+              "ID_BUS=ata",
+              "ID_MODEL=QEMU_DVD-ROM",
+              "ID_MODEL_ENC=QEMU\\x20DVD-ROM\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20",
+              "ID_REVISION=2.5+",
+              "ID_SERIAL=QEMU_DVD-ROM_QM00005",
+              "ID_SERIAL_SHORT=QM00005",
+              "ID_ATA_SATA=1",
+              "ID_PATH=pci-0000:00:1f.2-ata-3.0",
+              "ID_PATH_TAG=pci-0000_00_1f_2-ata-3_0",
+              "ID_PATH_ATA_COMPAT=pci-0000:00:1f.2-ata-3",
+              "ID_FOR_SEAT=block-pci-0000_00_1f_2-ata-3_0",
+              "DEVLINKS=/dev/disk/by-path/pci-0000:00:1f.2-ata-3 /dev/disk/by-id/ata-QEMU_DVD-ROM_QM00005 /dev/cdrom /dev/disk/by-diskseq/3 /dev/disk/by-path/pci-0000:00:1f.2-ata-3.0",
+              "TAGS=:systemd:seat:uaccess:",
+              "CURRENT_TAGS=:systemd:seat:uaccess:"
+            ]
+          },
+          {
+            "path": "/dev/vda",
+            "type": "disk",
+            "tran": null,
+            "serial": null,
+            "size": 4294967296,
+            "ro": false,
+            "rm": false,
+            "fstype": "ext4",
+            "label": null,
+            "mountpoints": [
+              "/"
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:05.0/virtio1/block/vda",
+              "DEVNAME=/dev/vda",
+              "DEVTYPE=disk",
+              "DISKSEQ=1",
+              "MAJOR=254",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=11758511",
+              "ID_PATH=pci-0000:00:05.0",
+              "ID_PATH_TAG=pci-0000_00_05_0",
+              "ID_FS_UUID=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_UUID_ENC=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_VERSION=1.0",
+              "ID_FS_TYPE=ext4",
+              "ID_FS_USAGE=filesystem",
+              "DEVLINKS=/dev/disk/by-path/virtio-pci-0000:00:05.0 /dev/disk/by-uuid/7e3797e7-ac55-43b5-aaab-580d52f95b54 /dev/disk/by-path/pci-0000:00:05.0 /dev/disk/by-diskseq/1",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          }
+        ],
+        "usb": [
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0003",
+            "speed": "5000",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "EHCI Host Controller",
+            "serial": "0000:00:04.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0001",
+            "speed": "480",
+            "product": "QEMU USB HARDDRIVE",
+            "serial": "USBLABPROFILE0"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0001",
+            "speed": "5000",
+            "product": "QEMU USB HARDDRIVE",
+            "serial": "USBLABCANARY"
+          }
+        ],
+        "kernel": "6.1.0-52-amd64"
+      },
+      "readback": {
+        "ok": true,
+        "result": {
+          "sha256": "ece111abf5080946de58a56859e3924607a2f2ae73e240fc5c155724cf98257e"
+        }
+      }
+    }
+  },
+  {
+    "case": "usb3-bot-enumerate-write-unplug-reconnect",
+    "evidence": {
+      "inventory": {
+        "disks": [
+          {
+            "path": "/dev/sda",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABCANARY",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:03.0/usb3/3-1/3-1:1.0/host6/target6:0:0/6:0:0:0/block/sda",
+              "DEVNAME=/dev/sda",
+              "DEVTYPE=disk",
+              "DISKSEQ=12",
+              "MAJOR=8",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=45009577",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0001",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_SERIAL_SHORT=USBLABCANARY",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0001",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABCANARY",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080650:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=usb-storage",
+              "ID_PATH=pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_03_0-usb-0_1_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-diskseq/12 /dev/disk/by-path/pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0 /dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sdb",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABPROFILE1",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:03.0/usb3/3-2/3-2:1.0/host7/target7:0:0/7:0:0:0/block/sdb",
+              "DEVNAME=/dev/sdb",
+              "DEVTYPE=disk",
+              "DISKSEQ=17",
+              "MAJOR=8",
+              "MINOR=16",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=60821645",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0001",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABPROFILE1-0:0",
+              "ID_SERIAL_SHORT=USBLABPROFILE1",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0001",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABPROFILE1-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABPROFILE1",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080650:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=usb-storage",
+              "ID_PATH=pci-0000:00:03.0-usb-0:2:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_03_0-usb-0_2_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABPROFILE1-0:0 /dev/disk/by-path/pci-0000:00:03.0-usb-0:2:1.0-scsi-0:0:0:0 /dev/disk/by-diskseq/17",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sr0",
+            "type": "rom",
+            "tran": "sata",
+            "serial": "QM00005",
+            "size": 1073741312,
+            "ro": true,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:1f.2/ata3/host2/target2:0:0/2:0:0:0/block/sr0",
+              "DEVNAME=/dev/sr0",
+              "DEVTYPE=disk",
+              "DISKSEQ=3",
+              "MAJOR=11",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=12691958",
+              "ID_CDROM=1",
+              "SYSTEMD_MOUNT_DEVICE_BOUND=1",
+              "ID_CDROM_DVD=1",
+              "ID_ATA=1",
+              "ID_TYPE=cd",
+              "ID_BUS=ata",
+              "ID_MODEL=QEMU_DVD-ROM",
+              "ID_MODEL_ENC=QEMU\\x20DVD-ROM\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20",
+              "ID_REVISION=2.5+",
+              "ID_SERIAL=QEMU_DVD-ROM_QM00005",
+              "ID_SERIAL_SHORT=QM00005",
+              "ID_ATA_SATA=1",
+              "ID_PATH=pci-0000:00:1f.2-ata-3.0",
+              "ID_PATH_TAG=pci-0000_00_1f_2-ata-3_0",
+              "ID_PATH_ATA_COMPAT=pci-0000:00:1f.2-ata-3",
+              "ID_FOR_SEAT=block-pci-0000_00_1f_2-ata-3_0",
+              "DEVLINKS=/dev/disk/by-id/ata-QEMU_DVD-ROM_QM00005 /dev/disk/by-diskseq/3 /dev/disk/by-path/pci-0000:00:1f.2-ata-3.0 /dev/cdrom /dev/disk/by-path/pci-0000:00:1f.2-ata-3",
+              "TAGS=:seat:uaccess:systemd:",
+              "CURRENT_TAGS=:seat:uaccess:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/vda",
+            "type": "disk",
+            "tran": null,
+            "serial": null,
+            "size": 4294967296,
+            "ro": false,
+            "rm": false,
+            "fstype": "ext4",
+            "label": null,
+            "mountpoints": [
+              "/"
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:05.0/virtio1/block/vda",
+              "DEVNAME=/dev/vda",
+              "DEVTYPE=disk",
+              "DISKSEQ=1",
+              "MAJOR=254",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=11758511",
+              "ID_PATH=pci-0000:00:05.0",
+              "ID_PATH_TAG=pci-0000_00_05_0",
+              "ID_FS_UUID=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_UUID_ENC=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_VERSION=1.0",
+              "ID_FS_TYPE=ext4",
+              "ID_FS_USAGE=filesystem",
+              "DEVLINKS=/dev/disk/by-path/pci-0000:00:05.0 /dev/disk/by-diskseq/1 /dev/disk/by-path/virtio-pci-0000:00:05.0 /dev/disk/by-uuid/7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          }
+        ],
+        "usb": [
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0003",
+            "speed": "5000",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "EHCI Host Controller",
+            "serial": "0000:00:04.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0001",
+            "speed": "5000",
+            "product": "QEMU USB HARDDRIVE",
+            "serial": "USBLABPROFILE1"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0001",
+            "speed": "5000",
+            "product": "QEMU USB HARDDRIVE",
+            "serial": "USBLABCANARY"
+          }
+        ],
+        "kernel": "6.1.0-52-amd64"
+      },
+      "readback": {
+        "ok": true,
+        "result": {
+          "sha256": "ece111abf5080946de58a56859e3924607a2f2ae73e240fc5c155724cf98257e"
+        }
+      }
+    }
+  },
+  {
+    "case": "usb3-uas-enumerate-write-unplug-reconnect",
+    "evidence": {
+      "inventory": {
+        "disks": [
+          {
+            "path": "/dev/sda",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABCANARY",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:03.0/usb3/3-1/3-1:1.0/host6/target6:0:0/6:0:0:0/block/sda",
+              "DEVNAME=/dev/sda",
+              "DEVTYPE=disk",
+              "DISKSEQ=12",
+              "MAJOR=8",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=45009577",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0001",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_SERIAL_SHORT=USBLABCANARY",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0001",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABCANARY",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080650:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=usb-storage",
+              "ID_PATH=pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_03_0-usb-0_1_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABCANARY-0:0 /dev/disk/by-diskseq/12 /dev/disk/by-path/pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sdb",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABPROFILE2",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:03.0/usb3/3-2/3-2:1.0/host7/target7:0:0/7:0:0:0/block/sdb",
+              "DEVNAME=/dev/sdb",
+              "DEVTYPE=disk",
+              "DISKSEQ=19",
+              "MAJOR=8",
+              "MINOR=16",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=70343752",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0003",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABPROFILE2-0:0",
+              "ID_SERIAL_SHORT=USBLABPROFILE2",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0003",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABPROFILE2-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABPROFILE2",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080662:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=uas",
+              "ID_PATH=pci-0000:00:03.0-usb-0:2:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_03_0-usb-0_2_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-diskseq/19 /dev/disk/by-path/pci-0000:00:03.0-usb-0:2:1.0-scsi-0:0:0:0 /dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABPROFILE2-0:0",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sr0",
+            "type": "rom",
+            "tran": "sata",
+            "serial": "QM00005",
+            "size": 1073741312,
+            "ro": true,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:1f.2/ata3/host2/target2:0:0/2:0:0:0/block/sr0",
+              "DEVNAME=/dev/sr0",
+              "DEVTYPE=disk",
+              "DISKSEQ=3",
+              "MAJOR=11",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=12691958",
+              "ID_CDROM=1",
+              "SYSTEMD_MOUNT_DEVICE_BOUND=1",
+              "ID_CDROM_DVD=1",
+              "ID_ATA=1",
+              "ID_TYPE=cd",
+              "ID_BUS=ata",
+              "ID_MODEL=QEMU_DVD-ROM",
+              "ID_MODEL_ENC=QEMU\\x20DVD-ROM\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20",
+              "ID_REVISION=2.5+",
+              "ID_SERIAL=QEMU_DVD-ROM_QM00005",
+              "ID_SERIAL_SHORT=QM00005",
+              "ID_ATA_SATA=1",
+              "ID_PATH=pci-0000:00:1f.2-ata-3.0",
+              "ID_PATH_TAG=pci-0000_00_1f_2-ata-3_0",
+              "ID_PATH_ATA_COMPAT=pci-0000:00:1f.2-ata-3",
+              "ID_FOR_SEAT=block-pci-0000_00_1f_2-ata-3_0",
+              "DEVLINKS=/dev/disk/by-path/pci-0000:00:1f.2-ata-3 /dev/cdrom /dev/disk/by-id/ata-QEMU_DVD-ROM_QM00005 /dev/disk/by-path/pci-0000:00:1f.2-ata-3.0 /dev/disk/by-diskseq/3",
+              "TAGS=:seat:systemd:uaccess:",
+              "CURRENT_TAGS=:seat:systemd:uaccess:"
+            ]
+          },
+          {
+            "path": "/dev/vda",
+            "type": "disk",
+            "tran": null,
+            "serial": null,
+            "size": 4294967296,
+            "ro": false,
+            "rm": false,
+            "fstype": "ext4",
+            "label": null,
+            "mountpoints": [
+              "/"
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:05.0/virtio1/block/vda",
+              "DEVNAME=/dev/vda",
+              "DEVTYPE=disk",
+              "DISKSEQ=1",
+              "MAJOR=254",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=11758511",
+              "ID_PATH=pci-0000:00:05.0",
+              "ID_PATH_TAG=pci-0000_00_05_0",
+              "ID_FS_UUID=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_UUID_ENC=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_VERSION=1.0",
+              "ID_FS_TYPE=ext4",
+              "ID_FS_USAGE=filesystem",
+              "DEVLINKS=/dev/disk/by-uuid/7e3797e7-ac55-43b5-aaab-580d52f95b54 /dev/disk/by-diskseq/1 /dev/disk/by-path/pci-0000:00:05.0 /dev/disk/by-path/virtio-pci-0000:00:05.0",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          }
+        ],
+        "usb": [
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0003",
+            "speed": "5000",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "EHCI Host Controller",
+            "serial": "0000:00:04.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0003",
+            "speed": "5000",
+            "product": "USB Attached SCSI HBA",
+            "serial": "USBLABPROFILE2"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0001",
+            "speed": "5000",
+            "product": "QEMU USB HARDDRIVE",
+            "serial": "USBLABCANARY"
+          }
+        ],
+        "kernel": "6.1.0-52-amd64"
+      },
+      "readback": {
+        "ok": true,
+        "result": {
+          "sha256": "ece111abf5080946de58a56859e3924607a2f2ae73e240fc5c155724cf98257e"
+        }
+      }
+    }
+  },
+  {
+    "case": "write-protection",
+    "evidence": {
+      "ok": false,
+      "error": "OSError",
+      "message": "[Errno 30] Read-only file system: '/dev/sdb'",
+      "errno": 30
+    }
+  },
+  {
+    "case": "duplicate-identity-refused",
+    "evidence": {
+      "ok": false,
+      "error": "ValueError",
+      "message": "USB identity absent or ambiguous",
+      "errno": null
+    }
+  },
+  {
+    "case": "injected-read-io-error",
+    "evidence": {
+      "ok": false,
+      "error": "OSError",
+      "message": "[Errno 5] Input/output error",
+      "errno": 5
+    }
+  },
+  {
+    "case": "unplug-during-io-and-replacement-identity",
+    "evidence": {
+      "interrupted": {
+        "ok": false,
+        "error": "OSError",
+        "message": "[Errno 28] No space left on device",
+        "errno": 28
+      },
+      "write_started": [
+        {
+          "event": "write-started"
+        }
+      ],
+      "stale_identity": {
+        "ok": false,
+        "error": "ValueError",
+        "message": "USB identity absent or ambiguous",
+        "errno": null
+      },
+      "inventory": {
+        "disks": [
+          {
+            "path": "/dev/sda",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABCANARY",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:03.0/usb3/3-1/3-1:1.0/host6/target6:0:0/6:0:0:0/block/sda",
+              "DEVNAME=/dev/sda",
+              "DEVTYPE=disk",
+              "DISKSEQ=12",
+              "MAJOR=8",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=45009577",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0001",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_SERIAL_SHORT=USBLABCANARY",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0001",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABCANARY-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABCANARY",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080650:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=usb-storage",
+              "ID_PATH=pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_03_0-usb-0_1_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-path/pci-0000:00:03.0-usb-0:1:1.0-scsi-0:0:0:0 /dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABCANARY-0:0 /dev/disk/by-diskseq/12",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sdb",
+            "type": "disk",
+            "tran": "usb",
+            "serial": "USBLABREPLACEMENT",
+            "size": 67108864,
+            "ro": false,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:03.0/usb3/3-2/3-2:1.0/host7/target7:0:0/7:0:0:0/block/sdb",
+              "DEVNAME=/dev/sdb",
+              "DEVTYPE=disk",
+              "DISKSEQ=27",
+              "MAJOR=8",
+              "MINOR=16",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=89967044",
+              "ID_BUS=usb",
+              "ID_MODEL=QEMU_HARDDISK",
+              "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_MODEL_ID=0001",
+              "ID_SERIAL=QEMU_QEMU_HARDDISK_USBLABREPLACEMENT-0:0",
+              "ID_SERIAL_SHORT=USBLABREPLACEMENT",
+              "ID_VENDOR=QEMU",
+              "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_VENDOR_ID=46f4",
+              "ID_REVISION=2.5+",
+              "ID_TYPE=disk",
+              "ID_INSTANCE=0:0",
+              "ID_USB_MODEL=QEMU_HARDDISK",
+              "ID_USB_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+              "ID_USB_MODEL_ID=0001",
+              "ID_USB_SERIAL=QEMU_QEMU_HARDDISK_USBLABREPLACEMENT-0:0",
+              "ID_USB_SERIAL_SHORT=USBLABREPLACEMENT",
+              "ID_USB_VENDOR=QEMU",
+              "ID_USB_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+              "ID_USB_VENDOR_ID=46f4",
+              "ID_USB_REVISION=2.5+",
+              "ID_USB_TYPE=disk",
+              "ID_USB_INSTANCE=0:0",
+              "ID_USB_INTERFACES=:080650:",
+              "ID_USB_INTERFACE_NUM=00",
+              "ID_USB_DRIVER=usb-storage",
+              "ID_PATH=pci-0000:00:03.0-usb-0:2:1.0-scsi-0:0:0:0",
+              "ID_PATH_TAG=pci-0000_00_03_0-usb-0_2_1_0-scsi-0_0_0_0",
+              "DEVLINKS=/dev/disk/by-diskseq/27 /dev/disk/by-id/usb-QEMU_QEMU_HARDDISK_USBLABREPLACEMENT-0:0 /dev/disk/by-path/pci-0000:00:03.0-usb-0:2:1.0-scsi-0:0:0:0",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/sr0",
+            "type": "rom",
+            "tran": "sata",
+            "serial": "QM00005",
+            "size": 1073741312,
+            "ro": true,
+            "rm": true,
+            "fstype": null,
+            "label": null,
+            "mountpoints": [
+              null
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:1f.2/ata3/host2/target2:0:0/2:0:0:0/block/sr0",
+              "DEVNAME=/dev/sr0",
+              "DEVTYPE=disk",
+              "DISKSEQ=3",
+              "MAJOR=11",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=12691958",
+              "ID_CDROM=1",
+              "SYSTEMD_MOUNT_DEVICE_BOUND=1",
+              "ID_CDROM_DVD=1",
+              "ID_ATA=1",
+              "ID_TYPE=cd",
+              "ID_BUS=ata",
+              "ID_MODEL=QEMU_DVD-ROM",
+              "ID_MODEL_ENC=QEMU\\x20DVD-ROM\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20",
+              "ID_REVISION=2.5+",
+              "ID_SERIAL=QEMU_DVD-ROM_QM00005",
+              "ID_SERIAL_SHORT=QM00005",
+              "ID_ATA_SATA=1",
+              "ID_PATH=pci-0000:00:1f.2-ata-3.0",
+              "ID_PATH_TAG=pci-0000_00_1f_2-ata-3_0",
+              "ID_PATH_ATA_COMPAT=pci-0000:00:1f.2-ata-3",
+              "ID_FOR_SEAT=block-pci-0000_00_1f_2-ata-3_0",
+              "DEVLINKS=/dev/disk/by-path/pci-0000:00:1f.2-ata-3.0 /dev/disk/by-id/ata-QEMU_DVD-ROM_QM00005 /dev/disk/by-diskseq/3 /dev/cdrom /dev/disk/by-path/pci-0000:00:1f.2-ata-3",
+              "TAGS=:seat:uaccess:systemd:",
+              "CURRENT_TAGS=:seat:uaccess:systemd:"
+            ]
+          },
+          {
+            "path": "/dev/vda",
+            "type": "disk",
+            "tran": null,
+            "serial": null,
+            "size": 4294967296,
+            "ro": false,
+            "rm": false,
+            "fstype": "ext4",
+            "label": null,
+            "mountpoints": [
+              "/"
+            ],
+            "udev": [
+              "DEVPATH=/devices/pci0000:00/0000:00:05.0/virtio1/block/vda",
+              "DEVNAME=/dev/vda",
+              "DEVTYPE=disk",
+              "DISKSEQ=1",
+              "MAJOR=254",
+              "MINOR=0",
+              "SUBSYSTEM=block",
+              "USEC_INITIALIZED=11758511",
+              "ID_PATH=pci-0000:00:05.0",
+              "ID_PATH_TAG=pci-0000_00_05_0",
+              "ID_FS_UUID=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_UUID_ENC=7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "ID_FS_VERSION=1.0",
+              "ID_FS_TYPE=ext4",
+              "ID_FS_USAGE=filesystem",
+              "DEVLINKS=/dev/disk/by-path/pci-0000:00:05.0 /dev/disk/by-path/virtio-pci-0000:00:05.0 /dev/disk/by-diskseq/1 /dev/disk/by-uuid/7e3797e7-ac55-43b5-aaab-580d52f95b54",
+              "TAGS=:systemd:",
+              "CURRENT_TAGS=:systemd:"
+            ]
+          }
+        ],
+        "usb": [
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0003",
+            "speed": "5000",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "EHCI Host Controller",
+            "serial": "0000:00:04.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0001",
+            "speed": "5000",
+            "product": "QEMU USB HARDDRIVE",
+            "serial": "USBLABREPLACEMENT"
+          },
+          {
+            "idVendor": "1d6b",
+            "idProduct": "0002",
+            "speed": "480",
+            "product": "xHCI Host Controller",
+            "serial": "0000:00:03.0"
+          },
+          {
+            "idVendor": "46f4",
+            "idProduct": "0001",
+            "speed": "5000",
+            "product": "QEMU USB HARDDRIVE",
+            "serial": "USBLABCANARY"
+          }
+        ],
+        "kernel": "6.1.0-52-amd64"
+      }
+    }
+  },
+  {
+    "case": "usb2-bot-beamo-packaged-launcher",
+    "evidence": {
+      "ok": true,
+      "result": {
+        "hashes": {
+          "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e",
+          "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db"
+        },
+        "check": {
+          "ready": false,
+          "preview": false,
+          "title": "Use the computer's boot menu",
+          "detail": "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+          "version": "0.2.5"
+        },
+        "exit_code": 0
+      }
+    }
+  },
+  {
+    "case": "usb3-bot-beamo-packaged-launcher",
+    "evidence": {
+      "ok": true,
+      "result": {
+        "hashes": {
+          "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e",
+          "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db"
+        },
+        "check": {
+          "ready": false,
+          "preview": false,
+          "title": "Use the computer's boot menu",
+          "detail": "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+          "version": "0.2.5"
+        },
+        "exit_code": 0
+      }
+    }
+  },
+  {
+    "case": "usb3-uas-beamo-packaged-launcher",
+    "evidence": {
+      "ok": true,
+      "result": {
+        "hashes": {
+          "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e",
+          "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db"
+        },
+        "check": {
+          "ready": false,
+          "preview": false,
+          "title": "Use the computer's boot menu",
+          "detail": "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+          "version": "0.2.5"
+        },
+        "exit_code": 0
+      }
+    }
+  },
+  {
+    "case": "unrelated-canary-unchanged",
+    "evidence": {
+      "sha256": "bd2b138d002217ded16218cfa514bbf4be974825f14e249200f8590fa2f2398a"
+    }
+  }
+]

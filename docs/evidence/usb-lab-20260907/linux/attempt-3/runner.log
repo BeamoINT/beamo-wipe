@@ -1,0 +1,15 @@
+PASS usb2-bot-enumerate-write-unplug-reconnect
+PASS usb3-bot-enumerate-write-unplug-reconnect
+PASS usb3-uas-enumerate-write-unplug-reconnect
+PASS write-protection
+PASS duplicate-identity-refused
+PASS injected-read-io-error
+PASS unplug-during-io-and-replacement-identity
+Traceback (most recent call last):
+  File "/lab/harness/tools/usb_lab/lab.py", line 362, in <module>
+    main()
+  File "/lab/harness/tools/usb_lab/lab.py", line 353, in main
+    lab.matrix(args.product_image)
+  File "/lab/harness/tools/usb_lab/lab.py", line 314, in matrix
+    assert result['ok'] and not result['result']['check']['ready'], result
+AssertionError: {'ok': False, 'error': 'ValueError', 'message': 'Product media must have exactly one partition', 'errno': None}

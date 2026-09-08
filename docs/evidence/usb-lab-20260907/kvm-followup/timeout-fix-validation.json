@@ -1,0 +1,48 @@
+{
+  "snapshot": "22f40612bc9b4d0f6399951ed8828b4c16dbf848",
+  "parent_product_source": "f7b6490036d62281e2133da642557cee6710f081",
+  "cloud_build": "81b86036-5121-4720-859a-415fa6c222fc",
+  "publication": false,
+  "local_pytest_exit": 0,
+  "local_go_test_exit": 0,
+  "runtime_files": {
+    "desktop/main.go": "f2e53d4f2dcc9b338e83d68372280d77383773a812a6e3a38c47c40a6a96bfbf",
+    "desktop/server_test.go": "9dfeba40125eed723a907ca6ea88ab4a7aff4d61d441868d77ab26e91f60b925"
+  },
+  "change": "Distinguish an expired compatibility-check deadline from a completed USB identity refusal; all restart eligibility checks remain required.",
+  "hosted_progress": {
+    "desktop-launchers": "SUCCESS",
+    "lint": "SUCCESS",
+    "python-tests": "SUCCESS",
+    "preview": "SUCCESS",
+    "negative-test": "SUCCESS",
+    "iso-build": "SUCCESS",
+    "qemu-verify": "SUCCESS",
+    "publish-release": "SUCCESS"
+  },
+  "kvm_build": {
+    "source": "22f40612bc9b4d0f6399951ed8828b4c16dbf848",
+    "iso_sha256": "c1036f886eb6f409f051fa1a55901883e19dbcaed0e0acb6a900989d44b16b20",
+    "usb_sha256": "9041512ab450a2732826df2bd73b60f452d1a85e213b71cd3aaf7390b123f319",
+    "native_test_exe_sha256": "5785b16396b89ad53173d7a9171d71fc20b269b9ef2ff43376ad99751464e567",
+    "status": "BUILD_AND_BOOT_GATE_SUCCESS"
+  },
+  "hosted_status": "SUCCESS",
+  "kvm_boot_evidence_remote": "/tmp/beamo-wipe-qemu.WXtFB7/evidence",
+  "updated_linux_matrix_remote": "/lab/linux-updated-results/receipt.json",
+  "updated_linux_cases_passed": 11,
+  "windows_native_initial": "FAILED_DURING_SLOW_CHECKS_AND_LATER_LICENSE_SHUTDOWN",
+  "windows_shutdown": "Native User32 event 1074: wlms.exe, evaluation license period expired",
+  "windows_resumed_with_original_tpm": true,
+  "updated_windows_bot": {
+    "status": "PASS",
+    "cases": 7,
+    "receipt_remote": "/lab/windows11-updated-bot/receipt.json",
+    "profiles": [
+      "usb2-bot",
+      "usb3-bot"
+    ]
+  },
+  "windows_native_final": "DIRECT_LOG_PASS_WITH_ZERO_EXIT_FILE; SEPARATE_WRAPPER_MBR_DEADLINE_FAILURE_RETAINED",
+  "windows_handoff": "PASS_WITH_FIXTURE_ENTRY_AND_HOST_BOOTINDEX_CORRECTION"
+}

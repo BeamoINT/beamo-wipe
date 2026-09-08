@@ -738,8 +738,15 @@ def parse_lsblk_json(
             continue
         pkname = _identity_text(candidate.get("pkname"), "pkname")
         mounts = _node_mountpoints(candidate)
-        if not pkname or not mounts:
+        if not mounts:
             continue
+        if not pkname:
+            # Optical, loop and RAM devices can be standalone mounted roots.
+            # Every other non-disk row needs a known physical ancestor;
+            # missing PKNAME must not leave its backing disk selectable.
+            if _node_type(candidate) in {"rom", "loop", "ram"}:
+                continue
+            raise ValueError("lsblk mounted ancestry is unresolved")
         # Flat lsblk rows can describe disk -> partition -> crypt/LVM chains.
         # Exclude every possible whole-disk ancestor; an unknown or cyclic
         # mounted chain must not silently become an unmounted physical disk.
@@ -830,6 +837,18 @@ def parse_lsblk_json(
             for d in disks
         ]
         boot = next((d for d in disks if d.path == boot.path), boot)
+    # lsblk can repeat a device in its dependency tree. Reconcile observations
+    # before filtering: otherwise a mounted/read-only copy disappears while a
+    # conflicting writable copy passes the final unique-target identity check.
+    observed_disks: Dict[str, Disk] = {}
+    for disk in disks:
+        canonical = os.path.realpath(disk.path)
+        previous = observed_disks.get(canonical)
+        if previous is not None and disk != previous:
+            raise ValueError("lsblk has conflicting observations for one disk")
+        observed_disks[canonical] = disk
+    # Retain even identical rows: final identity validation requires exactly
+    # one observation and must continue refusing an ambiguous target.
     selectable = tuple(d for d in disks if is_wipeable_disk(d))
     # Health reporting: empty selectable while boot is identified is fail-closed
     # but opaque. Distinguish "no disks on bus" from "all nodes hidden".

@@ -1,0 +1,12 @@
+{
+  "utc": "2026-09-07T19:19:16.327400+00:00",
+  "display": "Installing 42% in post-reboot setup",
+  "native_version": "10.0.26200.6584",
+  "native_system_root": "C:\\Windows",
+  "SystemSetupInProgress": 1,
+  "Get_CimInstance_caption": "Did not return before the diagnostic was interrupted",
+  "completed_usb_matrix": false,
+  "normal_desktop_session": false,
+  "stop_reason": "Preserve evidence and tear down before the fixed cloud deadline",
+  "qemu_command": "qemu-system-x86_64 -machine q35,smm=on,accel=tcg -global driver=cfi.pflash01,property=secure,value=on -cpu max,svm=off,vmx=off -smp 2 -m 6144 -nic none -display none -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.ms.fd -drive if=pflash,format=raw,file=/lab/windows-11/vars.fd -drive if=none,id=os,format=qcow2,file=/lab/windows-11/guest.qcow2 -device ide-hd,drive=os,bus=ide.0,bootindex=2 -drive if=none,id=install,format=raw,readonly=on,file=/lab/windows-11/evaluation.iso -device ide-cd,drive=install,bus=ide.1,bootindex=1 -chardev socket,id=chrtpm,path=/lab/windows-11/tpm/socket -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -device qemu-xhci,id=xhci -device usb-ehci,id=ehci -qmp unix:/lab/windows-11/qmp,server=on,wait=off -serial unix:/lab/windows-11/probe,server=on,wait=off -serial file:/lab/windows-11/diagnostics.jsonl -drive if=none,id=seed,format=raw,readonly=on,file=/lab/windows-11/seed/seed.raw -device usb-storage,id=seed,drive=seed,bus=ehci.0,port=6,serial=PROBESEED,removable=on "
+}

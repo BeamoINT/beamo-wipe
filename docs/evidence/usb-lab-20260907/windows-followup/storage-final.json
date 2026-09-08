@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-09-07T19:29:54.387440+00:00",
+  "mode": "report",
+  "program_version": "1.4.0",
+  "pressure": false,
+  "free_before_bytes": 108107513856,
+  "free_after_bytes": 108245061632,
+  "deleted_estimated_bytes": 0,
+  "errors": [],
+  "deleted_count": 0
+}

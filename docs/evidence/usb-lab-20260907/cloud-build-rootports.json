@@ -1,0 +1,286 @@
+{
+  "createTime": "2026-09-07T07:32:29.005466023Z",
+  "finishTime": "2026-09-07T08:00:28.126503Z",
+  "id": "fb7ddd96-9aab-415f-8503-01b15fff7c95",
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds/fb7ddd96-9aab-415f-8503-01b15fff7c95?project=368895881889",
+  "name": "projects/368895881889/locations/global/builds/fb7ddd96-9aab-415f-8503-01b15fff7c95",
+  "options": {
+    "diskSizeGb": "200",
+    "logging": "CLOUD_LOGGING_ONLY",
+    "machineType": "E2_HIGHCPU_8",
+    "pool": {}
+  },
+  "projectId": "beamo-wipe",
+  "queueTtl": "3600s",
+  "results": {
+    "buildStepImages": [
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443"
+    ],
+    "buildStepOutputs": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "buildStepResults": {
+      "desktop-launchers": {},
+      "iso-build": {},
+      "lint": {},
+      "negative-test": {},
+      "preview": {},
+      "publish-release": {},
+      "python-tests": {},
+      "qemu-verify": {}
+    }
+  },
+  "serviceAccount": "projects/beamo-wipe/serviceAccounts/368895881889-compute@developer.gserviceaccount.com",
+  "source": {
+    "storageSource": {
+      "bucket": "beamo-wipe_cloudbuild",
+      "generation": "1788766348411716",
+      "object": "source/1788766347.064901-3c545a64b6e74cb8936ed6ed3d2b4d80.tgz"
+    }
+  },
+  "sourceProvenance": {
+    "fileHashes": {
+      "gs://beamo-wipe_cloudbuild/source/1788766347.064901-3c545a64b6e74cb8936ed6ed3d2b4d80.tgz#1788766348411716": {
+        "fileHash": [
+          {
+            "type": "MD5",
+            "value": "61Btb_jQoEgdboZjhtj3wQ=="
+          },
+          {
+            "type": "SHA256",
+            "value": "REf0kXAGcT_yiaRdZeGQvqD6_edJa1mZivcau-YZKZE="
+          }
+        ]
+      }
+    },
+    "resolvedStorageSource": {
+      "bucket": "beamo-wipe_cloudbuild",
+      "generation": "1788766348411716",
+      "object": "source/1788766347.064901-3c545a64b6e74cb8936ed6ed3d2b4d80.tgz"
+    }
+  },
+  "startTime": "2026-09-07T07:33:26.754267282Z",
+  "status": "SUCCESS",
+  "steps": [
+    {
+      "args": [
+        "scripts/ci-desktop.sh"
+      ],
+      "entrypoint": "bash",
+      "id": "desktop-launchers",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T07:33:36.084142343Z",
+        "startTime": "2026-09-07T07:33:32.246360889Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T07:35:28.054888681Z",
+        "startTime": "2026-09-07T07:33:32.246360889Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/test-all.sh\n./scripts/ci-hosted.sh lint\n"
+      ],
+      "entrypoint": "bash",
+      "id": "lint",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T07:33:36.085727004Z",
+        "startTime": "2026-09-07T07:33:32.246339689Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T07:34:03.734201641Z",
+        "startTime": "2026-09-07T07:33:32.246339689Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/test-all.sh scripts/build-iso.sh\n./scripts/ci-hosted.sh tests\n"
+      ],
+      "entrypoint": "bash",
+      "id": "python-tests",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T07:33:36.085656364Z",
+        "startTime": "2026-09-07T07:33:32.246346899Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T07:36:46.817681376Z",
+        "startTime": "2026-09-07T07:33:32.246346899Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh preview\n./scripts/ci-hosted.sh preview\n"
+      ],
+      "entrypoint": "bash",
+      "id": "preview",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T07:33:36.083977883Z",
+        "startTime": "2026-09-07T07:33:32.246354649Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T07:33:50.516207480Z",
+        "startTime": "2026-09-07T07:33:32.246354649Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/test-all.sh\n./scripts/ci-hosted.sh negative\n"
+      ],
+      "entrypoint": "bash",
+      "id": "negative-test",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T07:36:46.819287031Z",
+        "startTime": "2026-09-07T07:36:46.817958947Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T07:37:42.303164742Z",
+        "startTime": "2026-09-07T07:36:46.817958947Z"
+      },
+      "waitFor": [
+        "python-tests",
+        "lint",
+        "preview"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "apt-get update -qq\napt-get install -y -qq --no-install-recommends ca-certificates docker.io git python3\nchmod +x scripts/ci-hosted.sh scripts/build-iso.sh\n./scripts/ci-hosted.sh iso\n"
+      ],
+      "entrypoint": "bash",
+      "env": [
+        "SKIP_ISO=false",
+        "BUILD_ID=fb7ddd96-9aab-415f-8503-01b15fff7c95",
+        "BEAMO_WIPE_VERSION=0.2.5"
+      ],
+      "id": "iso-build",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T07:37:42.304357792Z",
+        "startTime": "2026-09-07T07:37:42.303306862Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T07:46:12.795641912Z",
+        "startTime": "2026-09-07T07:37:42.303306862Z"
+      },
+      "waitFor": [
+        "negative-test",
+        "desktop-launchers"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/qemu-verify.sh scripts/build-iso.sh\n./scripts/ci-hosted.sh qemu\n"
+      ],
+      "entrypoint": "bash",
+      "env": [
+        "SKIP_QEMU=false",
+        "BEAMO_WIPE_VERSION=0.2.5"
+      ],
+      "id": "qemu-verify",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T07:46:12.797953994Z",
+        "startTime": "2026-09-07T07:46:12.795833952Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T08:00:13.559295655Z",
+        "startTime": "2026-09-07T07:46:12.795833952Z"
+      },
+      "waitFor": [
+        "iso-build"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "apt-get update -qq\napt-get install -y -qq --no-install-recommends ca-certificates git python3\npython3 scripts/publish_release_gcs.py\n"
+      ],
+      "entrypoint": "bash",
+      "env": [
+        "PUBLISH_RELEASE=false",
+        "SKIP_ISO=false",
+        "SKIP_QEMU=false",
+        "BEAMO_WIPE_VERSION=0.2.5",
+        "BUILD_ID=fb7ddd96-9aab-415f-8503-01b15fff7c95"
+      ],
+      "id": "publish-release",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-07T08:00:13.567217656Z",
+        "startTime": "2026-09-07T08:00:13.561766235Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-07T08:00:27.696831059Z",
+        "startTime": "2026-09-07T08:00:13.561766235Z"
+      },
+      "waitFor": [
+        "qemu-verify"
+      ]
+    }
+  ],
+  "substitutions": {
+    "_PUBLISH_RELEASE": "false",
+    "_SKIP_ISO": "false",
+    "_SKIP_QEMU": "false"
+  },
+  "timeout": "7200s",
+  "timing": {
+    "BUILD": {
+      "endTime": "2026-09-07T08:00:27.697142879Z",
+      "startTime": "2026-09-07T07:33:31.676701644Z"
+    },
+    "FETCHSOURCE": {
+      "endTime": "2026-09-07T07:33:31.676450734Z",
+      "startTime": "2026-09-07T07:33:29.034407550Z"
+    },
+    "STORAGE_SOURCE": {
+      "endTime": "2026-09-07T07:33:31.676450734Z",
+      "startTime": "2026-09-07T07:33:29.034407550Z"
+    }
+  }
+}

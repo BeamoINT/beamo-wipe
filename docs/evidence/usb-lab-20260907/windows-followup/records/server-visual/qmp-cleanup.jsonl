@@ -1,0 +1,23 @@
+{"direction": "receive", "message": {"QMP": {"version": {"qemu": {"micro": 2, "minor": 0, "major": 10}, "package": "Debian 1:10.0.2+ds-2+deb13u1~bpo12+1"}, "capabilities": ["oob"]}}}
+{"direction": "send", "message": {"execute": "qmp_capabilities", "arguments": {}, "id": 1}}
+{"direction": "receive", "message": {"return": {}, "id": 1}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "visual"}, "id": 2}}
+{"direction": "receive", "message": {"return": {}, "id": 2}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 3}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 3}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 4}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788803724, "microseconds": 18760}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/visual/visual.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788803724, "microseconds": 18855}, "event": "DEVICE_DELETED", "data": {"device": "visual", "path": "/machine/peripheral/visual"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 4}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "visual"}, "id": 5}}
+{"direction": "receive", "message": {"return": {}, "id": 5}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "uasdiag"}, "id": 6}}
+{"direction": "receive", "message": {"return": {}, "id": 6}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 7}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 7}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 8}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788803724, "microseconds": 125832}, "event": "DEVICE_DELETED", "data": {"device": "uasdiag-lun", "path": "/machine/peripheral/uasdiag-lun"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788803724, "microseconds": 125894}, "event": "DEVICE_DELETED", "data": {"device": "uasdiag", "path": "/machine/peripheral/uasdiag"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 8}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "uasdiag"}, "id": 9}}
+{"direction": "receive", "message": {"return": {}, "id": 9}}

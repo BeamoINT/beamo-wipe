@@ -1,0 +1,15 @@
+PASS windows-os
+PASS usb2-bot-windows-write-unplug-reconnect
+PASS usb3-bot-windows-write-unplug-reconnect
+Traceback (most recent call last):
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 129, in <module>
+    main()
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 117, in main
+    lab.matrix(args.product_image, args.firmware)
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 37, in matrix
+    self.attach(name, serial, profile)
+  File "/lab/harness/tools/usb_lab/lab.py", line 213, in attach
+    self.qmp.call('qom-set', path='/machine/peripheral/'+name, property='attached', value=True)
+  File "/lab/harness/tools/usb_lab/lab.py", line 108, in call
+    raise RuntimeError(msg['error'])
+RuntimeError: {'class': 'GenericError', 'desc': 'Warning: speed mismatch trying to attach usb device "USB Attached SCSI HBA" (high+super speed) to bus "xhci.0", port "4.4" (full speed)'}

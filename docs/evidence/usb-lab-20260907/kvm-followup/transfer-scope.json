@@ -1,0 +1,53 @@
+{
+  "destination": "Private user-owned GCP beamo-wipe/us-central1-b/beamo-usb-kvm-0907",
+  "destination_instance_id": "5538341188545978192",
+  "public_repository": "https://github.com/BeamoINT/beamo-wipe",
+  "scope": "Unpublished development product source plus task-authored USB test harness/setup scripts for this user-owned private test VM. No SSH keys, cloud credentials, generated passwords, or private guest seed images are included. The seed script generates a new disposable password only inside the cloud lab.",
+  "files": [
+    {
+      "name": "source.bundle",
+      "bytes": 1916746,
+      "sha256": "c340d574a01b0188365bbfb86afd35546e1961e22f4ba195180bb58425287a06"
+    },
+    {
+      "name": "harness.tgz",
+      "bytes": 20916,
+      "sha256": "12a652b884e836d1671170515d037f1767a8592267c7f958464a504db61502cf"
+    },
+    {
+      "name": "product-build.sh",
+      "bytes": 557,
+      "sha256": "378f94598d1f367d9f7e084ea4579606b3e5ddeb0a0b35eb7f620497d2761971"
+    },
+    {
+      "name": "start-win11.sh",
+      "bytes": 1882,
+      "sha256": "237daddffaf61463f9bd924f198dec4c4229382c1d2ada2e1c320066eece22e0"
+    },
+    {
+      "name": "prepare-win11-seed.py",
+      "bytes": 5458,
+      "sha256": "3ee1553b13b8e88d6fc0e93eb4951e45942f75806354a2b5ca434fdac1837572"
+    },
+    {
+      "name": "download-win11.sh",
+      "bytes": 627,
+      "sha256": "74f1845b879a76405a3f5e9d8065005c6c01e9ed506747ff844f2598117ef0b0"
+    },
+    {
+      "name": "screen-win11.py",
+      "bytes": 314,
+      "sha256": "5d3a492448ea58f506aa4ca8c6d73731b3b8ffab8dd0a1de0c639b48f6ae7815"
+    },
+    {
+      "name": "combo-win11.py",
+      "bytes": 425,
+      "sha256": "1cce86e944b3c74e10d3a9567aecab2a974d070e49e321088f464ee87d4e913e"
+    }
+  ],
+  "development_commit": "f7b6490036d62281e2133da642557cee6710f081",
+  "exact_commit_publicly_accessible": false,
+  "public_commit_check": "GitHub API returned HTTP 422: No commit found for this SHA",
+  "upload_status": "UPLOADED_ALL_EIGHT_SHA256_MATCHED_ON_HOST",
+  "approval_utc": "2026-09-07T20:51:27.029516+00:00"
+}

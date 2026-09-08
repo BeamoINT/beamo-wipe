@@ -1,0 +1,2 @@
+Formatting '/tmp/beamo-wipe-qemu.otSRGk/report-usb.raw', fmt=raw size=67108864
+mkfs.fat 4.2 (2021-01-31)

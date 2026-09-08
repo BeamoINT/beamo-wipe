@@ -1,0 +1,46 @@
+{
+  "product_source": "f7b6490036d62281e2133da642557cee6710f081",
+  "harness_snapshot": "c6540e09e1ad717c9932800edaae8908e840583f",
+  "local_pytest": {
+    "passed": 1413,
+    "skipped": 138
+  },
+  "ruff": "PASS",
+  "latest_hosted_build": "8111167d-beed-4a9d-bda7-032fb18c76b3",
+  "latest_hosted_status": "SUCCESS",
+  "publication_authorized": false,
+  "required_gate_options": {
+    "publish_release": false,
+    "skip_qemu": false
+  },
+  "regression_tests": 9,
+  "previous_rootport_build": {
+    "id": "fb7ddd96-9aab-415f-8503-01b15fff7c95",
+    "status": "SUCCESS",
+    "stages": {
+      "desktop-launchers": "SUCCESS",
+      "lint": "SUCCESS",
+      "python-tests": "SUCCESS",
+      "preview": "SUCCESS",
+      "negative-test": "SUCCESS",
+      "iso-build": "SUCCESS",
+      "qemu-verify": "SUCCESS",
+      "publish-release": "SUCCESS"
+    }
+  },
+  "hosted_pytest": {
+    "passed": 1590,
+    "skipped": 12,
+    "deselected": 2
+  },
+  "last_observed_hosted_stages": {
+    "desktop-launchers": "SUCCESS",
+    "lint": "SUCCESS",
+    "python-tests": "SUCCESS",
+    "preview": "SUCCESS",
+    "negative-test": "SUCCESS",
+    "iso-build": "SUCCESS",
+    "qemu-verify": "SUCCESS",
+    "publish-release": "SUCCESS"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "pnp": [
+    {
+      "Name": "USB Root Hub (USB 3.0)",
+      "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+      "Service": "USBHUB3",
+      "Status": "OK",
+      "ConfigManagerErrorCode": 0
+    },
+    {
+      "Name": "QEMU QEMU HARDDISK USB Device",
+      "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+      "Service": "disk",
+      "Status": "OK",
+      "ConfigManagerErrorCode": 0
+    },
+    {
+      "Name": "USB Mass Storage Device",
+      "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+      "Service": "USBSTOR",
+      "Status": "OK",
+      "ConfigManagerErrorCode": 0
+    },
+    {
+      "Name": "USB Root Hub",
+      "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+      "Service": "usbhub",
+      "Status": "OK",
+      "ConfigManagerErrorCode": 0
+    }
+  ],
+  "os": {
+    "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+    "Version": "10.0.26200",
+    "BuildNumber": "26200"
+  },
+  "setupInProgress": 0,
+  "secureBoot": true,
+  "time": "2026-09-07T21:29:57.2443922+00:00",
+  "drivers": [
+    {
+      "Name": "UASPStor",
+      "State": "Running",
+      "Started": true,
+      "StartMode": "Manual"
+    },
+    {
+      "Name": "USBSTOR",
+      "State": "Running",
+      "Started": true,
+      "StartMode": "Manual"
+    },
+    {
+      "Name": "USBXHCI",
+      "State": "Running",
+      "Started": true,
+      "StartMode": "Manual"
+    }
+  ]
+}

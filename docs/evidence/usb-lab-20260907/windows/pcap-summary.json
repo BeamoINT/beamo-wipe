@@ -1,0 +1,177 @@
+{
+  "linux-rootports/8-protected.pcap": {
+    "sha256": "635c197c51f16ce570ea7fddded969d5f04b5f094adf4b92f63e7ba68909765e",
+    "packets": 846,
+    "payload_bytes": 91041,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "linux-rootports/10-duplicateb.pcap": {
+    "sha256": "d95054150b3387b86ad64875caa7425d966f7915115b3039bb80ae3ffa3d6ac4",
+    "packets": 842,
+    "payload_bytes": 90741,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "linux-rootports/11-fault.pcap": {
+    "sha256": "4a91a45bd3fac9fb1070ef5bc496e44f071feafdaf89188af00959ffeef697e1",
+    "packets": 938,
+    "payload_bytes": 100089,
+    "snaplen_truncated_packets": 122,
+    "linktype": 220
+  },
+  "linux-rootports/7-profile2.pcap": {
+    "sha256": "7c4eb161c5ad438892fc08a5338c6a9dbe8ff1bf91d26e3411863e4f6abadae3",
+    "packets": 918,
+    "payload_bytes": 93318,
+    "snaplen_truncated_packets": 102,
+    "linktype": 220
+  },
+  "linux-rootports/2-profile0.pcap": {
+    "sha256": "bd6bb9d9d16118c1df7569c006ac3ac0a4209bed68f7d450b4332fec0781c929",
+    "packets": 2628,
+    "payload_bytes": 387892,
+    "snaplen_truncated_packets": 811,
+    "linktype": 220
+  },
+  "linux-rootports/5-profile1.pcap": {
+    "sha256": "57141ea27f1447c44c5dbd1a9e5b5945b93cc7bcca85edfb316f940e38ea6391",
+    "packets": 864,
+    "payload_bytes": 92623,
+    "snaplen_truncated_packets": 116,
+    "linktype": 220
+  },
+  "linux-rootports/4-profile1.pcap": {
+    "sha256": "4404547df10b22dfedc83662aa72022e8a7ebb1163eda898b9911cdc6cfc8b39",
+    "packets": 1318,
+    "payload_bytes": 141039,
+    "snaplen_truncated_packets": 176,
+    "linktype": 220
+  },
+  "linux-rootports/3-profile0.pcap": {
+    "sha256": "4f64b241cd565870d4d5287f37c03d52ba136c278951ec85189cc5dcd7748103",
+    "packets": 1744,
+    "payload_bytes": 257852,
+    "snaplen_truncated_packets": 540,
+    "linktype": 220
+  },
+  "linux-rootports/13-disconnect.pcap": {
+    "sha256": "abd9d412a71ee471d86218f44d241fe6c9c6ae76c14563bbf0201db94972d6dc",
+    "packets": 842,
+    "payload_bytes": 90745,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "linux-rootports/1-canary.pcap": {
+    "sha256": "7c7351ce75a944c57b653782a4d958e798da5abcc7b1dc6afdecb6b4450a0513",
+    "packets": 1002,
+    "payload_bytes": 102735,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "linux-rootports/6-profile2.pcap": {
+    "sha256": "46e28d939c2e1c012be36c11778aa37c02be57fb17552f50c977f74224da88f1",
+    "packets": 1342,
+    "payload_bytes": 137826,
+    "snaplen_truncated_packets": 155,
+    "linktype": 220
+  },
+  "linux-rootports/9-duplicatea.pcap": {
+    "sha256": "8a430ef7b83f4a2242f3471f711aa4f13e3989058d552d06c14e284e5910ddf6",
+    "packets": 842,
+    "payload_bytes": 90741,
+    "snaplen_truncated_packets": 115,
+    "linktype": 220
+  },
+  "linux-rootports/12-disconnect.pcap": {
+    "sha256": "cddfa80f0aa2becfb9767bb66d90e73a8504f6f2f40ea1f7f3d6186789d74317",
+    "packets": 864,
+    "payload_bytes": 92627,
+    "snaplen_truncated_packets": 116,
+    "linktype": 220
+  },
+  "windows-results-2022-2/2-profile0.pcap": {
+    "sha256": "eafd156e12c4be6c4dd2bf67245c80c990188ad94aa5e32c08da7c525cc52e95",
+    "packets": 2100,
+    "payload_bytes": 189685,
+    "snaplen_truncated_packets": 134,
+    "linktype": 220
+  },
+  "windows-results-2022-2/5-profile1.pcap": {
+    "sha256": "ec8621c2743cd38493a360b353b61d1e4b5c3388f71cb4053b53478d083ad479",
+    "packets": 2244,
+    "payload_bytes": 202592,
+    "snaplen_truncated_packets": 144,
+    "linktype": 220
+  },
+  "windows-results-2022-2/4-profile1.pcap": {
+    "sha256": "b5c31b68e31b52ade4f47c596f3b679bfb540f19d0e4526b1f60d7c3f90db4fa",
+    "packets": 2558,
+    "payload_bytes": 230812,
+    "snaplen_truncated_packets": 164,
+    "linktype": 220
+  },
+  "windows-results-2022-2/3-profile0.pcap": {
+    "sha256": "4d1742f4bc55cb7fe8d7404893e069ecb0565059ad28bd4991f8d9c23ca82ee6",
+    "packets": 2026,
+    "payload_bytes": 182617,
+    "snaplen_truncated_packets": 128,
+    "linktype": 220
+  },
+  "windows-results-2022-2/1-canary.pcap": {
+    "sha256": "ff4d38aeb2ede042f98d714bcd681d76a1c4e81d61a37b033db2fbf93e50b9ef",
+    "packets": 7310,
+    "payload_bytes": 650228,
+    "snaplen_truncated_packets": 414,
+    "linktype": 220
+  },
+  "windows-results-2022-2/6-profile2.pcap": {
+    "sha256": "9d8a9cd30f7afb7f8bf7fc23e91c7ed51552b1b80673ab18321a419b2554638c",
+    "packets": 26,
+    "payload_bytes": 1912,
+    "snaplen_truncated_packets": 0,
+    "linktype": 220
+  },
+  "windows-results-bot/6-protected.pcap": {
+    "sha256": "de610c94a35206f3fce0be193feeb363c699b08514c3fc7e7743943e2516093d",
+    "packets": 4232,
+    "payload_bytes": 382614,
+    "snaplen_truncated_packets": 279,
+    "linktype": 220
+  },
+  "windows-results-bot/2-profile0.pcap": {
+    "sha256": "eecf30286fbc0aaad214de1781dd7b5adcd068e47caab91ca505dadb1c5308a5",
+    "packets": 2286,
+    "payload_bytes": 206389,
+    "snaplen_truncated_packets": 146,
+    "linktype": 220
+  },
+  "windows-results-bot/5-profile1.pcap": {
+    "sha256": "bcb1531192c5cab67c7ae4a1688151832ec79f73c37f0e55507013d265cfbedb",
+    "packets": 2726,
+    "payload_bytes": 246492,
+    "snaplen_truncated_packets": 178,
+    "linktype": 220
+  },
+  "windows-results-bot/4-profile1.pcap": {
+    "sha256": "107dfd8c055224c608508c045e1e9f8fec01396b0b1542110118d635af4ae94b",
+    "packets": 2514,
+    "payload_bytes": 227100,
+    "snaplen_truncated_packets": 162,
+    "linktype": 220
+  },
+  "windows-results-bot/3-profile0.pcap": {
+    "sha256": "6b2383cf473ff87b6590768af082db7c4e8fb16b51b6b26bf7994349d89c1bd5",
+    "packets": 2514,
+    "payload_bytes": 227201,
+    "snaplen_truncated_packets": 163,
+    "linktype": 220
+  },
+  "windows-results-bot/1-canary.pcap": {
+    "sha256": "f9b4e98827eecd6f3a637ac3027a03be99f2d005db1658f2f528c45f2c9652e5",
+    "packets": 7600,
+    "payload_bytes": 685432,
+    "snaplen_truncated_packets": 490,
+    "linktype": 220
+  }
+}

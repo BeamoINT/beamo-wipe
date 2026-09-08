@@ -1,0 +1,156 @@
+{
+  "recorded_utc": "2026-09-08T02:07:13.211260+00:00",
+  "status": "verified",
+  "validation_commit": "553a4a0cea1fa79b1a93fe341ce55b9c167976f2",
+  "parent_commit": "579f5200e59347a2626fa4a09cea94c908202cd3",
+  "checkout": "/private/tmp/beamo-wipe-validation-20260908",
+  "branch": "codex/bugfix-20260908",
+  "authorization": "User explicitly authorized isolated validation commit before hosted gates on this continuation. Push remains gated on success; release is unauthorized.",
+  "local_tests": {
+    "passed": 1463,
+    "skipped": 154,
+    "deselected": 2
+  },
+  "build": {
+    "id": "893e165a-085a-43aa-ab09-650b7dc5a145",
+    "status": "SUCCESS",
+    "logUrl": "https://console.cloud.google.com/cloud-build/builds/893e165a-085a-43aa-ab09-650b7dc5a145?project=368895881889",
+    "createTime": "2026-09-08T02:05:38.164652995Z",
+    "startTime": "2026-09-08T02:06:25.911367306Z",
+    "finishTime": "2026-09-08T02:37:27.784856Z",
+    "substitutions": {
+      "_PUBLISH_RELEASE": "false",
+      "_SKIP_ISO": "false",
+      "_SKIP_QEMU": "false"
+    },
+    "sourceProvenance": {
+      "fileHashes": {
+        "gs://beamo-wipe_cloudbuild/source/1788833133.834326-022b7b89ba414d249c7b3a00a3c0bf87.tgz#1788833137540707": {
+          "fileHash": [
+            {
+              "type": "MD5",
+              "value": "2DIrtX0XA8IO_ysRvNr-wQ=="
+            },
+            {
+              "type": "SHA256",
+              "value": "XGkew0OvPRHxafRlZrh14J1xxXyl7mV7gp7QDWqe07I="
+            }
+          ]
+        }
+      },
+      "resolvedStorageSource": {
+        "bucket": "beamo-wipe_cloudbuild",
+        "generation": "1788833137540707",
+        "object": "source/1788833133.834326-022b7b89ba414d249c7b3a00a3c0bf87.tgz"
+      }
+    }
+  },
+  "verified_utc": "2026-09-08T02:42:56.973852+00:00",
+  "steps": [
+    {
+      "id": "desktop-launchers",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:08:43.192027699Z",
+        "startTime": "2026-09-08T02:06:32.064663478Z"
+      }
+    },
+    {
+      "id": "lint",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:07:07.276172719Z",
+        "startTime": "2026-09-08T02:06:32.064660587Z"
+      }
+    },
+    {
+      "id": "python-tests",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:09:50.587028686Z",
+        "startTime": "2026-09-08T02:06:32.064657355Z"
+      }
+    },
+    {
+      "id": "preview",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:06:51.580986358Z",
+        "startTime": "2026-09-08T02:06:32.064668253Z"
+      }
+    },
+    {
+      "id": "negative-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:10:46.552841351Z",
+        "startTime": "2026-09-08T02:09:50.587209250Z"
+      }
+    },
+    {
+      "id": "iso-build",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:20:26.385502411Z",
+        "startTime": "2026-09-08T02:10:46.553081126Z"
+      }
+    },
+    {
+      "id": "qemu-verify",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:37:13.553557859Z",
+        "startTime": "2026-09-08T02:20:26.385771593Z"
+      }
+    },
+    {
+      "id": "publish-release",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T02:37:27.441905900Z",
+        "startTime": "2026-09-08T02:37:13.555395759Z"
+      }
+    }
+  ],
+  "hosted_tests": {
+    "passed": 1658,
+    "skipped": 12,
+    "deselected": 2
+  },
+  "artifact": {
+    "name": "beamo-wipe-0.2.5-amd64.iso",
+    "bytes": 563085312,
+    "iso_sha256": "ac91e3a7e6fb63d98c852305d41282524ab30f18cbf6c5e9f1520eeaa3f48d04",
+    "manifest_sha256": "59337f42c2296d44202a01f0a0ec0de5b28cfe5b7b17cc84ed6466f1f467319a"
+  },
+  "cloud_log_sha256": "5ffb614c8fd37031254bea97eeb43229cd2a784b7b84f38517a24ae03f2cebaf",
+  "cloud_log_entries": 9408,
+  "publication": "disabled; artifacts ephemeral",
+  "source_verification": {
+    "build_id": "893e165a-085a-43aa-ab09-650b7dc5a145",
+    "commit": "553a4a0cea1fa79b1a93fe341ce55b9c167976f2",
+    "source_uri": "gs://beamo-wipe_cloudbuild/source/1788833133.834326-022b7b89ba414d249c7b3a00a3c0bf87.tgz#1788833137540707",
+    "archive_sha256": "5c691ec343af3d11f169f46566b875e09d71c57ca5ee657b829ed00d6a9ed3b2",
+    "tracked_files_byte_verified": 242,
+    "result": "all committed files and embedded branch HEAD matched"
+  },
+  "remote_verification": {
+    "verified_utc": "2026-09-08T02:41:35.009342+00:00",
+    "refs": {
+      "origin": {
+        "url": "https://github.com/BeamoINT/beamo-wipe.git",
+        "ref": "refs/heads/codex/bugfix-20260908",
+        "commit": "553a4a0cea1fa79b1a93fe341ce55b9c167976f2"
+      },
+      "cursor": {
+        "url": "https://origin.cursor.com/beamo/beamo-wipe.git",
+        "ref": "refs/heads/codex/bugfix-20260908",
+        "commit": "553a4a0cea1fa79b1a93fe341ce55b9c167976f2"
+      }
+    },
+    "writes_performed": [
+      "GitHub origin: HEAD -> refs/heads/codex/bugfix-20260908"
+    ],
+    "cursor_note": "Combined push rejected by automatic approval review. GitHub-only push approved and completed. Subsequent read-only check found matching branch already present on Cursor; no separate Cursor push executed."
+  }
+}

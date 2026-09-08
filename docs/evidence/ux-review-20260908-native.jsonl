@@ -1,0 +1,5 @@
+{"check": "show_more_keyboard", "takefocus": "0", "bindings": ["<Button-1>"]}
+{"check": "long_identifiers", "clipped": [{"text": "External USB Bridge Adapter External USB Bridge Adapter", "requested": 1192, "actual": 840}, {"text": "SERIAL0123456789SERIAL0123456789SERIAL0123456789SERIAL0", "requested": 1485, "actual": 840}]}
+{"check": "refresh_responsiveness", "seconds": 0.42, "heartbeat_before_return": []}
+{"heartbeat_after_update": ["ran"]}
+{"check": "enter_with_back_focus", "focus_label": "Back", "actions": ["erase_requested"]}

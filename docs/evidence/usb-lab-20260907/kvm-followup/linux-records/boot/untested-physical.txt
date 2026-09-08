@@ -1,0 +1,1 @@
+No physical hardware was tested by this gate; SATA, NVMe, USB bridges, firmware, and controllers remain field-test risks.

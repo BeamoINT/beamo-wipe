@@ -1,0 +1,9 @@
+{
+  "verified_utc": "2026-09-07T19:29:42.996778+00:00",
+  "task_public_key_sha256": "51c251445a91c0e6399a866a3570627f050106ce79e8e2582a3804bed514b618",
+  "task_key_absent_from_os_login": true,
+  "removed_matching_fingerprints": [
+    "51c251445a91c0e6399a866a3570627f050106ce79e8e2582a3804bed514b618"
+  ],
+  "private_key_removed": true
+}

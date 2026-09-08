@@ -1,0 +1,12 @@
+ok  	beamo-wipe/desktop	1.028s
+fuzz: elapsed: 0s, gathering baseline coverage: 0/3 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 3/3 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 87590 (29194/sec), new interesting: 19 (total: 22)
+fuzz: elapsed: 6s, execs: 214592 (42322/sec), new interesting: 27 (total: 30)
+fuzz: elapsed: 9s, execs: 315170 (33534/sec), new interesting: 35 (total: 38)
+fuzz: elapsed: 12s, execs: 401161 (28661/sec), new interesting: 40 (total: 43)
+fuzz: elapsed: 15s, execs: 492829 (30555/sec), new interesting: 43 (total: 46)
+fuzz: elapsed: 15s, execs: 492829 (0/sec), new interesting: 43 (total: 46)
+PASS
+ok  	beamo-wipe/desktop	15.052s
+Built Windows and Linux desktop launchers. Runtime and firmware tests remain separate gates.

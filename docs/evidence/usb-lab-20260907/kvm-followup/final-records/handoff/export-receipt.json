@@ -1,0 +1,135 @@
+{
+  "result": [
+    {
+      "path": "diagnostics.ps1",
+      "sha256": "e17491efffe62b0d819069a404b1d0f53d29a047b47c00711b86bb81df149e7c",
+      "bytes": 979
+    },
+    {
+      "path": "native-upd",
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "bytes": 3
+    },
+    {
+      "path": "native-updated-direct.txt",
+      "sha256": "c89e25016133bd9425bb10bd182fd7128f6cd1702a8ab50203f3265ddd6bf125",
+      "bytes": 4152
+    },
+    {
+      "path": "windows_probe.ps1",
+      "sha256": "acff03515ce63cf3f7da9ed62bfe5433daab475577ff30b5f1243ce2a832d800",
+      "bytes": 5246
+    },
+    {
+      "path": "Handoff\\fixture-before.json",
+      "sha256": "49c042401335802c26fa14d75e7acb4760359f727d736a0f22c36fff26874169",
+      "bytes": 930
+    },
+    {
+      "path": "Handoff\\fixture-installed.json",
+      "sha256": "fc98acfab2ea4ee26cd1119f5f32e3b61dc668e6d45e356266c886d12e19e216",
+      "bytes": 139
+    },
+    {
+      "path": "Handoff\\launcher-ready.json",
+      "sha256": "1cd8a0b98cac27680cbcb337ff95f53a0b98d2fe01f27b5bf773ea738a096993",
+      "bytes": 255
+    },
+    {
+      "path": "Inventory\\disks.json",
+      "sha256": "c875bf45111c5c05f0cbdbda360d0df0cea2233faa04d8d3a10e5d2092e7467b",
+      "bytes": 1997
+    },
+    {
+      "path": "Inventory\\layout.json",
+      "sha256": "18619c2482b745905302a2690c9ab2ac08f403dcb1506e54abfd5f82caa6139f",
+      "bytes": 225
+    },
+    {
+      "path": "Inventory\\partitions.json",
+      "sha256": "a208f4276e63629ec0ff0d576f655253980aeac1299cb722e46f2f39af7e1364",
+      "bytes": 1621
+    },
+    {
+      "path": "Inventory\\receipt.json",
+      "sha256": "8ef35ce396f1028482aadce2016147737fd9e6ccf7d56f38c788ba6a53d34ff6",
+      "bytes": 112
+    },
+    {
+      "path": "Inventory\\stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "Inventory\\stdout.txt",
+      "sha256": "6933fb8aef3b31d35046b8211d2f0f063998770d1dbd54c7991be9b7104de631",
+      "bytes": 416
+    },
+    {
+      "path": "NativeTests\\native-tests.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "NativeTestsPrevious\\receipt.json",
+      "sha256": "bea361f072df2a5c299cac69cf832a4c04707515c6fad07e230242b41097f4b8",
+      "bytes": 349
+    },
+    {
+      "path": "NativeTestsPrevious\\stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "NativeTestsPrevious\\stdout.txt",
+      "sha256": "e163dc2473ffa76278160285431d9133cb4b8eb4f54457b607b4dc9febd51f73",
+      "bytes": 4314
+    },
+    {
+      "path": "NativeTestsUpdated\\receipt.json",
+      "sha256": "bea361f072df2a5c299cac69cf832a4c04707515c6fad07e230242b41097f4b8",
+      "bytes": 349
+    },
+    {
+      "path": "NativeTestsUpdated\\stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "NativeTestsUpdated\\stdout.txt",
+      "sha256": "f22aa93cc0c2036f93b3638148738fd2fe93934ce7c97bc295f59c6cbe3b8e43",
+      "bytes": 4230
+    },
+    {
+      "path": "Trace\\direct-lr.xml",
+      "sha256": "dafeb7bc163ac942ff9c4282cad6ebeb24973cbb6aacbfaa392ed5349b666de0",
+      "bytes": 7986992
+    },
+    {
+      "path": "Trace\\direct.etl",
+      "sha256": "7f8f0edd01415784abb79aae9182fec497e93d53c4fd586557b9ae49255586b6",
+      "bytes": 1048576
+    },
+    {
+      "path": "Trace\\direct.xml",
+      "sha256": "39690bc3a970de1c90786037a1d74a679cd83d6ed887a305995213d9924067a2",
+      "bytes": 7986889
+    },
+    {
+      "path": "Trace\\started.txt",
+      "sha256": "c3b26a5cb332ceea49e9e51b0be738502263e44e776cdf27e01f3e35f4018c76",
+      "bytes": 35
+    },
+    {
+      "path": "Trace\\summary.txt",
+      "sha256": "8dc9a80789f7b03f49e487e6612eedc3ee63b836759ea565063f47945e23ae95",
+      "bytes": 26926
+    },
+    {
+      "path": "Trace\\usb_000001.etl",
+      "sha256": "ac003cdab9bf8fd2f241ae48cead314e223ce2bd8c4ffcd62121d66a3d73aca3",
+      "bytes": 4063232
+    }
+  ],
+  "ok": true
+}

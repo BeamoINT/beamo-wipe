@@ -1,0 +1,20 @@
+{
+  "status": "PASS_WITH_FIXTURE_BOOT_ENTRY",
+  "source": "22f40612bc9b4d0f6399951ed8828b4c16dbf848",
+  "actual_launcher_button": true,
+  "first_attempt": "RETURNED_TO_WINDOWS_WITH_HOST_BOOTINDEX_OVERRIDES",
+  "repeat_bootindices": [
+    -1,
+    -1
+  ],
+  "firmware_selected": "Boot9001",
+  "efi_stub_secure_boot_enabled": true,
+  "wizard_step1_visually_verified": true,
+  "erase_started": false,
+  "speed_claim": false,
+  "limits": [
+    "Fixture seeded exact entry",
+    "Administrator session; no UAC prompt",
+    "Slow startup; no universal physical acceptance"
+  ]
+}

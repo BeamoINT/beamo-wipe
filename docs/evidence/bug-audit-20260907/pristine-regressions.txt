@@ -1,0 +1,1346 @@
+FFFFFFFFFF.FFF.FFFFFF.FFFFFFFFFFFFF.FFF                                  [100%]
+=================================== FAILURES ===================================
+_ test_conflicting_duplicate_disk_observations_fail_closed[True-restriction0] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1072e54e0>
+restriction = {'mountpoints': ['/media/data']}, restricted_first = True
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[True-restriction1] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cb7430>
+restriction = {'ro': True}, restricted_first = True
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[True-restriction2] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075ef520>
+restriction = {'tran': 'iscsi'}, restricted_first = True
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[True-restriction3] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cb5c60>
+restriction = {'size': 0}, restricted_first = True
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[True-restriction4] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1076fcfd0>
+restriction = {'serial': 'another-physical-disk'}, restricted_first = True
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[False-restriction0] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cb4d90>
+restriction = {'mountpoints': ['/media/data']}, restricted_first = False
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[False-restriction1] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1076fce80>
+restriction = {'ro': True}, restricted_first = False
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[False-restriction2] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cb5390>
+restriction = {'tran': 'iscsi'}, restricted_first = False
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[False-restriction3] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1076ff070>
+restriction = {'size': 0}, restricted_first = False
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+_ test_conflicting_duplicate_disk_observations_fail_closed[False-restriction4] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cb68f0>
+restriction = {'serial': 'another-physical-disk'}, restricted_first = False
+
+    @pytest.mark.parametrize("restriction", [
+        {"mountpoints": ["/media/data"]},
+        {"ro": True},
+        {"tran": "iscsi"},
+        {"size": 0},
+        {"serial": "another-physical-disk"},
+    ])
+    @pytest.mark.parametrize("restricted_first", [True, False])
+    def test_conflicting_duplicate_disk_observations_fail_closed(monkeypatch, restriction, restricted_first):
+        pair = [disk("sda", **restriction), disk("sda")]
+        result = probe(monkeypatch, [disk("sdb"), *(pair if restricted_first else pair[::-1])])
+        # Before the fix, a mounted/read-only/remote copy is filtered out and the
+        # writable copy passes the final identity revalidation as a unique disk.
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...dDevice(identity='Fake disk | 32 GB | /dev/sdb | Serial: sdb', reasons=('boot or system protected',)),), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:42: AssertionError
+______________ test_normal_retry_after_conflicting_probe_recovers ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075ef1f0>
+
+    def test_normal_retry_after_conflicting_probe_recovers(monkeypatch):
+        first = probe(monkeypatch, [disk("sdb"), disk("sda"), disk("sda", ro=True)])
+>       assert first.selectable == ()
+E       AssertionError: assert (Disk(path='/...'Fake disk'),) == ()
+E         
+E         Left contains one more item: Disk(path='/dev/sda', name='sda', model='Fake disk', serial='sda', size_bytes=32000000000, size_gb_label='32', kind=<D... 'SSD'>, bus='USB', label='', is_boot=False, read_only=False, wwn='', vendor='', mountpoints=(), raw_model='Fake disk')
+E         Use -v to get more diff
+
+tests/test_audit_20260907_discovery_duplicates.py:56: AssertionError
+________ test_conflicting_canonical_alias_is_not_a_separate_safe_target ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1077210f0>
+
+    def test_conflicting_canonical_alias_is_not_a_separate_safe_target(monkeypatch):
+        realpath = discovery.os.path.realpath
+        monkeypatch.setattr(discovery.os.path, "realpath", lambda value: (
+            "/dev/sda" if value == "/dev/disk/by-id/fake-target" else realpath(value)
+        ))
+        result = probe(monkeypatch, [
+            disk("sdb"), disk("sda"),
+            disk("sda", path="/dev/disk/by-id/fake-target", ro=True),
+        ])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...vice(identity='Fake disk | 32 GB | /dev/disk/by-id/fake-target | Serial: sda', reasons=('read-only',))), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:71: AssertionError
+________________ test_conflicting_boot_observations_fail_closed ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1076ff5e0>
+
+    def test_conflicting_boot_observations_fail_closed(monkeypatch):
+        result = probe(monkeypatch, [disk("sdb"), disk("sdb", serial="replacement"), disk("sda")])
+>       assert not result.boot_identified
+E       AssertionError: assert not True
+E        +  where True = DiscoveryResult(disks=(Disk(path='/dev/sdb', name='sdb', model='Fake disk', serial='sdb', size_bytes=32000000000, size...(identity='Fake disk | 32 GB | /dev/sdb | Serial: replacement', reasons=('boot or system protected',))), error_code='').boot_identified
+
+tests/test_audit_20260907_discovery_duplicates.py:77: AssertionError
+_ test_duplicate_report_fields_cannot_hide_private_export_bytes["raw_logs":-prepare] _
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_duplicate_report_fields_c0')
+field = b'"raw_logs":', boundary = 'prepare'
+
+    @pytest.mark.parametrize("boundary", ["prepare", "bundle"])
+    @pytest.mark.parametrize("field", [b'"raw_logs":', b'"ui":', b'"code":'])
+    def test_duplicate_report_fields_cannot_hide_private_export_bytes(tmp_path, field, boundary):
+        original = _report()
+        data = original.replace(field, field + b'"private SERIAL secret",' + field, 1)
+        assert data != original
+>       with pytest.raises(SafetyError, match="diagnostic report"):
+E       Failed: DID NOT RAISE <class 'beamo_wipe.safety.SafetyError'>
+
+tests/test_audit_20260907_recovery.py:25: Failed
+_ test_duplicate_report_fields_cannot_hide_private_export_bytes["raw_logs":-bundle] _
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_duplicate_report_fields_c1')
+field = b'"raw_logs":', boundary = 'bundle'
+
+    @pytest.mark.parametrize("boundary", ["prepare", "bundle"])
+    @pytest.mark.parametrize("field", [b'"raw_logs":', b'"ui":', b'"code":'])
+    def test_duplicate_report_fields_cannot_hide_private_export_bytes(tmp_path, field, boundary):
+        original = _report()
+        data = original.replace(field, field + b'"private SERIAL secret",' + field, 1)
+        assert data != original
+>       with pytest.raises(SafetyError, match="diagnostic report"):
+E       Failed: DID NOT RAISE <class 'beamo_wipe.safety.SafetyError'>
+
+tests/test_audit_20260907_recovery.py:25: Failed
+_ test_duplicate_report_fields_cannot_hide_private_export_bytes["ui":-prepare] _
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_duplicate_report_fields_c2')
+field = b'"ui":', boundary = 'prepare'
+
+    @pytest.mark.parametrize("boundary", ["prepare", "bundle"])
+    @pytest.mark.parametrize("field", [b'"raw_logs":', b'"ui":', b'"code":'])
+    def test_duplicate_report_fields_cannot_hide_private_export_bytes(tmp_path, field, boundary):
+        original = _report()
+        data = original.replace(field, field + b'"private SERIAL secret",' + field, 1)
+        assert data != original
+>       with pytest.raises(SafetyError, match="diagnostic report"):
+E       Failed: DID NOT RAISE <class 'beamo_wipe.safety.SafetyError'>
+
+tests/test_audit_20260907_recovery.py:25: Failed
+_ test_duplicate_report_fields_cannot_hide_private_export_bytes["ui":-bundle] __
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_duplicate_report_fields_c3')
+field = b'"ui":', boundary = 'bundle'
+
+    @pytest.mark.parametrize("boundary", ["prepare", "bundle"])
+    @pytest.mark.parametrize("field", [b'"raw_logs":', b'"ui":', b'"code":'])
+    def test_duplicate_report_fields_cannot_hide_private_export_bytes(tmp_path, field, boundary):
+        original = _report()
+        data = original.replace(field, field + b'"private SERIAL secret",' + field, 1)
+        assert data != original
+>       with pytest.raises(SafetyError, match="diagnostic report"):
+E       Failed: DID NOT RAISE <class 'beamo_wipe.safety.SafetyError'>
+
+tests/test_audit_20260907_recovery.py:25: Failed
+_ test_duplicate_report_fields_cannot_hide_private_export_bytes["code":-prepare] _
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_duplicate_report_fields_c4')
+field = b'"code":', boundary = 'prepare'
+
+    @pytest.mark.parametrize("boundary", ["prepare", "bundle"])
+    @pytest.mark.parametrize("field", [b'"raw_logs":', b'"ui":', b'"code":'])
+    def test_duplicate_report_fields_cannot_hide_private_export_bytes(tmp_path, field, boundary):
+        original = _report()
+        data = original.replace(field, field + b'"private SERIAL secret",' + field, 1)
+        assert data != original
+>       with pytest.raises(SafetyError, match="diagnostic report"):
+E       Failed: DID NOT RAISE <class 'beamo_wipe.safety.SafetyError'>
+
+tests/test_audit_20260907_recovery.py:25: Failed
+_ test_duplicate_report_fields_cannot_hide_private_export_bytes["code":-bundle] _
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_duplicate_report_fields_c5')
+field = b'"code":', boundary = 'bundle'
+
+    @pytest.mark.parametrize("boundary", ["prepare", "bundle"])
+    @pytest.mark.parametrize("field", [b'"raw_logs":', b'"ui":', b'"code":'])
+    def test_duplicate_report_fields_cannot_hide_private_export_bytes(tmp_path, field, boundary):
+        original = _report()
+        data = original.replace(field, field + b'"private SERIAL secret",' + field, 1)
+        assert data != original
+>       with pytest.raises(SafetyError, match="diagnostic report"):
+E       Failed: DID NOT RAISE <class 'beamo_wipe.safety.SafetyError'>
+
+tests/test_audit_20260907_recovery.py:25: Failed
+____________ test_linked_diagnostic_log_cannot_modify_another_file _____________
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_linked_diagnostic_log_can0')
+
+    def test_linked_diagnostic_log_cannot_modify_another_file(tmp_path):
+        import os
+        from beamo_wipe.diagnostics import log_diag
+    
+        directory = tmp_path / "logs"
+        directory.mkdir(mode=0o700)
+        unrelated = tmp_path / "unrelated.json"
+        original = b'{"preserve":"user evidence"}\n'
+        unrelated.write_bytes(original)
+        unrelated.chmod(0o644)
+        os.link(unrelated, directory / "diagnostics.log")
+>       assert log_diag("audit", "check", log_dir=directory) is False
+E       AssertionError: assert True is False
+E        +  where True = <function log_diag at 0x107caecb0>('audit', 'check', log_dir=PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_linked_diagnostic_log_can0/logs'))
+
+tests/test_audit_20260907_recovery.py:52: AssertionError
+__ test_unusable_working_terminal_stops_before_leaving[select-failure0-False] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107c6f7c0>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal0')
+report_wanted = False, failure = OSError(9, 'bad descriptor'), stage = 'select'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+__ test_unusable_working_terminal_stops_before_leaving[select-failure0-True] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1072e5360>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal1')
+report_wanted = True, failure = OSError(9, 'bad descriptor'), stage = 'select'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+__ test_unusable_working_terminal_stops_before_leaving[select-failure1-False] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107d73ca0>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal2')
+report_wanted = False, failure = ValueError('closed input'), stage = 'select'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+__ test_unusable_working_terminal_stops_before_leaving[select-failure1-True] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107d7b730>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal3')
+report_wanted = True, failure = ValueError('closed input'), stage = 'select'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+__ test_unusable_working_terminal_stops_before_leaving[select-failure2-False] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107c6d9c0>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal4')
+report_wanted = False, failure = PermissionError('denied'), stage = 'select'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+__ test_unusable_working_terminal_stops_before_leaving[select-failure2-True] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107dafe80>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal5')
+report_wanted = True, failure = PermissionError('denied'), stage = 'select'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_unusable_working_terminal_stops_before_leaving[readline-failure0-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107d6c220>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal6')
+report_wanted = False, failure = OSError(9, 'bad descriptor')
+stage = 'readline'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_unusable_working_terminal_stops_before_leaving[readline-failure0-True] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cd8100>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal7')
+report_wanted = True, failure = OSError(9, 'bad descriptor'), stage = 'readline'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_unusable_working_terminal_stops_before_leaving[readline-failure1-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107db5960>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal8')
+report_wanted = False, failure = ValueError('closed input'), stage = 'readline'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_unusable_working_terminal_stops_before_leaving[readline-failure1-True] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107d55240>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal9')
+report_wanted = True, failure = ValueError('closed input'), stage = 'readline'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_unusable_working_terminal_stops_before_leaving[readline-failure2-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cd6980>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal10')
+report_wanted = False, failure = PermissionError('denied'), stage = 'readline'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_unusable_working_terminal_stops_before_leaving[readline-failure2-True] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107db4be0>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_unusable_working_terminal11')
+report_wanted = True, failure = PermissionError('denied'), stage = 'readline'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("failure", [OSError(9, "bad descriptor"), ValueError("closed input"), PermissionError("denied")])
+    @pytest.mark.parametrize("stage", ["select", "readline"])
+    def test_unusable_working_terminal_stops_before_leaving(
+        monkeypatch, tmp_path, report_wanted, failure, stage
+    ):
+        wizard = _working(monkeypatch, tmp_path)
+        wizard.report_wanted = report_wanted
+    
+        class Input:
+            def readline(self):
+                raise failure
+    
+        terminal = Input()
+        monkeypatch.setattr(console.sys, "stdin", terminal)
+    
+        def select(*args):
+            if stage == "select":
+                raise failure
+            return [terminal], [], []
+    
+        monkeypatch.setattr(console.select, "select", select)
+        monkeypatch.setattr(console.time, "sleep", lambda *_: None)
+        tick = wizard.tick
+        ticks = 0
+    
+        def bounded_tick():
+            nonlocal ticks
+            ticks += 1
+            assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+            tick()
+    
+        monkeypatch.setattr(wizard, "tick", bounded_tick)
+>       assert console._plain_loop(wizard) == (3 if report_wanted else 0)
+
+tests/test_audit_20260907_console_input.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:96: in _plain_loop_body
+    wizard.tick()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def bounded_tick():
+        nonlocal ticks
+        ticks += 1
+>       assert ticks <= 2, "Unusable terminal was swallowed while the fake erase remained active"
+E       AssertionError: Unusable terminal was swallowed while the fake erase remained active
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:63: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+______________ test_terminal_loss_does_not_claim_unconfirmed_stop ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cb40a0>
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_terminal_loss_does_not_cl0')
+
+    def test_terminal_loss_does_not_claim_unconfirmed_stop(monkeypatch, tmp_path):
+        wizard = _working(monkeypatch, tmp_path)
+        calls = 0
+    
+        def failed_select(*args):
+            nonlocal calls
+            calls += 1
+            assert calls <= 2, "Unusable terminal was repeatedly polled without attempting recovery"
+            raise OSError(9, "bad descriptor")
+    
+        def failed_cancel():
+            raise PermissionError("cannot stop fake process")
+    
+        monkeypatch.setattr(console.select, "select", failed_select)
+        monkeypatch.setattr(wizard.runner, "cancel", failed_cancel)
+>       assert console._plain_loop(wizard) == 3
+
+tests/test_audit_20260907_console_input.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:59: in _plain_loop
+    return _plain_loop_body(wizard)
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/ui/console_wizard.py:254: in _plain_loop_body
+    ready, _w, _x = select.select([sys.stdin], [], [], 0.3)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = ([<_pytest.capture.DontReadFromInput object at 0x1072ec460>], [], [], 0.3)
+@py_assert2 = 2, @py_assert1 = False, @py_format4 = '3 <= 2'
+
+    def failed_select(*args):
+        nonlocal calls
+        calls += 1
+>       assert calls <= 2, "Unusable terminal was repeatedly polled without attempting recovery"
+E       AssertionError: Unusable terminal was repeatedly polled without attempting recovery
+E       assert 3 <= 2
+
+tests/test_audit_20260907_console_input.py:103: AssertionError
+----------------------------- Captured stdout call -----------------------------
+0%. Phase not reported · Elapsed: less than 1 minute   [type CANCEL then Enter to interrupt]
+Samsung SSD 970 EVO 256 GB /dev/nvme0n1 S4EVNX0N123456
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+___________ test_active_wipe_excludes_other_approved_log_directories ___________
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_active_wipe_excludes_othe0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107cda170>
+
+    def test_active_wipe_excludes_other_approved_log_directories(tmp_path, monkeypatch):
+        monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+        requests = []
+        for name in ("first", "second"):
+            directory = tmp_path / name
+            directory.mkdir()
+            log = directory / "nwipe.log"
+            log.write_text("preserve existing evidence\n")
+            requests.append(WipeRequest("/dev/vda", MethodId.EVERYDAY, "/dev/sr0", str(log)))
+        processes = [Mock(returncode=-15), Mock(returncode=-15)]
+        popen = Mock(side_effect=processes)
+        monkeypatch.setattr("beamo_wipe.nwipe_runner.subprocess.Popen", popen)
+        runners = [NwipeRunner(binary=str(tmp_path / "fake_engine")) for _ in requests]
+        try:
+            runners[0].start(requests[0])
+>           with pytest.raises(SafetyError, match="already running"):
+E           Failed: DID NOT RAISE <class 'beamo_wipe.safety.SafetyError'>
+
+tests/test_audit_20260907_runner_lock.py:27: Failed
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+___________ test_other_log_directory_is_excluded_before_engine_exec ____________
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_other_log_directory_is_ex0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107d78ac0>
+
+    def test_other_log_directory_is_excluded_before_engine_exec(tmp_path, monkeypatch):
+        """Hold the first start inside fake Popen while a second runner starts."""
+        import threading
+    
+        monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+        requests = []
+        for name, target in (("first", "/dev/vda"), ("second", "/dev/vdb")):
+            directory = tmp_path / name
+            directory.mkdir()
+            requests.append(WipeRequest(target, MethodId.EVERYDAY, "/dev/sr0", str(directory / "nwipe.log")))
+        entered, release = threading.Event(), threading.Event()
+        proc = Mock(returncode=-15)
+        errors = []
+    
+        def popen(*args, **kwargs):
+            entered.set()
+            assert release.wait(3)
+            return proc
+    
+        monkeypatch.setattr("beamo_wipe.nwipe_runner.subprocess.Popen", popen)
+        first, second = [NwipeRunner(binary=str(tmp_path / "fake_engine")) for _ in requests]
+    
+        def start_first():
+            try:
+                first.start(requests[0])
+            except BaseException as exc:
+                errors.append(exc)
+    
+        starting = threading.Thread(target=start_first)
+        starting.start()
+        try:
+            assert entered.wait(3)
+            assert first._proc is None  # no engine is yet visible to process scanning
+            with pytest.raises(SafetyError, match="already running"):
+>               second.start(requests[1])
+
+tests/test_audit_20260907_runner_lock.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beamo-wipe-audit-pristine-src/src/beamo_wipe/nwipe_runner.py:699: in start
+    self._proc = subprocess.Popen(argv, **popen_kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (['/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1892/test_other_log_directory_is_ex0/fake_engine', '--autonuke', '--nogui', '--nowait', '--quiet', '--method=prng', ...],)
+kwargs = {'close_fds': True, 'cwd': '/', 'env': None, 'pass_fds': (12,), ...}
+@py_assert1 = <bound method Event.wait of <threading.Event object at 0x107d79cc0>>
+@py_assert3 = 3, @py_assert5 = False
+@py_format7 = 'assert False\n{False = wait\n{wait = <threading.Event object at 0x107d79cc0>.wait\n}(3)\n}'
+
+    def popen(*args, **kwargs):
+        entered.set()
+>       assert release.wait(3)
+E       assert False
+E        +  where False = wait(3)
+E        +    where wait = <threading.Event object at 0x107d79cc0>.wait
+
+tests/test_audit_20260907_runner_lock.py:58: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[True-restriction0]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[True-restriction1]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[True-restriction2]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[True-restriction3]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[True-restriction4]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[False-restriction0]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[False-restriction1]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[False-restriction2]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[False-restriction3]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_duplicate_disk_observations_fail_closed[False-restriction4]
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_normal_retry_after_conflicting_probe_recovers
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_canonical_alias_is_not_a_separate_safe_target
+FAILED tests/test_audit_20260907_discovery_duplicates.py::test_conflicting_boot_observations_fail_closed
+FAILED tests/test_audit_20260907_recovery.py::test_duplicate_report_fields_cannot_hide_private_export_bytes["raw_logs":-prepare]
+FAILED tests/test_audit_20260907_recovery.py::test_duplicate_report_fields_cannot_hide_private_export_bytes["raw_logs":-bundle]
+FAILED tests/test_audit_20260907_recovery.py::test_duplicate_report_fields_cannot_hide_private_export_bytes["ui":-prepare]
+FAILED tests/test_audit_20260907_recovery.py::test_duplicate_report_fields_cannot_hide_private_export_bytes["ui":-bundle]
+FAILED tests/test_audit_20260907_recovery.py::test_duplicate_report_fields_cannot_hide_private_export_bytes["code":-prepare]
+FAILED tests/test_audit_20260907_recovery.py::test_duplicate_report_fields_cannot_hide_private_export_bytes["code":-bundle]
+FAILED tests/test_audit_20260907_recovery.py::test_linked_diagnostic_log_cannot_modify_another_file
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[select-failure0-False]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[select-failure0-True]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[select-failure1-False]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[select-failure1-True]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[select-failure2-False]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[select-failure2-True]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[readline-failure0-False]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[readline-failure0-True]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[readline-failure1-False]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[readline-failure1-True]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[readline-failure2-False]
+FAILED tests/test_audit_20260907_console_input.py::test_unusable_working_terminal_stops_before_leaving[readline-failure2-True]
+FAILED tests/test_audit_20260907_console_input.py::test_terminal_loss_does_not_claim_unconfirmed_stop
+FAILED tests/test_audit_20260907_runner_lock.py::test_active_wipe_excludes_other_approved_log_directories
+FAILED tests/test_audit_20260907_runner_lock.py::test_other_log_directory_is_excluded_before_engine_exec
+35 failed, 4 passed in 12.01s

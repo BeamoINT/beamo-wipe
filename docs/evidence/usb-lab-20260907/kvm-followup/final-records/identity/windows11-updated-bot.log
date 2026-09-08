@@ -1,0 +1,7 @@
+PASS windows-os
+PASS usb2-bot-windows-write-unplug-reconnect
+PASS usb3-bot-windows-write-unplug-reconnect
+PASS windows-write-protection
+PASS usb2-bot-windows-beamo-packaged-launcher
+PASS usb3-bot-windows-beamo-packaged-launcher
+PASS windows-canary-unchanged

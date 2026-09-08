@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 121, in <module>
+    main()
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 109, in main
+    lab.matrix(args.product_image)
+  File "/lab/harness/tools/usb_lab/windows_matrix.py", line 24, in matrix
+    self.record('windows-os', self.probe('inventory'))
+                              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/lab/harness/tools/usb_lab/lab.py", line 176, in probe
+    response = self.guest.read()
+               ^^^^^^^^^^^^^^^^^
+  File "/lab/harness/tools/usb_lab/lab.py", line 60, in read
+    line = self.file.readline(1024**2)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+TimeoutError: timed out

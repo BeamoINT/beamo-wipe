@@ -159,6 +159,8 @@ def log_diag(
                 raise OSError("diagnostics path is not a regular file")
             if opened.st_uid != os.getuid():
                 raise OSError("diagnostics path has the wrong owner")
+            if opened.st_nlink != 1:
+                raise OSError("diagnostics path has multiple links")
             if stat.S_IMODE(opened.st_mode) != 0o600:
                 os.fchmod(fd, 0o600)
             _write_all(fd, line.encode("utf-8"))

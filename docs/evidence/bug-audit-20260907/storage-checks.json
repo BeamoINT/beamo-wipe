@@ -1,0 +1,22 @@
+{
+  "before": {
+    "timestamp": "2026-09-08T00:37:19.188865+00:00",
+    "mode": "report",
+    "pressure": false,
+    "free_before_bytes": 92475711488,
+    "free_after_bytes": 92941479936,
+    "errors": [],
+    "warnings": [],
+    "deleted_estimated_bytes": 0
+  },
+  "after": {
+    "timestamp": "2026-09-08T01:05:20.758516+00:00",
+    "mode": "report",
+    "pressure": false,
+    "free_before_bytes": 87295877120,
+    "free_after_bytes": 90398806016,
+    "errors": [],
+    "warnings": [],
+    "deleted_estimated_bytes": 0
+  }
+}

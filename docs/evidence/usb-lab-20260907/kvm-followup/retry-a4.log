@@ -1,0 +1,37 @@
+WARNING: The following filter keys were not present in any resource : name
+WARNING: The following filter keys were not present in any resource : name
+ERROR: (gcloud.compute.instances.create) Could not fetch resource:
+---
+code: ZONE_RESOURCE_POOL_EXHAUSTED
+errorDetails:
+- help:
+    links:
+    - description: Troubleshooting documentation
+      url: https://cloud.google.com/compute/docs/resource-error
+- localizedMessage:
+    locale: en-US
+    message: A n2-standard-4 VM instance is currently unavailable in the us-central1-a
+      zone. Alternatively, you can try your request again with a different VM hardware
+      configuration or at a later time. For more information, see the troubleshooting
+      documentation.
+- errorInfo:
+    domain: compute.googleapis.com
+    metadatas:
+      attachment: ''
+      vmType: n2-standard-4
+      zone: us-central1-a
+      zonesAvailable: ''
+    reason: resource_availability
+message: The zone 'projects/beamo-wipe/zones/us-central1-a' does not have enough resources
+  available to fulfill the request.  Try a different zone, or try again later.
+
+Traceback (most recent call last):
+  File "/private/tmp/beamo-usb-kvm-0907/retry-instance.py", line 9, in <module>
+    result=command('compute','instances','create',name,'--zone='+zone,'--machine-type=n2-standard-4','--image=debian-12-bookworm-v20260902','--image-project=debian-cloud','--boot-disk-size=100GB','--boot-disk-type=pd-balanced','--subnet='+name,'--no-address','--no-service-account','--no-scopes','--max-run-duration=10800s','--instance-termination-action=DELETE','--metadata=block-project-ssh-keys=TRUE','--metadata-from-file=startup-script='+str(pathlib.Path.cwd()/'tools/usb_lab/host_setup.sh'),'--enable-nested-virtualization')
+  File "/private/tmp/beamo-usb-kvm-0907/retry-instance.py", line 3, in command
+    def command(*args):return json.loads(subprocess.check_output(['gcloud',*args,'--project=beamo-wipe','--quiet','--format=json'],text=True))
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py", line 420, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py", line 524, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['gcloud', 'compute', 'instances', 'create', 'beamo-usb-kvm-0907', '--zone=us-central1-a', '--machine-type=n2-standard-4', '--image=debian-12-bookworm-v20260902', '--image-project=debian-cloud', '--boot-disk-size=100GB', '--boot-disk-type=pd-balanced', '--subnet=beamo-usb-kvm-0907', '--no-address', '--no-service-account', '--no-scopes', '--max-run-duration=10800s', '--instance-termination-action=DELETE', '--metadata=block-project-ssh-keys=TRUE', '--metadata-from-file=startup-script=/Users/HP/dev/Beamo Wipe/tools/usb_lab/host_setup.sh', '--enable-nested-virtualization', '--project=beamo-wipe', '--quiet', '--format=json']' returned non-zero exit status 1.

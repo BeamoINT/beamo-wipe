@@ -1,0 +1,9 @@
+{
+  "query_kvm_enabled": true,
+  "query_kvm_present": true,
+  "diagnostic_qemu_quit": true,
+  "guest_image_attached": false,
+  "instance_id": "5538341188545978192",
+  "source_upload": "APPROVED_AND_UPLOADED_HASH_VERIFIED",
+  "deadline": "2026-09-07T23:42:40.635901Z"
+}

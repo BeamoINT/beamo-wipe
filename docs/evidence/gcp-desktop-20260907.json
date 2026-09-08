@@ -1,0 +1,208 @@
+{
+  "source_commit": "f7b6490036d62281e2133da642557cee6710f081",
+  "runtime_matches_prior_cloud_gate": "fd39d5c8ad6246764163593b1d59365cd726d260",
+  "prior_cloud_build": "8496a9c0-4249-4a34-8ad7-f62c303b1904",
+  "status": "TESTED_SCOPES_PASS_CLEANUP_VERIFIED",
+  "launcher_build": {
+    "files": {
+      "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e",
+      "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db"
+    },
+    "go": "go1.26.5",
+    "source_commit": "f7b6490036d62281e2133da642557cee6710f081",
+    "version": "0.2.5"
+  },
+  "instances": [
+    {
+      "id": "6746111199344300049",
+      "name": "beamo-desktop-lab-0907b-linux",
+      "creationTimestamp": "2026-09-06T20:26:54.784-07:00",
+      "machineType": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a/machineTypes/n2-standard-4",
+      "zone": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a",
+      "image": "debian-12-bookworm-v20260902"
+    },
+    {
+      "id": "7703458146902315494",
+      "name": "beamo-desktop-lab-0907b-windows",
+      "creationTimestamp": "2026-09-06T20:27:05.173-07:00",
+      "machineType": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a/machineTypes/n2-standard-4",
+      "zone": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a",
+      "image": "windows-server-2025-dc-v20260814"
+    }
+  ],
+  "windows": {
+    "version": "WindowsProductName : Windows Server 2025 Datacenter\r\nWindowsVersion     : 2009\r\nOsBuildNumber      : 26100\r\nOsArchitecture     : 64-bit",
+    "native_top_level_passes": 16,
+    "uac-cancel": {
+      "boot_unchanged": true,
+      "app_process_count": 0,
+      "task_result": 1
+    },
+    "close-result": {
+      "boot_unchanged": true,
+      "listener_count": 0,
+      "app_process_count": 0
+    },
+    "standard-cancel": {
+      "boot_unchanged": true,
+      "app_process_count": 0,
+      "guest_is_admin": false,
+      "task_result": 1
+    },
+    "standard-close-result": {
+      "boot_unchanged": true,
+      "listener_count": 0,
+      "app_process_count": 0
+    },
+    "standard-process-owners": [
+      {
+        "pid": 3160,
+        "name": "explorer.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 992,
+        "name": "Start Beamo Wipe.exe",
+        "owner": "labadmin",
+        "session": 3
+      },
+      {
+        "pid": 10176,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 9628,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 4408,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 1328,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 9740,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 9796,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 7864,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 3624,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 8592,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      },
+      {
+        "pid": 9140,
+        "name": "msedge.exe",
+        "owner": "labguest",
+        "session": 3
+      }
+    ],
+    "check-explicit": {
+      "ready": false,
+      "preview": false,
+      "title": "Use the computer's boot menu",
+      "detail": "Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.",
+      "version": "0.2.5"
+    },
+    "signature": {
+      "Status": 2
+    },
+    "disks": {
+      "Number": 0,
+      "FriendlyName": "Google PersistentDisk",
+      "BusType": "SAS",
+      "IsBoot": true,
+      "IsSystem": true
+    },
+    "cli_exit_code": null,
+    "cli_exit_code_note": "Only negative readiness JSON output is asserted; optional collection/wait attempts were interrupted before return."
+  },
+  "linux": {
+    "native_top_level_passes": 18,
+    "version": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\nx86_64\ngo version go1.26.5 linux/amd64\nChromium 152.0.7977.82 built on Debian GNU/Linux 12 (bookworm)\n",
+    "polkit-cancel-real": "Error executing command as another user: Request dismissed\nexit=126\n",
+    "polkit-accept-real": "Beamo Wipe: USB or boot settings changed\nBeamo could not complete the request. Nothing was erased by this launcher. Open START-HERE.html for boot instructions.\nexit=1\n",
+    "noexec-output": "runuser: failed to execute /lab/noexec/Start Beamo Wipe Linux: Permission denied\nexit=1\nPASS: noexec blocked launcher; HTML readable; disposable FAT image unchanged.\n",
+    "boot_id_unchanged": true,
+    "noexec_image_unchanged": true,
+    "noexec_image_sha256": "839e896304ebff84a103130499a4dcc7c22ee12deb63011abda463999a14dca0",
+    "native_vet_service_state": [
+      "Result=success",
+      "ExecMainStatus=0"
+    ],
+    "noexec_mount": {
+      "filesystems": [
+        {
+          "target": "/lab/noexec",
+          "source": "/dev/loop0",
+          "fstype": "vfat",
+          "options": "rw,noexec,noatime,uid=1000,gid=1000,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro"
+        }
+      ]
+    }
+  },
+  "limits": [
+    "Windows Server 2025, not Windows 10/11 acceptance.",
+    "GCE disk is not removable USB; new desktop tests run copied executables and must refuse direct restart.",
+    "Linux graphical polkit test explicitly invoked production helper with an invalid plan; not a graphical USB-to-live end-to-end test.",
+    "Physical USB/controller/firmware and novice acceptance remain pending.",
+    "Unsigned publisher warning observed; SmartScreen reputation acceptance not established.",
+    "Fresh Edge profiles required browser-owned onboarding."
+  ],
+  "evidence_files": {
+    "gcp-desktop-20260907-linux-tests.txt": "ca84b452ee1150d45f614020c1ef30454677318ba3b6d4bfe5be0e4a19c57393",
+    "gcp-desktop-20260907-windows-tests.txt": "1da46dd0cf94a9b46b38c7c5bdb45021b0311d9eb5999f3e641c63028c8956e0",
+    "gcp-desktop-20260907-linux.png": "b2eb98dcf87efc2fbfcee278a3555327f8d19c0f27f7af1c5cf71ed3cedd2500",
+    "gcp-desktop-20260907-polkit.png": "6dc25a35e8f321648ca79f3c6194bcbbf1bf16df64717c2689ea53bd7e2ca6aa",
+    "gcp-desktop-20260907-windows-uac.png": "95b9125d6a31166406ac8710a8ee19abacbf70bc4a77740fa73a80e66fcd99c2",
+    "gcp-desktop-20260907-windows.png": "a771f83dd0afb202f93aac9fe796827bfc39a8872327a1d63d76a5ede20e617f",
+    "gcp-desktop-20260907-windows-closed.png": "39d405ae54b73c482f7cdae779219f891896d903ea0fc6dcf595ea463466e26a"
+  },
+  "cleanup": {
+    "instances": [],
+    "disks": [],
+    "firewall-rules": [],
+    "routers": [],
+    "networks": [],
+    "networks subnets": [],
+    "temporary_project_ssh_key_count": 0,
+    "verified_at": "2026-09-07T04:17:18.827017+00:00",
+    "all_owned_resources_absent": true
+  },
+  "project_ssh_cleanup": {
+    "removed_test_key_entries": 1,
+    "operation": "operation-1788754468897-65adcdab5815a-0422b489-c0a1392e"
+  },
+  "test_archive_sha256": "050f66035d2b69750be4d7ba1fbe30ee236198e3dfa73f82e19c4c96d787323e"
+}

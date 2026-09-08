@@ -1,0 +1,11 @@
+Setting up qemu-system-modules-spice (1:10.0.2+ds-2+deb13u1~bpo12+1) ...
+Processing triggers for libgdk-pixbuf-2.0-0:amd64 (2.42.10+dfsg-1+deb12u4) ...
+Processing triggers for libc-bin (2.36-9+deb12u14) ...
+QEMU emulator version 10.0.2 (Debian 1:10.0.2+ds-2+deb13u1~bpo12+1)
+Copyright (c) 2003-2025 Fabrice Bellard and the QEMU Project developers
+Synchronizing state of docker.service with SysV service script with /lib/systemd/systemd-sysv-install.
+Executing: /lib/systemd/systemd-sysv-install enable docker
+SETUP_READY
+Y
+QEMU emulator version 10.0.2 (Debian 1:10.0.2+ds-2+deb13u1~bpo12+1)
+Copyright (c) 2003-2025 Fabrice Bellard and the QEMU Project developers

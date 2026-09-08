@@ -1,0 +1,31 @@
+{
+  "files": [
+    "diagnostics.ps1",
+    "native-upd",
+    "native-updated-direct.txt",
+    "windows_probe.ps1",
+    "Handoff\\fixture-before.json",
+    "Handoff\\fixture-installed.json",
+    "Handoff\\launcher-ready.json",
+    "Inventory\\disks.json",
+    "Inventory\\layout.json",
+    "Inventory\\partitions.json",
+    "Inventory\\receipt.json",
+    "Inventory\\stderr.txt",
+    "Inventory\\stdout.txt",
+    "NativeTests\\native-tests.txt",
+    "NativeTestsPrevious\\receipt.json",
+    "NativeTestsPrevious\\stderr.txt",
+    "NativeTestsPrevious\\stdout.txt",
+    "NativeTestsUpdated\\receipt.json",
+    "NativeTestsUpdated\\stderr.txt",
+    "NativeTestsUpdated\\stdout.txt",
+    "Trace\\direct-lr.xml",
+    "Trace\\direct.etl",
+    "Trace\\direct.xml",
+    "Trace\\started.txt",
+    "Trace\\summary.txt",
+    "Trace\\usb_000001.etl"
+  ],
+  "all_hashes_match": true
+}

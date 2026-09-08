@@ -1,0 +1,124 @@
+{
+  "status": "verified_and_pushed",
+  "checked_at": "2026-09-08T01:04:48.258327+00:00",
+  "commit": "579f5200e59347a2626fa4a09cea94c908202cd3",
+  "branch": "codex/bug-audit-20260907",
+  "remote_refs": {
+    "origin": "579f5200e59347a2626fa4a09cea94c908202cd3",
+    "cursor": "579f5200e59347a2626fa4a09cea94c908202cd3"
+  },
+  "main_changed": false,
+  "build": {
+    "id": "dfc25a99-86b4-4508-b3cf-54582d1516a5",
+    "status": "SUCCESS",
+    "createTime": "2026-09-08T00:32:53.628860957Z",
+    "startTime": "2026-09-08T00:33:53.613505317Z",
+    "finishTime": "2026-09-08T01:01:30.405509Z",
+    "logUrl": "https://console.cloud.google.com/cloud-build/builds/dfc25a99-86b4-4508-b3cf-54582d1516a5?project=368895881889",
+    "substitutions": {
+      "_PUBLISH_RELEASE": "false",
+      "_SKIP_ISO": "false",
+      "_SKIP_QEMU": "false"
+    }
+  },
+  "steps": [
+    {
+      "id": "desktop-launchers",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T00:36:34.849741508Z",
+        "startTime": "2026-09-08T00:33:59.652312395Z"
+      }
+    },
+    {
+      "id": "lint",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T00:34:42.926706821Z",
+        "startTime": "2026-09-08T00:33:59.652500086Z"
+      }
+    },
+    {
+      "id": "python-tests",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T00:38:11.246829292Z",
+        "startTime": "2026-09-08T00:33:59.652500536Z"
+      }
+    },
+    {
+      "id": "preview",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T00:34:26.003881092Z",
+        "startTime": "2026-09-08T00:33:59.652494786Z"
+      }
+    },
+    {
+      "id": "negative-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T00:39:15.780561878Z",
+        "startTime": "2026-09-08T00:38:11.247014777Z"
+      }
+    },
+    {
+      "id": "iso-build",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T00:47:48.300873823Z",
+        "startTime": "2026-09-08T00:39:15.780734949Z"
+      }
+    },
+    {
+      "id": "qemu-verify",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T01:01:16.901624905Z",
+        "startTime": "2026-09-08T00:47:48.301133953Z"
+      }
+    },
+    {
+      "id": "publish-release",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-08T01:01:29.971387911Z",
+        "startTime": "2026-09-08T01:01:16.903592985Z"
+      }
+    }
+  ],
+  "source_verification": {
+    "build_id": "dfc25a99-86b4-4508-b3cf-54582d1516a5",
+    "source_commit": "579f5200e59347a2626fa4a09cea94c908202cd3",
+    "source_uri": "gs://beamo-wipe_cloudbuild/source/1788827560.093667-360da7abba7c4dc6a5e21fbaab2466bd.tgz#1788827572593514",
+    "archive_sha256": "94df513e0790fc3c18e2c470bbae137aaa505a89b86488d295c13db1d4fbe01f",
+    "audited_files_verified": 11
+  },
+  "python_tests": {
+    "passed": 1620,
+    "skipped": 12,
+    "deselected_generated_config": 2
+  },
+  "artifacts": {
+    "iso_name": "beamo-wipe-0.2.5-amd64.iso",
+    "iso_bytes": 563085312,
+    "iso_sha256": "9ba1ac4235e00e3003df968194c98d2a1c26347d73c3f640887c384fab6a15c4",
+    "manifest_sha256": "7ac010c7f3ff7eb1efd0032193821096caa1b5092a9227bc8f415256b9ceff77",
+    "published": false,
+    "retention": "ephemeral validation artifacts"
+  },
+  "qemu": [
+    "bios_wizard_erase_report_export",
+    "target_zero_readback",
+    "report_checksums_and_unmount",
+    "uefi",
+    "bios_usb",
+    "uefi_usb",
+    "secureboot_usb"
+  ],
+  "limitations": [
+    "Virtual firmware and disposable media validation; no new physical hardware acceptance.",
+    "Audit branch pushed; main and the shared working tree were not merged or reset."
+  ],
+  "cloud_full_log_sha256": "0f3524d2065934e30074488412aa2d3ff5ece85bf73ff30c5f63d1d8b2786c14"
+}

@@ -1,0 +1,243 @@
+{"direction": "receive", "message": {"QMP": {"version": {"qemu": {"micro": 2, "minor": 0, "major": 10}, "package": "Debian 1:10.0.2+ds-2+deb13u1~bpo12+1"}, "capabilities": ["oob"]}}}
+{"direction": "send", "message": {"execute": "qmp_capabilities", "arguments": {}, "id": 1}}
+{"direction": "receive", "message": {"return": {}, "id": 1}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "canary", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/canary.raw"}}, "id": 2}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815489, "microseconds": 714214}, "event": "RTC_CHANGE", "data": {"offset": 0, "qom-path": "/machine/unattached/device[3]/rtc"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815491, "microseconds": 104768}, "event": "RTC_CHANGE", "data": {"offset": 0, "qom-path": "/machine/unattached/device[3]/rtc"}}}
+{"direction": "receive", "message": {"return": {}, "id": 2}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "canary", "drive": "canary", "bus": "xhci.0", "port": "1", "serial": "USBLABCANARY", "removable": true, "pcap": "/lab/linux-kvm-results/1-canary.pcap"}, "id": 3}}
+{"direction": "receive", "message": {"return": {}, "id": 3}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "profile0", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/profile0.raw"}}, "id": 4}}
+{"direction": "receive", "message": {"return": {}, "id": 4}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "profile0", "drive": "profile0", "bus": "ehci.0", "port": "1", "serial": "USBLABPROFILE0", "removable": true, "pcap": "/lab/linux-kvm-results/2-profile0.pcap"}, "id": 5}}
+{"direction": "receive", "message": {"return": {}, "id": 5}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "profile0"}, "id": 6}}
+{"direction": "receive", "message": {"return": {}, "id": 6}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 7}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 7}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 8}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815508, "microseconds": 231903}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/profile0/profile0.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815508, "microseconds": 231997}, "event": "DEVICE_DELETED", "data": {"device": "profile0", "path": "/machine/peripheral/profile0"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 8}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "profile0"}, "id": 9}}
+{"direction": "receive", "message": {"return": {}, "id": 9}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "profile0", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/profile0.raw"}}, "id": 10}}
+{"direction": "receive", "message": {"return": {}, "id": 10}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "profile0", "drive": "profile0", "bus": "ehci.0", "port": "1", "serial": "USBLABPROFILE0", "removable": true, "pcap": "/lab/linux-kvm-results/3-profile0.pcap"}, "id": 11}}
+{"direction": "receive", "message": {"return": {}, "id": 11}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "profile0"}, "id": 12}}
+{"direction": "receive", "message": {"return": {}, "id": 12}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 13}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 13}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 14}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815510, "microseconds": 503898}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/profile0/profile0.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815510, "microseconds": 503968}, "event": "DEVICE_DELETED", "data": {"device": "profile0", "path": "/machine/peripheral/profile0"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 14}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "profile0"}, "id": 15}}
+{"direction": "receive", "message": {"return": {}, "id": 15}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "profile1", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/profile1.raw"}}, "id": 16}}
+{"direction": "receive", "message": {"return": {}, "id": 16}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "profile1", "drive": "profile1", "bus": "xhci.0", "port": "2", "serial": "USBLABPROFILE1", "removable": true, "pcap": "/lab/linux-kvm-results/4-profile1.pcap"}, "id": 17}}
+{"direction": "receive", "message": {"return": {}, "id": 17}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "profile1"}, "id": 18}}
+{"direction": "receive", "message": {"return": {}, "id": 18}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 19}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 19}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 20}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815512, "microseconds": 846398}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/profile1/profile1.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815512, "microseconds": 846485}, "event": "DEVICE_DELETED", "data": {"device": "profile1", "path": "/machine/peripheral/profile1"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 20}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "profile1"}, "id": 21}}
+{"direction": "receive", "message": {"return": {}, "id": 21}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "profile1", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/profile1.raw"}}, "id": 22}}
+{"direction": "receive", "message": {"return": {}, "id": 22}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "profile1", "drive": "profile1", "bus": "xhci.0", "port": "2", "serial": "USBLABPROFILE1", "removable": true, "pcap": "/lab/linux-kvm-results/5-profile1.pcap"}, "id": 23}}
+{"direction": "receive", "message": {"return": {}, "id": 23}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "profile1"}, "id": 24}}
+{"direction": "receive", "message": {"return": {}, "id": 24}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 25}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 25}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 26}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815514, "microseconds": 722308}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/profile1/profile1.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815514, "microseconds": 722374}, "event": "DEVICE_DELETED", "data": {"device": "profile1", "path": "/machine/peripheral/profile1"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 26}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "profile1"}, "id": 27}}
+{"direction": "receive", "message": {"return": {}, "id": 27}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "profile2", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/profile2.raw"}}, "id": 28}}
+{"direction": "receive", "message": {"return": {}, "id": 28}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-uas", "id": "profile2", "bus": "xhci.0", "port": "2", "serial": "USBLABPROFILE2", "pcap": "/lab/linux-kvm-results/6-profile2.pcap"}, "id": 29}}
+{"direction": "receive", "message": {"return": {}, "id": 29}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "scsi-hd", "id": "profile2-lun", "bus": "profile2.0", "drive": "profile2", "serial": "USBLABPROFILE2", "removable": true}, "id": 30}}
+{"direction": "receive", "message": {"return": {}, "id": 30}}
+{"direction": "send", "message": {"execute": "qom-set", "arguments": {"path": "/machine/peripheral/profile2", "property": "attached", "value": true}, "id": 31}}
+{"direction": "receive", "message": {"return": {}, "id": 31}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "profile2"}, "id": 32}}
+{"direction": "receive", "message": {"return": {}, "id": 32}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 33}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 33}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 34}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815516, "microseconds": 182280}, "event": "DEVICE_DELETED", "data": {"device": "profile2-lun", "path": "/machine/peripheral/profile2-lun"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815516, "microseconds": 182356}, "event": "DEVICE_DELETED", "data": {"device": "profile2", "path": "/machine/peripheral/profile2"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 34}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "profile2"}, "id": 35}}
+{"direction": "receive", "message": {"return": {}, "id": 35}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "profile2", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/profile2.raw"}}, "id": 36}}
+{"direction": "receive", "message": {"return": {}, "id": 36}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-uas", "id": "profile2", "bus": "xhci.0", "port": "2", "serial": "USBLABPROFILE2", "pcap": "/lab/linux-kvm-results/7-profile2.pcap"}, "id": 37}}
+{"direction": "receive", "message": {"return": {}, "id": 37}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "scsi-hd", "id": "profile2-lun", "bus": "profile2.0", "drive": "profile2", "serial": "USBLABPROFILE2", "removable": true}, "id": 38}}
+{"direction": "receive", "message": {"return": {}, "id": 38}}
+{"direction": "send", "message": {"execute": "qom-set", "arguments": {"path": "/machine/peripheral/profile2", "property": "attached", "value": true}, "id": 39}}
+{"direction": "receive", "message": {"return": {}, "id": 39}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "profile2"}, "id": 40}}
+{"direction": "receive", "message": {"return": {}, "id": 40}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 41}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 41}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 42}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815517, "microseconds": 426049}, "event": "DEVICE_DELETED", "data": {"device": "profile2-lun", "path": "/machine/peripheral/profile2-lun"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815517, "microseconds": 426113}, "event": "DEVICE_DELETED", "data": {"device": "profile2", "path": "/machine/peripheral/profile2"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 42}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "profile2"}, "id": 43}}
+{"direction": "receive", "message": {"return": {}, "id": 43}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "protected", "read-only": true, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/protected.raw"}}, "id": 44}}
+{"direction": "receive", "message": {"return": {}, "id": 44}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "protected", "drive": "protected", "bus": "xhci.0", "port": "2", "serial": "USBLABPROTECTED", "removable": true, "pcap": "/lab/linux-kvm-results/8-protected.pcap"}, "id": 45}}
+{"direction": "receive", "message": {"return": {}, "id": 45}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "protected"}, "id": 46}}
+{"direction": "receive", "message": {"return": {}, "id": 46}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 47}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 47}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 48}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815519, "microseconds": 832480}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/protected/protected.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815519, "microseconds": 832571}, "event": "DEVICE_DELETED", "data": {"device": "protected", "path": "/machine/peripheral/protected"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 48}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "protected"}, "id": 49}}
+{"direction": "receive", "message": {"return": {}, "id": 49}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "duplicatea", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/duplicatea.raw"}}, "id": 50}}
+{"direction": "receive", "message": {"return": {}, "id": 50}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "duplicatea", "drive": "duplicatea", "bus": "xhci.0", "port": "2", "serial": "USBLABDUPLICATE", "removable": true, "pcap": "/lab/linux-kvm-results/9-duplicatea.pcap"}, "id": 51}}
+{"direction": "receive", "message": {"return": {}, "id": 51}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "duplicateb", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/duplicateb.raw"}}, "id": 52}}
+{"direction": "receive", "message": {"return": {}, "id": 52}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "duplicateb", "drive": "duplicateb", "bus": "xhci.0", "port": "3", "serial": "USBLABDUPLICATE", "removable": true, "pcap": "/lab/linux-kvm-results/10-duplicateb.pcap"}, "id": 53}}
+{"direction": "receive", "message": {"return": {}, "id": 53}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "duplicatea"}, "id": 54}}
+{"direction": "receive", "message": {"return": {}, "id": 54}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 55}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 55}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 56}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815522, "microseconds": 528685}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/duplicatea/duplicatea.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815522, "microseconds": 528797}, "event": "DEVICE_DELETED", "data": {"device": "duplicatea", "path": "/machine/peripheral/duplicatea"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 56}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "duplicatea"}, "id": 57}}
+{"direction": "receive", "message": {"return": {}, "id": 57}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "duplicateb"}, "id": 58}}
+{"direction": "receive", "message": {"return": {}, "id": 58}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 59}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 59}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 60}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815522, "microseconds": 904784}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/duplicateb/duplicateb.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815522, "microseconds": 904867}, "event": "DEVICE_DELETED", "data": {"device": "duplicateb", "path": "/machine/peripheral/duplicateb"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 60}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "duplicateb"}, "id": 61}}
+{"direction": "receive", "message": {"return": {}, "id": 61}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "fault", "read-only": false, "file": {"driver": "blkdebug", "image": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/fault.raw"}, "inject-error": [{"event": "read_aio", "errno": 5, "sector": 16384, "once": false, "immediately": true}]}}, "id": 62}}
+{"direction": "receive", "message": {"return": {}, "id": 62}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "fault", "drive": "fault", "bus": "xhci.0", "port": "2", "serial": "USBLABFAULT", "removable": true, "pcap": "/lab/linux-kvm-results/11-fault.pcap"}, "id": 63}}
+{"direction": "receive", "message": {"return": {}, "id": 63}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "fault"}, "id": 64}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815525, "microseconds": 136986}, "event": "BLOCK_IO_ERROR", "data": {"device": "", "nospace": false, "node-name": "fault", "qom-path": "/machine/peripheral/fault/fault.0/legacy[0]", "reason": "Input/output error", "operation": "read", "action": "report"}}}
+{"direction": "receive", "message": {"return": {}, "id": 64}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 65}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 65}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 66}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815525, "microseconds": 313214}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/fault/fault.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815525, "microseconds": 313270}, "event": "DEVICE_DELETED", "data": {"device": "fault", "path": "/machine/peripheral/fault"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 66}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "fault"}, "id": 67}}
+{"direction": "receive", "message": {"return": {}, "id": 67}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "disconnect", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/disconnect.raw"}}, "id": 68}}
+{"direction": "receive", "message": {"return": {}, "id": 68}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "disconnect", "drive": "disconnect", "bus": "xhci.0", "port": "2", "serial": "USBLABDISCONNECT", "removable": true, "pcap": "/lab/linux-kvm-results/12-disconnect.pcap"}, "id": 69}}
+{"direction": "receive", "message": {"return": {}, "id": 69}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "disconnect"}, "id": 70}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815525, "microseconds": 236661}, "event": "BLOCK_IO_ERROR", "data": {"device": "", "nospace": false, "node-name": "fault", "qom-path": "/machine/peripheral/fault/fault.0/legacy[0]", "reason": "Input/output error", "operation": "read", "action": "report"}}}
+{"direction": "receive", "message": {"return": {}, "id": 70}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 71}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 71}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 72}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815527, "microseconds": 642625}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/disconnect/disconnect.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815527, "microseconds": 642685}, "event": "DEVICE_DELETED", "data": {"device": "disconnect", "path": "/machine/peripheral/disconnect"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 72}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "disconnect"}, "id": 73}}
+{"direction": "receive", "message": {"return": {}, "id": 73}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "disconnect", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/disconnect.raw"}}, "id": 74}}
+{"direction": "receive", "message": {"return": {}, "id": 74}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "disconnect", "drive": "disconnect", "bus": "xhci.0", "port": "2", "serial": "USBLABREPLACEMENT", "removable": true, "pcap": "/lab/linux-kvm-results/13-disconnect.pcap"}, "id": 75}}
+{"direction": "receive", "message": {"return": {}, "id": 75}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "disconnect"}, "id": 76}}
+{"direction": "receive", "message": {"return": {}, "id": 76}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 77}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 77}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 78}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815529, "microseconds": 817431}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/disconnect/disconnect.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815529, "microseconds": 817504}, "event": "DEVICE_DELETED", "data": {"device": "disconnect", "path": "/machine/peripheral/disconnect"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 78}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "disconnect"}, "id": 79}}
+{"direction": "receive", "message": {"return": {}, "id": 79}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "product", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/product.raw"}}, "id": 80}}
+{"direction": "receive", "message": {"return": {}, "id": 80}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "product", "drive": "product", "bus": "ehci.0", "port": "1", "serial": "BEAMOBOOT", "removable": true}, "id": 81}}
+{"direction": "receive", "message": {"return": {}, "id": 81}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "product"}, "id": 82}}
+{"direction": "receive", "message": {"return": {}, "id": 82}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 83}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 83}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 84}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815553, "microseconds": 416170}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/product/product.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815553, "microseconds": 416244}, "event": "DEVICE_DELETED", "data": {"device": "product", "path": "/machine/peripheral/product"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 84}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "product"}, "id": 85}}
+{"direction": "receive", "message": {"return": {}, "id": 85}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "product", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/product.raw"}}, "id": 86}}
+{"direction": "receive", "message": {"return": {}, "id": 86}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-storage", "id": "product", "drive": "product", "bus": "xhci.0", "port": "2", "serial": "BEAMOBOOT", "removable": true}, "id": 87}}
+{"direction": "receive", "message": {"return": {}, "id": 87}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "product"}, "id": 88}}
+{"direction": "receive", "message": {"return": {}, "id": 88}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 89}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 89}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 90}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815564, "microseconds": 726916}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/product/product.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815564, "microseconds": 726992}, "event": "DEVICE_DELETED", "data": {"device": "product", "path": "/machine/peripheral/product"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 90}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "product"}, "id": 91}}
+{"direction": "receive", "message": {"return": {}, "id": 91}}
+{"direction": "send", "message": {"execute": "blockdev-add", "arguments": {"driver": "raw", "node-name": "product", "read-only": false, "file": {"driver": "file", "filename": "/var/tmp/usblab-az_f9twf/product.raw"}}, "id": 92}}
+{"direction": "receive", "message": {"return": {}, "id": 92}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "usb-uas", "id": "product", "bus": "xhci.0", "port": "2", "serial": "BEAMOBOOT"}, "id": 93}}
+{"direction": "receive", "message": {"return": {}, "id": 93}}
+{"direction": "send", "message": {"execute": "device_add", "arguments": {"driver": "scsi-hd", "id": "product-lun", "bus": "product.0", "drive": "product", "serial": "BEAMOBOOT", "removable": true}, "id": 94}}
+{"direction": "receive", "message": {"return": {}, "id": 94}}
+{"direction": "send", "message": {"execute": "qom-set", "arguments": {"path": "/machine/peripheral/product", "property": "attached", "value": true}, "id": 95}}
+{"direction": "receive", "message": {"return": {}, "id": 95}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "product"}, "id": 96}}
+{"direction": "receive", "message": {"return": {}, "id": 96}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 97}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 97}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 98}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815574, "microseconds": 539251}, "event": "DEVICE_DELETED", "data": {"device": "product-lun", "path": "/machine/peripheral/product-lun"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815574, "microseconds": 539320}, "event": "DEVICE_DELETED", "data": {"device": "product", "path": "/machine/peripheral/product"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 98}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "product"}, "id": 99}}
+{"direction": "receive", "message": {"return": {}, "id": 99}}
+{"direction": "send", "message": {"execute": "device_del", "arguments": {"id": "canary"}, "id": 100}}
+{"direction": "receive", "message": {"return": {}, "id": 100}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 101}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 101}}
+{"direction": "send", "message": {"execute": "query-status", "arguments": {}, "id": 102}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815582, "microseconds": 956212}, "event": "DEVICE_DELETED", "data": {"path": "/machine/peripheral/canary/canary.0/legacy[0]"}}}
+{"direction": "receive", "message": {"timestamp": {"seconds": 1788815582, "microseconds": 956317}, "event": "DEVICE_DELETED", "data": {"device": "canary", "path": "/machine/peripheral/canary"}}}
+{"direction": "receive", "message": {"return": {"status": "running", "running": true}, "id": 102}}
+{"direction": "send", "message": {"execute": "blockdev-del", "arguments": {"node-name": "canary"}, "id": 103}}
+{"direction": "receive", "message": {"return": {}, "id": 103}}

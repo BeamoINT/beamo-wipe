@@ -1,0 +1,4 @@
+Mersenne Twister       ->    640.3 MB/s
+ISAAC (CSPRNG)         ->    638.0 MB/s
+ISAAC-64 (CSPRNG)      ->   1199.5 MB/s
+Lagged Fibonacci       ->   1380.6 MB/s

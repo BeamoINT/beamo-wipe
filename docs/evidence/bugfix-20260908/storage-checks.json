@@ -1,0 +1,18 @@
+{
+  "checked_utc": "2026-09-08T02:43:39.816381+00:00",
+  "storage_maintenance_apply": false,
+  "task_uploaded_source_archive_removed_after_hash_verification": true,
+  "local_iso_downloaded": false,
+  "reports": {
+    "before": {
+      "command": "/Users/HP/dev/storage-maintenance --report --json",
+      "exit_code": 0,
+      "sha256": "c904ec8cef667debbca4b6fef00ee79ec8fba6ae7b282edd68f080cb62c7ae79"
+    },
+    "after": {
+      "command": "/Users/HP/dev/storage-maintenance --report --json",
+      "exit_code": 0,
+      "sha256": "0d2d404987e90a7959bc296520708cf021f195dd4ac588fca8bd6559e69a117d"
+    }
+  }
+}

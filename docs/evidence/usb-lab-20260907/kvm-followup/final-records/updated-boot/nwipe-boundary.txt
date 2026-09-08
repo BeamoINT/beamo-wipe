@@ -1,0 +1,134 @@
+Mersenne Twister       ->    597.9 MB/s
+ISAAC (CSPRNG)         ->    655.4 MB/s
+ISAAC-64 (CSPRNG)      ->   1032.7 MB/s
+Lagged Fibonacci       ->   1222.0 MB/s
+XORoshiro-256          ->   2677.9 MB/s
+SplitMix64             ->   5597.2 MB/s
+AES-256-CTR (CSPRNG)   ->   2446.3 MB/s
+ChaCha20 (CSPRNG)      ->    500.9 MB/s
+Selected PRNG: SplitMix64
+.Auto-selected fastest PRNG: SplitMix64
+modprobe: FATAL: Module drivetemp not found in directory /lib/modules/6.1.0-52-cloud-amd64
+
+Waiting for wipe thread to cancel for /dev/loop0
+[2026/09/07 22:16:24]    info: Nwipes config file /etc/nwipe/nwipe.conf exists
+[2026/09/07 22:16:24]    info: Reading nwipe's config file /etc/nwipe/nwipe.conf
+[2026/09/07 22:16:24]    info: Sucessfully written nwipe config to /etc/nwipe/nwipe.conf
+[2026/09/07 22:16:24]    info: Nwipes customer file /etc/nwipe/nwipe_customers.csv exists
+[2026/09/07 22:16:24]    info: Updated PDF_Certificate.PDF_Enable with value DISABLED in /etc/nwipe/nwipe.conf
+[2026/09/07 22:16:24]    info: nwipe 0.42
+[2026/09/07 22:16:24]    info: Linux version 6.1.0-52-cloud-amd64 (debian-kerne
+                               l@lists.debian.org) (gcc-12 (Debian 12.2.0-14+d
+                               eb12u1) 12.2.0, GNU ld (GNU Binutils for Debian
+                               ) 2.40) #1 SMP PREEMPT_DYNAMIC Debian 6.1.180-1
+                                (2026-08-03)
+[2026/09/07 22:16:24]  notice: Initialising Mersenne Twister (PRNG)
+[2026/09/07 22:16:25]  notice: Initialising ISAAC (CSPRNG)
+[2026/09/07 22:16:26]  notice: Initialising ISAAC-64 (CSPRNG)
+[2026/09/07 22:16:27]  notice: Initialising Additive Lagged Fibonacci Generator (PRNG)
+[2026/09/07 22:16:28]  notice: Initialising XORoshiro-256 (PRNG)
+[2026/09/07 22:16:29]  notice: Initialising SplitMix64 (PRNG)
+[2026/09/07 22:16:30]  notice: Initialising AES-256-CTR (CSPRNG)
+[2026/09/07 22:16:31]  notice: Initialising ChaCha20 (CSPRNG)
+[2026/09/07 22:16:31]  notice: Self-test has passed for ChaCha20 (CSPRNG)
+[2026/09/07 22:16:32]    info: Auto-selected fastest PRNG: SplitMix64
+[2026/09/07 22:16:33] warning: Command not found. Install smartmontools !
+[2026/09/07 22:16:33]  notice: Found /dev/loop0, VIRT    , Loopback device,  268 MB, S/N=????????????????????
+[2026/09/07 22:16:33]    info: /dev/loop0, sector(logical)/block(physical) sizes 512/512
+[2026/09/07 22:16:33]    info: No UUID available for /dev/loop0
+
+[2026/09/07 22:16:33]    info:  
+[2026/09/07 22:16:33]    info: bios-version = Google
+[2026/09/07 22:16:33]    info: bios-release-date = 08/05/2026
+[2026/09/07 22:16:33]    info: system-manufacturer = Google
+[2026/09/07 22:16:33]    info: system-product-name = Google Compute Engine
+[2026/09/07 22:16:33]    info: system-version = Not Specified
+[2026/09/07 22:16:33]    info: system-serial-number = XXXXXXXXXXXXXXX
+[2026/09/07 22:16:33]    info: system-uuid = XXXXXXXXXXXXXXX
+[2026/09/07 22:16:33]    info: baseboard-manufacturer = Google
+[2026/09/07 22:16:33]    info: baseboard-product-name = Google Compute Engine
+[2026/09/07 22:16:33]    info: baseboard-version = Not Specified
+[2026/09/07 22:16:33]    info: baseboard-serial-number = XXXXXXXXXXXXXXX
+[2026/09/07 22:16:33]    info: baseboard-asset-tag = XXXXXXXXXXXXXXX
+[2026/09/07 22:16:33]    info: chassis-manufacturer = Google
+[2026/09/07 22:16:33]    info: chassis-type = Other
+[2026/09/07 22:16:33]    info: chassis-version = Not Specified
+[2026/09/07 22:16:33]    info: chassis-serial-number = XXXXXXXXXXXXXXX
+[2026/09/07 22:16:33]    info: chassis-asset-tag = XXXXXXXXXXXXXXX
+[2026/09/07 22:16:33]    info: processor-family = Other
+[2026/09/07 22:16:33]    info: processor-family = Other
+[2026/09/07 22:16:33]    info: processor-family = Other
+[2026/09/07 22:16:33]    info: processor-family = Other
+[2026/09/07 22:16:33]    info: processor-manufacturer = Google
+[2026/09/07 22:16:33]    info: processor-manufacturer = Google
+[2026/09/07 22:16:33]    info: processor-manufacturer = Google
+[2026/09/07 22:16:33]    info: processor-manufacturer = Google
+[2026/09/07 22:16:33]    info: processor-version = Not Specified
+[2026/09/07 22:16:33]    info: processor-version = Not Specified
+[2026/09/07 22:16:33]    info: processor-version = Not Specified
+[2026/09/07 22:16:33]    info: processor-version = Not Specified
+[2026/09/07 22:16:33]    info: processor-frequency = 2000 MHz
+[2026/09/07 22:16:33]    info: processor-frequency = 2000 MHz
+[2026/09/07 22:16:33]    info: processor-frequency = 2000 MHz
+[2026/09/07 22:16:33]    info: processor-frequency = 2000 MHz
+[2026/09/07 22:16:33] warning: hwmon: Unable to load module drivetemp, temperatures may be unavailable.
+[2026/09/07 22:16:33] warning: hwmon: It's possible the drivetemp software isn't modular but built-in
+[2026/09/07 22:16:33] warning: hwmon: to the kernel, as is the case with ShredOS.x86_64 in which case
+[2026/09/07 22:16:33] warning: hwmon: the temperatures will actually be available despite this issue.
+[2026/09/07 22:16:33]    info: Temperature limits for /dev/loop0, critical=N/A, max=N/A, highest=N/A, lowest=N/A, min=N/A, low critical=N/A. 
+[2026/09/07 22:16:33]  notice: Program options are set as follows...
+[2026/09/07 22:16:33]  notice:   force        = 0 (off)
+[2026/09/07 22:16:33]  notice:   autonuke     = 1 (on)
+[2026/09/07 22:16:33]  notice:   autopoweroff = 0 (off)
+[2026/09/07 22:16:33]  notice:   do not perform a final blank pass
+[2026/09/07 22:16:33]  notice:   do not wait for a key before exiting
+[2026/09/07 22:16:33]  notice:   do not show GUI interface
+[2026/09/07 22:16:33]  notice:   banner       = nwipe 0.42
+[2026/09/07 22:16:33]  notice:   prng         = SplitMix64
+[2026/09/07 22:16:33]  notice:   method       = Fill With Zeros
+[2026/09/07 22:16:33]  notice:   direction    = start -> end (forward)
+[2026/09/07 22:16:33]  notice:   quiet        = 1
+[2026/09/07 22:16:33]  notice:   rounds       = 1
+[2026/09/07 22:16:33]  notice:   sync         = 100000
+[2026/09/07 22:16:33]  notice:   verify       = 0 (off)
+[2026/09/07 22:16:33]  notice: Using direct I/O (O_DIRECT) on device '/dev/loop0'.
+[2026/09/07 22:16:33]  notice: /dev/loop0 has serial number ????????????????????
+[2026/09/07 22:16:33]  notice: /dev/loop0: Device geometry is as follows...
+[2026/09/07 22:16:33]  notice:   Logical sector size  = 512
+[2026/09/07 22:16:33]  notice:   Physical sector size = 512
+[2026/09/07 22:16:33]  notice:   I/O block size       = 4194304
+[2026/09/07 22:16:33]  notice:   I/O block alignment  = 512
+[2026/09/07 22:16:33]  notice:   I/O buffer alignment = 512
+[2026/09/07 22:16:33]  notice:   Total device bytes   = 268435456
+[2026/09/07 22:16:33]  notice: Invoking method 'Fill With Zeros' on /dev/loop0
+[2026/09/07 22:16:33]  notice: Starting round 1 of 1 on /dev/loop0
+[2026/09/07 22:16:33]  notice: Starting pass 1/1, round 1/1, on /dev/loop0
+[2026/09/07 22:16:33]  notice: I/O direction on '/dev/loop0' is start -> end (forward)
+[2026/09/07 22:16:33]  notice: Disabled fdatasync for /dev/loop0, DirectI/O in use.
+[2026/09/07 22:16:35]  notice: 268435456 bytes written to /dev/loop0
+[2026/09/07 22:16:35]  notice: Finished pass 1/1, round 1/1, on /dev/loop0
+[2026/09/07 22:16:35]  notice: Finished final round 1 of 1 on /dev/loop0
+
+******************************** Error Summary *********************************
+!   Device | Pass Errors | Verifications Errors | Fdatasync I\O Errors
+--------------------------------------------------------------------------------
+     loop0 |           0 |                    0 |                    0
+********************************************************************************
+
+******************************* Erasure Summary ********************************
+!   Device |      Bytes Erased |      Bytes Total | Percentage Erased
+--------------------------------------------------------------------------------
+     loop0 |         268435456 |        268435456 |           100.00%
+********************************************************************************
+
+********************************* Drive Status *********************************
+!   Device | Status | Thru-put | HH:MM:SS | Model/Serial Number
+--------------------------------------------------------------------------------
+     loop0 | Erased |  172 MB/s | 00:00:02 | Loopback device/????????????????????
+[2026/09/07 22:16:37] warning: Command not found. Install smartmontools !
+[2026/09/07 22:16:37]   error: Function nwipe_get_smart_data() returned an error 1
+--------------------------------------------------------------------------------
+[2026/09/07 22:16:37] Total Throughput  172 MB/s, Fill With Zeros, 1R+NB+NV
+********************************************************************************
+
+[2026/09/07 22:16:37]    info: Nwipe successfully completed. See summary table for details.

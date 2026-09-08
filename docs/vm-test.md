@@ -5,8 +5,10 @@ Use **throwaway virtual disks only**.
 Do not treat this Apple silicon Mac as the ISO/QEMU gate. Docker `linux/amd64`
 and `qemu-system-x86_64` here are TCG. The hosted ISO build is Google Cloud
 Build: `./scripts/ci-cloud.sh` (project `beamo-wipe`). Interactive QEMU wipe
-below still needs an **x86_64 Linux VM** with KVM via `gcloud`/`aws`; copy
-hashes out and delete the VM. Pytest and `./preview` stay local.
+below uses an **x86_64 Linux VM** via `gcloud`/`aws`; prefer KVM when
+project policy permits it. If hardware acceleration is prohibited, preserve that
+policy and use bounded x64 TCG runs with the accelerator recorded in evidence.
+Copy hashes out and delete the VM. Pytest and `./preview` stay local.
 
 ## Demo (no ISO)
 
@@ -31,7 +33,7 @@ Two disks: the ISO (live) and a 10G target.
 ```bash
 qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
 qemu-system-x86_64 -m 2048 \
-  -cdrom dist/beamo-wipe-0.2.5-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.6-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 \
   -boot order=d
 ```
@@ -53,3 +55,10 @@ Checklist:
 
 Label the target “DISPOSABLE”. One Intel/AMD UEFI PC with a SATA HDD. One NVMe
 SSD if you want to note SSD limits in a report. Do not claim Apple Silicon.
+
+## Reusable USB driver and hotplug matrix
+
+See [the USB simulation lab](../tools/usb_lab/README.md) for EHCI/xHCI, bulk
+storage/UAS, insertion/removal, read-only media, fault injection, native Linux
+and Windows probes, packet captures, and guarded cloud teardown. This adds
+transport and failure-path coverage alongside the boot/erase gate above.

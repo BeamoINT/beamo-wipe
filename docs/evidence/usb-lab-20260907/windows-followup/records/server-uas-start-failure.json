@@ -1,0 +1,92 @@
+[
+  {
+    "guest_time": "2026-09-07T17:34:33.5131149-07:00",
+    "device": {
+      "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+      "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABPROFILE2",
+      "Service": "UASPStor",
+      "Status": "Error",
+      "ConfigManagerErrorCode": 10
+    },
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "guest_time": "2026-09-07T17:34:44.7631496-07:00",
+    "device": {
+      "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+      "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABPROFILE2",
+      "Service": "UASPStor",
+      "Status": "Error",
+      "ConfigManagerErrorCode": 10
+    },
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "guest_time": "2026-09-07T17:34:57.7944075-07:00",
+    "device": {
+      "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+      "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABPROFILE2",
+      "Service": "UASPStor",
+      "Status": "Error",
+      "ConfigManagerErrorCode": 10
+    },
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  }
+]

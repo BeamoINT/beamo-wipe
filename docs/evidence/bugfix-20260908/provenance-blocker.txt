@@ -1,0 +1,2 @@
+ERROR: uncommitted source state (git status --porcelain not empty)
+Commit the audited paths, or set ALLOW_DIRTY=1 for a local non-release build

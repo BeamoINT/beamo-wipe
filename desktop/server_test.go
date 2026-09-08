@@ -102,3 +102,21 @@ func TestAssetsHaveNoPrivilegeTokenOrExternalResources(t *testing.T) {
 		}
 	}
 }
+
+func TestSlowCompatibilityCheckDoesNotBlameOriginalUSB(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	p := inspectPlan(ctx, func(ctx context.Context) Snapshot {
+		<-ctx.Done()
+		return Snapshot{Problem: "media"}
+	})
+	v := planView(p, false)
+	if v.Ready || p.Problem != "timeout" || !strings.Contains(v.Detail, "Check again") || strings.Contains(v.Detail, "original Beamo USB") {
+		t.Fatalf("inconclusive check misrepresented: %+v", v)
+	}
+	// A completed identity refusal must remain a refusal with its original reason.
+	p = inspectPlan(context.Background(), func(context.Context) Snapshot { return Snapshot{Problem: "media"} })
+	if p.Direct || p.Problem != "media" {
+		t.Fatalf("completed identity check changed: %+v", p)
+	}
+}

@@ -1,0 +1,49 @@
+Step #3 - "preview": [ci-hosted] PASS phase=preview
+Finished Step #3 - "preview"
+Step #1 - "lint": [ci-hosted] PASS phase=lint
+Finished Step #1 - "lint"
+Finished Step #0 - "desktop-launchers"
+Step #2 - "python-tests": 1658 passed, 12 skipped, 2 deselected in 126.85s (0:02:06)
+Step #2 - "python-tests": [ci-hosted] PASS phase=tests
+Finished Step #2 - "python-tests"
+Step #4 - "negative-test": [ci-hosted] PASS phase=negative
+Finished Step #4 - "negative-test"
+Step #5 - "iso-build": Verified dist/beamo-wipe-0.2.5-amd64.manifest.json (strict=True)
+Step #5 - "iso-build": Manifest SHA256: 59337f42c2296d44202a01f0a0ec0de5b28cfe5b7b17cc84ed6466f1f467319a
+Step #5 - "iso-build": [ci-hosted] ISO ok path=/workspace/dist/beamo-wipe-0.2.5-amd64.iso bytes=563085312 pvd=CD001
+Step #5 - "iso-build": ac91e3a7e6fb63d98c852305d41282524ab30f18cbf6c5e9f1520eeaa3f48d04  /workspace/dist/beamo-wipe-0.2.5-amd64.iso
+Step #5 - "iso-build": [ci-hosted] PASS phase=iso
+Finished Step #5 - "iso-build"
+Step #6 - "qemu-verify": [qemu-verify] worker_os=Linux worker_arch=x86_64
+Step #6 - "qemu-verify": [qemu-verify] artifact checksums verified
+Step #6 - "qemu-verify": [qemu-verify] live filesystem package and permission policy verified
+Step #6 - "qemu-verify": [qemu-verify] private report helper crash left no host-namespace mount
+Step #6 - "qemu-verify": [qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+Step #6 - "qemu-verify": [qemu-verify] disposable target and boot loop identities verified
+Step #6 - "qemu-verify": [qemu-verify] pinned nwipe boundary and anonymized logging verified
+Step #6 - "qemu-verify": [qemu-verify] bios boot completed the shipped Wizard report export
+Step #6 - "qemu-verify": [qemu-verify] shipped Wizard zeroed the guest target prefill
+Step #6 - "qemu-verify": [qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+Step #6 - "qemu-verify": [qemu-verify] uefi boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] bios-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] uefi-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_KIOSK_READY count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_WHAT count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_OWNER count=2
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_OWNER_CHECKED count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_FOCUSED count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_CONFIRM_MATCHED count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_PICK count=2
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_BOOT_FINDMNT_MULTIROW count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_OWNER count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_PICK count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_RETURN_RESULT_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_SCREEN_CONFIRM count=1
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_RETURN_RELEASED count=3
+Step #6 - "qemu-verify": QEMU secureboot-usb observed exact marker BEAMO_WIPE_KEY_SPACE_RELEASED count=1
+Step #6 - "qemu-verify": [qemu-verify] secureboot-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] PASS; evidence=/tmp/beamo-wipe-qemu.qsBu5H/evidence
+Step #6 - "qemu-verify": [ci-hosted] PASS phase=qemu
+Finished Step #6 - "qemu-verify"
+Step #7 - "publish-release": Release publication disabled; verified artifacts remain ephemeral.
+Finished Step #7 - "publish-release"

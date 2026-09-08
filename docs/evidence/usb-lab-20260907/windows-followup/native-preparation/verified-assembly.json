@@ -1,0 +1,18 @@
+{
+  "partitions": [
+    {
+      "partition": "efi.fat",
+      "bytes_compared": 272629760,
+      "sha256": "b0379a7e4af1188d7a2db17543d5ebf82aa87bb5f52de5d8fad4914fba17be53",
+      "equal": true
+    },
+    {
+      "partition": "windows.ntfs",
+      "bytes_compared": 85607841792,
+      "sha256": "15d6b6329a418ae24450cb20941078b1d0148db60b77312074f93c08f88fcf8c",
+      "equal": true
+    }
+  ],
+  "gpt_verified": true,
+  "completed_epoch": 1788807204.8727973
+}

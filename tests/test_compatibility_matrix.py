@@ -581,7 +581,7 @@ def test_matrix_gallery_and_helper_share_tokens():
 
     html = gallery_html().lower()
     assert "#0a1b34" in html  # NAVY
-    assert "#1d4ed8" in html  # PRIMARY
+    assert "#244a73" in html  # PRIMARY
     helper = (Path(__file__).parents[1] / "helper" / "index.html").read_text(encoding="utf-8").lower()
     assert "f12" in helper and "esc" in helper
 
@@ -592,7 +592,7 @@ def test_matrix_gallery_and_helper_share_tokens():
 def test_matrix_pinned_nwipe_version_and_commit():
     from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
 
-    assert __version__ == "0.2.5"
+    assert __version__ == "0.2.6"
     assert NWIPE_PINNED_VERSION == "0.42"
     assert NWIPE_PINNED_COMMIT == "6082bde060091e66365d852a1877f2ee80c67105"
 

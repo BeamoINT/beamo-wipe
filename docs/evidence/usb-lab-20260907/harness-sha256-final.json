@@ -1,0 +1,13 @@
+{
+  "tools/usb_lab/prepare_fixture.sh": "f748a77d3e47f9ec042625d3bda981b14eb70f8593a6650f21d02b6c61355d41",
+  "tools/usb_lab/gcp_lab.py": "73f8506e92a1c44b43ce99911214c21d6f0b738c6b05273e10ca52180d674ec1",
+  "tools/usb_lab/README.md": "dd27ddcd3dd266893dba157fb198cad68c1421ce5af4b2ffada60da93575fe61",
+  "tools/usb_lab/pcap_summary.py": "12328b3ceaca599cabe76b60334ec8bfc471088ac50f585ccdb8e39bb4045b0f",
+  "tools/usb_lab/host_setup.sh": "1f5e41431114a0b13e9b308ce72d18dec6fa9560404afe42afb64bbc6fdfbd81",
+  "tools/usb_lab/windows_probe.ps1": "0f0964b584f07cfeea01aeb8f001982dbde4c69669ac6af724055985d176b04a",
+  "tools/usb_lab/windows_matrix.py": "32fe06864b78522fcf6ab910353b6c05cfe7af64bb48db7d73fab011fd424ec9",
+  "tools/usb_lab/guest.py": "e0df81ceb984c03dd4fc636614c831bd6a8d7bffc0f1fd57033160d57e0d914f",
+  "tools/usb_lab/lab.py": "709d9d09007b14c0eefb4fa38682d974edded805e7a780b9c65859904a15d49a",
+  "tests/test_usb_lab.py": "e312c419385b3a991e29d2df7cac254a1e1bf8345fd07c6f85773fa0cbc74438",
+  "docs/vm-test.md": "30f9f08d71912c95fa257cbe32e0a9307ded856cb16626d636748f16520d1240"
+}

@@ -1,0 +1,11 @@
+PASS usb2-bot-enumerate-write-unplug-reconnect
+PASS usb3-bot-enumerate-write-unplug-reconnect
+PASS usb3-uas-enumerate-write-unplug-reconnect
+PASS write-protection
+PASS duplicate-identity-refused
+PASS injected-read-io-error
+PASS unplug-during-io-and-replacement-identity
+PASS usb2-bot-beamo-packaged-launcher
+PASS usb3-bot-beamo-packaged-launcher
+PASS usb3-uas-beamo-packaged-launcher
+PASS unrelated-canary-unchanged

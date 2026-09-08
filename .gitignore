@@ -62,3 +62,6 @@ Thumbs.db
 
 /packaging/live/config/includes.binary/GO-LICENSE.txt
 /packaging/live/config/includes.binary/GO-PATENTS.txt
+
+# Local browser automation captures; reviewed evidence lives under docs/evidence.
+/.playwright-mcp/

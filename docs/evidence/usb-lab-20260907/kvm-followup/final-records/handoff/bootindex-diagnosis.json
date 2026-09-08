@@ -1,0 +1,8 @@
+{
+  "original_os": 2,
+  "original_cd": 1,
+  "new_os": -1,
+  "new_cd": -1,
+  "reason": "OVMF QemuBootOrderLib may prune HD entries not matched by bootindex; repeat without host bootorder override",
+  "source": "https://raw.githubusercontent.com/tianocore/edk2/master/OvmfPkg/Library/QemuBootOrderLib/QemuBootOrderLib.c"
+}

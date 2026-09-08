@@ -1,0 +1,266 @@
+{
+  "format_reference": "https://docs.kernel.org/usb/usbmon.html",
+  "scope": "Offline comparison of captured descriptors; not a Windows driver diagnosis or new runtime pass",
+  "all_full_configuration_bytes_identical": true,
+  "captures": [
+    {
+      "capture": "windows/linux-rootports/6-profile2.pcap",
+      "sha256": "46e28d939c2e1c012be36c11778aa37c02be57fb17552f50c977f74224da88f1",
+      "records": 1342,
+      "bulk_submissions": 657,
+      "set_configuration_submissions": 1,
+      "complete_configuration_descriptors": [
+        {
+          "sha256": "06adc0d3768f5ee59088189f6090718c90e19bcf8666d759d7022f5ee75555f6",
+          "bytes": 86,
+          "hex": "09025600010105c0000904000004080662000705010200040006300f000000042401000705820200040006300f040000042402000705830200040006300f040000042403000705040200040006300f04000004240400",
+          "descriptors": [
+            {
+              "offset": 0,
+              "type": 2,
+              "hex": "09025600010105c000"
+            },
+            {
+              "offset": 9,
+              "type": 4,
+              "hex": "090400000408066200"
+            },
+            {
+              "offset": 18,
+              "type": 5,
+              "hex": "07050102000400"
+            },
+            {
+              "offset": 25,
+              "type": 48,
+              "hex": "06300f000000"
+            },
+            {
+              "offset": 31,
+              "type": 36,
+              "hex": "04240100"
+            },
+            {
+              "offset": 35,
+              "type": 5,
+              "hex": "07058202000400"
+            },
+            {
+              "offset": 42,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 48,
+              "type": 36,
+              "hex": "04240200"
+            },
+            {
+              "offset": 52,
+              "type": 5,
+              "hex": "07058302000400"
+            },
+            {
+              "offset": 59,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 65,
+              "type": 36,
+              "hex": "04240300"
+            },
+            {
+              "offset": 69,
+              "type": 5,
+              "hex": "07050402000400"
+            },
+            {
+              "offset": 76,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 82,
+              "type": 36,
+              "hex": "04240400"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "windows-followup/records/server-full/6-profile2.pcap",
+      "sha256": "5ada432b21fac9b0fb64ad442c140ad1f9c2ffecc626223b08bfc12d6e1f9e35",
+      "records": 26,
+      "bulk_submissions": 0,
+      "set_configuration_submissions": 0,
+      "complete_configuration_descriptors": [
+        {
+          "sha256": "06adc0d3768f5ee59088189f6090718c90e19bcf8666d759d7022f5ee75555f6",
+          "bytes": 86,
+          "hex": "09025600010105c0000904000004080662000705010200040006300f000000042401000705820200040006300f040000042402000705830200040006300f040000042403000705040200040006300f04000004240400",
+          "descriptors": [
+            {
+              "offset": 0,
+              "type": 2,
+              "hex": "09025600010105c000"
+            },
+            {
+              "offset": 9,
+              "type": 4,
+              "hex": "090400000408066200"
+            },
+            {
+              "offset": 18,
+              "type": 5,
+              "hex": "07050102000400"
+            },
+            {
+              "offset": 25,
+              "type": 48,
+              "hex": "06300f000000"
+            },
+            {
+              "offset": 31,
+              "type": 36,
+              "hex": "04240100"
+            },
+            {
+              "offset": 35,
+              "type": 5,
+              "hex": "07058202000400"
+            },
+            {
+              "offset": 42,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 48,
+              "type": 36,
+              "hex": "04240200"
+            },
+            {
+              "offset": 52,
+              "type": 5,
+              "hex": "07058302000400"
+            },
+            {
+              "offset": 59,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 65,
+              "type": 36,
+              "hex": "04240300"
+            },
+            {
+              "offset": 69,
+              "type": 5,
+              "hex": "07050402000400"
+            },
+            {
+              "offset": 76,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 82,
+              "type": 36,
+              "hex": "04240400"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "windows-followup/records/server-visual/2-uasdiag.pcap",
+      "sha256": "b584a1f812057ac919b6229fed26ee046ac12cbb56f1b01985dab19c9a84c56a",
+      "records": 24,
+      "bulk_submissions": 0,
+      "set_configuration_submissions": 0,
+      "complete_configuration_descriptors": [
+        {
+          "sha256": "06adc0d3768f5ee59088189f6090718c90e19bcf8666d759d7022f5ee75555f6",
+          "bytes": 86,
+          "hex": "09025600010105c0000904000004080662000705010200040006300f000000042401000705820200040006300f040000042402000705830200040006300f040000042403000705040200040006300f04000004240400",
+          "descriptors": [
+            {
+              "offset": 0,
+              "type": 2,
+              "hex": "09025600010105c000"
+            },
+            {
+              "offset": 9,
+              "type": 4,
+              "hex": "090400000408066200"
+            },
+            {
+              "offset": 18,
+              "type": 5,
+              "hex": "07050102000400"
+            },
+            {
+              "offset": 25,
+              "type": 48,
+              "hex": "06300f000000"
+            },
+            {
+              "offset": 31,
+              "type": 36,
+              "hex": "04240100"
+            },
+            {
+              "offset": 35,
+              "type": 5,
+              "hex": "07058202000400"
+            },
+            {
+              "offset": 42,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 48,
+              "type": 36,
+              "hex": "04240200"
+            },
+            {
+              "offset": 52,
+              "type": 5,
+              "hex": "07058302000400"
+            },
+            {
+              "offset": 59,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 65,
+              "type": 36,
+              "hex": "04240300"
+            },
+            {
+              "offset": 69,
+              "type": 5,
+              "hex": "07050402000400"
+            },
+            {
+              "offset": 76,
+              "type": 48,
+              "hex": "06300f040000"
+            },
+            {
+              "offset": 82,
+              "type": 36,
+              "hex": "04240400"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "conclusion": "Successful Linux and failing Windows runs received identical full UAS configuration descriptor bytes. Windows captures stop before SET_CONFIGURATION or bulk submissions. Windows-specific compatibility or start failure remains unresolved; this comparison does not validate every USB requirement."
+}

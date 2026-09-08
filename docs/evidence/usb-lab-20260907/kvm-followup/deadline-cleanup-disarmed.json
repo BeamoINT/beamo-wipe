@@ -1,0 +1,5 @@
+{
+  "watchdog_pid": 57481,
+  "process_exited": true,
+  "reason": "Explicit cloud teardown, inherited policy restoration and exact key revocation already verified"
+}

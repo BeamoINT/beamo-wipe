@@ -1,0 +1,13 @@
+PASS usb2-bot-enumerate-write-unplug-reconnect
+PASS usb3-bot-enumerate-write-unplug-reconnect
+Traceback (most recent call last):
+  File "/lab/harness/tools/usb_lab/lab.py", line 346, in <module>
+    main()
+  File "/lab/harness/tools/usb_lab/lab.py", line 337, in main
+    lab.matrix(args.product_image)
+  File "/lab/harness/tools/usb_lab/lab.py", line 225, in matrix
+    state = self.wait_disk(serial)
+            ^^^^^^^^^^^^^^^^^^^^^^
+  File "/lab/harness/tools/usb_lab/lab.py", line 174, in wait_disk
+    raise TimeoutError(f'Expected {count} USB devices with serial {serial}')
+TimeoutError: Expected 1 USB devices with serial USBLABPROFILE2

@@ -1,0 +1,218 @@
+.........................ssss........................................... [  4%]
+.................................F...................................... [  9%]
+........................................................................ [ 13%]
+........................................................................ [ 18%]
+........................................................................ [ 22%]
+........................................................................ [ 27%]
+........................................................................ [ 31%]
+.....................................................................F.. [ 36%]
+........................................................................ [ 40%]
+........................................................................ [ 45%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 58%]
+........................................................................ [ 63%]
+........................................................................ [ 67%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 81%]
+..........................sssssssssssssssssssssssssssssssss..sssssssssss [ 86%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 90%]
+sssssssssssssssss.................F..................................... [ 95%]
+........................................................................ [ 99%]
+.....                                                                    [100%]
+=================================== FAILURES ===================================
+_____ test_nonregular_evidence_readers_reject_fifo_without_waiting[runner] _____
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1895/test_nonregular_evidence_reade3')
+reader = 'runner'
+
+    @pytest.mark.parametrize("reader", ["evidence", "export_log", "diagnostics", "runner", "wizard"])
+    def test_nonregular_evidence_readers_reject_fifo_without_waiting(tmp_path, reader):
+        fifo = tmp_path / "diagnostics.log"
+        os.mkfifo(fifo, 0o600)
+        script = r'''
+    import pathlib
+    import sys
+    from beamo_wipe.safety import SafetyError
+    path = pathlib.Path(sys.argv[2])
+    reader = sys.argv[1]
+    if reader == "evidence":
+        from beamo_wipe.evidence import _read_regular_nofollow
+        try:
+            _read_regular_nofollow(path)
+        except SafetyError:
+            pass
+        else:
+            raise AssertionError("nonregular evidence accepted")
+    elif reader == "export_log":
+        from beamo_wipe.support_export import read_export_log
+        assert read_export_log(str(path), expected_sha256="a" * 64, expected_size_bytes=1) == (b"", "unavailable")
+    elif reader == "runner":
+        from beamo_wipe.nwipe_runner import NwipeRunner
+        assert NwipeRunner()._read_log_tail(str(path), 128) == ""
+    elif reader == "wizard":
+        import beamo_wipe.evidence as evidence
+        import beamo_wipe.diagnostics as diagnostics
+        from beamo_wipe.demo import make_demo_wizard
+        from beamo_wipe.models import WipeRequest, WipeResult
+        wizard = make_demo_wizard()
+        diagnostics.log_diag = lambda *a, **kw: False
+        reached_write = []
+        def failed_write(*a, **kw):
+            reached_write.append(True)
+            raise OSError("inert write stub")
+        evidence.write_evidence_atomic = failed_write
+        wizard._wipe_request = WipeRequest("/dev/fake-target", wizard.method, "/dev/fake-boot", str(path))
+        wizard._evidence_argv = []
+        wizard._write_evidence(result=WipeResult(False, 1, "failed", str(path)), cancelled=False, interrupted=False)
+        assert reached_write and wizard.evidence_error
+    else:
+        from beamo_wipe.diagnostics import read_diagnostics
+        assert read_diagnostics(path.parent) == []
+    '''
+        try:
+>           process = subprocess.run(
+                [sys.executable, "-c", script, reader, str(fifo)],
+                env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+
+../Beamo Wiper/tests/test_audit_20260905_evidence.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py:503: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py:1149: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py:2001: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: -9 args: ['/Library/Frameworks/Python.framework/Versions...>
+endtime = 442698.704436708, orig_timeout = 2, stdout_seq = [], stderr_seq = []
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() > endtime:
+>           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['/Library/Frameworks/Python.framework/Versions/3.10/bin/python3', '-c', '\nimport pathlib\nimport sys\nfrom beamo_wipe.safety import SafetyError\npath = pathlib.Path(sys.argv[2])\nreader = sys.argv[1]\nif reader == "evidence":\n    from beamo_wipe.evidence import _read_regular_nofollow\n    try:\n        _read_regular_nofollow(path)\n    except SafetyError:\n        pass\n    else:\n        raise AssertionError("nonregular evidence accepted")\nelif reader == "export_log":\n    from beamo_wipe.support_export import read_export_log\n    assert read_export_log(str(path), expected_sha256="a" * 64, expected_size_bytes=1) == (b"", "unavailable")\nelif reader == "runner":\n    from beamo_wipe.nwipe_runner import NwipeRunner\n    assert NwipeRunner()._read_log_tail(str(path), 128) == ""\nelif reader == "wizard":\n    import beamo_wipe.evidence as evidence\n    import beamo_wipe.diagnostics as diagnostics\n    from beamo_wipe.demo import make_demo_wizard\n    from beamo_wipe.models import WipeRequest, WipeResult\n    wizard = make_demo_wizard()\n    diagnostics.log_diag = lambda *a, **kw: False\n    reached_write = []\n    def failed_write(*a, **kw):\n        reached_write.append(True)\n        raise OSError("inert write stub")\n    evidence.write_evidence_atomic = failed_write\n    wizard._wipe_request = WipeRequest("/dev/fake-target", wizard.method, "/dev/fake-boot", str(path))\n    wizard._evidence_argv = []\n    wizard._write_evidence(result=WipeResult(False, 1, "failed", str(path)), cancelled=False, interrupted=False)\n    assert reached_write and wizard.evidence_error\nelse:\n    from beamo_wipe.diagnostics import read_diagnostics\n    assert read_diagnostics(path.parent) == []\n', 'runner', '/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1895/test_nonregular_evidence_reade3/diagnostics.log']' timed out after 2 seconds
+
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/subprocess.py:1193: TimeoutExpired
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/var/folders/z2/f0vyzvn56bb3h49gwljmlfr40000gn/T/pytest-of-HP/pytest-1895/test_nonregular_evidence_reade3')
+reader = 'runner'
+
+    @pytest.mark.parametrize("reader", ["evidence", "export_log", "diagnostics", "runner", "wizard"])
+    def test_nonregular_evidence_readers_reject_fifo_without_waiting(tmp_path, reader):
+        fifo = tmp_path / "diagnostics.log"
+        os.mkfifo(fifo, 0o600)
+        script = r'''
+    import pathlib
+    import sys
+    from beamo_wipe.safety import SafetyError
+    path = pathlib.Path(sys.argv[2])
+    reader = sys.argv[1]
+    if reader == "evidence":
+        from beamo_wipe.evidence import _read_regular_nofollow
+        try:
+            _read_regular_nofollow(path)
+        except SafetyError:
+            pass
+        else:
+            raise AssertionError("nonregular evidence accepted")
+    elif reader == "export_log":
+        from beamo_wipe.support_export import read_export_log
+        assert read_export_log(str(path), expected_sha256="a" * 64, expected_size_bytes=1) == (b"", "unavailable")
+    elif reader == "runner":
+        from beamo_wipe.nwipe_runner import NwipeRunner
+        assert NwipeRunner()._read_log_tail(str(path), 128) == ""
+    elif reader == "wizard":
+        import beamo_wipe.evidence as evidence
+        import beamo_wipe.diagnostics as diagnostics
+        from beamo_wipe.demo import make_demo_wizard
+        from beamo_wipe.models import WipeRequest, WipeResult
+        wizard = make_demo_wizard()
+        diagnostics.log_diag = lambda *a, **kw: False
+        reached_write = []
+        def failed_write(*a, **kw):
+            reached_write.append(True)
+            raise OSError("inert write stub")
+        evidence.write_evidence_atomic = failed_write
+        wizard._wipe_request = WipeRequest("/dev/fake-target", wizard.method, "/dev/fake-boot", str(path))
+        wizard._evidence_argv = []
+        wizard._write_evidence(result=WipeResult(False, 1, "failed", str(path)), cancelled=False, interrupted=False)
+        assert reached_write and wizard.evidence_error
+    else:
+        from beamo_wipe.diagnostics import read_diagnostics
+        assert read_diagnostics(path.parent) == []
+    '''
+        try:
+            process = subprocess.run(
+                [sys.executable, "-c", script, reader, str(fifo)],
+                env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+>           pytest.fail(f"{reader} blocked opening a FIFO instead of rejecting its nonregular file type")
+E           Failed: runner blocked opening a FIFO instead of rejecting its nonregular file type
+
+../Beamo Wiper/tests/test_audit_20260905_evidence.py:67: Failed
+____________________ test_staged_chroot_package_matches_src ____________________
+
+    def test_staged_chroot_package_matches_src():
+        src = ROOT / "src/beamo_wipe"
+        staged = (
+            ROOT
+            / "packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe"
+        )
+        if not staged.is_dir():
+            return
+        for path in src.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix == ".pyc" or "__pycache__" in path.parts:
+                continue
+            rel = path.relative_to(src)
+            other = staged / rel
+            assert other.is_file(), f"missing staged copy of {rel}"
+>           assert other.read_bytes() == path.read_bytes(), f"staged copy drifted: {rel}"
+E           AssertionError: staged copy drifted: diagnostic_report.py
+E           assert b'# SPDX-Lice... "", "", 0)\n' == b'# SPDX-Lice... "", "", 0)\n'
+E             
+E             At index 7589 diff: b'v' != b'_'
+E             Use -v to get more diff
+
+../Beamo Wiper/tests/test_live_image.py:180: AssertionError
+__________________ test_qmp_retains_events_and_rejects_errors __________________
+
+request = <FixtureRequest for <Function test_qmp_retains_events_and_rejects_errors>>
+
+    def test_qmp_retains_events_and_rejects_errors(request):
+        directory = tempfile.TemporaryDirectory(prefix="usblab-test-", dir="/private/tmp" if Path("/private/tmp").exists() else "/tmp")
+        request.addfinalizer(directory.cleanup)
+        path = Path(directory.name) / "qmp"
+        server = socket.socket(socket.AF_UNIX)
+>       server.bind(str(path))
+E       PermissionError: [Errno 1] Operation not permitted
+
+tests/test_usb_lab.py:41: PermissionError
+=========================== short test summary info ============================
+FAILED tests/test_audit_20260905_evidence.py::test_nonregular_evidence_readers_reject_fifo_without_waiting[runner]
+FAILED tests/test_live_image.py::test_staged_chroot_package_matches_src - Ass...
+FAILED tests/test_usb_lab.py::test_qmp_retains_events_and_rejects_errors - Pe...
+3 failed, 1449 passed, 138 skipped in 507.59s (0:08:27)

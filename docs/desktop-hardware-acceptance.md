@@ -2,8 +2,9 @@
 
 Use this checklist before claiming a manufactured USB supports a configuration.
 The automated results are in [the validation report](desktop-validation-2026-09-06.md).
-They do not fill in this checklist. No physical configuration has been accepted
-by that report.
+Additional [Google Cloud desktop results](gcp-desktop-validation-2026-09-07.md)
+cover Debian and Windows Server UI and permission flows. Neither report fills
+in this physical checklist; no physical configuration has been accepted.
 
 ## Record the configuration
 

@@ -1,0 +1,8 @@
+{
+  "build_id": "893e165a-085a-43aa-ab09-650b7dc5a145",
+  "commit": "553a4a0cea1fa79b1a93fe341ce55b9c167976f2",
+  "source_uri": "gs://beamo-wipe_cloudbuild/source/1788833133.834326-022b7b89ba414d249c7b3a00a3c0bf87.tgz#1788833137540707",
+  "archive_sha256": "5c691ec343af3d11f169f46566b875e09d71c57ca5ee657b829ed00d6a9ed3b2",
+  "tracked_files_byte_verified": 242,
+  "result": "all committed files and embedded branch HEAD matched"
+}

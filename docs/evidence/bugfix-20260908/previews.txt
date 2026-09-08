@@ -1,0 +1,9 @@
+preview verification (fake disks, no browser)
+/private/tmp/beamo-wipe-bugfix-20260908/web-preview/index.html
+
+============================================================
+Beamo Wipe splash
+PREVIEW on this computer — fake disks — nothing is erased
+============================================================
+You already started from this USB. Next you will pick a disk to erase.
+Press Enter… /private/tmp/beamo-wipe-bugfix-20260908/helper/index.html

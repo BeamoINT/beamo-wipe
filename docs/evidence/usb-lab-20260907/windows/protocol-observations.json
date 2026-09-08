@@ -1,0 +1,153 @@
+{
+  "format_reference": "https://docs.kernel.org/usb/usbmon.html",
+  "scope": "QEMU-generated USB mmap captures; descriptor and request observations only, not physical signal or driver failure diagnosis",
+  "captures": {
+    "2-profile0.pcap": {
+      "sha256": "eafd156e12c4be6c4dd2bf67245c80c990188ad94aa5e32c08da7c525cc52e95",
+      "capture_records": 2100,
+      "bulk_submissions": 1034,
+      "set_configuration_submissions": 1,
+      "device_descriptors": [
+        {
+          "bcdUSB": "0x200",
+          "vendor": "0x46f4",
+          "product": "0x1",
+          "descriptor_hex": "1201000200000040f4460100000001020301"
+        },
+        {
+          "bcdUSB": "0x200",
+          "vendor": "0x46f4",
+          "product": "0x1",
+          "descriptor_hex": "1201000200000040f4460100000001020301"
+        },
+        {
+          "bcdUSB": "0x200",
+          "vendor": "0x46f4",
+          "product": "0x1",
+          "descriptor_hex": "1201000200000040f4460100000001020301"
+        }
+      ]
+    },
+    "4-profile1.pcap": {
+      "sha256": "b5c31b68e31b52ade4f47c596f3b679bfb540f19d0e4526b1f60d7c3f90db4fa",
+      "capture_records": 2558,
+      "bulk_submissions": 1263,
+      "set_configuration_submissions": 1,
+      "device_descriptors": [
+        {
+          "bcdUSB": "0x300",
+          "vendor": "0x46f4",
+          "product": "0x1",
+          "descriptor_hex": "1201000300000009f4460100000001020301"
+        }
+      ]
+    },
+    "6-profile2.pcap": {
+      "sha256": "9d8a9cd30f7afb7f8bf7fc23e91c7ed51552b1b80673ab18321a419b2554638c",
+      "capture_records": 26,
+      "bulk_submissions": 0,
+      "set_configuration_submissions": 0,
+      "device_descriptors": [
+        {
+          "bcdUSB": "0x300",
+          "vendor": "0x46f4",
+          "product": "0x3",
+          "descriptor_hex": "1201000300000009f4460300000001020301"
+        }
+      ],
+      "control_requests": [
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 256,
+          "wIndex": 0,
+          "wLength": 18
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 512,
+          "wIndex": 0,
+          "wLength": 255
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 3840,
+          "wIndex": 0,
+          "wLength": 255
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 1006,
+          "wIndex": 0,
+          "wLength": 18
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 771,
+          "wIndex": 1033,
+          "wLength": 255
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 768,
+          "wIndex": 0,
+          "wLength": 255
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 770,
+          "wIndex": 1033,
+          "wLength": 255
+        },
+        {
+          "bmRequestType": 0,
+          "bRequest": 49,
+          "wValue": 40,
+          "wIndex": 0,
+          "wLength": 0
+        },
+        {
+          "bmRequestType": 0,
+          "bRequest": 48,
+          "wValue": 0,
+          "wIndex": 0,
+          "wLength": 6
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 768,
+          "wIndex": 0,
+          "wLength": 2
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 768,
+          "wIndex": 0,
+          "wLength": 4
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 771,
+          "wIndex": 1033,
+          "wLength": 2
+        },
+        {
+          "bmRequestType": 128,
+          "bRequest": 6,
+          "wValue": 771,
+          "wIndex": 1033,
+          "wLength": 30
+        }
+      ]
+    }
+  }
+}

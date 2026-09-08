@@ -10,22 +10,22 @@
       /* Shared palette, pinned against src/beamo_wipe/ui/tk_wizard.py. */
       --bg: #FFFFFF;
       --surface: #FFFFFF;
-      --surface-alt: #F4F6FB;
-      --ink: #0C1728;
-      --muted: #47536B;
-      --border: #DCE2EC;
-      --border-strong: #74839F;
+      --surface-alt: #F3F5F7;
+      --ink: #182635;
+      --muted: #4C5B6B;
+      --border: #D8DFE6;
+      --border-strong: #758292;
       --navy: #0A1B34;
       --navy-soft: #16315C;
       --navy-muted: #C9D6E8;
-      --primary: #1D4ED8;
+      --primary: #244A73;
       --danger: #B3261E;
       --danger-tint: #FBEBE9;
       --danger-border: #E6A79E;
       --focus: #1A3FA0;
       --accent: #E8A317;
       /* Soft three-layer shadow, matching the wizard's _Box shadow. */
-      --shadow: 0 1px 0 #E0E5EF, 0 3px 0 #ECEFF5, 0 6px 0 #F7F8FB;
+      --shadow: none;
     }
     * { box-sizing: border-box; }
     body {
@@ -66,8 +66,8 @@
       margin: 0;
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: .07em;
-      text-transform: uppercase;
+      letter-spacing: 0;
+      text-transform: none;
       color: var(--muted);
     }
     main { max-width: 920px; margin: 0 auto; padding: 34px 24px 72px; }
@@ -75,9 +75,9 @@
       display: flex;
       gap: 12px;
       align-items: flex-start;
-      background: var(--danger-tint);
-      border: 1px solid var(--danger-border);
-      border-radius: 12px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
       color: var(--ink);
       padding: 13px 16px;
       font-weight: 700;
@@ -87,10 +87,10 @@
     .banner svg { flex: none; margin-top: 2px; }
     .card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      box-shadow: var(--shadow);
-      padding: 22px 24px;
+      border: 0;
+      border-top: 1px solid var(--border);
+      border-radius: 0;
+      padding: 26px 0;
       margin: 0 0 22px;
     }
     h2 { font-size: 24px; margin: 0 0 12px; letter-spacing: -.01em; }
@@ -111,8 +111,8 @@
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: .07em;
-      text-transform: uppercase;
+      letter-spacing: 0;
+      text-transform: none;
     }
     th:first-child { border-radius: 10px 0 0 0; }
     th:last-child { border-radius: 0 10px 0 0; }
@@ -135,6 +135,11 @@
     .small { color: var(--muted); font-size: 16px; }
     a { color: var(--primary); overflow-wrap: anywhere; }
     a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+    @media (max-width: 600px) {
+      header .inner { flex-wrap: wrap; padding: 16px 20px; gap: 8px; }
+      main { padding: 24px 20px 48px; }
+      th, td { padding: 12px 8px; font-size: 16px; }
+    }
   </style>
 </head>
 <body>

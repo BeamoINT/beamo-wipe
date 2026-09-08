@@ -1,0 +1,82 @@
+{
+  "status": "BLOCKED_BEFORE_APPLICATION_TESTS",
+  "source_commit": "f7b6490036d62281e2133da642557cee6710f081",
+  "archive": {
+    "name": "input-public.tgz",
+    "sha256": "050f66035d2b69750be4d7ba1fbe30ee236198e3dfa73f82e19c4c96d787323e",
+    "files": [
+      "source.tar",
+      "Start Beamo Wipe.exe",
+      "Start Beamo Wipe Linux",
+      "desktop-build.json",
+      "windows-tests.exe",
+      "windows-test.ps1",
+      "linux-desktop.sh",
+      "rdp.sh"
+    ]
+  },
+  "instances": [
+    {
+      "name": "beamo-desktop-lab-0907-linux",
+      "id": "4063738264240231002",
+      "creationTimestamp": "2026-09-06T20:17:09.762-07:00",
+      "machineType": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a/machineTypes/n2-standard-4",
+      "zone": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a",
+      "scheduling": {
+        "automaticRestart": true,
+        "instanceTerminationAction": "DELETE",
+        "maxRunDuration": {
+          "nanos": 0,
+          "seconds": "10800"
+        },
+        "onHostMaintenance": "MIGRATE",
+        "preemptible": false,
+        "provisioningModel": "STANDARD"
+      },
+      "image": "debian-12-bookworm-v20260902"
+    },
+    {
+      "name": "beamo-desktop-lab-0907-windows",
+      "id": "2266220796470071888",
+      "creationTimestamp": "2026-09-06T20:17:19.508-07:00",
+      "machineType": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a/machineTypes/n2-standard-4",
+      "zone": "https://www.googleapis.com/compute/v1/projects/beamo-wipe/zones/us-central1-a",
+      "scheduling": {
+        "automaticRestart": true,
+        "instanceTerminationAction": "DELETE",
+        "maxRunDuration": {
+          "nanos": 0,
+          "seconds": "10800"
+        },
+        "onHostMaintenance": "MIGRATE",
+        "preemptible": false,
+        "provisioningModel": "STANDARD"
+      },
+      "image": "windows-server-2025-dc-v20260814"
+    }
+  ],
+  "review_rejections": [
+    "Transfer containing generated test-only VM password rejected.",
+    "Credential-free transfer containing private source code and executables also rejected."
+  ],
+  "application_tests_executed_this_attempt": false,
+  "launcher_build": {
+    "files": {
+      "Start Beamo Wipe Linux": "01cc1640e0013cdc4202f511a9d47b633b7237fe6b086799b865a8818a4b1b0e",
+      "Start Beamo Wipe.exe": "36e21458c91d4b62f33bca96b27fc3efe120f76c9b45b645aabd79e22f8601db"
+    },
+    "go": "go1.26.5",
+    "source_commit": "f7b6490036d62281e2133da642557cee6710f081",
+    "version": "0.2.5"
+  },
+  "cleanup": {
+    "instances": [],
+    "disks": [],
+    "firewall-rules": [],
+    "routers": [],
+    "networks": [],
+    "networks subnets": [],
+    "verified_at": "2026-09-07T03:21:57.675532+00:00",
+    "all_owned_resources_absent": true
+  }
+}

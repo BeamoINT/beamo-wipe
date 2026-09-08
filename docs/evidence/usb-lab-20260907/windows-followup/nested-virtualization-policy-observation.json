@@ -1,0 +1,15 @@
+{
+  "observed_utc": "2026-09-07T18:58:13Z",
+  "project": "beamo-wipe",
+  "constraint": "constraints/compute.disableNestedVirtualization",
+  "effective": {
+    "booleanPolicy": {
+      "enforced": true
+    }
+  },
+  "project_policy": {
+    "constraint": "constraints/compute.disableNestedVirtualization",
+    "etag": "BwVUSr8Q7Ng="
+  },
+  "mutation_performed": false
+}

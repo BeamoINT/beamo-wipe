@@ -1,0 +1,19 @@
+{
+  "base_commit": "f7b6490036d62281e2133da642557cee6710f081",
+  "files": {
+    "src/beamo_wipe/diagnostic_report.py": "1a9566cdce11c61a41cae4616c86aad397f451813e4fee13de820aa24a9b6500",
+    "src/beamo_wipe/diagnostics.py": "19a04186bcc274955386d7862372665737794e40a0360628ed6da5a332ba7a16",
+    "src/beamo_wipe/discover.py": "3e82083701fa57947130b0ccb0a7564150e01ca43a49e75d3518c555d160da5a",
+    "src/beamo_wipe/nwipe_runner.py": "27568e2d768a9ee1ac7caa7c58fd276e19dcab963019b09019e1392d76387502",
+    "src/beamo_wipe/ui/console_wizard.py": "fa4c90b728946f350515a2d8e7c58e67dbf5b5548453f72efc2694df05d6ce0e",
+    "tests/test_audit_20260905_runner.py": "c6cbbb89308f8f1113f622594a46bf1e3d158f9312f723d7451f689d7a77eb1c",
+    "tests/test_audit_20260907_console_input.py": "7e6a2815c435de3d5269a9b7a2b94e4bb93171bd3d0fdc33b156b2c7df784c28",
+    "tests/test_audit_20260907_discovery_duplicates.py": "9414bbd00c433ead60a3b7b499cff9306993ed9113d02eedd9aa05b7dafb7e17",
+    "tests/test_audit_20260907_recovery.py": "30d35889ab5c74ee4b47b098e0d834e9586ec8c6d57e4941741c8716252c7a20",
+    "tests/test_audit_20260907_runner_lock.py": "78e4ad578ab942c7b9b6de3d1649814a026b9fdb24849492e903e915a5b0b754",
+    "tests/test_runner_status_regressions.py": "4770f28ef5027c962e6b5f467b78da074dc7207cf62e489f720c0266e4ff5e71"
+  },
+  "hosted_gate": "blocked before submission: strict provenance rejects uncommitted source; user requires all gates before commit",
+  "release": false,
+  "source_state": "uncommitted"
+}

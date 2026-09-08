@@ -1,0 +1,30 @@
+Information for Image 1
+-----------------------
+Index:                  1
+Name:                   Windows 11 Enterprise Evaluation
+Description:            Windows 11 Enterprise Evaluation
+Display Name:           Windows 11 Enterprise Evaluation
+Display Description:    Windows 11 Enterprise Evaluation
+Directory Count:        30316
+File Count:             134783
+Total Bytes:            22823889428
+Hard Link Bytes:        9909902589
+Creation Time:          Mon Sep 15 19:56:12 2025 UTC
+Last Modification Time: Mon Sep 15 20:03:48 2025 UTC
+Architecture:           x86_64
+Product Name:           Microsoft® Windows® Operating System
+Edition ID:             EnterpriseEval
+Installation Type:      Client
+Product Type:           WinNT
+Product Suite:          Terminal Server
+Languages:              en-US 
+Default Language:       en-US
+System Root:            WINDOWS
+Major Version:          10
+Minor Version:          0
+Build:                  26200
+Service Pack Build:     6584
+Service Pack Level:     0
+Flags:                  EnterpriseEval
+WIMBoot compatible:     no
+

@@ -276,14 +276,19 @@ def test_keyboard_only_flow_reaches_working(ui):
     assert wiz.method.value == "everyday"
     key("Return")
     assert wiz.screen == Screen.LAST_CHANCE
+    # Back is focused: Enter returns safely, even during the countdown.
     key("Return")
-    assert wiz.screen == Screen.LAST_CHANCE, "Enter during countdown must not erase"
-    # Countdown over: the very same Enter key now starts the (dry-run) erase.
+    assert wiz.screen == Screen.METHOD
+    key("Return")
+    assert wiz.screen == Screen.LAST_CHANCE
+    # Countdown over: deliberately focus Erase before pressing Enter.
     wiz._erase_until = 0.0
     wiz.tick()
     app._draw()
     root.update()
     assert wiz.erase_enabled
+    key("Tab")
+    assert root.focus_get() is app._primary
     key("Return")
     _wait_transition(wiz, app)
     assert wiz.screen == Screen.WORKING
@@ -304,6 +309,7 @@ def test_held_enter_does_not_erase_when_countdown_completes(ui, tmp_path, monkey
     app._refresh_last_chance()
     root.update()
     assert wiz.erase_enabled
+    app._primary.focus_set()
     (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
     root.update()
     assert wiz.screen == Screen.LAST_CHANCE
@@ -393,6 +399,7 @@ def test_held_enter_does_not_shutdown_failed_done(ui):
     app._draw()
     app.root.update()
     assert wiz.erase_enabled
+    app._primary.focus_set()
     root = app.root
     (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
     root.update()
@@ -909,8 +916,8 @@ def test_report_help_rendered_preference_and_layout(ui, wanted, size, origin):
         for child in widget.winfo_children():
             yield from widgets(child)
 
-    link = next(w for w in widgets(app.root) if isinstance(w, tk.Button) and w.cget('text') == C.REPORT_HELP_TITLE)
-    link.invoke()
+    link = _button_named(app, C.REPORT_HELP_TITLE)
+    link._command()
     app.root.update_idletasks()
     reader = next(w for w in widgets(app.root) if isinstance(w, tk.Text))
     assert reader.get('1.0', 'end-1c') == C.REPORT_HELP_TEXT
@@ -1294,7 +1301,9 @@ def test_split_repeat_cannot_erase_after_countdown(ui, tmp_path, monkeypatch):
     app._on_return(SimpleNamespace(time=200))
     assert wiz.screen == Screen.LAST_CHANCE
     assert not getattr(wiz.runner, "started", False)
-    # A separate physical press must still work.
+    # A separate physical press on the explicitly focused Erase still works.
+    app._refresh_last_chance()
+    app._primary.focus_set()
     app._on_return_release(SimpleNamespace(time=300))
     app.root.update_idletasks()
     app._on_return(SimpleNamespace(time=400))
@@ -1315,3 +1324,20 @@ def test_split_space_repeat_does_not_toggle_owner_twice(ui):
     app.root.update_idletasks()
     app._owner_key(SimpleNamespace(time=400))
     assert not wiz.owner_ok
+
+
+@pytest.mark.parametrize("keysym", ["Return", "KP_Enter"])
+@pytest.mark.parametrize("countdown_complete", [False, True])
+def test_last_chance_enter_activates_default_back(ui, keysym, countdown_complete):
+    from beamo_wipe import copy as C
+
+    wiz, app = ui()
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    if countdown_complete:
+        wiz._erase_until = 0
+        app._refresh_last_chance()
+    assert app.root.focus_get() is _button_named(app, C.BTN_BACK)
+    app.root.focus_get().event_generate("<KeyPress>", keysym=keysym)
+    app.root.update()
+    assert wiz.screen == Screen.METHOD
+    assert not getattr(wiz.runner, "started", False)

@@ -1,0 +1,15 @@
+[qemu-verify] worker_os=Linux worker_arch=x86_64
+[qemu-verify] artifact checksums verified
+[qemu-verify] live filesystem package and permission policy verified
+[qemu-verify] private report helper crash left no host-namespace mount
+[qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+[qemu-verify] disposable target and boot loop identities verified
+[qemu-verify] pinned nwipe boundary and anonymized logging verified
+[qemu-verify] bios boot completed the shipped Wizard report export
+[qemu-verify] shipped Wizard zeroed the guest target prefill
+[qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+[qemu-verify] uefi boot reached the shipped Tk WHAT screen
+[qemu-verify] bios-usb boot reached the shipped Tk WHAT screen
+[qemu-verify] uefi-usb boot reached the shipped Tk WHAT screen
+[qemu-verify] secureboot-usb boot reached the shipped Tk WHAT screen
+[qemu-verify] PASS; evidence=/tmp/beamo-wipe-qemu.nSttgK/evidence

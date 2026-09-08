@@ -1,0 +1,30 @@
+HTTP/1.1 301 Moved Permanently
+Content-Length: 0
+Server: Kestrel
+Location: https://software-download.microsoft.com/download/pr/20348.169.amd64fre.fe_release_svc_refresh.210806-2348_server_serverdatacentereval_en-us.vhd
+Request-Context: appId=cid-v1:d94c0f68-64bf-4036-8409-a0e761bb7ee1
+X-Response-Cache-Status: True
+Expires: Mon, 07 Sep 2026 06:09:33 GMT
+Cache-Control: max-age=0, no-cache, no-store
+Pragma: no-cache
+Date: Mon, 07 Sep 2026 06:09:33 GMT
+Connection: keep-alive
+Strict-Transport-Security: max-age=31536000 ; includeSubDomains
+
+HTTP/1.1 200 OK
+Content-Type: application/octet-stream
+Server: Kestrel
+Accept-Ranges: bytes
+Cache-Control: public, max-age=6000
+X-Ms-ApiVersion: Distribute 1.2
+X-Ms-Region: prod-eus-z1
+Content-Disposition: attachment; filename=20348.169.amd64fre.fe_release_svc_refresh.210806-2348_server_serverdatacentereval_en-us.vhd; filename*=UTF-8''20348.169.amd64fre.fe_release_svc_refresh.210806-2348_server_serverdatacentereval_en-us.vhd
+Last-Modified: Thu, 12 Aug 2021 20:02:27 GMT
+ETag: "0xBB8AF66A002955966C21814C64A93D55B9736D4791220EA14E4FCDF7F16587D6"
+Content-Length: 10208214528
+Date: Mon, 07 Sep 2026 06:09:33 GMT
+Connection: keep-alive
+X-OSID: 2
+X-CID: 2
+X-CCC: US
+

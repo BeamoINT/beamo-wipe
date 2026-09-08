@@ -1,0 +1,82 @@
+{
+  "validation_snapshot_commit": "25d823f25c1639a24e5e1c607e581f7863f9c99f",
+  "base_checkout_commit": "f7b6490036d62281e2133da642557cee6710f081",
+  "cloud_build_id": "da8f1338-7acb-4824-af55-9a3faf3217b4",
+  "publication": false,
+  "files": [
+    {
+      "path": "desktop/web/style.css",
+      "sha256": "fd2f476bfffe500775127367b7021181f8d46700a88d50a7fcad84821f11e709"
+    },
+    {
+      "path": "helper/index.html",
+      "sha256": "6e61c4cbebddf729ca03c7a26a9945835f335fa8f2d43c8510c07ccc82af1d6a"
+    },
+    {
+      "path": "scripts/qemu-verify.sh",
+      "sha256": "4230b610fea8fa6a2212d32778ec20b84bf165d6073869d0254ff35943e0bdee"
+    },
+    {
+      "path": "src/beamo_wipe/gallery.py",
+      "sha256": "2f1abb7ee99297d0bece844ff4661ff856c958ed9ea8fc84d65dc76ab9d4e7bc"
+    },
+    {
+      "path": "src/beamo_wipe/ui/tk_wizard.py",
+      "sha256": "cd25debff958796f9696dbddb7b7c06e75e275b7866748ac696bbdb0cdb55aa3"
+    },
+    {
+      "path": "tests/test_audit_20260908_boot.py",
+      "sha256": "a194ac377dbca54ff7fc639c63fe8240ea77524136b86223c7d15e61148c98e2"
+    },
+    {
+      "path": "tests/test_audit_20260908_wizard.py",
+      "sha256": "a587bc8a530516297db8ea8824bdd2febc0b5c7b345e30f691c83cc98e3e36cd"
+    },
+    {
+      "path": "tests/test_compatibility_matrix.py",
+      "sha256": "b5c023e46f33778f1ca9bef79b12d983784637e08d6833fa768597df2cc4842e"
+    },
+    {
+      "path": "tests/test_design_runtime.py",
+      "sha256": "cd859a61d24815cfcbbac6eaeb56ecb1fe2528420eb4ec91774dcb78e9a3aa9d"
+    },
+    {
+      "path": "tests/test_tk_runtime.py",
+      "sha256": "8565474c704f17ad32abb5bbf1d0e2341b22780573bb5180abbff40e3c5daf9b"
+    }
+  ],
+  "hosted_validation": {
+    "linux_tests": {
+      "passed": 1673,
+      "skipped": 12,
+      "deselected": 2
+    },
+    "completed_phases": [
+      "desktop-launchers",
+      "lint",
+      "python-tests",
+      "preview",
+      "negative-test",
+      "iso-build",
+      "qemu-verify"
+    ],
+    "iso": "SUCCESS",
+    "qemu": "SUCCESS",
+    "status": "SUCCESS",
+    "boot_modes": [
+      "bios",
+      "uefi",
+      "bios-usb",
+      "uefi-usb",
+      "secureboot-usb"
+    ],
+    "report_export": "SUCCESS",
+    "publication_step": "disabled; no artifacts published"
+  },
+  "initial_build_id": "01ff75e3-3086-4214-b7ec-a4ea134ee253",
+  "initial_build_failure": "Isolated snapshot lacked remote.origin.url; corrected to verified checkout origin before retry.",
+  "previous_build_id": "609ff2b7-08cb-464f-a85e-2903dbffeabf",
+  "previous_build_failure": "ISO passed; QEMU report export driver used one Tab despite new accessible Show more control. Updated to two Tabs and verified native traversal regression.",
+  "snapshot_files_matching_checkout": 253,
+  "cloud_build_url": "https://console.cloud.google.com/cloud-build/builds/da8f1338-7acb-4824-af55-9a3faf3217b4?project=368895881889"
+}

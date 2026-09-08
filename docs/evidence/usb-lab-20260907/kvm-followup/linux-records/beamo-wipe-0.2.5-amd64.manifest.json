@@ -1,0 +1,105 @@
+{
+  "_manifest_sha256": "166b94742338b3cfa243e5dbd25e8bdfbf1f9bb7d63953fdf5406dd6b9a51407",
+  "artifact": {
+    "iso_name": "beamo-wipe-0.2.5-amd64.iso",
+    "iso_path": "beamo-wipe-0.2.5-amd64.iso",
+    "iso_sha256": "353cb19aafb5526574bc2c58029c8986c9a313be6c70314906392f03541dda19",
+    "iso_sha256_sidecar": "beamo-wipe-0.2.5-amd64.iso.sha256",
+    "iso_size_bytes": 563085312
+  },
+  "beamo_wipe_version": "0.2.5",
+  "build": {
+    "build_commands": [
+      "./scripts/build-iso.sh",
+      "packaging/live/inside-docker.sh lb config && lb build"
+    ],
+    "built_at": "2026-09-07T21:06:36.198138Z",
+    "container_image": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+    "github_runner_image": "unknown",
+    "runner": "unknown"
+  },
+  "dependencies": {
+    "NOTICE": "7e7be71c6c10d2ef5400841f9f072342d4d73029439245b07d87401bafbab6f5",
+    "THIRD_PARTY.md": "25bca1ed327ef09760545ae89f2071ee78abcd2c9a4df00fb2115b27bc2330a3",
+    "pyproject.toml": "30908fac1b3a325a66f1145b6312efbbc49b62c923c6258060db7c6f4ad02adc"
+  },
+  "hardware_limits": {
+    "degraded": [
+      "SSD overwrite is controller-dependent (not a lab cert)",
+      "800x600 requires scroll, HiDPI 144 un-gated",
+      "USB-SATA bridges may present as sata",
+      "Secure Boot depends on firmware trust and revocations; signed Debian EFI components are included",
+      "Desktop restart requires one exact existing USB boot entry; otherwise use the boot menu"
+    ],
+    "supported": [
+      "x64 PCs (UEFI + Legacy BIOS) via USB-A/C, boot menu F12/Esc/F9",
+      "SATA HDD, SATA SSD, NVMe, virtio (QEMU), eMMC (mmcblk0)",
+      "Resolutions 1024x740–1920x1080 @72 DPI, keyboard-only"
+    ],
+    "unsupported": [
+      "Apple Silicon, Chromebooks, RAID/dm-raid, network bdevs (nbd/iscsi/fc/nvmeof)",
+      "In-OS erase from Windows/macOS; automatic execution on USB insertion"
+    ]
+  },
+  "known_issues": [
+    "Physical Windows/Linux desktop-to-USB handoff and hardware Secure Boot acceptance remain required (see docs/desktop-entry-design.md)",
+    "QEMU TCG on Apple silicon is slow; use Cloud Build or x86_64 KVM (see docs/vm-test.md)",
+    "eMMC boot partitions (mmcblk0boot0) hidden; eMMC-only recycle shows single selectable"
+  ],
+  "license": {
+    "notice": "NOTICE",
+    "nwipe": "GPL-2.0",
+    "source": "https://github.com/BeamoINT/beamo-wipe",
+    "third_party": "THIRD_PARTY.md",
+    "wrapper": "GPL-3.0-or-later"
+  },
+  "live_build_inputs": {
+    "bootloaders/": "d673d7d9549464503cfc5b5bc85641395dcfbac31683ce98ce618497e8690744",
+    "desktop/": "7de1a1b2f1a10e49f5d635584f36eb79afc7ac2717b3310ef93268ce647f815f",
+    "helper/index.html": "8e8ab3a70c35d78078e1c92d63a5e49dc96a9d2bc3c0826761a1150694e73802",
+    "hooks/": "849db64680e0a8c2edf282a70ee225ce9b06f7c730b20cb323fbbe668d035428",
+    "hooks/normal/0500-build-nwipe.hook.chroot": "c1431484ba1f4625320b1d50962edb4bb086114d111587c87d0c764ec1827d6c",
+    "includes.binary/": "229f85385edbe18e6fe75162203524ca90af9e4ff6fdd51919f92ab44e5a7dc3",
+    "includes.chroot/": "b9ac3300201f23132cbddafef5a65abfa02080bc6cbe0f617db115494e3fb484",
+    "package-lists/beamo.list.chroot": "e66650ee919d678238ac40f13cdadd27718c1ddbf6daa4ace51d16c70a43536c",
+    "packaging/live/inside-docker.sh": "8aa05328edb2d765a080646fce1f5db177656641e8e5bf0de23f243e040fec6f",
+    "scripts/build-desktop.sh": "79b7465e2d458860fbad64b395c784ea026f769a73e737efdbdf5bd2268137ee",
+    "scripts/build-iso.sh": "16cf7e5503f3cb7d6c9f2a17fb3005cb9883ac2b23d3b1f60d8de55a25170735",
+    "scripts/build-usb-image.sh": "5e8945fafd8d8540fb9b0c57cd33efcc51e0a87e22f8d69d76cb01d1c9387ac8",
+    "scripts/ci-desktop.sh": "b1d849fa86632c965bcca729e40b305b9555e23da721875d91db9aff5b3c2e61",
+    "src/beamo_wipe/": "d316b07bec222d8e747bf12b4ee1fda2ab95cfe8cae3c8c148eacb3e71c363ad"
+  },
+  "nwipe": {
+    "commit": "6082bde060091e66365d852a1877f2ee80c67105",
+    "pinned_path": "/usr/lib/beamo-wipe/nwipe",
+    "source": "https://github.com/martijnvanbrummelen/nwipe",
+    "version": "0.42"
+  },
+  "prior_stable": {
+    "commit": "5b3b7afa6c448ee01269c9497c1c93e8e83733c1",
+    "iso_name": "beamo-wipe-0.2.0-amd64.iso",
+    "sha256": "62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74",
+    "version": "0.2.0"
+  },
+  "rollback": "git checkout 5b3b7afa6c448ee01269c9497c1c93e8e83733c1 or git revert <commit> to prior ISO beamo-wipe-0.2.0-amd64.iso",
+  "schema_version": 1,
+  "source": {
+    "branch": "HEAD",
+    "commit": "f7b6490036d62281e2133da642557cee6710f081",
+    "dirty": false,
+    "dirty_count": 0,
+    "remote_url": "https://github.com/BeamoINT/beamo-wipe",
+    "tag": null
+  },
+  "test_evidence": {
+    "preview": "BEAMO_WIPE_NO_OPEN=1 ./preview --web (web-preview/index.html) + ./preview --console",
+    "pytest": "see cloudbuild.yaml python-tests (xvfb 72 DPI, BEAMO_WIPE_DRY_RUN=1)",
+    "qemu": "see docs/qemu-verify.md and cloudbuild.yaml qemu-verify (disposable qcow2)"
+  },
+  "verification": {
+    "artifact_immutability": "verification is ephemeral unless the explicit post-QEMU release gate writes a unique build path",
+    "checksum_instructions": "cd dist && sha256sum -c beamo-wipe-0.2.5-amd64.iso.sha256",
+    "reproducibility": "live-build is not bit-reproducible due to apt timestamps; use SHA256 and source commit for traceability",
+    "signing": "not configured; SHA256 detects corruption but does not authenticate the publisher"
+  }
+}

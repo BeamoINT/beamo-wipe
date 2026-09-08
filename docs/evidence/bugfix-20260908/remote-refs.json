@@ -1,0 +1,19 @@
+{
+  "verified_utc": "2026-09-08T02:41:35.009342+00:00",
+  "refs": {
+    "origin": {
+      "url": "https://github.com/BeamoINT/beamo-wipe.git",
+      "ref": "refs/heads/codex/bugfix-20260908",
+      "commit": "553a4a0cea1fa79b1a93fe341ce55b9c167976f2"
+    },
+    "cursor": {
+      "url": "https://origin.cursor.com/beamo/beamo-wipe.git",
+      "ref": "refs/heads/codex/bugfix-20260908",
+      "commit": "553a4a0cea1fa79b1a93fe341ce55b9c167976f2"
+    }
+  },
+  "writes_performed": [
+    "GitHub origin: HEAD -> refs/heads/codex/bugfix-20260908"
+  ],
+  "cursor_note": "Combined push rejected by automatic approval review. GitHub-only push approved and completed. Subsequent read-only check found matching branch already present on Cursor; no separate Cursor push executed."
+}

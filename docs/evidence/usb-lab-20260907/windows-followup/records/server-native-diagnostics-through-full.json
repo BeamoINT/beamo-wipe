@@ -1,0 +1,2191 @@
+[
+  {
+    "time": "2026-09-07T17:30:17.5363907-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:30:33.4894188-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:30:42.7550948-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:30:52.3175723-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:31:01.6302424-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:31:10.9425756-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:31:20.2551814-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:31:29.7082333-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:31:39.1457396-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:31:48.8645075-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:31:58.9113367-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:32:08.6925006-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:32:18.6145011-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:32:39.8644354-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:33:03.7789128-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE0&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE0",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:33:20.8843736-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE0&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE0",
+        "Service": "USBSTOR",
+        "Status": "Unknown",
+        "ConfigManagerErrorCode": 45
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:33:40.5600085-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:33:56.8257189-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE1&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE1",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:34:19.9976698-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE1&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE1",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:34:33.5131149-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABPROFILE2",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:34:44.7631496-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABPROFILE2",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:34:57.7944075-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Attached SCSI (UAS) Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0003\\MSFT30USBLABPROFILE2",
+        "Service": "UASPStor",
+        "Status": "Error",
+        "ConfigManagerErrorCode": 10
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:35:09.1381607-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:35:20.5442854-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:35:32.5911889-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:35:42.8725069-07:00",
+    "pnp": [
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:35:57.4193008-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:36:12.7722992-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE0&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE0",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:36:26.0828513-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE0&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE0",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:36:38.5217308-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE1&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE1",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  },
+  {
+    "time": "2026-09-07T17:36:53.8028258-07:00",
+    "pnp": [
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABPROFILE1&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\USBLABCANARY&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABCANARY",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\USBLABPROFILE1",
+        "Service": "USBSTOR",
+        "Status": "Unknown",
+        "ConfigManagerErrorCode": 45
+      },
+      {
+        "Name": "USB Root Hub (USB 3.0)",
+        "PNPDeviceID": "USB\\ROOT_HUB30\\4&10DC1CB6&0&0",
+        "Service": "USBHUB3",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "QEMU QEMU HARDDISK USB Device",
+        "PNPDeviceID": "USBSTOR\\DISK&VEN_QEMU&PROD_QEMU_HARDDISK&REV_2.5+\\PROBESEED&0",
+        "Service": "disk",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Mass Storage Device",
+        "PNPDeviceID": "USB\\VID_46F4&PID_0001\\PROBESEED",
+        "Service": "USBSTOR",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Input Device",
+        "PNPDeviceID": "USB\\VID_0627&PID_0001\\28754-0000:00:03.0-5",
+        "Service": "HidUsb",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      },
+      {
+        "Name": "USB Root Hub",
+        "PNPDeviceID": "USB\\ROOT_HUB20\\4&11FBED1F&0",
+        "Service": "usbhub",
+        "Status": "OK",
+        "ConfigManagerErrorCode": 0
+      }
+    ],
+    "drivers": [
+      {
+        "Name": "UASPStor",
+        "State": "Stopped",
+        "Started": false,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBSTOR",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      },
+      {
+        "Name": "USBXHCI",
+        "State": "Running",
+        "Started": true,
+        "StartMode": "Manual"
+      }
+    ]
+  }
+]

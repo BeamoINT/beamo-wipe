@@ -1,47 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Fullscreen Tk wizard. Huge type, one primary button, keyboard-first.
+"""Fullscreen Tk wizard with a quiet, consistent utility design.
 
-This module is a small design system on plain Tk (no themes): tokens,
-canvas-drawn rounded components (buttons, cards, chips, pills, panels,
-progress bars, key-caps, a countdown ring), flat chrome, and canvas icons.
-The one image asset is the Beamo brand mark (assets/logo-*.png), since Tk
-cannot draw the SVG source; if the files are missing the drawn fallback
-emblem is used instead. Every screen is built from the same components so
-the wizard looks and behaves consistently on the live USB (Linux Tk +
-DejaVu) and in ./preview.
-
-The visual language is deliberately calm and flat: old laptop panels in
-bright rooms wash out heavy shadows and gradients, and a first-time user
-needs hierarchy from spacing and type, not ornament.
-
-Design rules:
-- One card pattern: white, rounded, hairline border, flat. A single soft
-  multi-layer shadow is reserved for the hero surface on a screen (the
-  bullet card, the owner checkbox, the confirm entry, the disk summary);
-  stacked list rows stay calm so lists scan cleanly.
-- One selectable pattern: radio/checkbox card; selected = primary tint +
-  primary ring + a soft primary halo; hover = alt surface; keyboard
-  focus = focus ring.
-- One alert pattern: filled badge icon + text (warn / danger / info).
-- One pill pattern: rounded chip for statuses that must scan at a glance
-  (disk kind, the boot-device warning, the token-match state).
-- One status pattern: tinted halo badge, title, message (blocked/empty/
-  done).
-- One screen-header pattern: a bold ink title at a standard rhythm,
-  optional muted subtitle, no ornament. Identifiers (serials, paths)
-  render in readable mono.
-- Chrome is white and quiet: a slim header (transparent brand mark +
-  wordmark left, step label right), a hairline progress strip, and a
-  single-row footer (secondary actions left, key-hints centered, primary
-  action right).
-- Content is vertically centered in the body so no screen reads as an
-  unfinished white field; scrolling lists keep their own expansion.
-- The splash is the quiet product open: a plain white field with no
-  chrome, the navy-on-transparent brand mark sitting directly on the
-  field, large simple type, and exactly one action (the primary
-  Continue pill). The any-key shortcut is a caption, not a second
-  competing affordance.
-- Keyboard affordances are drawn as quiet key-caps, not buried in prose.
+White canvas, navy identity, amber step progress, and restrained blue actions.
+Flat surfaces and modest corners keep attention on disk identity and the next
+step. Red is reserved for destructive actions and failures. Keyboard focus
+always has a visible ring; details use the same controls as navigation.
+The web gallery and offline helper mirror these tokens. Native system fonts
+keep the live USB self-contained and readable without network dependencies.
 """
 
 from __future__ import annotations
@@ -76,21 +41,21 @@ from beamo_wipe.wizard import COUNTDOWN_S, ReportView, Wizard, format_progress_p
 # comes from spacing, type, and the navy/amber brand accents, not tint.
 BG = "#FFFFFF"
 SURFACE = "#FFFFFF"
-SURFACE_ALT = "#F4F6FB"
-INK = "#0C1728"
-MUTED = "#47536B"
-BORDER = "#DCE2EC"
+SURFACE_ALT = "#F3F5F7"
+INK = "#182635"
+MUTED = "#4C5B6B"
+BORDER = "#D8DFE6"
 # Strong border: also the unchecked radio/checkbox/key-cap outline, so it
 # must stay >= 3:1 on every surface (WCAG non-text contrast).
-BORDER_STRONG = "#74839F"
+BORDER_STRONG = "#758292"
 NAVY = "#0A1B34"
 NAVY_SOFT = "#16315C"
 NAVY_MUTED = "#C9D6E8"
 NAVY_DEEP = "#071426"  # fallback emblem platter
-PRIMARY = "#1D4ED8"
-PRIMARY_DARK = "#1A41B8"
-PRIMARY_PRESS = "#16337F"
-PRIMARY_TINT = "#E9EFFC"
+PRIMARY = "#244A73"
+PRIMARY_DARK = "#1B395B"
+PRIMARY_PRESS = "#122A45"
+PRIMARY_TINT = "#EDF3F8"
 DANGER = "#B3261E"
 DANGER_DARK = "#8E1D16"
 DANGER_PRESS = "#6E1510"
@@ -116,7 +81,7 @@ PREVIEW_FG = "#0A1B34"
 
 CONTENT_W = 940
 WRAP = CONTENT_W - 72
-RADIUS = 14
+RADIUS = 8
 PILL = 999  # _rr_points clamps to half the shape: fully rounded ends
 SHADOW_H = 8
 HALO_INSET = 5  # canvas margin a haloed _Box reserves for its glow
@@ -553,7 +518,7 @@ class _Box(tk.Canvas):
 class _Button(tk.Canvas):
     """Canvas button: identical rendering on Linux Tk and macOS preview.
 
-    Buttons are flat pills: filled primary/danger, bordered white secondary,
+    Buttons are flat rounded rectangles: filled primary/danger, bordered white secondary,
     quiet ghost. All enabled buttons show a focus ring on keyboard focus, a
     hover shade under the pointer, and a darker press shade while held, so
     the control always answers the user.
@@ -592,7 +557,7 @@ class _Button(tk.Canvas):
         if large:
             pad_x, pad_y = 34, 14
         else:
-            pad_x, pad_y = (16, 6) if compact else (24, 10)
+            pad_x, pad_y = (12, 3) if compact else (24, 10)
         width = max(min_width, font.measure(text) + 2 * pad_x + 6)
         height = font.metrics("linespace") + 2 * pad_y + 6 + self._RING_GAP
         super().__init__(
@@ -614,9 +579,8 @@ class _Button(tk.Canvas):
         self.bind("<ButtonRelease-1>", self._release)
         self.bind("<Enter>", self._enter)
         self.bind("<Leave>", self._leave)
-        # Space activates the focused control. Return/KP_Enter deliberately
-        # stay unbound here so Enter always means "this screen's primary
-        # action" via the gated global handler, no matter where focus sits.
+        # Space activates the focused control. Return/KP_Enter use the
+        # global repeat gate; on Last chance it also respects button focus.
         self.bind("<space>", self._key)
         self.bind("<FocusIn>", self._focus_in)
         self.bind("<FocusOut>", self._focus_out)
@@ -639,11 +603,11 @@ class _Button(tk.Canvas):
         body_bottom = self._bh - 1 - self._RING_GAP
         if self._focused and self._enabled:
             _round_rect(
-                self, 1, 1, self._bw - 1, body_bottom + 2, PILL,
+                self, 1, 1, self._bw - 1, body_bottom + 2, RADIUS + 2,
                 fill=ring, outline="", tags="rr",
             )
         _round_rect(
-            self, 3, 3, self._bw - 3, body_bottom, PILL,
+            self, 3, 3, self._bw - 3, body_bottom, RADIUS,
             fill=fill or "", outline=outline or "", width=1 if outline else 0,
             tags="rr",
         )
@@ -809,7 +773,7 @@ class TkWizard:
         self.w = wizard
         self.root = tk.Tk()
         self.root._tk_wizard = self  # type: ignore[attr-defined]
-        # Pin 1pt = 1px. The layout geometry below is fixed pixels (content
+        # Set the geometry scale; fonts below use explicit pixel sizes. The layout geometry below is fixed pixels (content
         # column, minimum window, countdown ring), so point-sized fonts must
         # not float with the X server's reported DPI — on a 100+ DPI panel
         # every screen would render ~1.4x larger than designed and clip.
@@ -828,30 +792,33 @@ class TkWizard:
             self.root.geometry("1280x820")
         family = _family(self.root)
         mono = _mono_family(self.root)
+        # Negative Tk font sizes are pixels. Tk 9 on macOS can adjust its
+        # point scale after mapping a window; pixel sizes keep text and our
+        # fixed geometry in agreement on both the live USB and local preview.
         # One deliberate type scale: a strong title step, calm body sizes,
         # and small quiet meta steps. Hierarchy comes from the steps between
         # sizes, not from making everything big.
-        self.font_hero = tkfont.Font(root=self.root, family=family, size=64, weight="bold")
-        self.font_h = tkfont.Font(root=self.root, family=family, size=34, weight="bold")
-        self.font_lead = tkfont.Font(root=self.root, family=family, size=18)
-        self.font_b = tkfont.Font(root=self.root, family=family, size=16)
-        self.font_bold = tkfont.Font(root=self.root, family=family, size=16, weight="bold")
+        self.font_hero = tkfont.Font(root=self.root, family=family, size=-52, weight="bold")
+        self.font_h = tkfont.Font(root=self.root, family=family, size=-30, weight="bold")
+        self.font_lead = tkfont.Font(root=self.root, family=family, size=-18)
+        self.font_b = tkfont.Font(root=self.root, family=family, size=-16)
+        self.font_bold = tkfont.Font(root=self.root, family=family, size=-16, weight="bold")
         # The size is the first thing owners scan for on a disk row; it gets
         # its own step on the scale so it wins the row without shouting.
-        self.font_size_big = tkfont.Font(root=self.root, family=family, size=20, weight="bold")
-        self.font_s = tkfont.Font(root=self.root, family=family, size=14)
-        self.font_s_bold = tkfont.Font(root=self.root, family=family, size=14, weight="bold")
-        self.font_tiny = tkfont.Font(root=self.root, family=family, size=12, weight="bold")
-        self.font_meta = tkfont.Font(root=self.root, family=family, size=12)
-        self.font_btn = tkfont.Font(root=self.root, family=family, size=17, weight="bold")
-        self.font_mono = tkfont.Font(root=self.root, family=mono, size=14)
+        self.font_size_big = tkfont.Font(root=self.root, family=family, size=-20, weight="bold")
+        self.font_s = tkfont.Font(root=self.root, family=family, size=-14)
+        self.font_s_bold = tkfont.Font(root=self.root, family=family, size=-14, weight="bold")
+        self.font_tiny = tkfont.Font(root=self.root, family=family, size=-12, weight="bold")
+        self.font_meta = tkfont.Font(root=self.root, family=family, size=-12)
+        self.font_btn = tkfont.Font(root=self.root, family=family, size=-16, weight="bold")
+        self.font_mono = tkfont.Font(root=self.root, family=mono, size=-14)
         # Serials are the safety disambiguator (the confirm token and the
         # same-size warning both point at them): bold mono, never buried.
-        self.font_mono_bold = tkfont.Font(root=self.root, family=mono, size=14, weight="bold")
-        self.font_mono_sm = tkfont.Font(root=self.root, family=mono, size=13)
-        self.font_entry = tkfont.Font(root=self.root, family=mono, size=26, weight="bold")
-        self.font_stat = tkfont.Font(root=self.root, family=family, size=56, weight="bold")
-        self.font_brand = tkfont.Font(root=self.root, family=family, size=16, weight="bold")
+        self.font_mono_bold = tkfont.Font(root=self.root, family=mono, size=-14, weight="bold")
+        self.font_mono_sm = tkfont.Font(root=self.root, family=mono, size=-13)
+        self.font_entry = tkfont.Font(root=self.root, family=mono, size=-26, weight="bold")
+        self.font_stat = tkfont.Font(root=self.root, family=family, size=-56, weight="bold")
+        self.font_brand = tkfont.Font(root=self.root, family=family, size=-16, weight="bold")
         # The brand mark ships as PNGs (Tk cannot draw the SVG source).
         # Bound to this app's root explicitly: tests run several roots per
         # process, and an unbound PhotoImage dies with the first root.
@@ -989,13 +956,13 @@ class TkWizard:
             text=C.APP_NAME, font=self.font_brand, fill=INK,
         )
         # The screen title below names the step; the header only carries
-        # quiet progress text ("STEP 3 OF 8"), never a duplicate title.
+        # quiet progress text ("Step 3 of 8"), never a duplicate title.
         step = _STEP_ORDER.get(self.w.screen, (0, "", ""))
         label = step[1]
         if label:
             cv.create_text(
                 width - 24, mid, anchor="e",
-                text=label.upper(), font=self.font_tiny, fill=MUTED,
+                text=label, font=self.font_meta, fill=MUTED,
             )
 
     def _draw_strip(self) -> None:
@@ -1267,19 +1234,11 @@ class TkWizard:
             )
 
     def _center_zone(self, col: tk.Frame) -> tk.Frame:
-        """A vertically centered content band between title and footer.
-
-        Short content floating at the top of a tall white body reads as
-        unfinished; equal spacers above and below put the content in the
-        optical middle instead. Scrolling lists keep their own expansion
-        and do not use this.
-        """
+        """Keep supporting content close to its heading, with room below."""
         zone = tk.Frame(col, bg=BG)
         zone.pack(fill=tk.BOTH, expand=True)
-        tk.Frame(zone, bg=BG).pack(fill=tk.BOTH, expand=True)
         content = tk.Frame(zone, bg=BG)
-        content.pack(fill=tk.X)
-        tk.Frame(zone, bg=BG).pack(fill=tk.BOTH, expand=True)
+        content.pack(fill=tk.X, pady=(8, 0))
         return content
 
     def _chip(self, parent: tk.Widget, text: str, *, fg: str, bg: str) -> _Box:
@@ -1332,7 +1291,7 @@ class TkWizard:
             "info": (SURFACE_ALT, BORDER),
         }
         bg, border = colors[kind]
-        box = _Box(parent, radius=12, fill=bg, outline=border, ow=1, padx=16, pady=13)
+        box = _Box(parent, radius=RADIUS, fill=bg, outline=border, ow=1, padx=16, pady=13)
         row = tk.Frame(box.inner, bg=bg)
         row.pack(fill=tk.X)
         icon = _icon_alert(row, kind, 28)
@@ -1399,65 +1358,76 @@ class TkWizard:
         )
 
     def _more_link(self, parent: tk.Widget, *, bg: str = BG) -> bool:
-        """Optional extra detail on this screen. Not a new step."""
+        """Optional details use the shared, keyboard-accessible control."""
         open_ = self._show_more
-        link = tk.Label(
-            parent,
-            text=C.BTN_LESS if open_ else C.BTN_MORE,
-            font=self.font_s_bold,
-            fg=PRIMARY,
-            bg=bg,
-            cursor="hand2",
-            anchor="w",
-        )
-        link.pack(anchor="w", pady=(8, 0))
 
-        def toggle(_event=None) -> str:
+        def toggle() -> None:
             self._show_more = not self._show_more
             self._draw()
-            return "break"
+            # Rebuilding destroys the old control. Keep keyboard users at
+            # the disclosure rather than moving them to Continue.
+            self._more_button.focus_set()
 
-        link.bind("<Button-1>", toggle)
+        self._more_button = _Button(
+            parent, text=C.BTN_LESS if open_ else C.BTN_MORE,
+            command=toggle, font=self.font_s_bold, variant="ghost", compact=True,
+        )
+        self._more_button.pack(anchor="w", pady=(4, 0))
         return open_
 
+    def _wrapping_label(self, parent: tk.Widget, text: str, *, font, bg: str,
+                        fg: str = INK) -> tk.Label:
+        """Wrap the full identity to its allocated width, never ellipsize it.
+
+        Card interiors are canvas windows. Their width settles after layout,
+        so a fixed wrap length still clips valid long models and serials.
+        Observe the allocated parent width without feeding the label's
+        requested width back into the layout.
+        """
+        label = tk.Label(parent, text=text, font=font, fg=fg, bg=bg,
+                         anchor="w", justify=tk.LEFT, wraplength=WRAP - 180)
+        def fit(event) -> None:
+            width = max(1, event.width - 4)
+            if int(label.cget("wraplength")) != width:
+                label.configure(wraplength=width)
+        parent.bind("<Configure>", fit, add="+")
+        label.pack(fill=tk.X)
+        return label
+
+    def _disk_heading(self, parent: tk.Widget, disk: Disk, bg: str) -> None:
+        # Reserve capacity before the expandable model column; long names
+        # must not push the capacity or type out of the card.
+        top = tk.Frame(parent, bg=bg)
+        top.pack(fill=tk.X)
+        tk.Label(top, text=disk.size_phrase, font=self.font_size_big,
+                 fg=INK, bg=bg, anchor="e").pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
+        name = tk.Frame(top, bg=bg)
+        name.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._wrapping_label(name, disk.display_name, font=self.font_bold, bg=bg)
+
     def _meta_line(self, parent: tk.Widget, disk: Disk, bg: str) -> tk.Frame:
-        """Characters they may type, then optional bus · path behind Show more."""
+        """Full serial on its own line, followed by optional connection/path."""
         meta = tk.Frame(parent, bg=bg)
-        serial = disk.serial or C.NO_CODE
-        tk.Label(meta, text=serial, font=self.font_mono_bold, fg=INK, bg=bg).pack(
-            side=tk.LEFT
-        )
+        if C.kind_label(disk.kind):
+            tk.Label(meta, text=C.kind_label(disk.kind), font=self.font_s,
+                     fg=MUTED, bg=bg, anchor="e").pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
+        identity = tk.Frame(meta, bg=bg)
+        identity.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._wrapping_label(identity, disk.serial or C.NO_CODE,
+                             font=self.font_mono_bold, bg=bg)
         if self._show_more:
-            tk.Label(meta, text="·", font=self.font_s, fg=BORDER_STRONG, bg=bg).pack(
-                side=tk.LEFT, padx=6
-            )
-            tk.Label(meta, text=disk.bus, font=self.font_s, fg=MUTED, bg=bg).pack(
-                side=tk.LEFT
-            )
-            tk.Label(meta, text="·", font=self.font_s, fg=BORDER_STRONG, bg=bg).pack(
-                side=tk.LEFT, padx=6
-            )
-            tk.Label(
-                meta, text=disk.path, font=self.font_mono_sm, fg=MUTED, bg=bg
-            ).pack(side=tk.LEFT)
+            self._wrapping_label(identity, f"{disk.bus}    {disk.path}",
+                                 font=self.font_mono_sm, fg=MUTED, bg=bg)
         return meta
 
     def _disk_summary(self, parent: tk.Widget, disk: Disk) -> _Box:
         """The selected disk, shown the same way on confirm, working, and done."""
         box = _Box(
             parent, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=20, pady=16, shadow=True,
+            padx=20, pady=16, shadow=False,
         )
         inner = box.inner
-        top = tk.Frame(inner, bg=SURFACE)
-        top.pack(fill=tk.X)
-        tk.Label(
-            top, text=disk.display_name, font=self.font_bold, fg=INK, bg=SURFACE, anchor="w"
-        ).pack(side=tk.LEFT)
-        self._kind_chip(top, disk)
-        tk.Label(
-            top, text=disk.size_phrase, font=self.font_size_big, fg=INK, bg=SURFACE, anchor="e"
-        ).pack(side=tk.RIGHT)
+        self._disk_heading(inner, disk, SURFACE)
         self._meta_line(inner, disk, SURFACE).pack(fill=tk.X, pady=(4, 0))
         return box
 
@@ -1472,20 +1442,21 @@ class TkWizard:
         body. Buttons pack into ``row._left`` / ``row._right``."""
         assert self._footer is not None
         col = self._column(self._footer, fill_height=False)
-        if self.w.can_open_diagnostic:
-            tk.Button(col, text="Diagnostic report", font=self.font_s,
-                      command=self._nav(self.w.open_diagnostic), takefocus=True).pack(anchor="w", pady=(0, 3))
+        tools = tk.Frame(col, bg=BG)
+        tools.pack(fill=tk.X, pady=(0, 4))
+
+        def utility(text: str, command: Callable[[], None]) -> None:
+            _Button(tools, text=text, font=self.font_s, command=command,
+                    variant="ghost", compact=True).pack(side=tk.LEFT, padx=(0, 4))
+
         if self.w.can_refresh:
-            modes = tk.Frame(col, bg=BG)
-            modes.pack(fill=tk.X, pady=(0, 3))
-            tk.Button(modes, text="Check disks again (F5)", font=self.font_s,
-                      command=self._click_refresh, takefocus=True).pack(side=tk.LEFT)
+            utility("Check disks again (F5)", self._click_refresh)
             if self.w.can_open_report_help:
-                tk.Button(modes, text=C.REPORT_HELP_TITLE, font=self.font_s,
-                          command=self._nav(self.w.open_report_help), takefocus=True).pack(side=tk.LEFT, padx=8)
+                utility(C.REPORT_HELP_TITLE, self._nav(self.w.open_report_help))
             if sys.platform.startswith("linux"):
-                tk.Button(modes, text="Screen-reader view (F8)", font=self.font_s,
-                          command=self._click_accessible, takefocus=True).pack(side=tk.LEFT, padx=8)
+                utility("Screen-reader view (F8)", self._click_accessible)
+        if self.w.can_open_diagnostic:
+            utility("Diagnostic report", self._nav(self.w.open_diagnostic))
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
         row = tk.Frame(col, bg=BG)
         row.pack(fill=tk.X, pady=(12, 16))
@@ -1604,7 +1575,7 @@ class TkWizard:
         zone = self._center_zone(col)
         card = _Box(
             zone, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=24, pady=20, shadow=True,
+            padx=24, pady=20, shadow=False,
         )
         card.pack(fill=tk.X)
         for i, bullet in enumerate(C.WHAT_BULLETS):
@@ -1642,7 +1613,7 @@ class TkWizard:
             padx=22,
             pady=20,
             ring=True,
-            halo=checked,
+            halo=False,
         )
         card.pack(fill=tk.X)
         card.configure(cursor="hand2", takefocus=1)
@@ -1699,7 +1670,7 @@ class TkWizard:
             fill, outline, ow = SURFACE, BORDER, 1
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=ow,
-            padx=18, pady=15, halo=selected and not disk.is_boot,
+            padx=18, pady=15, halo=False,
         )
         card.pack(fill=tk.X, pady=(0, 10), padx=4)
         inner = card.inner
@@ -1713,15 +1684,7 @@ class TkWizard:
         icon.pack(side=tk.LEFT, anchor="n", pady=1)
         title_col = tk.Frame(top, bg=fill)
         title_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
-        title_row = tk.Frame(title_col, bg=fill)
-        title_row.pack(fill=tk.X)
-        tk.Label(
-            title_row, text=disk.display_name, font=self.font_bold, fg=INK, bg=fill, anchor="w"
-        ).pack(side=tk.LEFT)
-        self._kind_chip(title_row, disk)
-        tk.Label(
-            title_row, text=disk.size_phrase, font=self.font_size_big, fg=INK, bg=fill, anchor="e"
-        ).pack(side=tk.RIGHT)
+        self._disk_heading(title_col, disk, fill)
         self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(4, 0))
         if disk.is_boot:
             banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
@@ -1806,7 +1769,12 @@ class TkWizard:
         items: List = sorted(self.w.selectable, key=lambda d: d.path)
         for disk in items:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
-            self._pick_cards[disk.path] = self._disk_row(cards, disk, selected)
+            card = self._disk_row(cards, disk, selected)
+            self._pick_cards[disk.path] = card
+            # Wrapped identities can reposition a row after the canvas's
+            # total bounds have settled. Restore on row geometry too, so a
+            # keyboard-selected disk remains visible through that last pass.
+            card.bind("<Configure>", _stretch, add="+")
         self._pick_canvas = canvas
         # Restore only inside a short post-rebuild window. Row boxes and the
         # footer resolve their heights over several Configure/idle passes and
@@ -1825,7 +1793,9 @@ class TkWizard:
             canvas.after(90, lambda: self._pick_restore_tick(gen)),
             canvas.after(180, lambda: self._pick_restore_tick(gen, final=True)),
         ]
-        self._other_devices(col, before=list_wrap)
+        # Keep the informational inventory in the same scrolling region.
+        # It must not consume the picker viewport on short laptop screens.
+        self._other_devices(cards)
         row = self._footer_shell(C.HINT_PICK)
         back = self._back_btn(row)
         can = self.w.selected is not None and not self.w.selected.is_boot
@@ -1842,8 +1812,10 @@ class TkWizard:
         self._p(section, inventory.TITLE, font=self.font_s_bold).pack(fill=tk.X)
         frame = tk.Frame(section, bg=BG)
         frame.pack(fill=tk.X, pady=(4, 8))
-        reader = tk.Text(frame, height=4, wrap=tk.WORD, font=self.font_s,
-                         takefocus=True, bg=SURFACE, fg=INK)
+        reader = tk.Text(frame, height=2, wrap=tk.WORD, font=self.font_s,
+                         takefocus=True, bg=SURFACE_ALT, fg=INK, relief=tk.FLAT,
+                         bd=0, padx=12, pady=8, highlightthickness=1,
+                         highlightbackground=BORDER, highlightcolor=FOCUS)
         setattr(reader, "_beamo_inventory", True)
         def read_key(event):
             delta = {"Up": -1, "Down": 1, "Prior": -3, "Next": 3}.get(event.keysym, 0)
@@ -2009,8 +1981,8 @@ class TkWizard:
         self._panel(zone, kind="warn", text=self.w.warning_text()).pack(fill=tk.X, pady=(12, 0))
         self._p(zone, spec.prompt, font=self.font_b).pack(fill=tk.X, pady=(14, 8))
         shell = _Box(
-            zone, radius=12, fill=SURFACE, outline=BORDER_STRONG, ow=1,
-            padx=16, pady=10, ring=True, shadow=True,
+            zone, radius=RADIUS, fill=SURFACE, outline=BORDER_STRONG, ow=1,
+            padx=16, pady=10, ring=True, shadow=False,
         )
         shell.pack(fill=tk.X)
         entry = tk.Entry(
@@ -2116,7 +2088,7 @@ class TkWizard:
         outline = PRIMARY if selected else BORDER
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
-            padx=18, pady=13, halo=selected,
+            padx=18, pady=13, halo=False,
         )
         card.pack(fill=tk.X, pady=(0, 10), padx=4)
         inner = card.inner
@@ -2185,9 +2157,9 @@ class TkWizard:
         # 1024x740 minimum window with the footer fully visible.
         self._title_block(col, C.TITLE_METHOD, C.METHOD_LEAD, compact=True)
         self._p(col, self.w.storage_notice, font=self.font_s, fg=INK).pack(fill=tk.X)
-        tk.Button(
+        _Button(
             col, text=limits.BUTTON, command=self._nav(self.w.open_limits),
-            takefocus=True, font=self.font_s_bold,
+            font=self.font_s_bold, variant="ghost", compact=True,
         ).pack(anchor="w", pady=(4, 4))
         zone = self._center_zone(col)
         for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
@@ -2304,7 +2276,7 @@ class TkWizard:
             zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center", justify=tk.CENTER
         )
         self._countdown_label.pack(fill=tk.X, pady=(12, 0))
-        row = self._footer_shell(C.HINT_LAST_CHANCE)
+        row = self._footer_shell(C.HINT_LAST_CHANCE_TK)
         back = self._back_btn(row)
         self._primary_btn(
             row,
@@ -2507,7 +2479,7 @@ class TkWizard:
         zone = self._center_zone(col)
         card = _Box(
             zone, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=20, pady=12, shadow=True,
+            padx=20, pady=12, shadow=False,
         )
         card.pack(fill=tk.X)
         for i, spec in enumerate(METHODS.values()):
@@ -2679,6 +2651,10 @@ class TkWizard:
         self._return_release_time = None
         screen = self.w.screen
         before = screen
+        focused = self.root.focus_get()
+        if isinstance(focused, _Button) and focused._variant == "ghost" and focused._enabled:
+            focused._command()
+            return "break"
         if screen == Screen.SHUTDOWN_CONFIRM:
             self.w.keep_report_session()
         elif screen == Screen.SPLASH:
@@ -2693,8 +2669,14 @@ class TkWizard:
             self.w.continue_confirm()
         elif screen == Screen.METHOD:
             self.w.continue_method()
-        elif screen == Screen.LAST_CHANCE and self.w.erase_enabled:
-            self._click_erase()
+        elif screen == Screen.LAST_CHANCE:
+            # Back holds the safe default focus on this destructive screen.
+            # Enter must activate that visible control, never bypass it to
+            # erase. Disabled/stale controls and absent focus do nothing.
+            focused = self.root.focus_get()
+            if isinstance(focused, _Button) and focused._enabled:
+                if focused is not self._primary or self.w.erase_enabled:
+                    focused._command()
         elif screen == Screen.DONE:
             self.w.accept_done_keyboard()
         elif screen == Screen.ADVANCED:

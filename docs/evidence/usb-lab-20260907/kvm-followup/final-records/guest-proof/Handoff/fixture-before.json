@@ -1,0 +1,17 @@
+{
+    "source":  {
+                   "files":  {
+                                 "Start Beamo Wipe Linux":  "722b49d68194fb74083713fe47de5b9f8ae11aefbad36a4ab64b348ff105d9e1",
+                                 "Start Beamo Wipe.exe":  "28216efffdd1afea4bf573dc1c14ea3d12f30f603932d39dc223d36a059081f7"
+                             },
+                   "go":  "go1.26.5",
+                   "source_commit":  "22f40612bc9b4d0f6399951ed8828b4c16dbf848",
+                   "version":  "0.2.5"
+               },
+    "usbSerial":  "BEAMOBOOT",
+    "fixtureOnly":  true,
+    "computer":  "Standard PC (Q35 + ICH9, 2009)",
+    "bootOrderBefore":  "AQAEAAIAAAADAA==",
+    "partitionNumber":  1,
+    "entry":  "AQAAAF4AVQBTAEIAIABMAGEAYgAgAEUAeABhAGMAdAAgAEIAZQBhAG0AbwAgAEUAbgB0AHIAeQAAAAQBKgABAAAAAAgAAAAAAAAA+D8AAAAAAHUHq8kAAAAAAAAAAAAAAAABAQQEMABcAEUARgBJAFwAQgBPAE8AVABcAEIATwBPAFQAWAA2ADQALgBFAEYASQAAAH//BAA="
+}
