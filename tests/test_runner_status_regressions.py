@@ -18,6 +18,7 @@ def request(tmp_path):
 
 def test_invalid_lock_file_is_closed_once(tmp_path, monkeypatch):
     runner = NwipeRunner()
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     close = Mock()
     with monkeypatch.context() as patch:
         patch.setattr("beamo_wipe.nwipe_runner.os.open", lambda *a, **kw: 91)

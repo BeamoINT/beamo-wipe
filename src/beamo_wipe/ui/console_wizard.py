@@ -259,8 +259,13 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     if typed.strip().casefold() == "cancel":
                         print("Stopping erase. Waiting for process termination and cleanup.")
                         wizard.cancel_wipe()
-            except (OSError, ValueError):
+            except InterruptedError:
                 time.sleep(0.3)
+            except (OSError, ValueError) as exc:
+                # A closed/failed terminal cannot accept the advertised
+                # CANCEL command. Use the same stop-and-report recovery as
+                # EOF instead of silently polling an inaccessible erase.
+                raise EOFError from exc
             continue
         if screen == Screen.DONE:
             print(wizard.elapsed_text)

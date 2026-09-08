@@ -88,11 +88,11 @@ def test_poll_releases_only_its_own_run_lock(tmp_path, monkeypatch):
 
     runner = NwipeRunner(binary=str(tmp_path / "fake_engine"))
     runner._proc = FakeProc()
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     runner._acquire_wipe_lock(request)
     old_fd = runner._lock_fd
     new = FakeProc()
     new.returncode = None
-    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     monkeypatch.setattr("beamo_wipe.nwipe_runner.subprocess.Popen", lambda *a, **kw: new)
     monkeypatch.setattr(runner, "_read_log_tail", lambda *args: "vda | Erased |\n")
     release_entered, allow_release, started = threading.Event(), threading.Event(), threading.Event()
@@ -133,7 +133,7 @@ def test_poll_releases_only_its_own_run_lock(tmp_path, monkeypatch):
         assert not finishing.is_alive() and not starting.is_alive()
         assert not errors
         assert runner._proc is new
-        fd = os.open(new_dir / "wipe.lock", os.O_RDWR)
+        fd = os.open(tmp_path / "wipe.lock", os.O_RDWR)
         try:
             with pytest.raises(BlockingIOError):
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)

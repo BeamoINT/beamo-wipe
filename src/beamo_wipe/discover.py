@@ -830,6 +830,18 @@ def parse_lsblk_json(
             for d in disks
         ]
         boot = next((d for d in disks if d.path == boot.path), boot)
+    # lsblk can repeat a device in its dependency tree. Reconcile observations
+    # before filtering: otherwise a mounted/read-only copy disappears while a
+    # conflicting writable copy passes the final unique-target identity check.
+    observed_disks: Dict[str, Disk] = {}
+    for disk in disks:
+        canonical = os.path.realpath(disk.path)
+        previous = observed_disks.get(canonical)
+        if previous is not None and disk != previous:
+            raise ValueError("lsblk has conflicting observations for one disk")
+        observed_disks[canonical] = disk
+    # Retain even identical rows: final identity validation requires exactly
+    # one observation and must continue refusing an ambiguous target.
     selectable = tuple(d for d in disks if is_wipeable_disk(d))
     # Health reporting: empty selectable while boot is identified is fail-closed
     # but opaque. Distinguish "no disks on bus" from "all nodes hidden".
