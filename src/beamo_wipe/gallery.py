@@ -92,6 +92,11 @@ def gallery_html() -> str:
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
+        "journey": C.JOURNEY_LABELS,
+        "selectedDisk": C.SELECTED_DISK,
+        "serialLabel": C.SERIAL_LABEL,
+        "reviewCheck": C.REVIEW_CHECK,
+        "splashRoadmap": C.SPLASH_ROADMAP,
         "previewResults": {
             "ok": preview_view(True).payload(),
             "failed": preview_view(False).payload(),
@@ -281,6 +286,24 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .brandrow { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; }
   .brandchip { display: flex; align-items: center; justify-content: center; flex: none; }
   .brandchip svg { display: block; }
+  .journey { display: flex; flex: 1; max-width: 660px; list-style: none; margin: 0 24px; padding: 0; }
+  .journey li { flex: 1; position: relative; text-align: center; font-size: 12px; color: var(--muted); }
+  .journey li::before { content: ""; position: absolute; top: 10px; left: calc(50% + 13px); width: calc(100% - 26px); border-top: 1px solid var(--border); }
+  .journey li:last-child::before { display: none; }
+  .journey .number { display: block; width: 21px; height: 21px; line-height: 19px; margin: 0 auto 5px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface-alt); font-weight: 700; }
+  .journey [aria-current="step"] { color: var(--primary); }
+  .journey [aria-current="step"] .number { color: white; background: var(--primary); border-color: var(--primary); }
+  .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; margin-top: 8px; }
+  .review-grid .countcap { max-width: 260px; text-align: center; }
+  .review-warning { color: var(--danger); font-weight: 700; overflow-wrap: anywhere; }
+  .card.identity { background: var(--primary-tint); border-color: var(--primary); padding: 12px 20px; }
+  .identity-label { color: var(--primary); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .serialpair { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .serialpair .ser { min-width: 0; }
+  .serial-label { font-size: 12px; color: var(--muted); }
+  .splash-roadmap { font-size: 14px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
+  .pick-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 8px; }
+  .pick-tools .morelink { margin-top: 0; }
   .steptext { font-size: 12px; font-weight: 400; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; }
   .strip { height: 3px; background: var(--track); }
   .strip .sfill { height: 100%; background: var(--accent); width: 0; transition: width .25s ease; border-radius: 0 1.5px 1.5px 0; }
@@ -359,6 +382,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 26px; font-weight: 700; width: 100%; padding: 4px 0; border: 0; outline: none; background: transparent; color: var(--ink); }
   .match { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; margin: 12px 0 0; color: var(--muted); background: var(--surface-alt); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
   .match.ok { color: var(--ok); background: var(--ok-tint); border-color: var(--ok); }
+  .progress-card { padding: 16px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); }
+  .progress-label { font-size: 14px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
   .bigstat { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; min-height: 62px; }
   .bar { height: 14px; background: var(--track); border-radius: 7px; overflow: hidden; }
   .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 7px; transition: width .2s ease; }
@@ -424,7 +449,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .connection { grid-column: 1 / -1; }
   .card .meta .ser { display: block; }
   .page, .shell, .body, .col { min-width: 0; }
+  @media (max-width: 1000px) { .journey { display: none; } }
   @media (max-width: 700px) {
+    .review-grid { grid-template-columns: minmax(0, 1fr); }
+    .review-grid .ringwrap { padding: 12px 0; }
+    .pick-tools { flex-wrap: wrap; }
     .page { padding: 12px 8px 24px; }
     .body { padding: 0 16px 16px; }
     .hdr { padding: 0 16px; }
@@ -462,7 +491,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
   <div class="shell">
     <div class="preview-stripe" id="stripe"></div>
-    <div class="hdr"><div class="brandrow"><span class="brandchip">__LOGO_HEADER__</span><div id="brand"></div></div><span class="steptext" id="step"></span></div>
+    <div class="hdr"><div class="brandrow"><span class="brandchip">__LOGO_HEADER__</span><div id="brand"></div></div><ol class="journey" id="journey" aria-label="Erase steps"></ol><span class="steptext" id="step"></span></div>
     <div class="strip"><div class="sfill" id="sfill"></div></div>
     <div class="body" id="body"><div class="col" id="main"></div></div>
     <div class="foot" id="foot"><div class="utilities" id="utilities"></div><div class="footrow"><div class="fleft" id="btnsL"></div><div class="fhint" id="hint"></div><div class="fright" id="btnsR"></div></div></div>
@@ -596,12 +625,12 @@ function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function metaLine(d) {
-  return `<div class="meta"><span class="mono ser">${esc(d.serial)}</span>
+  return `<div class="meta"><span class="serialpair"><span class="serial-label">${P.serialLabel}</span><span class="mono ser">${esc(d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
     ${showMore ? `<div class="connection"><span>${esc(d.bus)}</span> <span class="mono dev">${esc(d.path)}</span></div>` : ""}</div>`;
 }
 function summaryCard(d) {
-  return `<div class="card hero"><div class="row" style="align-items:flex-start">
+  return `<div class="card hero identity"><div class="identity-label">${P.selectedDisk}</div><div class="row" style="align-items:flex-start">
     <div class="title grow">${esc(d.name)}</div>
     <div class="size">${esc(d.size)}</div></div>
     ${metaLine(d)}
@@ -612,7 +641,7 @@ function diskCard(d) {
   const cls = d.isBoot ? "card boot" : ("card pickable" + (sel ? " sel" : ""));
   const icon = d.isBoot ? `<span class="radio" style="border:0;background:none">${ICON_NO}</span>` : `<span class="radio"></span>`;
   // Use esc for attribute to prevent `"` breakout
-  return `<div class="${cls}" data-path="${esc(d.path)}" ${d.isBoot ? "" : 'tabindex="0" role="button"'}>
+  return `<div class="${cls}" data-path="${esc(d.path)}" ${d.isBoot ? "" : `tabindex="0" role="button" aria-pressed="${!!sel}"`}>
     <div class="row">${icon}
       <div class="grow">
         <div class="row" style="align-items:flex-start">
@@ -636,6 +665,8 @@ function refreshPreview() {
 function draw() {
   const info = stepInfo();
   const stepEl = document.getElementById("step");
+  document.getElementById("journey").innerHTML = info[0] ? P.journey.map((label, index) =>
+    `<li${index + 1 === info[0] ? ' aria-current="step"' : ''}><span class="number">${index + 1}</span>${esc(label)}</li>`).join("") : "";
   stepEl.textContent = info[1];
   stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
   document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
@@ -659,7 +690,7 @@ function draw() {
     main.innerHTML = `<div class="splashwrap">
       <div class="marktile">${EMBLEM}</div>
       <div class="wordmark">${P.app}</div>
-      <p class="splashlead">${P.splash}</p>
+      <p class="splashlead">${P.splash}</p><p class="splash-roadmap">${P.splashRoadmap}</p>
       <button class="btn primary" id="herogo">${P.buttons.continue}</button>
       <div class="anykeycap">${P.hints.splash}</div></div>`;
     main.querySelector("#herogo").onclick = () => { screen = "what"; draw(); };
@@ -699,7 +730,7 @@ function draw() {
     let html = `<h1 class="sub">${P.titles.pick}</h1><p class="subtitle">${P.pickSubtitle}</p>`;
     if (P.sameSizeConflict && mode === "happy") html += `<div style="margin-bottom:12px">${panel("warn", P.sameSize)}</div>`;
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd)}</div>`;
-    html += moreLink();
+    html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
     selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
@@ -720,9 +751,9 @@ function draw() {
       ${summaryCard(d)}
       ${moreLink()}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
-      <p style="font-size:16px;margin:14px 0 8px">${d.prompt}</p>
-      <div class="entryshell"><input class="token" id="tok" autocomplete="off" spellcheck="false"></div>
-      <p class="match" id="match"></p></div></div>`;
+      <p style="font-size:16px;margin:14px 0 8px"><label for="tok">${d.prompt}</label></p>
+      <div class="entryshell"><input class="token" id="tok" aria-describedby="match" autocomplete="off" spellcheck="false"></div>
+      <p class="match" id="match" role="status" aria-live="polite"></p></div></div>`;
     bindMore();
     const inp = main.querySelector("#tok");
     const matchEl = main.querySelector("#match");
@@ -748,7 +779,7 @@ function draw() {
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
-      html += `<div class="card pickable${sel ? " sel" : ""}" data-id="${id}" tabindex="0" role="button" style="padding-top:13px;padding-bottom:13px">
+      html += `<div class="card pickable${sel ? " sel" : ""}" data-id="${id}" tabindex="0" role="button" aria-pressed="${sel}" style="padding-top:9px;padding-bottom:9px;margin-bottom:8px">
         <div class="row"><span class="radio"></span>
           <div class="grow">
             <div class="title"><span class="kbd">${m.key}</span><span style="margin-left:10px">${m.title}</span>${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : ""}</div>
@@ -806,8 +837,8 @@ function draw() {
     const CIRC = 2 * Math.PI * 81;
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = ready ? "var(--ok)" : "var(--primary)";
-    main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>${panel("danger", selected.eraseLabel)}<p>${P.methods[method].summary}</p>
-      <div class="cz"><div class="czc"><div class="ringwrap"><div style="position:relative;width:190px;height:190px">
+    main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
+      <div class="review-grid"><div>${summaryCard(selected)}<p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p></div><div class="ringwrap"><div style="position:relative;width:190px;height:190px">
         <svg width="190" height="190" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--ok)" stroke-width="11"/>` :
@@ -815,7 +846,7 @@ function draw() {
               stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC * (1 - frac)}" transform="rotate(-90 95 95)"/>`}
         </svg>
         <div class="ringnum" style="${ready ? "color:var(--ok)" : ""}">${ready ? "✓" : tLeft}</div></div>
-      <div class="countcap${ready ? " ready" : ""}">${ready ? P.countdownReady : P.countdownCaption}</div></div></div></div>`;
+      <div class="countcap${ready ? " ready" : ""}">${ready ? P.countdownReady : P.countdownCaption}</div></div></div>`;
     btnsL.append(btn(P.buttons.back, () => { if (timer) clearInterval(timer); screen = "method"; draw(); }));
     btnsR.append(btn(P.buttons.erase, () => { if (tLeft<=0) startWork(); }, "danger", tLeft>0));
     renderHint(P.hints.lastChance);
@@ -828,9 +859,10 @@ function draw() {
       ${summaryCard(selected)}
       ${moreLink()}
       <div class="cz"><div class="czc">
+      <div class="progress-card"><div class="progress-label">Erase progress</div>
       <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
-      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p></div></div>`;
+      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p><p class="small muted">${m.summary}</p></div></div></div>`;
     bindMore();
     renderHint(P.hints.working);
   } else if (screen === "done") {

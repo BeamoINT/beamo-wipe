@@ -958,12 +958,32 @@ class TkWizard:
         # The screen title below names the step; the header only carries
         # quiet progress text ("Step 3 of 8"), never a duplicate title.
         step = _STEP_ORDER.get(self.w.screen, (0, "", ""))
+        self._draw_journey(cv, width, step[0])
         label = step[1]
         if label:
             cv.create_text(
                 width - 24, mid, anchor="e",
                 text=label, font=self.font_meta, fill=MUTED,
             )
+
+    def _draw_journey(self, cv: tk.Canvas, width: int, step: int) -> None:
+        # Numbered steps are positions, never success badges or shortcuts.
+        if not step or width < 1000:
+            return
+        start, end = 260, width - 150
+        gap = (end - start) / len(C.JOURNEY_LABELS)
+        for index, name in enumerate(C.JOURNEY_LABELS, 1):
+            cx = start + gap * (index - 0.5)
+            active = index == step
+            if index < len(C.JOURNEY_LABELS):
+                cv.create_line(cx + 13, 18, cx + gap - 13, 18, fill=BORDER, width=1)
+            cv.create_oval(cx - 10, 8, cx + 10, 28,
+                           fill=PRIMARY if active else SURFACE_ALT,
+                           outline=PRIMARY if active else BORDER_STRONG)
+            cv.create_text(cx, 18, text=str(index), font=self.font_tiny,
+                           fill=SURFACE if active else MUTED)
+            cv.create_text(cx, 42, text=name, font=self.font_meta,
+                           fill=PRIMARY if active else MUTED)
 
     def _draw_strip(self) -> None:
         cv = self._strip
@@ -1413,22 +1433,28 @@ class TkWizard:
                      fg=MUTED, bg=bg, anchor="e").pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
         identity = tk.Frame(meta, bg=bg)
         identity.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self._wrapping_label(identity, disk.serial or C.NO_CODE,
+        tk.Label(identity, text=C.SERIAL_LABEL, font=self.font_meta,
+                 fg=MUTED, bg=bg).pack(side=tk.LEFT, anchor="n", padx=(0, 8), pady=2)
+        value = tk.Frame(identity, bg=bg)
+        value.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._wrapping_label(value, disk.serial or C.NO_CODE,
                              font=self.font_mono_bold, bg=bg)
         if self._show_more:
-            self._wrapping_label(identity, f"{disk.bus}    {disk.path}",
+            self._wrapping_label(value, f"{disk.bus}    {disk.path}",
                                  font=self.font_mono_sm, fg=MUTED, bg=bg)
         return meta
 
     def _disk_summary(self, parent: tk.Widget, disk: Disk) -> _Box:
         """The selected disk, shown the same way on confirm, working, and done."""
         box = _Box(
-            parent, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=20, pady=16, shadow=False,
+            parent, radius=RADIUS, fill=PRIMARY_TINT, outline=PRIMARY, ow=1,
+            padx=20, pady=12, shadow=False,
         )
         inner = box.inner
-        self._disk_heading(inner, disk, SURFACE)
-        self._meta_line(inner, disk, SURFACE).pack(fill=tk.X, pady=(4, 0))
+        tk.Label(inner, text=C.SELECTED_DISK, font=self.font_tiny,
+                 fg=PRIMARY, bg=PRIMARY_TINT, anchor="w").pack(fill=tk.X, pady=(0, 6))
+        self._disk_heading(inner, disk, PRIMARY_TINT)
+        self._meta_line(inner, disk, PRIMARY_TINT).pack(fill=tk.X, pady=(4, 0))
         return box
 
     # -- footer / buttons -----------------------------------------------------
@@ -1554,6 +1580,8 @@ class TkWizard:
             col, C.SPLASH_TAGLINE, fg=MUTED, font=self.font_lead,
             wraplength=620, justify=tk.CENTER, anchor="center",
         ).pack(fill=tk.X, pady=(12, 0))
+        self._p(col, C.SPLASH_ROADMAP, fg=MUTED, font=self.font_s,
+                justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(24, 0))
         hero = _Button(
             col,
             text=C.BTN_CONTINUE,
@@ -1721,7 +1749,15 @@ class TkWizard:
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
             self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(0, 12))
-        self._more_link(col)
+        tools = tk.Frame(col, bg=BG)
+        tools.pack(fill=tk.X, pady=(0, 4))
+        count = len(self.w.selectable)
+        selection = "1 selected" if self.w.selected else "Choose one disk"
+        tk.Label(tools, text=f"{count} {'disk available' if count == 1 else 'disks available'} · {selection}",
+                 font=self.font_s, fg=MUTED, bg=BG).pack(side=tk.LEFT)
+        more = tk.Frame(tools, bg=BG)
+        more.pack(side=tk.RIGHT)
+        self._more_link(more)
         list_wrap = tk.Frame(col, bg=BG)
         list_wrap.pack(fill=tk.BOTH, expand=True, pady=(2, 4))
         canvas = tk.Canvas(list_wrap, bg=BG, highlightthickness=0)
@@ -2088,9 +2124,9 @@ class TkWizard:
         outline = PRIMARY if selected else BORDER
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
-            padx=18, pady=13, halo=False,
+            padx=18, pady=9, halo=False,
         )
-        card.pack(fill=tk.X, pady=(0, 10), padx=4)
+        card.pack(fill=tk.X, pady=(0, 8), padx=4)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -2258,11 +2294,22 @@ class TkWizard:
     def _last(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_LAST, C.LAST_LEAD)
-        self._panel(col, kind="danger", text=self.w.erase_label()).pack(fill=tk.X)
-        self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
+        review = tk.Frame(col, bg=BG)
+        review.pack(fill=tk.X, pady=(8, 0))
+        # Reserve the countdown before allocating the wrapping review column.
+        zone = tk.Frame(review, bg=BG)
+        zone.pack(side=tk.RIGHT, padx=(24, 0), anchor="n")
+        details = tk.Frame(review, bg=BG)
+        details.pack(side=tk.LEFT, fill=tk.X, expand=True, anchor="n")
+        if self.w.selected is not None:
+            self._disk_summary(details, self.w.selected).pack(fill=tk.X)
+        self._wrapping_label(details, self.w.erase_label(), font=self.font_bold,
+                             bg=BG, fg=DANGER).pack_configure(pady=(16, 8))
+        self._wrapping_label(details, self.w.method_summary, font=self.font_s, bg=BG)
+        self._wrapping_label(details, C.REVIEW_CHECK, font=self.font_s,
+                             fg=MUTED, bg=BG).pack_configure(pady=(12, 0))
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
-        zone = self._center_zone(col)
         ring = tk.Canvas(
             zone, width=RING_SIZE, height=RING_SIZE, bg=BG, highlightthickness=0
         )
@@ -2273,7 +2320,8 @@ class TkWizard:
         )
         ring.create_window(RING_SIZE / 2, RING_SIZE / 2 - 3, window=self._countdown_num)
         self._countdown_label = tk.Label(
-            zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center", justify=tk.CENTER
+            zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center",
+            justify=tk.CENTER, wraplength=260,
         )
         self._countdown_label.pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_LAST_CHANCE_TK)
@@ -2333,19 +2381,27 @@ class TkWizard:
             self._disk_summary(col, disk).pack(fill=tk.X)
             self._more_link(col)
         card_copy = C.METHOD_CARDS[self.w.method]
-        zone = self._center_zone(col)
+        container = self._center_zone(col)
+        progress_card = _Box(container, radius=RADIUS, fill=SURFACE_ALT,
+                             outline=BORDER, ow=1, padx=20, pady=16)
+        progress_card.pack(fill=tk.X)
+        zone = progress_card.inner
+        tk.Label(zone, text="Erase progress", font=self.font_s_bold,
+                 fg=MUTED, bg=SURFACE_ALT, anchor="w").pack(fill=tk.X, pady=(0, 8))
         self._progress_pct = tk.Label(
-            zone, text="", font=self.font_stat, fg=INK, bg=BG, anchor="w"
+            zone, text="", font=self.font_stat, fg=INK, bg=SURFACE_ALT, anchor="w"
         )
         self._progress_pct.pack(fill=tk.X, pady=(0, 12))
-        bar = tk.Canvas(zone, height=14, bg=BG, highlightthickness=0)
+        bar = tk.Canvas(zone, height=14, bg=SURFACE_ALT, highlightthickness=0)
         bar.pack(fill=tk.X)
         bar.bind("<Configure>", lambda _e: self._refresh_working())
         self._progress_bar = bar
         self._progress_label = self._p(
-            zone, f"{card_copy['title']}.  {C.WORKING_PULSE}", fg=MUTED, font=self.font_b
+            zone, f"{card_copy['title']}.  {C.WORKING_PULSE}", fg=MUTED, font=self.font_b, bg=SURFACE_ALT
         )
         self._progress_label.pack(fill=tk.X, pady=(14, 0))
+        self._p(zone, self.w.method_summary, font=self.font_s,
+                fg=MUTED, bg=SURFACE_ALT).pack(fill=tk.X, pady=(10, 0))
         # A failed cancel stays on WORKING with w.error set: show it so the
         # owner knows the disk may still be erasing (never fail silently).
         if self.w.error:
