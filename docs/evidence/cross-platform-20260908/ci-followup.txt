@@ -1,0 +1,35 @@
+...............................                                          [100%]
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_ci_hosted.py::test_hosted_gate_runs_full_pipeline_on_cloud_build
+PASSED tests/test_ci_hosted.py::test_github_actions_not_used
+PASSED tests/test_ci_hosted.py::test_release_publisher_is_default_off_and_rejects_skipped_gates
+PASSED tests/test_ci_hosted.py::test_cloud_submit_rejects_hidden_or_wrong_project_publication
+PASSED tests/test_ci_hosted.py::test_cloud_triggers_cover_prs_and_main
+PASSED tests/test_ci_hosted.py::test_cloud_trigger_installer_pins_identity_and_reconciles
+PASSED tests/test_ci_hosted.py::test_cloud_trigger_installer_rejects_cross_project_identity
+PASSED tests/test_ci_hosted.py::test_shell_embedded_python_parses
+PASSED tests/test_ci_hosted.py::test_cloud_submit_uploads_git_metadata
+PASSED tests/test_ci_hosted.py::test_hosted_python_tests_install_git_for_fail_closed_manifest
+PASSED tests/test_ci_hosted.py::test_qemu_phase_installs_pytest_for_fake_disk_gate
+PASSED tests/test_ci_hosted.py::test_qemu_phase_installs_pinned_nwipe_runtime_dependency
+PASSED tests/test_ci_hosted.py::test_iso_build_requires_and_always_generates_provenance
+PASSED tests/test_live_image.py::test_hdparm_is_only_an_nwipe_read_only_dependency
+PASSED tests/test_live_image.py::test_live_supervisor_does_not_timeout_the_running_wizard
+PASSED tests/test_live_image.py::test_live_supervisor_does_not_auto_start_nwipe
+PASSED tests/test_live_image.py::test_live_packages_omit_network_and_compilers
+PASSED tests/test_live_image.py::test_nwipe_hook_fails_closed_instead_of_unpinned_fallback
+PASSED tests/test_live_image.py::test_nwipe_hook_accepts_safe_debian_arch_qualifier_before_purge
+PASSED tests/test_live_image.py::test_live_launcher_isolates_sys_path_and_preview_env
+PASSED tests/test_live_image.py::test_nwipe_hook_hides_engine_and_extra_gettys
+PASSED tests/test_live_image.py::test_iso_build_uses_https_debian_mirrors
+PASSED tests/test_live_image.py::test_staged_chroot_package_matches_src
+PASSED tests/test_live_image.py::test_xorg_does_not_force_vesa_on_every_gpu
+PASSED tests/test_live_image.py::test_live_config_xinit_cannot_hijack_kiosk
+PASSED tests/test_live_image.py::test_extra_gettys_are_masked_as_unit_symlinks
+PASSED tests/test_live_image.py::test_kiosk_is_a_hardened_systemd_service_not_a_login_shell
+PASSED tests/test_live_image.py::test_bootloaders_autostart_the_normal_live_entry
+PASSED tests/test_live_image.py::test_live_supervisor_falls_back_to_console_after_x_failure
+PASSED tests/test_live_image.py::test_kiosk_supervisor_disables_suspend_and_interrupt
+PASSED tests/test_live_image.py::test_live_kiosk_ignores_sigint
+31 passed in 0.50s

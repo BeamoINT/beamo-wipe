@@ -1,8 +1,8 @@
 # Cross-platform correctness pass — 2026-09-08
 
 Status: local gates passed; full cross-platform acceptance remains **incomplete**.
-Cloud Build could not create a build because access to its source bucket is
-forbidden. No ISO was released or published, no host disk was passed to a VM,
+Direct Cloud Build submissions cannot create a build because access to the
+source bucket is forbidden. The PR-triggered gate is tracked separately below. No ISO was released or published, no host disk was passed to a VM,
 no host firmware was changed, and no real nwipe executable was run. Work stays
 on `codex/cross-platform-20260908`, based on latest main
 `7bc73a0cafeb7338528ffa0915cbc811681e1368`. This report covers the source in the
@@ -60,7 +60,9 @@ a result for this branch.
    before it. Tests use 64 MiB regular files and no mount/loop/device access.
 8. **Native Linux inventory tests require explicit isolated-worker opt-in.**
    Hosted CI enables `BEAMO_DESKTOP_NATIVE_INVENTORY_TEST=1`; local fixture tests
-   remain independent of host disk enumeration.
+   remain independent of host disk enumeration. Hosted Python CI now installs
+   dosfstools/mtools so the FAT32 regressions execute rather than skip; desktop
+   CI cross-compiles the Windows test executable as a required check.
 9. README now states the macOS/in-OS boundary and correct x86_64 Linux VM gate,
    and distinguishes the 2 GiB FAT32 image from ISO flashing. The compatibility
    matrix links this report without upgrading historical evidence to a new pass.
@@ -87,6 +89,8 @@ checksum pinned in `scripts/ci-desktop.sh`, Ruff 0.9.2, ShellCheck 0.10.0.
   pass. These are compilation/static checks, not native runtime tests.
 - `BEAMO_GO_BIN=<pinned Go> ./scripts/build-desktop.sh`: both executable builds
   pass. Generated executables/images are not committed or published.
+- CI follow-up: hosted tests install FAT32 utilities and compile Windows tests;
+  the 31 CI/live-image contract tests and ShellCheck pass (`ci-followup.txt`).
 - Python compileall, full repository ShellCheck command and both blocking Ruff
   rule sets from `scripts/ci-hosted.sh`: pass. `git diff --check`: pass.
 - Hosted `run_negative` function executed verbatim in a disposable source/test
@@ -131,3 +135,13 @@ Next useful action: restore authorized Cloud Build source-bucket access, run
 the compiled Windows fixture suite on an isolated x64 Windows worker. Keep the
 PR in draft until the missing platform/image gates are reviewed. Never use host
 passthrough or a real host disk for verification.
+
+
+## PR-triggered verification
+
+[Draft PR #5](https://github.com/BeamoINT/beamo-wipe/pull/5) queued a separate
+`beamo-wipe-pr-gate` after the direct submission failed. This does not resolve
+the caller's bucket access: `gcloud builds describe` also returns
+PERMISSION_DENIED. GitHub check status is the available observation channel.
+The PR gate skips QEMU by design. Its final result must be evaluated on the
+latest branch tip; a queued check is not a passing check.

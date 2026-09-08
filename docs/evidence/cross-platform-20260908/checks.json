@@ -47,8 +47,15 @@
     "desktop_http_lifecycle": "pass",
     "browser_click_through": "blocked: Codex webview attachment timed out; no other browser surface"
   },
-  "hosted": "blocked before build creation: Cloud Build source bucket forbidden",
+  "hosted": "direct submit and describe denied; PR-triggered gate status must be checked separately",
   "iso_qemu": "not executed on this branch; no current ISO or Docker/QEMU installation",
   "notion": "no Notion tool connected; evidence retained in repository",
-  "release": "not authorized or attempted"
+  "release": "not authorized or attempted",
+  "ci_followup": {
+    "passed": 31,
+    "shellcheck": "pass",
+    "windows_test_compilation": "required in hosted desktop phase",
+    "fat32_tools": "installed in hosted Python phase"
+  },
+  "pr_url": "https://github.com/BeamoINT/beamo-wipe/pull/5"
 }

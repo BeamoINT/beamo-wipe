@@ -88,7 +88,7 @@ isolated hosted runner. Leave it unset on developer machines. All other local
 launcher tests use fixture data and fake firmware. No test requests a host
 restart.
 
-With `dosfstools` and `mtools` on PATH, `tests/test_usb_image_readback.py` builds
+The hosted Python phase installs `dosfstools` and `mtools`. With those tools on PATH, `tests/test_usb_image_readback.py` builds
 64 MiB regular-file FAT32 fixtures, embeds them at the image's 1 MiB partition
 offset, and checks manifest/launcher readback and failure cases. No mount,
 loop device, or physical device is used. This does not replace ISO provenance,

@@ -21,5 +21,8 @@ export BEAMO_DESKTOP_NATIVE_INVENTORY_TEST=1
 cd "$ROOT/desktop"
 "$BEAMO_GO_BIN" test -race ./...
 "$BEAMO_GO_BIN" vet ./...
+# Cross-compilation checks platform-specific test code without claiming native
+# Windows execution. Run this test executable on a separate Windows worker.
+GOOS=windows GOARCH=amd64 "$BEAMO_GO_BIN" test -c -o "$TOOL_ROOT/desktop-windows.test.exe"
 "$BEAMO_GO_BIN" test -run='^$' -fuzz=FuzzBootOption -fuzztime=15s -parallel=2
 "$ROOT/scripts/build-desktop.sh"
