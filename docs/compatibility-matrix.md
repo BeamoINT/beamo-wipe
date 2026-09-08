@@ -1,5 +1,12 @@
 # Beamo Wipe — Boot and Hardware Compatibility Matrix
 
+**Cross-platform verification (2026-09-08):** current source checks, the actual
+platform boundaries, and outstanding gates are recorded in
+[the cross-platform evidence](evidence/cross-platform-20260908/README.md).
+The historical rows below do not prove that this feature branch boots or wipes:
+its hosted gate is blocked by Cloud Build bucket access. Native Windows/macOS
+runtime and physical acceptance remain separate requirements.
+
 **Desktop-entry development update (2026-09-06):** the release matrix below
 records the earlier v0.2.6 configuration. The new launcher, FAT32 USB image,
 and signed Debian EFI components are described in

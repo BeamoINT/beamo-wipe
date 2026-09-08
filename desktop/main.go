@@ -62,6 +62,9 @@ func inspectPlan(ctx context.Context, probe func(context.Context) Snapshot) Plan
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return Plan{Problem: "timeout"}
 	}
+	if ctx.Err() != nil {
+		return Plan{Problem: "cancelled"}
+	}
 	return makePlan(s)
 }
 

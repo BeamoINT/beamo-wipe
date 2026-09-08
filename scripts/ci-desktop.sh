@@ -17,6 +17,7 @@ if hashlib.sha256(path.read_bytes()).hexdigest()!=expected: raise SystemExit('Go
 PY
 tar -xzf "$TOOL_ROOT/go.tar.gz" -C "$TOOL_ROOT"
 export BEAMO_GO_BIN="$TOOL_ROOT/go/bin/go" GOCACHE="$TOOL_ROOT/cache" GOTOOLCHAIN=local
+export BEAMO_DESKTOP_NATIVE_INVENTORY_TEST=1
 cd "$ROOT/desktop"
 "$BEAMO_GO_BIN" test -race ./...
 "$BEAMO_GO_BIN" vet ./...

@@ -13,9 +13,14 @@ PYTHON_BIN="${BEAMO_WIPE_PREVIEW_PYTHON:-python3}"
 if [ "$(uname -s)" = Darwin ] && [ -z "${BEAMO_WIPE_PREVIEW_PYTHON:-}" ]; then
   for candidate in python3.14 python3.13 python3.12 python3.11 python3; do
     if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c '
+import os
 import tkinter
-version = tuple(map(int, tkinter.Tcl().call("info", "patchlevel").split(".")))
-raise SystemExit(0 if version >= (8, 6, 13) else 1)
+root = tkinter.Tk()
+root.withdraw()
+version = tuple(map(int, root.tk.call("package", "provide", "Tk").split(".")))
+# Probe the loaded Tk, not Tcl (their patch versions can differ). Exit this
+# disposable probe without the old Aqua Tk teardown that we are avoiding.
+os._exit(0 if version >= (8, 6, 13) else 1)
 ' >/dev/null 2>&1; then
       PYTHON_BIN="$candidate"
       break

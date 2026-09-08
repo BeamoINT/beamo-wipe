@@ -121,6 +121,19 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 	for _, node := range inventory.Devices {
 		countIDs(node)
 	}
+	// An MBR signature identifies the disk, even when its partitions have
+	// different numbers. Match Windows' refusal of a duplicate disk signature.
+	if len(d.PTUUID) == 8 {
+		matches := 0
+		for _, node := range inventory.Devices {
+			if node.Type == "disk" && strings.EqualFold(node.PTUUID, d.PTUUID) {
+				matches++
+			}
+		}
+		if matches != 1 {
+			return "", nil, errors.New("ambiguous disk identity")
+		}
+	}
 	for _, p := range d.Children {
 		if p.Type != "part" {
 			continue
@@ -258,7 +271,7 @@ func platformRestart(want string) error {
 	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	p := makePlan(platformProbe(ctx))
+	p := inspectPlan(ctx, platformProbe)
 	if !p.Direct || p.Fingerprint != want {
 		return errors.New("USB or boot settings changed")
 	}

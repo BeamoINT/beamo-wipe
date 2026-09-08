@@ -1,0 +1,66 @@
+negative test: broken boot-media safety must be rejected
+patched safety.py: assert_boot_excluded now fail-open
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________ test_e2e_no_nwipe_process_created_on_uncertainty _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f1bf1e99810>
+
+    def test_e2e_no_nwipe_process_created_on_uncertainty(monkeypatch):
+        # Use a spy that would fail if Popen called, and a discovery that is uncertain
+        result = discover(lsblk_payload=_load("lsblk_no_boot.json"), boot_path=None, mount_sources=[], cmdline="", env={"BEAMO_WIPE_DRY_RUN": "1"})
+        spy = SpyRunner()
+        wiz = _wizard_for_discovery(result, spy=spy, dry_run=True)
+        # Instrument subprocess.Popen to detect any invocation
+        popen_calls = []
+
+        def fake_popen(*args, **kwargs):
+            popen_calls.append(args)
+            raise AssertionError("nwipe Popen must not be invoked on uncertain boot")
+
+        monkeypatch.setattr(subprocess, "Popen", fake_popen)
+        wiz.skip_splash()
+        wiz.accept_what()
+        wiz.set_owner(True)
+        wiz.continue_owner()
+        # Attempt every destructive trigger
+        from beamo_wipe.models import Screen
+
+        assert wiz.screen == Screen.PICK_BLOCKED
+        wiz.select_disk("/dev/sda")
+        wiz.continue_pick()
+        # Try to jump to last chance via direct method (should be no-op)
+        wiz.set_confirm_input("nope")
+        wiz.continue_confirm()
+        wiz.continue_method()
+        wiz._erase_until = 0  # type: ignore[attr-defined]
+        wiz.confirm_erase()
+        assert wiz.screen == Screen.PICK_BLOCKED
+        assert spy.start_calls == []
+        assert popen_calls == []
+        # Also ensure assert_boot_excluded raises
+        with pytest.raises(SafetyError):
+>           assert_boot_excluded(result)
+
+tests/test_boot_exclusion_fails_closed.py:710:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+discovery = DiscoveryResult(disks=(), selectable=(), boot=None, error='We cannot tell which disk is this USB. Unplug extra USB sticks and start again.', boot_identified=False, diagnostic=None, excluded=(), error_code='')
+
+    def assert_boot_excluded(discovery: DiscoveryResult) -> None:
+        if False:  # BROKEN for negative test
+            raise SafetyError(IDENTIFY_ERROR)
+        if boot_device_in_selectable(discovery):
+            raise SafetyError("Boot USB appeared as a selectable disk. Refusing to continue.")
+        selectable_paths = {os.path.realpath(s.path) for s in discovery.selectable}
+        if any(d.is_boot and os.path.realpath(d.path) in selectable_paths for d in discovery.disks):
+            raise SafetyError("Boot USB appeared as a selectable disk. Refusing to continue.")
+>       boot_wwn = (discovery.boot.wwn or "").strip().casefold()
+E       AttributeError: 'NoneType' object has no attribute 'wwn'
+
+src/beamo_wipe/safety.py:366: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_boot_exclusion_fails_closed.py::test_e2e_no_nwipe_process_created_on_uncertainty
+broken safety correctly rejected; verifying clean tree passes
+.                                                                        [100%]
+negative test PASS: safety gate blocks bypass

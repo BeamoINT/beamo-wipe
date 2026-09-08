@@ -120,3 +120,24 @@ func TestSlowCompatibilityCheckDoesNotBlameOriginalUSB(t *testing.T) {
 		t.Fatalf("completed identity check changed: %+v", p)
 	}
 }
+
+func TestIncompleteCheckDiscardsOtherwiseReadySnapshot(t *testing.T) {
+	for _, expired := range []bool{false, true} {
+		var ctx context.Context
+		var cancel context.CancelFunc
+		want := "cancelled"
+		if expired {
+			ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+			want = "timeout"
+		} else {
+			ctx, cancel = context.WithCancel(context.Background())
+		}
+		cancel()
+		p := inspectPlan(ctx, func(context.Context) Snapshot {
+			return Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+		})
+		if p.Direct || p.Fingerprint != "" || p.Problem != want {
+			t.Fatalf("incomplete check retained a plan: %+v", p)
+		}
+	}
+}
