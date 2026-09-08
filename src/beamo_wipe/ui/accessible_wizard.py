@@ -34,7 +34,19 @@ class AccessibleWizard:
         # Orca can consume that event and suppress the real focus announcement.
         # Keep manual selection available without selecting text on arrival.
         self.window.get_settings().set_property("gtk-label-select-on-focus", False)
-        self.window.set_default_size(800, 600)
+        self.window.set_name("beamo-accessible")
+        self._style = Gtk.CssProvider()
+        self._style.load_from_data(b"""
+            #beamo-accessible { background: #FFFFFF; color: #182635; }
+            #beamo-accessible label { font-size: 16px; }
+            #beamo-accessible .screen-heading { font-size: 26px; font-weight: bold; color: #0A1B34; }
+            #beamo-accessible .preview-notice { background: #E8A317; color: #0A1B34; padding: 8px; }
+            #beamo-accessible .disk-identity { background: #EDF3F8; color: #182635; padding: 12px; border: 1px solid #244A73; border-radius: 8px; }
+            #beamo-accessible button { padding: 8px 12px; border-radius: 6px; }
+            #beamo-accessible .screen-actions { border-top: 1px solid #D8DFE6; padding-top: 8px; }
+            #beamo-accessible .error-message { color: #B3261E; font-weight: bold; }
+        """)
+        self.window.set_default_size(900, 700)
         if fullscreen:
             self.window.fullscreen()
         self.window.connect("delete-event", self._close)
@@ -85,12 +97,19 @@ class AccessibleWizard:
         self.actions[text] = widget
         return widget
 
+    def _style_tree(self, widget):
+        # Widget-scoped providers cannot recolor other apps or later windows.
+        widget.get_style_context().add_provider(self._style, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        if isinstance(widget, Gtk.Container):
+            for child in widget.get_children():
+                self._style_tree(child)
+
     def identity(self):
         disk = self.w.selected
         if disk:
             self.label(
                 f"{disk.display_name}; {disk.size_phrase}; {disk.path}; Serial: {disk.serial or 'unavailable'}"
-            )
+            ).get_style_context().add_class("disk-identity")
 
     def reader(self, text: str):
         view = Gtk.TextView()
@@ -125,12 +144,14 @@ class AccessibleWizard:
         self.body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         scroll.add(self.body)
         self.footer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        self.footer.get_style_context().add_class("screen-actions")
         shell.pack_start(self.footer, False, False, 0)
         if self.w.preview:
-            self.label(C.PREVIEW_BANNER)
+            self.label(C.PREVIEW_BANNER).get_style_context().add_class("preview-notice")
         screen = self.w.screen
         generation = self.generation
         heading = self.label("Beamo Wipe", focusable=True)
+        heading.get_style_context().add_class("screen-heading")
         if screen == Screen.SPLASH:
             heading.set_text(C.SPLASH_TAGLINE)
             self.button(C.BTN_CONTINUE, self.w.skip_splash)
@@ -361,6 +382,7 @@ class AccessibleWizard:
                 "The current screen could not be confirmed. Contact support."
             )
         self.error_label = self.label(self.w.error or "", focusable=True)
+        self.error_label.get_style_context().add_class("error-message")
         if self.w.can_open_diagnostic:
             self.button("Diagnostic report", self.w.open_diagnostic)
         if self.w.can_open_report_help:
@@ -380,6 +402,7 @@ class AccessibleWizard:
             Screen.ADVANCED,
         }:
             self.button(C.BTN_BACK, self.w.back)
+        self._style_tree(self.window)
         self.window.show_all()
         self.window.present()
         if self.window.get_window():

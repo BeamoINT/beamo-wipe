@@ -9,6 +9,13 @@ from beamo_wipe.storage_limits import OVERWRITE_LIMITS
 
 APP_NAME = "Beamo Wipe"
 
+# Read-only wayfinding: these labels never act as navigation controls.
+JOURNEY_LABELS = ("Start", "Owner", "Disk", "Confirm", "Method", "Review", "Erase", "Result")
+SELECTED_DISK = "Selected disk"
+SERIAL_LABEL = "Serial"
+REVIEW_CHECK = "Check the disk and method before you erase."
+SPLASH_ROADMAP = "Choose a disk  →  Confirm its identity  →  Review and erase"
+
 # --- Screen titles (happy path talks like a person) ------------------------
 
 TITLE_WHAT = "Here's what happens"
