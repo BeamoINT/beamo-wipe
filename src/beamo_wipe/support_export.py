@@ -507,6 +507,10 @@ def read_export_log(
             return b"", "unavailable"
         complete = not truncated and expected_size_bytes == len(normalized)
         return data, "complete" if complete else "tail"
+    except OSError:
+        # The log is optional; failed metadata/seek/read operations must omit
+        # it just like a failed open, without blocking the evidence export.
+        return b"", "unavailable"
     finally:
         os.close(fd)
 

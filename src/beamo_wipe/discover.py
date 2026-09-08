@@ -738,8 +738,15 @@ def parse_lsblk_json(
             continue
         pkname = _identity_text(candidate.get("pkname"), "pkname")
         mounts = _node_mountpoints(candidate)
-        if not pkname or not mounts:
+        if not mounts:
             continue
+        if not pkname:
+            # Optical, loop and RAM devices can be standalone mounted roots.
+            # Every other non-disk row needs a known physical ancestor;
+            # missing PKNAME must not leave its backing disk selectable.
+            if _node_type(candidate) in {"rom", "loop", "ram"}:
+                continue
+            raise ValueError("lsblk mounted ancestry is unresolved")
         # Flat lsblk rows can describe disk -> partition -> crypt/LVM chains.
         # Exclude every possible whole-disk ancestor; an unknown or cyclic
         # mounted chain must not silently become an unmounted physical disk.

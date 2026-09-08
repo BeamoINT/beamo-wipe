@@ -614,9 +614,8 @@ class _Button(tk.Canvas):
         self.bind("<ButtonRelease-1>", self._release)
         self.bind("<Enter>", self._enter)
         self.bind("<Leave>", self._leave)
-        # Space activates the focused control. Return/KP_Enter deliberately
-        # stay unbound here so Enter always means "this screen's primary
-        # action" via the gated global handler, no matter where focus sits.
+        # Space activates the focused control. Return/KP_Enter use the
+        # global repeat gate; on Last chance it also respects button focus.
         self.bind("<space>", self._key)
         self.bind("<FocusIn>", self._focus_in)
         self.bind("<FocusOut>", self._focus_out)
@@ -2304,7 +2303,7 @@ class TkWizard:
             zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center", justify=tk.CENTER
         )
         self._countdown_label.pack(fill=tk.X, pady=(12, 0))
-        row = self._footer_shell(C.HINT_LAST_CHANCE)
+        row = self._footer_shell(C.HINT_LAST_CHANCE_TK)
         back = self._back_btn(row)
         self._primary_btn(
             row,
@@ -2693,8 +2692,14 @@ class TkWizard:
             self.w.continue_confirm()
         elif screen == Screen.METHOD:
             self.w.continue_method()
-        elif screen == Screen.LAST_CHANCE and self.w.erase_enabled:
-            self._click_erase()
+        elif screen == Screen.LAST_CHANCE:
+            # Back holds the safe default focus on this destructive screen.
+            # Enter must activate that visible control, never bypass it to
+            # erase. Disabled/stale controls and absent focus do nothing.
+            focused = self.root.focus_get()
+            if isinstance(focused, _Button) and focused._enabled:
+                if focused is not self._primary or self.w.erase_enabled:
+                    focused._command()
         elif screen == Screen.DONE:
             self.w.accept_done_keyboard()
         elif screen == Screen.ADVANCED:

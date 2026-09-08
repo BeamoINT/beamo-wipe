@@ -800,6 +800,9 @@ drive_report_export() {
   send_key_for_marker "$label" "$qmp_socket" 3 BEAMO_WIPE_SCREEN_METHOD 20
   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_LAST_CHANCE 20
   sleep 6
+  # The final screen starts with Back focused. Explicitly select Erase now;
+  # Return follows focus and must never erase from the safe default button.
+  send_key "$qmp_socket" tab
   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_WORKING 20
   wait_for_marker "$label" BEAMO_WIPE_SCREEN_DONE 300
 
