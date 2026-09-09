@@ -1,0 +1,5 @@
+COMMAND: /home/box/beamo-wipe/scripts/build-iso.sh
+Missing required tools: docker
+Install Docker plus the listed provenance tools and re-run ./scripts/build-iso.sh
+
+EXIT: 2

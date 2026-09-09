@@ -1,0 +1,4 @@
+COMMAND: /home/box/beamo-wipe/scripts/build-desktop.sh
+Built Windows and Linux desktop launchers. Runtime and firmware tests remain separate gates.
+
+EXIT: 0

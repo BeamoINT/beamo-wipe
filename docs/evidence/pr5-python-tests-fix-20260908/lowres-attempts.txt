@@ -1,0 +1,15 @@
+Validation attempts on 2026-09-09, source based on 068e290:
+- Unchanged focused test reproduced the hosted assertion: 900 <= 800.
+  A later bounded capture passed once, then failed on its second attempt.
+- New monitor-workarea regression against unchanged source: 1 failed,
+  1 passed, 55 deselected. Failure is the expected 900x700 vs 800x600.
+- First requested gate attempt stopped at apt update (Debian mirror HTTP 502).
+- Retry: 1 failed, 1717 passed, 12 skipped. Only failure was the existing
+  generated packaging copy drifting from edited src/ui/accessible_wizard.py.
+  Refreshed that gitignored copy from source; no build or ISO was produced.
+- Concurrent Bookworm GTK run: 2 failed, 55 passed (AT-SPI client timeout
+  and Orca exit 1). Rerun with a distinct display: 57 passed in 87.19 s.
+- Concurrent Trixie full gate after refreshing packaging: 1 failed,
+  1717 passed, 12 skipped (Orca exit 1 during startup). The final gate
+  runs alone to remove possible cross-session accessibility interference.
+- No assertions, test selection, or required gates were relaxed.

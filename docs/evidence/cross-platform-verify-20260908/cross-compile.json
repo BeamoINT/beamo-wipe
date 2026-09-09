@@ -1,0 +1,20 @@
+{
+  "native_linux_vet": "pass",
+  "windows_amd64_test_compile": "pass",
+  "windows_amd64_vet": "pass",
+  "darwin_arm64_stub_test_compile": "pass",
+  "native_windows_execution": "not available",
+  "native_darwin_execution": "not available",
+  "artifacts": {
+    "desktop-windows.test.exe": {
+      "sha256": "3d8507840bbc5bfb80e7d7982c61a742ae0a57a36af0fdea04b5440f9f3464fd",
+      "header_hex": "4d5a9000",
+      "bytes": 8597504
+    },
+    "desktop-darwin.test": {
+      "sha256": "cdb9d81d53643572aa6e039d1a0ed61a65751baf88e90b2873e1aa5e4d8dba61",
+      "header_hex": "cffaedfe",
+      "bytes": 7947458
+    }
+  }
+}

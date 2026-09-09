@@ -1,0 +1,23 @@
+{
+  "initial": {
+    "ready": true,
+    "preview": true,
+    "title": "Ready for a guided restart",
+    "detail": "Save your work and close your applications. Keep the Beamo USB connected. After restarting, choose and confirm the disk. Nothing is erased by this launcher.",
+    "version": "0.2.6"
+  },
+  "restart": {
+    "message": "Preview complete. No restart was requested and nothing was erased."
+  },
+  "check": {
+    "ready": false,
+    "preview": true,
+    "title": "Use the computer's boot menu",
+    "detail": "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+    "version": "0.2.6"
+  },
+  "stale_plan_refused": 409,
+  "close": {
+    "closed": true
+  }
+}

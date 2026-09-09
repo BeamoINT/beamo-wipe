@@ -28,7 +28,7 @@ install_test_deps() {
   apt-get install -y -qq --no-install-recommends \
     xvfb \
     xauth libxtst6 \
-    python3-tk \
+    python3-tk dosfstools mtools \
     python3-gi gir1.2-gtk-3.0 librsvg2-common python3-pyatspi at-spi2-core dbus-x11 orca speech-dispatcher speech-dispatcher-espeak-ng pulseaudio \
     python3-pip \
     python3-setuptools \

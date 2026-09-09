@@ -97,6 +97,7 @@ func windowsDirectory() string {
 }
 
 const windowsInventory = `$ErrorActionPreference='Stop'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $p=$env:BEAMO_LAUNCHER_FILE
 $root=[IO.Path]::GetPathRoot($p)
 if ($root -notmatch '^[A-Za-z]:\\$' -or [IO.Path]::GetDirectoryName($p) -ne $root) { throw 'media' }
@@ -206,7 +207,7 @@ func platformRestart(want string) error {
 	defer kernel.NewProc("ReleaseMutex").Call(h)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	p := makePlan(platformProbe(ctx))
+	p := inspectPlan(ctx, platformProbe)
 	if !p.Direct || p.Fingerprint != want {
 		return errors.New("USB or boot settings changed")
 	}

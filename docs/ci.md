@@ -70,3 +70,27 @@ Local triage: reproduce with `BEAMO_WIPE_DRY_RUN=1 xvfb-run … python -m pytest
 ## Required checks
 
 Branch protection on `main` should require the Cloud Build triggers (`beamo-wipe-pr-gate` on PRs, `beamo-wipe-main-gate` on pushes). See `scripts/install-cloud-triggers.sh`.
+
+
+## Desktop and regular-file packaging checks
+
+Use the repository-pinned Go 1.26.5 for shipped builds. From `desktop/`,
+`go test -race ./...` and `go vet ./...` run the local launcher gate.
+`GOOS=windows GOARCH=amd64 go test -c -o /tmp/beamo-desktop-windows.test.exe`
+compiles the Windows suite; run that executable on an isolated x64 Windows
+worker to test the actual Win32 and Windows PowerShell paths. Cross-compilation
+is not native execution. The Windows fixtures include Unicode identities and
+512-byte/4096-byte sector layouts.
+
+The Linux utility integration test enumerates disks only when
+`BEAMO_DESKTOP_NATIVE_INVENTORY_TEST=1`; `scripts/ci-desktop.sh` opts in on its
+isolated hosted runner. Leave it unset on developer machines. All other local
+launcher tests use fixture data and fake firmware. No test requests a host
+restart.
+
+The hosted Python phase installs `dosfstools` and `mtools`. With those tools on PATH, `tests/test_usb_image_readback.py` builds
+64 MiB regular-file FAT32 fixtures, embeds them at the image's 1 MiB partition
+offset, and checks manifest/launcher readback and failure cases. No mount,
+loop device, or physical device is used. This does not replace ISO provenance,
+Syslinux/GRUB boot, or the full 2 GiB image gate. The image builder writes its
+checksum and ISO-binding sidecars only after successful final-image readback.

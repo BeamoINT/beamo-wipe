@@ -1,0 +1,54 @@
+{
+  "starting_commit": "1ccac62f95d47ef4448b038de8a87e881ac7980e",
+  "branch": "codex/cross-platform-20260908",
+  "full_acceptance": "incomplete",
+  "python": {
+    "baseline_passed": 1695,
+    "final_passed": 1715,
+    "skipped": 12,
+    "seconds": 85.56,
+    "skip_reason": "manufacturing ISO absent",
+    "display": "private dbus/Xvfb 1600x1000x24 at 72 DPI",
+    "isolated_x11": true
+  },
+  "go": {
+    "version": "1.26.5",
+    "uncached_race_top_level_passed": 21,
+    "skipped": 1,
+    "pass_including_subtests": 41,
+    "native_linux_vet": "pass",
+    "windows_amd64_compile_and_vet": "pass",
+    "darwin_arm64_stub_compile": "pass",
+    "fuzz_executions": 599139
+  },
+  "packaging": {
+    "passed": 19,
+    "actual_fat32_cases": 12,
+    "manifest_refusals": 3,
+    "sidecar_refusals": 4,
+    "physical_device_access": false
+  },
+  "preview": {
+    "tk_entry": "pass (5-second lifetime smoke)",
+    "web_helper_console": "pass",
+    "desktop_http_lifecycle": "pass",
+    "browser_clickthrough": "blocked: in-app browser crash, no alternative"
+  },
+  "hosted": {
+    "direct_submit_exit": 1,
+    "blocker": "source bucket forbidden",
+    "native_worker_discovery": "compute.instances.list denied; exit 0 with warning is not success",
+    "prior_pr_tip": "1ccac62",
+    "prior_pr_check": "SUCCESS; QEMU skipped",
+    "new_pr_check": "see PR and final handoff"
+  },
+  "local_iso": {
+    "exit": 2,
+    "blocker": "Docker missing; QEMU and current ISO also unavailable"
+  },
+  "native_windows": "not executed",
+  "native_macos": "not executed",
+  "physical_acceptance": "not tested",
+  "real_nwipe": "never executed",
+  "published_iso": false
+}

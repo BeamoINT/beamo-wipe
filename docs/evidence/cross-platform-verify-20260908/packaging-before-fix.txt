@@ -1,0 +1,556 @@
+.......FFFFFFFF                                                          [100%]
+=================================== FAILURES ===================================
+________________ test_regular_file_fat32_roundtrip[mbr-offset] _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt4')
+damage = 'mbr-offset'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib...t.img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt4/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+_________________ test_regular_file_fat32_roundtrip[mbr-size] __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt5')
+damage = 'mbr-size'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib...t.img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt5/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+________________ test_regular_file_fat32_roundtrip[mbr-active] _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt6')
+damage = 'mbr-active'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib...t.img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt6/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+_________________ test_regular_file_fat32_roundtrip[mbr-type] __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt7')
+damage = 'mbr-type'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib...t.img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt7/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+_________________ test_regular_file_fat32_roundtrip[mbr-magic] _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt8')
+damage = 'mbr-magic'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib...t.img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt8/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+_______________ test_regular_file_fat32_roundtrip[mbr-signature] _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt9')
+damage = 'mbr-signature'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib...t.img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt9/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+____________ test_regular_file_fat32_roundtrip[mbr-extra-partition] ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt10')
+damage = 'mbr-extra-partition'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib....img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt10/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+_______________ test_regular_file_fat32_roundtrip[trailing-data] _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt11')
+damage = 'trailing-data'
+
+    @pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+                                      'mbr-offset', 'mbr-size', 'mbr-active',
+                                      'mbr-type', 'mbr-magic', 'mbr-signature',
+                                      'mbr-extra-partition', 'trailing-data'])
+    def test_regular_file_fat32_roundtrip(tmp_path, damage):
+        commands = [shutil.which(tool) for tool in ('mkfs.fat', 'mcopy', 'mtype')]
+        if not all(commands):
+            pytest.skip('regular-file FAT32 test requires dosfstools and mtools')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        payloads = {'Start Beamo Wipe.exe': b'MZ\x00fixture-windows',
+                    'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
+        manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
+        (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+        fat = tmp_path / 'volume.fat'
+        with fat.open('xb') as stream:
+            stream.truncate(64 * 1024**2)
+        subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+        for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
+            copy = tmp_path / name
+            if damage == 'launcher' and name.endswith('.exe'):
+                data += b'changed'
+            if damage == 'manifest' and name == 'desktop-build.json':
+                data += b' '
+            copy.write_bytes(data)
+            subprocess.run([commands[1], '-i', str(fat), str(copy), '::/'], check=True, capture_output=True)
+        image = tmp_path / 'test.img'
+        with image.open('xb') as dest, fat.open('rb') as source:
+            mbr = bytearray(512)
+            mbr[440:444] = struct.pack('<I', 0x1234abcd)
+            mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\xfe\xff\xff', 0x0c,
+                                        b'\xfe\xff\xff', 2048, fat.stat().st_size // 512)
+            mbr[510:512] = b'\x55\xaa'
+            if damage == 'mbr-offset':
+                mbr[454:458] = struct.pack('<I', 4096)
+            elif damage == 'mbr-size':
+                mbr[458:462] = struct.pack('<I', 1)
+            elif damage == 'mbr-active':
+                mbr[446] = 0
+            elif damage == 'mbr-type':
+                mbr[450] = 0x83
+            elif damage == 'mbr-magic':
+                mbr[510:512] = b'\0\0'
+            elif damage == 'mbr-signature':
+                mbr[440:444] = bytes(4)
+            elif damage == 'mbr-extra-partition':
+                mbr[462:478] = mbr[446:462]
+            dest.write(mbr)
+            dest.seek(512 if damage == 'offset' else 1024**2)
+            shutil.copyfileobj(source, dest)
+            if damage == 'trailing-data':
+                dest.write(b'unaccounted data')
+        iso = tmp_path / 'source.iso'
+        iso.write_bytes(b'fixture ISO binding; no boot claim')
+        result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+                                capture_output=True, text=True, check=False, timeout=30)
+        if damage:
+>           assert result.returncode != 0
+E           assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/usr/bin/python3', '-c', "import hashlib,json,pathlib,subprocess,sys\nroot,out,iso=map(pathlib....img', '/tmp/pytest-of-box/pytest-21/test_regular_file_fat32_roundt11/source.iso'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_usb_image_readback.py:95: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files0]
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files1]
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files2]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[None]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[launcher]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[manifest]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[offset]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-offset]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-size]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-active]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-type]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-magic]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-signature]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[mbr-extra-partition]
+FAILED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[trailing-data]
+8 failed, 7 passed in 2.06s

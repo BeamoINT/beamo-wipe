@@ -46,7 +46,16 @@ class AccessibleWizard:
             #beamo-accessible .screen-actions { border-top: 1px solid #D8DFE6; padding-top: 8px; }
             #beamo-accessible .error-message { color: #B3261E; font-weight: bold; }
         """)
-        self.window.set_default_size(900, 700)
+        # Size before the first show: a low-resolution live session may have
+        # no window manager to constrain an oversized default for us.
+        width, height = 900, 700
+        display = self.window.get_display()
+        monitor = display.get_primary_monitor() or display.get_monitor(0)
+        if monitor is not None:
+            workarea = monitor.get_workarea()
+            width = min(width, workarea.width)
+            height = min(height, workarea.height)
+        self.window.set_default_size(width, height)
         if fullscreen:
             self.window.fullscreen()
         self.window.connect("delete-event", self._close)

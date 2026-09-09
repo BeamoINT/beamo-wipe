@@ -82,7 +82,8 @@ becomes success.
 ## What this is not
 
 - Not for **Apple Silicon** Macs, Chromebooks, Android, or RAID controllers.
-- Not a wipe from inside Windows. The PC must boot this USB.
+- Not a wipe from inside Windows or macOS. The PC must boot this USB.
+- Intel Mac USB boot-picker guidance is best-effort only; it is not Mac wipe support.
 - Not DoD / NSA / NIST “certified.” Not a Blancco replacement.
 - Not a new wipe engine. The only eraser is [nwipe](https://github.com/martijnvanbrummelen/nwipe) **v0.42**.
 - Opening the application is explicit. The firmware boot menu (often F12,
@@ -99,7 +100,9 @@ separate program. Source: this repository. There is **no warranty**.
 
 ## Build the ISO
 
-You need Docker (amd64 image; on Apple silicon Docker emulates it).
+Use Google Cloud Build (`./scripts/ci-cloud.sh`) for the amd64 ISO gate.
+A local build needs Docker on an isolated x86_64 Linux worker. Apple Silicon
+emulation is not the ISO or QEMU verification gate.
 
 ```bash
 ./scripts/build-iso.sh
@@ -129,7 +132,10 @@ qemu-system-x86_64 -m 2048 -enable-kvm \
   -boot d
 ```
 
-On macOS, drop `-enable-kvm` and use `-accel hvf` if available, or TCG.
+Run these boot/erase checks on an isolated x86_64 Linux worker with disposable
+virtual disks and no host-disk passthrough. macOS development uses `./preview`;
+Apple Silicon cannot accelerate this x86_64 guest with HVF. See
+[the VM verification policy](docs/vm-test.md).
 
 UEFI:
 
@@ -159,8 +165,10 @@ sudo dd if=dist/beamo-wipe-0.2.6-amd64.iso of=/dev/sdX bs=4M status=progress con
 # Or Raspberry Pi Imager / balenaEtcher: pick the ISO, pick the USB, flash.
 ```
 
-The image is meant to fit in about 1 GB so a 16–32 GB dual A/C stick has room
-for README and licenses on a leftover data partition.
+The separate desktop-readable `.img` is 2 GiB with one active FAT32 partition
+containing the launchers, live files, README, and licenses. Use that verified
+image for desktop-entry testing; flashing the ISO does not establish Windows
+launcher-file visibility.
 
 ## Unit tests
 
@@ -217,7 +225,9 @@ The desktop `./preview` launcher prefers an installed modern Python/Tk on macOS.
 Python 3.10.0 with Tk 8.6.11 can abort when closing a native window. Python
 3.14.7 with Tk 9.0.4 was verified to close cleanly. An explicit runtime can be
 selected with `BEAMO_WIPE_PREVIEW_PYTHON=python3.14 ./preview`. This affects only
-the fake-device desktop preview, not the live Linux launcher.
+the fake-device desktop preview, not the live Linux launcher. Automatic selection
+falls back to the keyboard preview if no usable Tk 8.6.13 or newer is found.
+Console, web, helper, help, and version modes do not open Tk probe windows.
 
 At method selection, **Storage limits (L)** opens the supported limits offline.
 The warning includes inaccessible, remapped, over-provisioned, and controller-managed

@@ -1,0 +1,18 @@
+..............                                                           [100%]
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_cross_platform_20260908.py::test_injected_inventory_never_reads_host_boot_metadata
+PASSED tests/test_cross_platform_20260908.py::test_fixture_cli_refresh_stays_on_fake_machine
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[darwin]
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[win32]
+PASSED tests/test_cross_platform_20260908.py::test_non_linux_live_detection_never_reads_proc[freebsd14]
+PASSED tests/test_cross_platform_20260908.py::test_production_discovery_still_reads_boot_metadata
+PASSED tests/test_cross_platform_20260908.py::test_macos_preview_checks_loaded_tk_patch_not_tcl
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files0]
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files1]
+PASSED tests/test_usb_image_readback.py::test_incomplete_manifest_cannot_become_success_bundle[files2]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[None]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[launcher]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[manifest]
+PASSED tests/test_usb_image_readback.py::test_regular_file_fat32_roundtrip[offset]
+14 passed in 0.76s

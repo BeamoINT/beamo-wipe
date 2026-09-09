@@ -1,0 +1,61 @@
+{
+  "date": "2026-09-08",
+  "base_commit": "7bc73a0cafeb7338528ffa0915cbc811681e1368",
+  "branch": "codex/cross-platform-20260908",
+  "os": "Debian GNU/Linux 13.6 (trixie)",
+  "architecture": "x86_64",
+  "kernel": "6.12.94+",
+  "python": {
+    "version": "3.13.5",
+    "baseline_passed": 1680,
+    "baseline_skipped": 13,
+    "final_passed": 1695,
+    "final_skipped": 12
+  },
+  "go": "1.26.5",
+  "ruff": "0.9.2",
+  "shellcheck": "0.10.0",
+  "display": "Xvfb 1600x1000x24 at 72 DPI with private dbus session",
+  "go_linux": {
+    "top_level_passed": 21,
+    "top_level_skipped": 1,
+    "including_subtests_passed": 41,
+    "race": true,
+    "vet": "pass",
+    "native_inventory_opt_in": false
+  },
+  "windows": {
+    "amd64_launcher_build": "pass",
+    "amd64_test_compile": "pass",
+    "amd64_vet": "pass",
+    "native_execution": "not available"
+  },
+  "darwin": {
+    "arm64_test_compile": "pass",
+    "native_execution": "not available",
+    "tk_selection": "simulated regression passed"
+  },
+  "fat32": {
+    "real_regular_file_tests_passed": 4,
+    "incomplete_manifest_tests_passed": 3,
+    "physical_devices": false
+  },
+  "preview": {
+    "linux_tk_entry": "pass, alive for 3 seconds then terminated",
+    "web_and_helper_generation": "pass",
+    "console_eof": "pass",
+    "desktop_http_lifecycle": "pass",
+    "browser_click_through": "blocked: Codex webview attachment timed out; no other browser surface"
+  },
+  "hosted": "direct submit and describe denied; PR-triggered gate status must be checked separately",
+  "iso_qemu": "not executed on this branch; no current ISO or Docker/QEMU installation",
+  "notion": "no Notion tool connected; evidence retained in repository",
+  "release": "not authorized or attempted",
+  "ci_followup": {
+    "passed": 31,
+    "shellcheck": "pass",
+    "windows_test_compilation": "required in hosted desktop phase",
+    "fat32_tools": "installed in hosted Python phase"
+  },
+  "pr_url": "https://github.com/BeamoINT/beamo-wipe/pull/5"
+}

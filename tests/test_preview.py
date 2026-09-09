@@ -226,10 +226,11 @@ def test_macos_preview_uses_modern_tk_without_changing_dry_run(tmp_path):
     root = Path(__file__).resolve().parents[1]
     env = {**os.environ, "PATH": f"{fake_bin}:/usr/bin:/bin"}
     env.pop("BEAMO_WIPE_PREVIEW_PYTHON", None)
-    result = subprocess.run([str(root / "preview"), "--console"], env=env,
+    env.pop("BEAMO_WIPE_UI", None)
+    result = subprocess.run([str(root / "preview")], env=env,
                             text=True, capture_output=True, check=True)
     assert result.stdout.splitlines() == [
-        "dry=1 demo=1", "-m", "beamo_wipe", "--preview", "--console",
+        "dry=1 demo=1", "-m", "beamo_wipe", "--preview",
     ]
 
 

@@ -43,6 +43,8 @@ func TestWindowsInventoryPowerShellRuntime(t *testing.T) {
 		duplicate         bool
 	}{
 		{"gpt", "", "gpt:11111111-2222-3333-4444-555555555555", false},
+		{"unicode", "$disk.SerialNumber='TESTONLY-é-磁盘';$disk.UniqueId='TESTONLY-é-磁盘';", "gpt:11111111-2222-3333-4444-555555555555", false},
+		{"mbr-4k", "$disk.PartitionStyle='MBR';$disk.Signature=0x1234abcd;$disk.LogicalSectorSize=4096;", "mbr:1234abcd:1:256:262144", false},
 		{"duplicate-gpt", "", "", true},
 		{"mbr", "$disk.PartitionStyle='MBR';$disk.Signature=0x1234abcd;", "mbr:1234abcd:1:2048:2097152", false},
 		{"duplicate-mbr", "$disk.PartitionStyle='MBR';$disk.Signature=0x1234abcd;", "", true},
@@ -71,6 +73,9 @@ func TestWindowsInventoryPowerShellRuntime(t *testing.T) {
 			var got struct {
 				Media      string   `json:"media"`
 				Partitions []string `json:"partitions"`
+			}
+			if tc.name == "unicode" && !strings.Contains(string(out), "TESTONLY-é-磁盘") {
+				t.Fatalf("inventory identity lost Unicode: %s", out)
 			}
 			if json.Unmarshal(out, &got) != nil || len(got.Partitions) != 1 || got.Partitions[0] != tc.want || !strings.Contains(got.Media, "TESTONLY") {
 				t.Fatalf("invalid fixture result: %s", out)

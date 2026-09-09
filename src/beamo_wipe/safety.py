@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import re
 import stat
+import sys
 import time
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple, Mapping
@@ -167,6 +168,8 @@ def running_on_live_usb(env: Optional[Mapping[str, str]] = None) -> bool:
     A fake Finished screen on the kiosk is a safety bug: operators will
     unplug a disk that was never erased. Live-medium detection wins.
     """
+    if sys.platform != "linux":
+        return False
     if env is None:
         env = os.environ
     from beamo_wipe.discover import read_cmdline

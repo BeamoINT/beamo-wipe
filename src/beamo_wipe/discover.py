@@ -1216,6 +1216,11 @@ def discover(
         ):
             _validate_real_lsblk_metadata(payload)
         blockdevices = payload.get("blockdevices") or []
+        # Injected inventory describes an entirely fake machine. Never combine
+        # it with the developer host's mounts or kernel boot arguments.
+        if lsblk_payload is not None:
+            mount_sources = [] if mount_sources is None else mount_sources
+            cmdline = "" if cmdline is None else cmdline
         identified = identify_boot_path(
             blockdevices,
             env_boot=boot_path or env.get("BEAMO_WIPE_BOOT_DEVICE"),

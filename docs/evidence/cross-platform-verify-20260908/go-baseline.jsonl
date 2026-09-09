@@ -1,0 +1,173 @@
+{"Time":"2026-09-08T22:25:26.206419318Z","Action":"start","Package":"beamo-wipe/desktop"}
+{"Time":"2026-09-08T22:25:26.216188568Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestExactBootOption"}
+{"Time":"2026-09-08T22:25:26.216234705Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestExactBootOption","Output":"=== RUN   TestExactBootOption\n"}
+{"Time":"2026-09-08T22:25:26.216299093Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestExactBootOption","Output":"--- PASS: TestExactBootOption (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.216304742Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestExactBootOption","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.216313566Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestMalformedOptionsRefused"}
+{"Time":"2026-09-08T22:25:26.216317222Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestMalformedOptionsRefused","Output":"=== RUN   TestMalformedOptionsRefused\n"}
+{"Time":"2026-09-08T22:25:26.216324307Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestMalformedOptionsRefused","Output":"--- PASS: TestMalformedOptionsRefused (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.216341359Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestMalformedOptionsRefused","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.216348807Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestPlanningRequiresOneExactUSBEntry"}
+{"Time":"2026-09-08T22:25:26.216352069Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestPlanningRequiresOneExactUSBEntry","Output":"=== RUN   TestPlanningRequiresOneExactUSBEntry\n"}
+{"Time":"2026-09-08T22:25:26.216673139Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestPlanningRequiresOneExactUSBEntry","Output":"--- PASS: TestPlanningRequiresOneExactUSBEntry (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.216680732Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestPlanningRequiresOneExactUSBEntry","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.21668881Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestMBRBootOptionMatchesVolumeGeometry"}
+{"Time":"2026-09-08T22:25:26.216692261Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestMBRBootOptionMatchesVolumeGeometry","Output":"=== RUN   TestMBRBootOptionMatchesVolumeGeometry\n"}
+{"Time":"2026-09-08T22:25:26.21674927Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestMBRBootOptionMatchesVolumeGeometry","Output":"--- PASS: TestMBRBootOptionMatchesVolumeGeometry (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.216756283Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestMBRBootOptionMatchesVolumeGeometry","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.216761114Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxMediaIdentity"}
+{"Time":"2026-09-08T22:25:26.216763781Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMediaIdentity","Output":"=== RUN   TestLinuxMediaIdentity\n"}
+{"Time":"2026-09-08T22:25:26.217265679Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMediaIdentity","Output":"--- PASS: TestLinuxMediaIdentity (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.217273918Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxMediaIdentity","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.217289639Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxWorkerArchitecture"}
+{"Time":"2026-09-08T22:25:26.217293663Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxWorkerArchitecture","Output":"=== RUN   TestLinuxWorkerArchitecture\n"}
+{"Time":"2026-09-08T22:25:26.217328057Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxWorkerArchitecture","Output":"--- PASS: TestLinuxWorkerArchitecture (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.217334295Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxWorkerArchitecture","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.21734892Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMediaIdentitiesRefused"}
+{"Time":"2026-09-08T22:25:26.217354717Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMediaIdentitiesRefused","Output":"=== RUN   TestLinuxDuplicateMediaIdentitiesRefused\n"}
+{"Time":"2026-09-08T22:25:26.217703876Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMediaIdentitiesRefused","Output":"--- PASS: TestLinuxDuplicateMediaIdentitiesRefused (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.217713891Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMediaIdentitiesRefused","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.217718492Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxInventoryRetainsPartitionParents"}
+{"Time":"2026-09-08T22:25:26.217721457Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxInventoryRetainsPartitionParents","Output":"=== RUN   TestLinuxInventoryRetainsPartitionParents\n"}
+{"Time":"2026-09-08T22:25:26.217775279Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxInventoryRetainsPartitionParents","Output":"    media_linux_test.go:63: native disk inventory requires an explicitly opted-in isolated worker\n"}
+{"Time":"2026-09-08T22:25:26.217797453Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxInventoryRetainsPartitionParents","Output":"--- SKIP: TestLinuxInventoryRetainsPartitionParents (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.217803949Z","Action":"skip","Package":"beamo-wipe/desktop","Test":"TestLinuxInventoryRetainsPartitionParents","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.217822189Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMBRSignatureWithDifferentPartitionNumbers"}
+{"Time":"2026-09-08T22:25:26.217827174Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMBRSignatureWithDifferentPartitionNumbers","Output":"=== RUN   TestLinuxDuplicateMBRSignatureWithDifferentPartitionNumbers\n"}
+{"Time":"2026-09-08T22:25:26.21838523Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMBRSignatureWithDifferentPartitionNumbers","Output":"--- PASS: TestLinuxDuplicateMBRSignatureWithDifferentPartitionNumbers (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.218395494Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxDuplicateMBRSignatureWithDifferentPartitionNumbers","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.218399901Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry"}
+{"Time":"2026-09-08T22:25:26.218403277Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry","Output":"=== RUN   TestLinuxMBRLogicalSectorGeometry\n"}
+{"Time":"2026-09-08T22:25:26.218440166Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/512"}
+{"Time":"2026-09-08T22:25:26.218445473Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/512","Output":"=== RUN   TestLinuxMBRLogicalSectorGeometry/512\n"}
+{"Time":"2026-09-08T22:25:26.218615261Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/512","Output":"--- PASS: TestLinuxMBRLogicalSectorGeometry/512 (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.2186236Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/512","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.218646064Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/4k"}
+{"Time":"2026-09-08T22:25:26.218651786Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/4k","Output":"=== RUN   TestLinuxMBRLogicalSectorGeometry/4k\n"}
+{"Time":"2026-09-08T22:25:26.218787486Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/4k","Output":"--- PASS: TestLinuxMBRLogicalSectorGeometry/4k (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.218794451Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/4k","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.218812299Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-start"}
+{"Time":"2026-09-08T22:25:26.218822236Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-start","Output":"=== RUN   TestLinuxMBRLogicalSectorGeometry/unaligned-start\n"}
+{"Time":"2026-09-08T22:25:26.218959139Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-start","Output":"--- PASS: TestLinuxMBRLogicalSectorGeometry/unaligned-start (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.218967051Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-start","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.218981582Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-size"}
+{"Time":"2026-09-08T22:25:26.21898639Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-size","Output":"=== RUN   TestLinuxMBRLogicalSectorGeometry/unaligned-size\n"}
+{"Time":"2026-09-08T22:25:26.219131525Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-size","Output":"--- PASS: TestLinuxMBRLogicalSectorGeometry/unaligned-size (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.219137795Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unaligned-size","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.219153433Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unknown-sector"}
+{"Time":"2026-09-08T22:25:26.219158684Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unknown-sector","Output":"=== RUN   TestLinuxMBRLogicalSectorGeometry/unknown-sector\n"}
+{"Time":"2026-09-08T22:25:26.219294245Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unknown-sector","Output":"--- PASS: TestLinuxMBRLogicalSectorGeometry/unknown-sector (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.219300665Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry/unknown-sector","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.219321844Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry","Output":"--- PASS: TestLinuxMBRLogicalSectorGeometry (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.21932873Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestLinuxMBRLogicalSectorGeometry","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.219344604Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartRequiresExplicitConfirmationAndIsSingleUse"}
+{"Time":"2026-09-08T22:25:26.219349729Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartRequiresExplicitConfirmationAndIsSingleUse","Output":"=== RUN   TestRestartRequiresExplicitConfirmationAndIsSingleUse\n"}
+{"Time":"2026-09-08T22:25:26.219614418Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartRequiresExplicitConfirmationAndIsSingleUse","Output":"--- PASS: TestRestartRequiresExplicitConfirmationAndIsSingleUse (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.219622211Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartRequiresExplicitConfirmationAndIsSingleUse","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.219629608Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart"}
+{"Time":"2026-09-08T22:25:26.219632735Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart","Output":"=== RUN   TestUnauthorizedRequestsCannotRestart\n"}
+{"Time":"2026-09-08T22:25:26.219656302Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/host"}
+{"Time":"2026-09-08T22:25:26.219661394Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/host","Output":"=== RUN   TestUnauthorizedRequestsCannotRestart/host\n"}
+{"Time":"2026-09-08T22:25:26.219760095Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/host","Output":"--- PASS: TestUnauthorizedRequestsCannotRestart/host (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.219776167Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/host","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.219790069Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/origin"}
+{"Time":"2026-09-08T22:25:26.219795511Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/origin","Output":"=== RUN   TestUnauthorizedRequestsCannotRestart/origin\n"}
+{"Time":"2026-09-08T22:25:26.219846821Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/origin","Output":"--- PASS: TestUnauthorizedRequestsCannotRestart/origin (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.21985334Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/origin","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.21986872Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/token"}
+{"Time":"2026-09-08T22:25:26.219873915Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/token","Output":"=== RUN   TestUnauthorizedRequestsCannotRestart/token\n"}
+{"Time":"2026-09-08T22:25:26.219939685Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/token","Output":"--- PASS: TestUnauthorizedRequestsCannotRestart/token (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.219946268Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/token","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.219961688Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/method"}
+{"Time":"2026-09-08T22:25:26.219967895Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/method","Output":"=== RUN   TestUnauthorizedRequestsCannotRestart/method\n"}
+{"Time":"2026-09-08T22:25:26.220014145Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/method","Output":"--- PASS: TestUnauthorizedRequestsCannotRestart/method (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.220020451Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/method","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.2200249Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/type"}
+{"Time":"2026-09-08T22:25:26.220028673Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/type","Output":"=== RUN   TestUnauthorizedRequestsCannotRestart/type\n"}
+{"Time":"2026-09-08T22:25:26.220080051Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/type","Output":"--- PASS: TestUnauthorizedRequestsCannotRestart/type (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.220087623Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart/type","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.220115654Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart","Output":"--- PASS: TestUnauthorizedRequestsCannotRestart (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.220122274Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestUnauthorizedRequestsCannotRestart","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.220142797Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestPreviewNeverInvokesPlatformMutation"}
+{"Time":"2026-09-08T22:25:26.220147936Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestPreviewNeverInvokesPlatformMutation","Output":"=== RUN   TestPreviewNeverInvokesPlatformMutation\n"}
+{"Time":"2026-09-08T22:25:26.220251604Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestPreviewNeverInvokesPlatformMutation","Output":"--- PASS: TestPreviewNeverInvokesPlatformMutation (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.220257943Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestPreviewNeverInvokesPlatformMutation","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.220274247Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestMalformedRequestsCannotRestart"}
+{"Time":"2026-09-08T22:25:26.220278238Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestMalformedRequestsCannotRestart","Output":"=== RUN   TestMalformedRequestsCannotRestart\n"}
+{"Time":"2026-09-08T22:25:26.220596183Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestMalformedRequestsCannotRestart","Output":"--- PASS: TestMalformedRequestsCannotRestart (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.220604017Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestMalformedRequestsCannotRestart","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.220612392Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestBusyRejectsCloseAndRepeatedRestart"}
+{"Time":"2026-09-08T22:25:26.220615653Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestBusyRejectsCloseAndRepeatedRestart","Output":"=== RUN   TestBusyRejectsCloseAndRepeatedRestart\n"}
+{"Time":"2026-09-08T22:25:26.22078192Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestBusyRejectsCloseAndRepeatedRestart","Output":"--- PASS: TestBusyRejectsCloseAndRepeatedRestart (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.220789761Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestBusyRejectsCloseAndRepeatedRestart","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.220794153Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestAssetsHaveNoPrivilegeTokenOrExternalResources"}
+{"Time":"2026-09-08T22:25:26.220797668Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestAssetsHaveNoPrivilegeTokenOrExternalResources","Output":"=== RUN   TestAssetsHaveNoPrivilegeTokenOrExternalResources\n"}
+{"Time":"2026-09-08T22:25:26.220955794Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestAssetsHaveNoPrivilegeTokenOrExternalResources","Output":"--- PASS: TestAssetsHaveNoPrivilegeTokenOrExternalResources (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.22096262Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestAssetsHaveNoPrivilegeTokenOrExternalResources","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.220979398Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestSlowCompatibilityCheckDoesNotBlameOriginalUSB"}
+{"Time":"2026-09-08T22:25:26.220984558Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestSlowCompatibilityCheckDoesNotBlameOriginalUSB","Output":"=== RUN   TestSlowCompatibilityCheckDoesNotBlameOriginalUSB\n"}
+{"Time":"2026-09-08T22:25:26.222238672Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestSlowCompatibilityCheckDoesNotBlameOriginalUSB","Output":"--- PASS: TestSlowCompatibilityCheckDoesNotBlameOriginalUSB (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222253916Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestSlowCompatibilityCheckDoesNotBlameOriginalUSB","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.222274342Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestIncompleteCheckDiscardsOtherwiseReadySnapshot"}
+{"Time":"2026-09-08T22:25:26.222279357Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestIncompleteCheckDiscardsOtherwiseReadySnapshot","Output":"=== RUN   TestIncompleteCheckDiscardsOtherwiseReadySnapshot\n"}
+{"Time":"2026-09-08T22:25:26.222373909Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestIncompleteCheckDiscardsOtherwiseReadySnapshot","Output":"--- PASS: TestIncompleteCheckDiscardsOtherwiseReadySnapshot (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222389662Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestIncompleteCheckDiscardsOtherwiseReadySnapshot","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.22239496Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction"}
+{"Time":"2026-09-08T22:25:26.222400199Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction","Output":"=== RUN   TestRestartTransaction\n"}
+{"Time":"2026-09-08T22:25:26.222422966Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/success"}
+{"Time":"2026-09-08T22:25:26.222435405Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/success","Output":"=== RUN   TestRestartTransaction/success\n"}
+{"Time":"2026-09-08T22:25:26.222486859Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/success","Output":"--- PASS: TestRestartTransaction/success (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222493605Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/success","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.22250866Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/pending"}
+{"Time":"2026-09-08T22:25:26.222513678Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/pending","Output":"=== RUN   TestRestartTransaction/pending\n"}
+{"Time":"2026-09-08T22:25:26.222552748Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/pending","Output":"--- PASS: TestRestartTransaction/pending (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222567835Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/pending","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.222576292Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/write_failure"}
+{"Time":"2026-09-08T22:25:26.222579375Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/write_failure","Output":"=== RUN   TestRestartTransaction/write_failure\n"}
+{"Time":"2026-09-08T22:25:26.222613341Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/write_failure","Output":"--- PASS: TestRestartTransaction/write_failure (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222619467Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/write_failure","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.22263239Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/reboot_failure"}
+{"Time":"2026-09-08T22:25:26.222636823Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/reboot_failure","Output":"=== RUN   TestRestartTransaction/reboot_failure\n"}
+{"Time":"2026-09-08T22:25:26.222664088Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/reboot_failure","Output":"--- PASS: TestRestartTransaction/reboot_failure (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222670267Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/reboot_failure","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.222685982Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/changed"}
+{"Time":"2026-09-08T22:25:26.222690994Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/changed","Output":"=== RUN   TestRestartTransaction/changed\n"}
+{"Time":"2026-09-08T22:25:26.222724201Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/changed","Output":"--- PASS: TestRestartTransaction/changed (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222730551Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/changed","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.222747965Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/cleanup_failure"}
+{"Time":"2026-09-08T22:25:26.222753266Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/cleanup_failure","Output":"=== RUN   TestRestartTransaction/cleanup_failure\n"}
+{"Time":"2026-09-08T22:25:26.222779969Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/cleanup_failure","Output":"--- PASS: TestRestartTransaction/cleanup_failure (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.2227863Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/cleanup_failure","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.222792594Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/no_plan"}
+{"Time":"2026-09-08T22:25:26.222795635Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/no_plan","Output":"=== RUN   TestRestartTransaction/no_plan\n"}
+{"Time":"2026-09-08T22:25:26.222825358Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/no_plan","Output":"--- PASS: TestRestartTransaction/no_plan (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.222831395Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction/no_plan","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.2228524Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction","Output":"--- PASS: TestRestartTransaction (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.2228584Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestRestartTransaction","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.222873097Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestFingerprintChangesWithIdentity"}
+{"Time":"2026-09-08T22:25:26.222879635Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestFingerprintChangesWithIdentity","Output":"=== RUN   TestFingerprintChangesWithIdentity\n"}
+{"Time":"2026-09-08T22:25:26.22307513Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestFingerprintChangesWithIdentity","Output":"--- PASS: TestFingerprintChangesWithIdentity (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.223081501Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestFingerprintChangesWithIdentity","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.223086495Z","Action":"run","Package":"beamo-wipe/desktop","Test":"TestBootInventoryRefusesUnreadableOrDuplicate"}
+{"Time":"2026-09-08T22:25:26.223089344Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestBootInventoryRefusesUnreadableOrDuplicate","Output":"=== RUN   TestBootInventoryRefusesUnreadableOrDuplicate\n"}
+{"Time":"2026-09-08T22:25:26.223148827Z","Action":"output","Package":"beamo-wipe/desktop","Test":"TestBootInventoryRefusesUnreadableOrDuplicate","Output":"--- PASS: TestBootInventoryRefusesUnreadableOrDuplicate (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.223156055Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"TestBootInventoryRefusesUnreadableOrDuplicate","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.223204464Z","Action":"run","Package":"beamo-wipe/desktop","Test":"FuzzBootOption"}
+{"Time":"2026-09-08T22:25:26.223210914Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption","Output":"=== RUN   FuzzBootOption\n"}
+{"Time":"2026-09-08T22:25:26.223309979Z","Action":"run","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#0"}
+{"Time":"2026-09-08T22:25:26.223315056Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#0","Output":"=== RUN   FuzzBootOption/seed#0\n"}
+{"Time":"2026-09-08T22:25:26.223396806Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#0","Output":"--- PASS: FuzzBootOption/seed#0 (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.223412656Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#0","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.223432698Z","Action":"run","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#1"}
+{"Time":"2026-09-08T22:25:26.223438364Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#1","Output":"=== RUN   FuzzBootOption/seed#1\n"}
+{"Time":"2026-09-08T22:25:26.223465529Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#1","Output":"--- PASS: FuzzBootOption/seed#1 (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.223470806Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#1","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.223490185Z","Action":"run","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#2"}
+{"Time":"2026-09-08T22:25:26.223495134Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#2","Output":"=== RUN   FuzzBootOption/seed#2\n"}
+{"Time":"2026-09-08T22:25:26.223521746Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#2","Output":"--- PASS: FuzzBootOption/seed#2 (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.223531548Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"FuzzBootOption/seed#2","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.223550608Z","Action":"output","Package":"beamo-wipe/desktop","Test":"FuzzBootOption","Output":"--- PASS: FuzzBootOption (0.00s)\n"}
+{"Time":"2026-09-08T22:25:26.22355896Z","Action":"pass","Package":"beamo-wipe/desktop","Test":"FuzzBootOption","Elapsed":0}
+{"Time":"2026-09-08T22:25:26.223563077Z","Action":"output","Package":"beamo-wipe/desktop","Output":"PASS\n"}
+{"Time":"2026-09-08T22:25:27.224918705Z","Action":"output","Package":"beamo-wipe/desktop","Output":"ok  \tbeamo-wipe/desktop\t1.018s\n"}
+{"Time":"2026-09-08T22:25:27.224989755Z","Action":"pass","Package":"beamo-wipe/desktop","Elapsed":1.019}
