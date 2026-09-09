@@ -68,7 +68,7 @@ def test_complete_excluded_inventory_does_not_add_targets():
         "identity could not be confirmed",
     ):
         assert reason in text
-    mounted = next(d for d in wiz.other_devices if "/dev/sdc" in d.identity)
+    mounted = next(d for d in wiz.other_devices if "Serial: sdc" in d.identity)
     assert mounted.reasons == ("mounted or in use", "read-only")
     for path in ("/dev/sdb", "/dev/sdc", "/dev/sdd", "/dev/loop0", "/dev/sdf"):
         wiz.select_disk(path)
@@ -88,7 +88,8 @@ def test_blocked_boot_hides_inventory_and_refresh_replaces_it():
     wiz._enter_pick()
     assert wiz.screen == Screen.PICK_EMPTY
     assert not wiz.other_devices
-    assert wiz.empty_detail and "/dev/sdb" in wiz.empty_detail
+    assert wiz.empty_detail and "not erasable" in wiz.empty_detail.lower()
+    assert "/dev/" not in wiz.empty_detail
 
 
 def test_plain_console_has_distinct_unnumbered_inventory(monkeypatch, capsys):

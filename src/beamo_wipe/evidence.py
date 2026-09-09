@@ -239,6 +239,9 @@ def build_evidence(
     # Warnings
     selectable: Sequence[Disk] = getattr(discovery, "selectable", ())  # type: ignore[assignment]
     warnings = _warnings_for(disk, selectable)
+    from beamo_wipe.identity import present_disk
+
+    device_presentation = present_disk(disk, selectable).payload() if disk is not None else None
 
     # Verification
     device_path = disk.path if disk else (request.device if request else "")
@@ -319,6 +322,7 @@ def build_evidence(
         "completion": {"validated": validated, "reason": reason},
         "failure_reason": failure_reason,
         "device": device_dict,
+        "device_presentation": device_presentation,
         "method": {
             "id": method.value,
             "nwipe_method": spec.nwipe_method,

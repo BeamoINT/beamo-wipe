@@ -20,6 +20,7 @@ from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
 from beamo_wipe.models import Screen  # noqa: E402
+from beamo_wipe.safety import same_size_conflict  # noqa: E402
 from beamo_wipe.wizard import Wizard  # noqa: E402
 
 
@@ -147,9 +148,9 @@ class AccessibleWizard:
     def identity(self):
         disk = self.w.selected
         if disk:
-            self.label(
-                f"{disk.display_name}; {disk.size_phrase}; {disk.path}; Serial: {disk.serial or 'unavailable'}"
-            ).get_style_context().add_class("disk-identity")
+            self.label(self.w.disk_view(disk).announcement).get_style_context().add_class(
+                "disk-identity"
+            )
 
     def reader(self, text: str):
         view = Gtk.TextView()
@@ -233,8 +234,12 @@ class AccessibleWizard:
         elif screen == Screen.PICK:
             heading.set_text(C.TITLE_PICK)
             self.label(C.pick_subtitle())
+            if same_size_conflict(self.w.listed_disks):
+                self.label(C.SAME_SIZE_HINT)
+            if self.w.error:
+                self.label(self.w.error)
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
-                text = f"Select {disk.display_name}; {disk.size_phrase}; {disk.path}; Serial: {disk.serial or 'unavailable'}"
+                text = f"Select {self.w.disk_view(disk).announcement}"
                 self.button(text, lambda path=disk.path: self._select(path), in_body=True)
             self._inventory()
         elif screen in (Screen.PICK_EMPTY, Screen.PICK_BLOCKED):

@@ -15,7 +15,8 @@ from beamo_wipe.outcomes import preview_view
 from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
-from beamo_wipe.safety import confirm_spec, listed_disks, same_size_conflict
+from beamo_wipe.identity import present_disk
+from beamo_wipe.safety import SafetyError, confirm_spec, listed_disks, same_size_conflict
 
 
 def project_root() -> Path:
@@ -66,17 +67,27 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
     for disk in result.disks:
         spec = None
         if disk.path in eligible_paths:
-            spec = confirm_spec(disk, peers)
+            try:
+                spec = confirm_spec(disk, peers)
+            except SafetyError:
+                spec = None
+        view = present_disk(disk, peers)
         out.append(
             {
                 "path": disk.path,
-                "name": disk.display_name,
-                "size": disk.size_phrase,
+                "name": view.title,
+                "size": view.capacity,
                 "kind": disk.kind.value,
-                "kindLabel": C.kind_label(disk.kind),
+                "kindLabel": view.kind_chip,
                 "storageNotice": limits.notice(disk.kind),
-                "bus": disk.bus,
-                "serial": disk.serial or "no serial",
+                "bus": view.connection,
+                "serial": view.id_value,
+                "idLabel": view.id_label,
+                "connection": view.connection,
+                "missingNote": view.missing_note,
+                "ambiguousNote": view.ambiguous_note,
+                "duplicateNote": view.duplicate_note,
+                "announcement": view.announcement,
                 "isBoot": disk.is_boot,
                 "eligible": disk.path in eligible_paths,
                 "token": spec.token if spec else "",
@@ -627,9 +638,12 @@ function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function metaLine(d) {
-  return `<div class="meta"><span class="serialpair"><span class="serial-label">${P.serialLabel}</span><span class="mono ser">${esc(d.serial)}</span></span>
+  const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote].filter(Boolean)
+    .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
+  const extra = showMore ? `<div class="small muted">System name (not a stable identity): ${esc(d.path)}</div>` : "";
+  return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
-    <div class="connection"><span class="mono dev">${esc(d.path)}</span>${showMore ? ` <span>Connection: ${esc(d.bus)}</span>` : ""}</div></div>`;
+    <div class="connection"><span>${esc(d.connection || d.bus)}</span></div>${notes}${extra}</div>`;
 }
 function summaryCard(d) {
   return `<div class="card hero identity"><div class="identity-label">${P.selectedDisk}</div><div class="row" style="align-items:flex-start">

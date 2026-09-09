@@ -67,7 +67,8 @@ class Disk:
 
     @property
     def display_name(self) -> str:
-        return self.model or self.label or self.name
+        # Kernel names are not stable identity. Unknown stays unknown.
+        return self.model or self.label or "Unknown model"
 
     @property
     def size_phrase(self) -> str:
@@ -124,6 +125,7 @@ class DiscoveryResult:
 class ExcludedDevice:
     identity: str
     reasons: Tuple[str, ...]
+    path: str = ""
 
     @property
     def explanation(self) -> str:

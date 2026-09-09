@@ -469,10 +469,10 @@ def test_unsafe_serial_is_not_used_as_confirm_token():
         bus="SATA",
         label="",
     )
-    spec = confirm_spec(dirty, [dirty, other])
-    assert "/" not in spec.token
-    assert ".." not in spec.token
-    assert spec.token in {"sda", "sdb"}
+    from beamo_wipe.safety import SafetyError
+
+    with pytest.raises(SafetyError, match="too similar"):
+        confirm_spec(dirty, [dirty, other])
 
 
 def test_listed_disks_omit_non_selectable_non_boot():

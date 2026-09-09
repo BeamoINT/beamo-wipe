@@ -171,10 +171,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(C.SAME_SIZE_HINT)
             numbered = sorted(wizard.selectable, key=lambda d: d.path)
             for i, disk in enumerate(numbered, 1):
-                print(
-                    f"[{i}] {disk.display_name} {disk.size_phrase} "
-                    f"{disk.path} {disk.serial}"
-                )
+                view = wizard.disk_view(disk)
+                print(f"[{i}] {view.compact_line}")
+                for note in view.notes:
+                    print(f"    {note}")
             choice = _answer(wizard, "Number of disk to erase: ").strip()
             try:
                 idx = int(choice) - 1
@@ -189,12 +189,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             disk = wizard.selected
             spec = wizard.confirm
             if disk:
-                print(
-                    disk.display_name,
-                    disk.size_phrase,
-                    disk.serial or "no serial",
-                    disk.path,
-                )
+                view = wizard.disk_view(disk)
+                print(view.compact_line)
+                for note in view.notes:
+                    print(note)
             print(wizard.warning_text())
             print(spec.prompt if spec else "")
             typed = _answer(wizard, "> ")
@@ -247,8 +245,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     if warning:
                         print(warning)
                 if last_working is None and wizard.selected:
-                    print(wizard.selected.display_name, wizard.selected.size_phrase,
-                          wizard.selected.path, wizard.selected.serial or "no serial")
+                    view = wizard.disk_view(wizard.selected)
+                    print(view.compact_line)
+                    for note in view.notes:
+                        print(note)
                 last_working = status
             # Poll canonical TTY input without blocking progress updates.
             # This remains usable when the hardened kiosk disables INTR.
@@ -274,6 +274,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             report = wizard.report_view
             print(wizard.method_summary)
             print(wizard.method_result)
+            if wizard.selected:
+                view = wizard.disk_view(wizard.selected)
+                print(view.compact_line)
+                for note in view.notes:
+                    print(note)
             if report.evidence_error:
                 print(wizard.evidence_warning)
             if wizard.preview:
@@ -378,24 +383,21 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, C.pick_subtitle(), w) + 1
             if same_size_conflict(wizard.listed_disks):
                 y = _wrap(stdscr, y, C.SAME_SIZE_HINT, w) + 1
+            if wizard.error:
+                y = _wrap(stdscr, y, wizard.error, w) + 1
             ordered = sorted(wizard.selectable, key=lambda d: d.path)
             for disk in ordered:
+                if y >= h - 3:
+                    y = _wrap(stdscr, y, "More disks below. Use Up and Down.", w)
+                    break
                 star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
-                extra = ""
-                if disk.is_boot:
-                    extra = "  " + (
-                        C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
-                    )
-                serial = disk.serial or "no serial"
-                line = (
-                    f"{star} {disk.display_name}  {disk.size_phrase}  "
-                    f"{disk.kind.value}  {serial}  {disk.path}{extra}"
-                )
-                attr = curses.A_REVERSE if star == ">" else curses.A_NORMAL
-                if disk.is_boot:
-                    attr = curses.A_DIM
-                _add(stdscr, y, 0, line[: w - 1], attr)
-                y += 1
+                view = wizard.disk_view(disk)
+                line = f"{star} {view.compact_line}"
+                y = _wrap(stdscr, y, line, w)
+                for note in view.notes:
+                    if y >= h - 3:
+                        break
+                    y = _wrap(stdscr, y, note, w)
             if wizard.other_devices:
                 _add(stdscr, min(h - 3, y), 0, "Other detected devices (O): read reasons; not selectable.")
             _add(stdscr, min(h - 2, y + 1), 0, "Up/Down then Enter. Esc back.")
@@ -424,9 +426,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, h - 2, 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.CONFIRM and wizard.selected:
             disk = wizard.selected
-            _add(stdscr, y, 0, disk.display_name, curses.A_BOLD)
-            _add(stdscr, y + 2, 0, f"{disk.size_phrase}  {disk.serial}  {disk.path}")
-            y = _wrap(stdscr, y + 4, wizard.warning_text(), w)
+            view = wizard.disk_view(disk)
+            y = _wrap(stdscr, y, view.compact_line, w)
+            for note in view.notes:
+                y = _wrap(stdscr, y, note, w)
+            y = _wrap(stdscr, y + 1, wizard.warning_text(), w)
             spec = wizard.confirm
             if spec:
                 y = _wrap(stdscr, y + 1, spec.prompt, w)
@@ -487,13 +491,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             progress_end = _wrap(stdscr, y, wizard.progress_view.status_text, w)
             identity_y = max(y + 4, progress_end + 1)
             if wizard.selected:
-                _add(stdscr, identity_y, 0, f"{wizard.selected.display_name} {wizard.selected.size_phrase}")
-                _add(
-                    stdscr,
-                    identity_y + 1,
-                    0,
-                    f"{wizard.selected.path}  {wizard.selected.serial or 'no serial'}",
-                )
+                view = wizard.disk_view(wizard.selected)
+                identity_y = _wrap(stdscr, identity_y, view.compact_line, w)
+                for note in view.notes:
+                    identity_y = _wrap(stdscr, identity_y, note, w)
             # A failed cancel stays on WORKING with wizard.error set: show it
             # so the owner knows the disk may still be erasing.
             message_y = identity_y + 2
@@ -506,6 +507,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
             report = wizard.report_view
             y = _wrap(stdscr, y, wizard.method_summary, w)
             y = _wrap(stdscr, y, wizard.method_result, w)
+            if wizard.selected:
+                view = wizard.disk_view(wizard.selected)
+                y = _wrap(stdscr, y, view.compact_line, w)
+                for note in view.notes:
+                    y = _wrap(stdscr, y, note, w)
             content = wizard.elapsed_text + "\n" + wizard.result_view.next_step
             if not wizard.preview:
                 content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)

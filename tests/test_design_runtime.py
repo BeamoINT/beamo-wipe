@@ -109,11 +109,13 @@ def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: 
     app._draw()
     app.root.update()
     assert not app._show_more
-    labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
-              and w.cget('text') == wiz.selected.path]
-    assert len(labels) == 1
-    assert labels[0].winfo_ismapped()
-    assert labels[0].winfo_reqwidth() <= labels[0].winfo_width() + 2
+    view = wiz.disk_view(wiz.selected)
+    texts = [w.cget('text') for w in descendants(app.root) if w.winfo_class() == 'Label']
+    assert view.title in texts
+    assert view.id_value in texts
+    assert view.connection in texts
+    assert wiz.selected.path not in texts
+    assert view.system_path == wiz.selected.path
 
 
 def test_countdown_ready_still_explains_nothing_started(ui):  # noqa: F811

@@ -384,7 +384,7 @@ def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
     wizard.screen = screen
     app = ui(wizard)
     assert wizard.selected.serial in text(app)
-    assert wizard.selected.path in text(app)
+    assert wizard.selected.path not in text(app)
     assert "You cannot get" in text(app)
     assert (C.TITLE_CONFIRM if screen == Screen.CONFIRM else C.TITLE_LAST) in text(app)
     arrival = app.window.get_focus()

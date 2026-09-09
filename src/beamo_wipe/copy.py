@@ -93,7 +93,7 @@ DONE_FAIL_PREVIEW = (
 )
 
 SAME_SIZE_HINT = (
-    "Two disks are the same size. Compare their serial numbers before choosing."
+    "Two disks are the same size. Compare their serial or hardware ID before choosing."
 )
 
 RECOMMENDED_TAG = "Recommended"
@@ -213,7 +213,7 @@ SHUTDOWN_HINT = "Nothing is saved automatically."
 HINT_WORKING = "Leave this USB in until you see Finished."
 HINT_SPLASH = "Press any key to continue."
 
-NO_CODE = "no serial"
+NO_CODE = "Serial not reported"
 
 
 def kind_label(kind: DiskKind) -> str:
@@ -238,19 +238,26 @@ def confirm_type_chars(token: str) -> str:
 
 
 def confirm_warning(disk: Disk) -> str:
+    from beamo_wipe.identity import display_title
+
     return (
-        f"Every file on {disk.display_name}, {disk.size_phrase}, will be erased. "
+        f"Every file on {display_title(disk)}, {disk.size_phrase}, will be erased. "
         "You cannot get them back."
     )
 
 
 def erase_now_label(disk: Disk) -> str:
-    serial = disk.serial or NO_CODE
+    from beamo_wipe.identity import present_disk
+
+    view = present_disk(disk)
     return (
-        f"This will erase {disk.display_name}, {disk.size_phrase}, {serial}. "
+        f"This will erase {view.title}, {view.capacity}, {view.id_value}. "
         "You cannot get the files back."
     )
 
 
 def pick_subtitle() -> str:
-    return "Match the disk name, size and serial number. Choose only the disk you intend to erase."
+    return (
+        "Match the name, size and serial or hardware ID. "
+        "Choose only the disk you intend to erase."
+    )

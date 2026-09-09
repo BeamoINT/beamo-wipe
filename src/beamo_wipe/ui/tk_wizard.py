@@ -1419,32 +1419,45 @@ class TkWizard:
     def _disk_heading(self, parent: tk.Widget, disk: Disk, bg: str) -> None:
         # Reserve capacity before the expandable model column; long names
         # must not push the capacity or type out of the card.
+        view = self.w.disk_view(disk)
         top = tk.Frame(parent, bg=bg)
         top.pack(fill=tk.X)
-        tk.Label(top, text=disk.size_phrase, font=self.font_size_big,
+        tk.Label(top, text=view.capacity, font=self.font_size_big,
                  fg=INK, bg=bg, anchor="e").pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
         name = tk.Frame(top, bg=bg)
         name.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self._wrapping_label(name, disk.display_name, font=self.font_bold, bg=bg)
+        self._wrapping_label(name, view.title, font=self.font_bold, bg=bg)
 
     def _meta_line(self, parent: tk.Widget, disk: Disk, bg: str) -> tk.Frame:
-        """Always show serial and device path; connection details are optional."""
+        """Model, capacity, connection, and strongest identifier. Path is not identity."""
+        view = self.w.disk_view(disk)
         meta = tk.Frame(parent, bg=bg)
-        if C.kind_label(disk.kind):
-            tk.Label(meta, text=C.kind_label(disk.kind), font=self.font_s,
+        chip = view.kind_chip or view.connection
+        if chip:
+            tk.Label(meta, text=chip, font=self.font_s,
                      fg=MUTED, bg=bg, anchor="e").pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
         identity = tk.Frame(meta, bg=bg)
         identity.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        tk.Label(identity, text=C.SERIAL_LABEL, font=self.font_meta,
+        tk.Label(identity, text=view.id_label, font=self.font_meta,
                  fg=MUTED, bg=bg).pack(side=tk.LEFT, anchor="n", padx=(0, 8), pady=2)
         value = tk.Frame(identity, bg=bg)
         value.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self._wrapping_label(value, disk.serial or C.NO_CODE,
-                             font=self.font_mono_bold, bg=bg)
-        self._wrapping_label(value, disk.path, font=self.font_mono_sm, fg=MUTED, bg=bg)
+        self._wrapping_label(value, view.id_value, font=self.font_mono_bold, bg=bg)
+        self._wrapping_label(
+            value, view.connection, font=self.font_mono_sm, fg=MUTED, bg=bg
+        )
+        for note in view.notes:
+            self._wrapping_label(value, note, font=self.font_s, fg=MUTED, bg=bg)
         if self._show_more:
-            self._wrapping_label(value, f"Connection: {disk.bus or 'unavailable'}",
-                                 font=self.font_mono_sm, fg=MUTED, bg=bg)
+            from beamo_wipe.identity import SYSTEM_PATH_NOTE
+
+            self._wrapping_label(
+                value,
+                f"{SYSTEM_PATH_NOTE}: {view.system_path}",
+                font=self.font_mono_sm,
+                fg=MUTED,
+                bg=bg,
+            )
         return meta
 
     def _disk_summary(self, parent: tk.Widget, disk: Disk) -> _Box:
@@ -1750,6 +1763,12 @@ class TkWizard:
         self._title_block(col, C.TITLE_PICK, C.pick_subtitle())
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
+        if self.w.error:
+            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
+        elif any(not self.w.disk_view(disk).confirmable for disk in self.w.selectable):
+            from beamo_wipe.identity import AMBIGUOUS_IDENTITY
+
+            self._panel(col, kind="warn", text=AMBIGUOUS_IDENTITY).pack(fill=tk.X, pady=(0, 12))
         if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
             self._panel(col, kind="info", text=C.SSD_FOOTER, compact=True).pack(fill=tk.X, pady=(0, 8))
         tools = tk.Frame(col, bg=BG)

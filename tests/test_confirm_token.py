@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from pathlib import Path
 
+import pytest
+
 from beamo_wipe.discover import discover, load_lsblk_json_text
 from beamo_wipe.safety import confirm_spec, selectable_disks, token_matches
 
@@ -75,10 +77,11 @@ def test_same_size_colliding_serial_suffix_uses_device_name():
     )
     spec1 = confirm_spec(d1, [d1, d2])
     spec2 = confirm_spec(d2, [d1, d2])
+    assert spec1.token == "AAAA1234"
+    assert spec2.token == "BBBB1234"
     assert spec1.token != spec2.token
     assert not token_matches(spec1.token, spec2)
-    assert spec1.token in {"sda", "AAAA1234"}
-    assert spec2.token in {"sdb", "BBBB1234"}
+    assert spec1.token not in {"sda", "sdb"}
 
 
 def test_empty_serial_does_not_share_token_with_peer_serial():
@@ -107,11 +110,14 @@ def test_empty_serial_does_not_share_token_with_peer_serial():
         bus="SATA",
         label="",
     )
-    spec_a = confirm_spec(unnamed, [unnamed, named_serial])
-    spec_b = confirm_spec(named_serial, [unnamed, named_serial])
-    assert spec_a.token.casefold() != spec_b.token.casefold()
-    assert not token_matches(spec_a.token, spec_b)
-    assert not token_matches(spec_b.token, spec_a)
+    from beamo_wipe.identity import AMBIGUOUS_IDENTITY
+    from beamo_wipe.safety import SafetyError
+
+    with pytest.raises(SafetyError, match="too similar"):
+        confirm_spec(unnamed, [unnamed, named_serial])
+    with pytest.raises(SafetyError, match="too similar"):
+        confirm_spec(named_serial, [unnamed, named_serial])
+    assert "guess" in AMBIGUOUS_IDENTITY.lower()
 
 
 def test_confirm_token_disambiguates_boot_usb_same_size():

@@ -82,8 +82,9 @@ def test_empty_shows_boot_read_only_and_never_selectable():
     assert wiz.selectable == ()
     detail = wiz.empty_detail
     assert wiz.discovery.boot is not None
-    assert wiz.discovery.boot.path in detail
     assert "not erasable" in detail.lower()
+    assert wiz.discovery.boot.display_name in detail
+    assert "/dev/" not in detail
     # Boot disk is listed for identification but never in the safe set.
     assert wiz.discovery.boot.path not in {d.path for d in selectable_disks(wiz.discovery)}
     assert all(

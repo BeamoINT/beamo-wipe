@@ -267,53 +267,64 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
     """
     Default token is the size label (e.g. 256).
     If two listed disks share that size, use last 4 of serial when that
-    suffix is unique in the same-size set, else the full serial if unique
-    and not another disk's device name, else the device name.
+    suffix is unique in the same-size set, else the full serial if unique,
+    else a unique hardware ID. Kernel device names are never tokens.
     """
+    from beamo_wipe.identity import AMBIGUOUS_IDENTITY
+
     same = [d for d in selectable if d.size_gb_label == disk.size_gb_label]
     if len(same) > 1:
-        serial = (disk.serial or "").strip()
-        peer_names = _peer_name_tokens(disk, same)
-        if len(serial) >= 4:
-            token = _safe_token(serial[-4:])
-            same_token = [
-                d
-                for d in same
-                if _safe_token((d.serial or "").strip()[-4:]).casefold() == token.casefold()
-            ]
-            if token and len(same_token) == 1 and token.casefold() not in peer_names:
-                return _nonzero_token(
-                    token,
-                    confirm_type_four(token),
-                    disk,
-                )
-        serial_token = _safe_token(serial)
-        if serial_token:
-            same_serial = [
-                d
-                for d in same
-                if _safe_token((d.serial or "").strip()).casefold() == serial_token.casefold()
-            ]
-            if len(same_serial) == 1 and serial_token.casefold() not in peer_names:
-                return _nonzero_token(
-                    serial_token,
-                    confirm_type_chars(serial_token),
-                    disk,
-                )
-        token = _safe_token((disk.name or "").strip()) or _safe_token(
-            os.path.basename(disk.path or "")
-        )
-        return _nonzero_token(
-            token,
-            confirm_type_chars(token or disk.name),
-            disk,
-        )
+        spec = _stable_same_size_token(disk, same)
+        if spec is None:
+            raise SafetyError(AMBIGUOUS_IDENTITY)
+        return spec
     token = _safe_token((disk.size_gb_label or "").strip())
-    return _nonzero_token(
-        token,
-        confirm_type_size(token or disk.name),
-        disk,
-    )
+    if not token:
+        raise SafetyError(AMBIGUOUS_IDENTITY)
+    return ConfirmSpec(token=token, prompt=confirm_type_size(token))
+
+
+def _stable_same_size_token(disk: Disk, same: Sequence[Disk]) -> Optional[ConfirmSpec]:
+    peer_names = _peer_name_tokens(disk, same)
+    serial = (disk.serial or "").strip()
+    if len(serial) >= 4:
+        token = _safe_token(serial[-4:])
+        same_token = [
+            d
+            for d in same
+            if _safe_token((d.serial or "").strip()[-4:]).casefold() == token.casefold()
+        ]
+        if token and len(same_token) == 1 and token.casefold() not in peer_names:
+            return ConfirmSpec(token=token, prompt=confirm_type_four(token))
+    serial_token = _safe_token(serial)
+    if serial_token:
+        same_serial = [
+            d
+            for d in same
+            if _safe_token((d.serial or "").strip()).casefold() == serial_token.casefold()
+        ]
+        if len(same_serial) == 1 and serial_token.casefold() not in peer_names:
+            return ConfirmSpec(token=serial_token, prompt=confirm_type_chars(serial_token))
+    wwn = (disk.wwn or "").strip()
+    if len(wwn) >= 4:
+        token = _safe_token(wwn[-4:])
+        same_token = [
+            d
+            for d in same
+            if _safe_token((d.wwn or "").strip()[-4:]).casefold() == token.casefold()
+        ]
+        if token and len(same_token) == 1 and token.casefold() not in peer_names:
+            return ConfirmSpec(token=token, prompt=confirm_type_four(token))
+    wwn_token = _safe_token(wwn)
+    if wwn_token:
+        same_wwn = [
+            d
+            for d in same
+            if _safe_token((d.wwn or "").strip()).casefold() == wwn_token.casefold()
+        ]
+        if len(same_wwn) == 1 and wwn_token.casefold() not in peer_names:
+            return ConfirmSpec(token=wwn_token, prompt=confirm_type_chars(wwn_token))
+    return None
 
 
 def _peer_name_tokens(disk: Disk, same: Sequence[Disk]) -> set[str]:
@@ -338,17 +349,6 @@ def _safe_token(text: str) -> str:
     if not SAFE_TOKEN_RE.fullmatch(got):
         return ""
     return got
-
-
-def _nonzero_token(token: str, prompt: str, disk: Disk) -> ConfirmSpec:
-    text = _safe_token(token)
-    if not text:
-        text = _safe_token((disk.name or "").strip())
-    if not text:
-        text = _safe_token(os.path.basename(disk.path or ""))
-    if not text:
-        raise SafetyError("Cannot build a confirm token for this disk.")
-    return ConfirmSpec(token=text, prompt=prompt)
 
 
 def token_matches(typed: str, spec: ConfirmSpec) -> bool:

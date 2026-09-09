@@ -900,12 +900,19 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
         )
     from beamo_wipe.outcomes import present_evidence
     try:
-        result_view = present_evidence(json.loads(evidence))
-    except (ValueError, UnicodeDecodeError):
+        payload = json.loads(evidence)
+        result_view = present_evidence(payload)
+    except (ValueError, UnicodeDecodeError, TypeError):
+        payload = {}
         result_view = present_evidence(None)
+    identity = ""
+    presentation = payload.get("device_presentation") if isinstance(payload, dict) else None
+    if isinstance(presentation, dict) and isinstance(presentation.get("announcement"), str):
+        identity = presentation["announcement"] + "\r\n"
     readme = (
         f"{result_view.announcement}\r\n"
         "Beamo Wipe report\r\n"
+        f"{identity}"
         "result.json records the wipe outcome and disk identifiers.\r\n"
         f"nwipe log: {log_status}.\r\n"
         "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"

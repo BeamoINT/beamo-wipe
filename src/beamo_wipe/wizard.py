@@ -301,16 +301,11 @@ class Wizard:
         The boot USB is shown so the owner can see it was found; it stays
         non-selectable (selectable_disks never includes it).
         """
-        from beamo_wipe.copy import NO_CODE
-
         boot = self.discovery.boot
         if boot is None:
             return ""
-        serial = boot.serial or NO_CODE
-        return (
-            f"Boot device (not erasable): {boot.display_name} "
-            f"{boot.size_phrase} {boot.path} {serial}"
-        )
+        view = self.disk_view(boot)
+        return f"Beamo USB (not erasable): {view.compact_line}"
 
     @property
     def selectable(self):
@@ -326,19 +321,16 @@ class Wizard:
         # Never display inventory when boot identity failed closed.
         if not self.discovery.boot_identified or self.discovery.error or self.discovery.boot is None:
             return ()
-        boot_markers = tuple(
-            f" | {path} | "
-            for path in dict.fromkeys(
-                (self.discovery.boot.path, os.path.realpath(self.discovery.boot.path))
-            )
-            if path
-        )
-
-        def _not_boot(device) -> bool:
-            return not any(marker in device.identity for marker in boot_markers)
-
+        boot_paths = {
+            self.discovery.boot.path,
+            os.path.realpath(self.discovery.boot.path),
+        }
         if self.discovery.excluded:
-            return tuple(device for device in self.discovery.excluded if _not_boot(device))
+            return tuple(
+                device
+                for device in self.discovery.excluded
+                if not device.path or device.path not in boot_paths
+            )
         from beamo_wipe.inventory import excluded_device
         eligible = {d.path for d in self.selectable}
         boot_paths = {self.discovery.boot.path, os.path.realpath(self.discovery.boot.path)}
@@ -348,11 +340,22 @@ class Wizard:
             if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
         )
 
+    def disk_view(self, disk: Optional[Disk] = None):
+        from beamo_wipe.identity import present_disk
+
+        target = disk if disk is not None else self.selected
+        if target is None:
+            raise SafetyError("No disk is selected.")
+        return present_disk(target, self.listed_disks)
+
     @property
     def confirm(self) -> Optional[ConfirmSpec]:
         if self.selected is None:
             return None
-        return confirm_spec(self.selected, self.listed_disks)
+        try:
+            return confirm_spec(self.selected, self.listed_disks)
+        except SafetyError:
+            return None
 
     @property
     def token_ok(self) -> bool:
@@ -757,6 +760,7 @@ class Wizard:
             for disk in self.selectable:
                 if os.path.realpath(disk.path) == want:
                     self.selected = disk
+                    self.error = None
                     return
 
     def move_selection(self, delta: int) -> None:
@@ -785,6 +789,12 @@ class Wizard:
             if self.discovery.boot is not None:
                 if want == os.path.realpath(self.discovery.boot.path):
                     return
+            from beamo_wipe.identity import AMBIGUOUS_IDENTITY, identity_confirmable
+
+            if not identity_confirmable(self.selected, self.listed_disks):
+                self.error = AMBIGUOUS_IDENTITY
+                return
+            self.error = None
             self.confirm_input = ""
             self.screen = Screen.CONFIRM
 

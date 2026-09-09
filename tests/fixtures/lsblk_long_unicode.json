@@ -1,0 +1,33 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 512110190592,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "삼성전자 SSD 아주긴이름-모델표시용ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+         "serial": "시리얼번호-ΑΒΓΔ-很长很长很长很长很长很长很长很长-SERIALVALUE01"
+      }
+   ]
+}

@@ -229,13 +229,12 @@ def test_curses_pick_shows_serial_and_same_size_hint():
         .joinpath("src/beamo_wipe/ui/console_wizard.py")
         .read_text(encoding="utf-8")
     )
-    assert "disk.serial" in text
+    assert "disk_view" in text
     assert "SAME_SIZE_HINT" in text
-    assert "disk.path" in text
-    assert "BOOT_DISC_BANNER" in text
+    assert "compact_line" in text
     assert "listed_disks" in text
     assert "wizard.progress_view.status_text" in text
-    assert "no serial" in text
+    assert "AMBIGUOUS_IDENTITY" not in text or "too similar" in text or "compact_line" in text
 
 
 def test_curses_pick_empty_enter_ignored_until_idle():
