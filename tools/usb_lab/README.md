@@ -46,10 +46,10 @@ bash scripts/build-usb-image.sh
 
 # Build a separate installed Debian fixture; leave the product image unchanged.
 bash tools/usb_lab/prepare_fixture.sh \
-  dist/beamo-wipe-0.2.6-amd64.iso /var/tmp/usb-fixture
+  dist/beamo-wipe-0.2.7-amd64.iso /var/tmp/usb-fixture
 python3 tools/usb_lab/lab.py \
   --fixture /var/tmp/usb-fixture \
-  --product-image dist/beamo-wipe-0.2.6-amd64.img \
+  --product-image dist/beamo-wipe-0.2.7-amd64.img \
   --output /var/tmp/usb-results
 ```
 
@@ -124,7 +124,7 @@ With that probe running, execute the Windows matrix on its QEMU host:
 ```bash
 python3 tools/usb_lab/windows_matrix.py \
   --qmp /var/tmp/windows/qmp --probe /var/tmp/windows/probe \
-  --product-image dist/beamo-wipe-0.2.6-amd64.img \
+  --product-image dist/beamo-wipe-0.2.7-amd64.img \
   --output /var/tmp/windows-usb-results
 ```
 

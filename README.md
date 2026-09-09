@@ -108,7 +108,7 @@ emulation is not the ISO or QEMU verification gate.
 ./scripts/build-iso.sh
 ```
 
-The ISO lands in `dist/beamo-wipe-0.2.6-amd64.iso`. If Docker or live-build
+The ISO lands in `dist/beamo-wipe-0.2.7-amd64.iso`. If Docker or live-build
 packages are missing, the script prints the missing pieces and exits non-zero.
 
 `make iso` is the same command.
@@ -127,7 +127,7 @@ packages are missing, the script prints the missing pieces and exits non-zero.
 ```bash
 qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
 qemu-system-x86_64 -m 2048 -enable-kvm \
-  -cdrom dist/beamo-wipe-0.2.6-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.7-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 \
   -boot d
 ```
@@ -146,7 +146,7 @@ cp /usr/share/OVMF/OVMF_VARS.fd /tmp/beamo-ovmf-vars.fd
 qemu-system-x86_64 -m 2048 \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/beamo-ovmf-vars.fd \
-  -cdrom dist/beamo-wipe-0.2.6-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.7-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
 # No vars template (older OVMF_CODE.fd-only layout): -bios /usr/share/OVMF/OVMF_CODE.fd
 ```
@@ -160,7 +160,7 @@ real Windows disk.
 
 ```bash
 # Linux (double-check the device name)
-sudo dd if=dist/beamo-wipe-0.2.6-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=dist/beamo-wipe-0.2.7-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
 
 # Or Raspberry Pi Imager / balenaEtcher: pick the ISO, pick the USB, flash.
 ```
