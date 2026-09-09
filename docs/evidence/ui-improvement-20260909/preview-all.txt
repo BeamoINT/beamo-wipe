@@ -1,0 +1,8 @@
+/home/box/beamo-wipe/web-preview/index.html
+
+============================================================
+Beamo Wipe splash
+PREVIEW on this computer — fake disks — nothing is erased
+============================================================
+You already started from this USB. Next you will pick a disk to erase.
+Press Enter… /home/box/beamo-wipe/helper/index.html

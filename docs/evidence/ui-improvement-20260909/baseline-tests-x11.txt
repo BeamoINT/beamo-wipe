@@ -1,0 +1,2428 @@
+dbus-daemon[85061]: [session uid=1000 pid=85061 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=85075 comm="python3 -m pytest -rs" label="kernel")
+dbus-daemon[85061]: [session uid=1000 pid=85061 pidfd=5] Successfully activated service 'org.a11y.Bus'
+.............................dbus-daemon[85089]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=85075 comm="python3 -m pytest -rs" label="kernel")
+dbus-daemon[85089]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+........................................... [  4%]
+........................................................................ [  8%]
+...................F.......FFFFFF....................................... [ 12%]
+..........................................................F............. [ 16%]
+........................................................................ [ 20%]
+......................F................................................. [ 24%]
+......................F................................................. [ 29%]
+........................................................................ [ 33%]
+...........................................................F............ [ 37%]
+.........................F....................FFFFFFFFFFFF............FF [ 41%]
+FF.F....FFF.................................F........................... [ 45%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+sss..s.ssssssss......................................................... [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 66%]
+...............................F.................................FF..... [ 70%]
+...F.....FF............................................................. [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 83%]
+..........FFF....F.F.................................................... [ 87%]
+........................................................................ [ 91%]
+..............ssssssssssss.............................................. [ 95%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+=================================== FAILURES ===================================
+_____ test_nonregular_evidence_readers_reject_fifo_without_waiting[wizard] _____
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-3/test_nonregular_evidence_reade4')
+reader = 'wizard'
+
+    @pytest.mark.parametrize("reader", ["evidence", "export_log", "diagnostics", "runner", "wizard"])
+    def test_nonregular_evidence_readers_reject_fifo_without_waiting(tmp_path, reader):
+        fifo = tmp_path / "diagnostics.log"
+        os.mkfifo(fifo, 0o600)
+        script = r'''
+    import pathlib
+    import sys
+    from beamo_wipe.safety import SafetyError
+    path = pathlib.Path(sys.argv[2])
+    reader = sys.argv[1]
+    if reader == "evidence":
+        from beamo_wipe.evidence import _read_regular_nofollow
+        try:
+            _read_regular_nofollow(path)
+        except SafetyError:
+            pass
+        else:
+            raise AssertionError("nonregular evidence accepted")
+    elif reader == "export_log":
+        from beamo_wipe.support_export import read_export_log
+        assert read_export_log(str(path), expected_sha256="a" * 64, expected_size_bytes=1) == (b"", "unavailable")
+    elif reader == "runner":
+        from beamo_wipe.nwipe_runner import NwipeRunner
+        assert NwipeRunner()._read_log_tail(str(path), 128) == ""
+    elif reader == "wizard":
+        import beamo_wipe.evidence as evidence
+        import beamo_wipe.diagnostics as diagnostics
+        from beamo_wipe.demo import make_demo_wizard
+        from beamo_wipe.models import WipeRequest, WipeResult
+        wizard = make_demo_wizard()
+        diagnostics.log_diag = lambda *a, **kw: False
+        reached_write = []
+        def failed_write(*a, **kw):
+            reached_write.append(True)
+            raise OSError("inert write stub")
+        evidence.write_evidence_atomic = failed_write
+        wizard._wipe_request = WipeRequest("/dev/fake-target", wizard.method, "/dev/fake-boot", str(path))
+        wizard._evidence_argv = []
+        wizard._write_evidence(result=WipeResult(False, 1, "failed", str(path)), cancelled=False, interrupted=False)
+        assert reached_write and wizard.evidence_error
+    else:
+        from beamo_wipe.diagnostics import read_diagnostics
+        assert read_diagnostics(path.parent) == []
+    '''
+        try:
+            process = subprocess.run(
+                [sys.executable, "-c", script, reader, str(fifo)],
+                env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            pytest.fail(f"{reader} blocked opening a FIFO instead of rejecting its nonregular file type")
+>       assert process.returncode == 0, process.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 36, in <module>
+E             assert reached_write and wizard.evidence_error
+E                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         AssertionError
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/usr/bin/python3', '-c', '\nimport pathlib\nimport sys\nfrom beamo_wipe.safety import SafetyEr... assert reached_write and wizard.evidence_error\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n').returncode
+
+tests/test_audit_20260905_evidence.py:68: AssertionError
+________ test_working_plain_console_eof_cancels_before_leaving[-False] _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144ea040>
+report_wanted = False, before_eof = ''
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("before_eof", ["", "\n", "unknown command\n"])
+    def test_working_plain_console_eof_cancels_before_leaving(
+        monkeypatch, report_wanted, before_eof
+    ):
+        """readline EOF must reach the same interrupted recovery as input EOF."""
+>       wizard = _working_wizard(monkeypatch)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_audit_20260905_wizard.py:39:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144ea040>
+
+    def _working_wizard(monkeypatch):
+        wizard = make_demo_wizard()
+        wizard.preview = False
+        wizard.runner._clock = lambda: 0.0
+        monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.set_confirm_input(wizard.confirm.token)
+        wizard.continue_confirm()
+        wizard.continue_method()
+        wizard._erase_until = 0.0
+        wizard.confirm_erase()
+>       assert wizard.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_audit_20260905_wizard.py:29: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________ test_working_plain_console_eof_cancels_before_leaving[-True] _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144ea9e0>
+report_wanted = True, before_eof = ''
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("before_eof", ["", "\n", "unknown command\n"])
+    def test_working_plain_console_eof_cancels_before_leaving(
+        monkeypatch, report_wanted, before_eof
+    ):
+        """readline EOF must reach the same interrupted recovery as input EOF."""
+>       wizard = _working_wizard(monkeypatch)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_audit_20260905_wizard.py:39:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144ea9e0>
+
+    def _working_wizard(monkeypatch):
+        wizard = make_demo_wizard()
+        wizard.preview = False
+        wizard.runner._clock = lambda: 0.0
+        monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.set_confirm_input(wizard.confirm.token)
+        wizard.continue_confirm()
+        wizard.continue_method()
+        wizard._erase_until = 0.0
+        wizard.confirm_erase()
+>       assert wizard.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_audit_20260905_wizard.py:29: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______ test_working_plain_console_eof_cancels_before_leaving[\n-False] ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144eadd0>
+report_wanted = False, before_eof = '\n'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("before_eof", ["", "\n", "unknown command\n"])
+    def test_working_plain_console_eof_cancels_before_leaving(
+        monkeypatch, report_wanted, before_eof
+    ):
+        """readline EOF must reach the same interrupted recovery as input EOF."""
+>       wizard = _working_wizard(monkeypatch)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_audit_20260905_wizard.py:39:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144eadd0>
+
+    def _working_wizard(monkeypatch):
+        wizard = make_demo_wizard()
+        wizard.preview = False
+        wizard.runner._clock = lambda: 0.0
+        monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.set_confirm_input(wizard.confirm.token)
+        wizard.continue_confirm()
+        wizard.continue_method()
+        wizard._erase_until = 0.0
+        wizard.confirm_erase()
+>       assert wizard.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_audit_20260905_wizard.py:29: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+________ test_working_plain_console_eof_cancels_before_leaving[\n-True] ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144eb1c0>
+report_wanted = True, before_eof = '\n'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("before_eof", ["", "\n", "unknown command\n"])
+    def test_working_plain_console_eof_cancels_before_leaving(
+        monkeypatch, report_wanted, before_eof
+    ):
+        """readline EOF must reach the same interrupted recovery as input EOF."""
+>       wizard = _working_wizard(monkeypatch)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_audit_20260905_wizard.py:39:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144eb1c0>
+
+    def _working_wizard(monkeypatch):
+        wizard = make_demo_wizard()
+        wizard.preview = False
+        wizard.runner._clock = lambda: 0.0
+        monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.set_confirm_input(wizard.confirm.token)
+        wizard.continue_confirm()
+        wizard.continue_method()
+        wizard._erase_until = 0.0
+        wizard.confirm_erase()
+>       assert wizard.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_audit_20260905_wizard.py:29: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_working_plain_console_eof_cancels_before_leaving[unknown command\n-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144eb5b0>
+report_wanted = False, before_eof = 'unknown command\n'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("before_eof", ["", "\n", "unknown command\n"])
+    def test_working_plain_console_eof_cancels_before_leaving(
+        monkeypatch, report_wanted, before_eof
+    ):
+        """readline EOF must reach the same interrupted recovery as input EOF."""
+>       wizard = _working_wizard(monkeypatch)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_audit_20260905_wizard.py:39:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24144eb5b0>
+
+    def _working_wizard(monkeypatch):
+        wizard = make_demo_wizard()
+        wizard.preview = False
+        wizard.runner._clock = lambda: 0.0
+        monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.set_confirm_input(wizard.confirm.token)
+        wizard.continue_confirm()
+        wizard.continue_method()
+        wizard._erase_until = 0.0
+        wizard.confirm_erase()
+>       assert wizard.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_audit_20260905_wizard.py:29: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_ test_working_plain_console_eof_cancels_before_leaving[unknown command\n-True] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2425f65630>
+report_wanted = True, before_eof = 'unknown command\n'
+
+    @pytest.mark.parametrize("report_wanted", [False, True])
+    @pytest.mark.parametrize("before_eof", ["", "\n", "unknown command\n"])
+    def test_working_plain_console_eof_cancels_before_leaving(
+        monkeypatch, report_wanted, before_eof
+    ):
+        """readline EOF must reach the same interrupted recovery as input EOF."""
+>       wizard = _working_wizard(monkeypatch)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_audit_20260905_wizard.py:39:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2425f65630>
+
+    def _working_wizard(monkeypatch):
+        wizard = make_demo_wizard()
+        wizard.preview = False
+        wizard.runner._clock = lambda: 0.0
+        monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.set_confirm_input(wizard.confirm.token)
+        wizard.continue_confirm()
+        wizard.continue_method()
+        wizard._erase_until = 0.0
+        wizard.confirm_erase()
+>       assert wizard.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_audit_20260905_wizard.py:29: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+____________ test_e2e_partitioned_no_partition_selectable_no_nwipe _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2416b898d0>
+
+    def test_e2e_partitioned_no_partition_selectable_no_nwipe(monkeypatch):
+        result = discover(lsblk_payload=_load("lsblk_adversarial_partitioned.json"), boot_path="/dev/sdb", mount_sources=[], cmdline="", env={"BEAMO_WIPE_DRY_RUN": "1"})
+        spy = SpyRunner()
+        from beamo_wipe.models import Screen
+        from beamo_wipe.wizard import Wizard
+
+        wiz = Wizard(result, spy, dry_run=True)
+        wiz.skip_splash()
+        wiz.accept_what()
+        wiz.set_owner(True)
+        wiz.continue_owner()
+        assert wiz.screen == Screen.PICK
+        # try to select a partition
+        wiz.select_disk("/dev/sda1")
+        assert wiz.selected is None
+        wiz.select_disk("/dev/nvme0n1p1")
+        assert wiz.selected is None
+        # selecting whole disk works
+        wiz.select_disk("/dev/sda")
+        assert wiz.selected.path == "/dev/sda"
+        # but ensure spy still 0 before confirm
+        assert spy.start_calls == []
+        # monkeypatch subprocess to ensure not called even if we go through
+        called = []
+        monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: (called.append(True), (_ for _ in ()).throw(AssertionError("Popen must not be called"))) [0])  # type: ignore[arg-type]
+        # go to confirm and try to hit last chance without actually spawning
+        wiz.continue_pick()
+        wiz.set_confirm_input(wiz.confirm.token)  # type: ignore[union-attr]
+        wiz.continue_confirm()
+        wiz.continue_method()
+        # fake clock to pass countdown
+        wiz._erase_until = wiz.now  # type: ignore[attr-defined]
+        wiz.confirm_erase()
+        # In dry-run, runner is SpyRunner, so it will be called once (that's the fake). But we want to ensure real NwipeRunner not called.
+        # For this test, we used SpyRunner, so 1 call is expected after passing all gates
+>       assert len(spy.start_calls) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = <test_boot_exclusion_fails_closed.SpyRunner object at 0x7f2417797650>.start_calls
+
+tests/test_boot_exclusion_fails_closed.py:672: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________ test_plain_loop_ctrl_c_while_working_cancels _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24261e33f0>
+
+    def test_plain_loop_ctrl_c_while_working_cancels(monkeypatch):
+        """Ctrl-C during a plain-loop wipe must cancel it, not traceback.
+
+        Fake runner only; no real device is ever touched.
+        """
+        from beamo_wipe.models import Screen
+        from beamo_wipe.nwipe_runner import DryRunRunner
+        from beamo_wipe.ui import console_wizard as C
+        from beamo_wipe.wizard import Wizard
+
+        class _Clock:
+            t = 0.0
+
+            def __call__(self):
+                return _Clock.t
+
+        base = make_demo_wizard()
+        wiz = Wizard(base.discovery, DryRunRunner(duration_s=60.0), clock=_Clock(), dry_run=True)
+        _drive_to_working_plain(wiz)
+        _Clock.t += 5.0
+        wiz.confirm_erase()
+>       assert wiz.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_console_pick.py:172: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______ test_discovery_boot_is_the_identified_usb_not_a_protected_mount ________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_discovery_boot_is_the_identified_usb_not_a_protected_mount():
+        """Internal disk mounted at / must not steal discovery.boot / --exclude."""
+        from beamo_wipe.discover import parse_lsblk_json
+        from beamo_wipe.models import MethodId, WipeRequest
+        from beamo_wipe.nwipe_runner import build_nwipe_argv
+        from beamo_wipe.safety import selectable_disks
+
+        payload = _payload(
+            [
+                {
+                    "name": "sda",
+                    "path": "/dev/sda",
+                    "size": 500107862016,
+                    "type": "disk",
+                    "tran": "sata",
+                    "model": "ST500",
+                    "serial": "Z9A",
+                    "children": [
+                        {
+                            "name": "sda1",
+                            "path": "/dev/sda1",
+                            "type": "part",
+                            "mountpoint": "/",
+                        }
+                    ],
+                },
+                {
+                    "name": "sdb",
+                    "path": "/dev/sdb",
+                    "size": 16000000000,
+                    "type": "disk",
+                    "tran": "usb",
+                    "model": "Beamo",
+                    "serial": "BOOT1",
+                },
+                {
+                    "name": "nvme0n1",
+                    "path": "/dev/nvme0n1",
+                    "size": 256060514304,
+                    "type": "disk",
+                    "tran": "nvme",
+                    "model": "SSD",
+                    "serial": "N1",
+                },
+            ]
+        )
+        result = parse_lsblk_json(payload, boot_path="/dev/sdb")
+        assert result.boot is not None
+        assert result.boot.path == "/dev/sdb"
+        paths = {d.path for d in selectable_disks(result)}
+        assert "/dev/sdb" not in paths
+        assert "/dev/sda" not in paths
+        assert "/dev/nvme0n1" in paths
+        req = WipeRequest(
+            device="/dev/nvme0n1",
+            method=MethodId.EVERYDAY,
+            boot_device=result.boot.path,
+            logfile="/tmp/beamo-wipe/nwipe-nvme0n1.log",
+        )
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_discover.py:990:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+________________ test_dryrun_never_shows_100_on_fail_or_cancel _________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_dryrun_never_shows_100_on_fail_or_cancel():
+        from beamo_wipe.nwipe_runner import DryRunRunner
+        from beamo_wipe.models import MethodId, WipeRequest
+
+        req = WipeRequest(device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0", logfile="/tmp/beamo-wipe/nwipe-vda.log")
+        # Fail path
+        fake_time = [0.0]
+        def clock(): return fake_time[0]
+        runner = DryRunRunner(duration_s=1.0, fail=True, clock=clock)
+>       runner.start(req)
+
+tests/test_failure_visibility_regression.py:262:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:983: in start
+    validate_argv(build_nwipe_argv(request), request)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_____________________ test_nwipe_cancel_preserves_logfile ______________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-3/test_nwipe_cancel_preserves_lo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f24262f99b0>
+
+    def test_nwipe_cancel_preserves_logfile(tmp_path, monkeypatch):
+        """cancel() must keep the evidence path like poll()/DryRun do (fake proc only)."""
+        import subprocess
+
+        monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+        from beamo_wipe.models import MethodId, WipeRequest
+        from beamo_wipe.nwipe_runner import NwipeRunner
+        from beamo_wipe.safety import default_log_dir
+
+>       logdir = str(default_log_dir())
+                     ^^^^^^^^^^^^^^^^^
+
+tests/test_inspection_regression_2026_09_03.py:32:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+_______ test_command_evidence_and_report[success-everyday-prng-1-last-1] _______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EVERYDAY: 'everyday'>, engine = 'prng', writes = 1
+verify = 'last', reads = 1, state = 'success'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+______ test_command_evidence_and_report[success-extra-dodshort-3-last-1] _______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EXTRA: 'extra'>, engine = 'dodshort', writes = 3
+verify = 'last', reads = 1, state = 'success'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+______ test_command_evidence_and_report[success-quick_zero-zero-1-off-0] _______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.QUICK_ZERO: 'quick_zero'>, engine = 'zero', writes = 1
+verify = 'off', reads = 0, state = 'success'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______ test_command_evidence_and_report[failed-everyday-prng-1-last-1] ________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EVERYDAY: 'everyday'>, engine = 'prng', writes = 1
+verify = 'last', reads = 1, state = 'failed'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______ test_command_evidence_and_report[failed-extra-dodshort-3-last-1] _______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EXTRA: 'extra'>, engine = 'dodshort', writes = 3
+verify = 'last', reads = 1, state = 'failed'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______ test_command_evidence_and_report[failed-quick_zero-zero-1-off-0] _______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.QUICK_ZERO: 'quick_zero'>, engine = 'zero', writes = 1
+verify = 'off', reads = 0, state = 'failed'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+______ test_command_evidence_and_report[ambiguous-everyday-prng-1-last-1] ______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EVERYDAY: 'everyday'>, engine = 'prng', writes = 1
+verify = 'last', reads = 1, state = 'ambiguous'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_____ test_command_evidence_and_report[ambiguous-extra-dodshort-3-last-1] ______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EXTRA: 'extra'>, engine = 'dodshort', writes = 3
+verify = 'last', reads = 1, state = 'ambiguous'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_____ test_command_evidence_and_report[ambiguous-quick_zero-zero-1-off-0] ______
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.QUICK_ZERO: 'quick_zero'>, engine = 'zero', writes = 1
+verify = 'off', reads = 0, state = 'ambiguous'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_____ test_command_evidence_and_report[interrupted-everyday-prng-1-last-1] _____
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EVERYDAY: 'everyday'>, engine = 'prng', writes = 1
+verify = 'last', reads = 1, state = 'interrupted'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+____ test_command_evidence_and_report[interrupted-extra-dodshort-3-last-1] _____
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.EXTRA: 'extra'>, engine = 'dodshort', writes = 3
+verify = 'last', reads = 1, state = 'interrupted'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+____ test_command_evidence_and_report[interrupted-quick_zero-zero-1-off-0] _____
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+method = <MethodId.QUICK_ZERO: 'quick_zero'>, engine = 'zero', writes = 1
+verify = 'off', reads = 0, state = 'interrupted'
+
+    @pytest.mark.parametrize("method,engine,writes,verify,reads", CASES)
+    @pytest.mark.parametrize("state", ["success", "failed", "ambiguous", "interrupted"])
+    def test_command_evidence_and_report(method, engine, writes, verify, reads, state):
+        wiz = at_method(method)
+        spec = METHODS[method]
+        request = WipeRequest(
+            wiz.selected.path,
+            method,
+            wiz.discovery.boot.path,
+            "/tmp/beamo-wipe/nwipe-fake.log",
+        )
+>       argv = build_nwipe_argv(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_method_operation_copy.py:52:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+__________________ test_argv_is_single_device_noninteractive ___________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_argv_is_single_device_noninteractive():
+        req = _request()
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:35:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________________ test_extra_and_zero_methods __________________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_extra_and_zero_methods():
+>       extra = build_nwipe_argv(_request(MethodId.EXTRA))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:51:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________________ test_rejects_missing_device __________________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_rejects_missing_device():
+        req = _request()
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:60:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+____________________ test_validate_rejects_extra_positional ____________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_validate_rejects_extra_positional():
+        req = _request()
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:68:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______________________ test_dry_run_never_calls_binary ________________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_dry_run_never_calls_binary():
+        runner = DryRunRunner(duration_s=0.01)
+        req = _request()
+>       runner.start(req)
+
+tests/test_nwipe_runner.py:83:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:983: in start
+    validate_argv(build_nwipe_argv(request), request)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+___________________________ test_rejects_force_flag ____________________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_rejects_force_flag():
+        req = _request()
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:204:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________ test_rejects_missing_anonymized_logging_flag _________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_rejects_missing_anonymized_logging_flag():
+        req = _request()
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:212:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______________________ test_rejects_pdf_path_on_device ________________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_rejects_pdf_path_on_device():
+        req = _request()
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:220:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+__________________ test_rejects_flags_for_unconfirmed_method ___________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_rejects_flags_for_unconfirmed_method():
+        """Validator binds flags to the confirmed method, not just the allowlist.
+
+        An EVERYDAY request (prng/verify-last) with zero/off flags swapped in
+        must fail: otherwise a weaker wipe than confirmed could exec.
+        """
+        req = _request(MethodId.EVERYDAY)
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_nwipe_runner.py:969:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________________ test_logs_not_on_target_name _________________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_logs_not_on_target_name():
+        with pytest.raises(SafetyError):
+            assert_log_not_on_target("/mnt/target/log.txt", "/dev/nvme0n1")
+        with pytest.raises(SafetyError):
+            assert_log_not_on_target("/dev/sda", "/dev/nvme0n1")
+>       assert_log_not_on_target("/tmp/beamo-wipe/nwipe-nvme0n1.log", "/dev/nvme0n1")
+
+tests/test_safety.py:81:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+_______________________ test_argv_rejects_second_device ________________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_argv_rejects_second_device():
+        req = WipeRequest(
+            device="/dev/vda",
+            method=MethodId.EVERYDAY,
+            boot_device="/dev/sr0",
+            logfile="/tmp/beamo-wipe/nwipe-vda.log",
+        )
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_security_hardening.py:86:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+______________________ test_default_log_dir_is_under_tmp _______________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_default_log_dir_is_under_tmp():
+>       path = default_log_dir()
+               ^^^^^^^^^^^^^^^^^
+
+tests/test_security_hardening.py:93:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+__________________ test_argv_rejects_unknown_flag_and_method ___________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_argv_rejects_unknown_flag_and_method():
+        from beamo_wipe.models import MethodId, WipeRequest
+        from beamo_wipe.nwipe_runner import build_nwipe_argv, validate_argv
+
+        req = WipeRequest(
+            device="/dev/vda",
+            method=MethodId.EVERYDAY,
+            boot_device="/dev/sr0",
+            logfile="/tmp/beamo-wipe/nwipe-vda.log",
+        )
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_security_hardening.py:313:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_____________________ test_exclude_flag_rejects_comma_list _____________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_exclude_flag_rejects_comma_list():
+        from beamo_wipe.models import MethodId, WipeRequest
+        from beamo_wipe.nwipe_runner import build_nwipe_argv, validate_argv
+
+        req = WipeRequest(
+            device="/dev/vda",
+            method=MethodId.EVERYDAY,
+            boot_device="/dev/sr0",
+            logfile="/tmp/beamo-wipe/nwipe-vda.log",
+        )
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_security_hardening.py:424:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+____________________ test_duplicate_method_flag_is_rejected ____________________
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+>           fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           PermissionError: [Errno 13] Permission denied: '/tmp/beamo-wipe'
+
+src/beamo_wipe/safety.py:701: PermissionError
+
+The above exception was the direct cause of the following exception:
+
+    def test_duplicate_method_flag_is_rejected():
+        from beamo_wipe.models import MethodId, WipeRequest
+        from beamo_wipe.nwipe_runner import build_nwipe_argv, validate_argv
+
+        req = WipeRequest(
+            device="/dev/vda",
+            method=MethodId.EVERYDAY,
+            boot_device="/dev/sr0",
+            logfile="/tmp/beamo-wipe/nwipe-vda.log",
+        )
+>       argv = build_nwipe_argv(req)
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_security_hardening.py:440:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/nwipe_runner.py:276: in build_nwipe_argv
+    assert_log_not_on_target(request.logfile, device)
+src/beamo_wipe/safety.py:582: in assert_log_not_on_target
+    root_dir = log_dir if log_dir is not None else default_log_dir()
+                                                   ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def default_log_dir() -> Path:
+        path = DEFAULT_LOG_DIR
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise SafetyError("Cannot create log directory.") from exc
+        try:
+            fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+>           raise SafetyError("Refusing unsafe log directory.") from exc
+E           beamo_wipe.safety.SafetyError: Refusing unsafe log directory.
+
+src/beamo_wipe/safety.py:703: SafetyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________________ test_done_screen_fits[size0] _________________________
+
+ui = <function ui.<locals>.build at 0x7f240eecc2c0>, size = (1280, 820)
+
+    @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+    def test_done_screen_fits(ui, size):
+        wiz, app = ui(size=size)
+        # Exercise the shipped live Done controls, including Save report to USB,
+        # rather than the shorter preview-only footer.
+        wiz.preview = False
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz._erase_until = 0.0  # countdown already covered elsewhere; skip the 5s
+        wiz.tick()
+        wiz.runner.duration_s = 0.2
+        wiz.confirm_erase()
+>       assert wiz.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_tk_runtime.py:223: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________________ test_done_screen_fits[size1] _________________________
+
+ui = <function ui.<locals>.build at 0x7f240eecd8a0>, size = (1024, 740)
+
+    @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+    def test_done_screen_fits(ui, size):
+        wiz, app = ui(size=size)
+        # Exercise the shipped live Done controls, including Save report to USB,
+        # rather than the shorter preview-only footer.
+        wiz.preview = False
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz._erase_until = 0.0  # countdown already covered elsewhere; skip the 5s
+        wiz.tick()
+        wiz.runner.duration_s = 0.2
+        wiz.confirm_erase()
+>       assert wiz.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_tk_runtime.py:223: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+___________________ test_keyboard_only_flow_reaches_working ____________________
+
+ui = <function ui.<locals>.build at 0x7f240eece5c0>
+
+    def test_keyboard_only_flow_reaches_working(ui):
+        """No mouse: any-key, Enter, Space, Up/Down, digits, Enter all the way."""
+        wiz, app = ui()
+        root = app.root
+
+        def key(keysym):
+            (root.focus_get() or root).event_generate("<KeyPress>", keysym=keysym)
+            root.update()
+            # Release on the root: KeyPress may have rebuilt the focused widget.
+            root.event_generate("<KeyRelease>", keysym=keysym)
+            root.update()
+
+        key("a")
+        assert wiz.screen == Screen.WHAT
+        key("Return")
+        assert wiz.screen == Screen.OWNER
+        key("space")
+        assert wiz.owner_ok
+        key("Return")
+        assert wiz.screen == Screen.PICK
+        key("Down")
+        assert wiz.selected is not None
+        first = wiz.selected.path
+        key("Down")
+        assert wiz.selected.path != first
+        key("Up")
+        assert wiz.selected.path == first
+        key("Return")
+        assert wiz.screen == Screen.CONFIRM
+        # Entry char insertion is a stock Tk class binding; synthetic events on
+        # some Tk builds carry no char, so drive the variable the Entry edits.
+        app._confirm_var.set(wiz.confirm.token)
+        root.update()
+        assert wiz.token_ok
+        key("Return")
+        assert wiz.screen == Screen.METHOD
+        key("2")
+        assert wiz.method.value == "extra"
+        key("1")
+        assert wiz.method.value == "everyday"
+        key("Return")
+        assert wiz.screen == Screen.LAST_CHANCE
+        # Back is focused: Enter returns safely, even during the countdown.
+        key("Return")
+        assert wiz.screen == Screen.METHOD
+        key("Return")
+        assert wiz.screen == Screen.LAST_CHANCE
+        # Countdown over: deliberately focus Erase before pressing Enter.
+        wiz._erase_until = 0.0
+        wiz.tick()
+        app._draw()
+        root.update()
+        assert wiz.erase_enabled
+        key("Tab")
+        assert root.focus_get() is app._primary
+        key("Return")
+        _wait_transition(wiz, app)
+>       assert wiz.screen == Screen.WORKING
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.WORKING: 'working'>
+E
+E         - working
+E         + last_chance
+
+tests/test_tk_runtime.py:294: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+________________ test_held_enter_does_not_shutdown_failed_done _________________
+
+ui = <function ui.<locals>.build at 0x7f240eecf060>
+
+    def test_held_enter_does_not_shutdown_failed_done(ui):
+        """Auto-repeat Return after a fast fail must not power off before Done is read."""
+        wiz, app = ui(fail=True)
+        wiz.preview = False
+        wiz.runner.duration_s = 0.05
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz._erase_until = 0.0
+        wiz.tick()
+        app._draw()
+        app.root.update()
+        assert wiz.erase_enabled
+        app._primary.focus_set()
+        root = app.root
+        (root.focus_get() or root).event_generate("<KeyPress>", keysym="Return")
+        root.update()
+        deadline = time.monotonic() + 3
+        while wiz.screen != Screen.DONE and time.monotonic() < deadline:
+            wiz.tick()
+            try:
+                root.update()
+            except tk.TclError:
+                break
+            time.sleep(0.02)
+>       assert wiz.screen == Screen.DONE
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.DONE: 'done'>
+E
+E         - done
+E         + last_chance
+
+tests/test_tk_runtime.py:414: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+________________ test_held_space_does_not_shutdown_failed_done _________________
+
+ui = <function ui.<locals>.build at 0x7f24141accc0>
+
+    def test_held_space_does_not_shutdown_failed_done(ui):
+        """Auto-repeat Space after a fast fail must not power off before Done is read."""
+        wiz, app = ui(fail=True)
+        wiz.preview = False
+        wiz.runner.duration_s = 0.05
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz._erase_until = 0.0
+        wiz.tick()
+        app._draw()
+        app.root.update()
+        erase = app._primary
+        assert erase is not None
+        erase.focus_set()
+        erase.event_generate("<KeyPress>", keysym="space")
+        app.root.update()
+        deadline = time.monotonic() + 3
+        while wiz.screen != Screen.DONE and time.monotonic() < deadline:
+            try:
+                app.root.update()
+            except tk.TclError:
+                break
+            time.sleep(0.02)
+>       assert wiz.screen == Screen.DONE
+E       AssertionError: assert <Screen.LAST_...'last_chance'> == <Screen.DONE: 'done'>
+E
+E         - done
+E         + last_chance
+
+tests/test_tk_runtime.py:493: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_release_manifest.py:130: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:158: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:171: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:227: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:259: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:280: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:298: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:315: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:332: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:358: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:371: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:384: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [12] tests/test_usb_image_readback.py:45: regular-file FAT32 test requires dosfstools and mtools
+44 failed, 1662 passed, 24 skipped in 85.82s (0:01:25)

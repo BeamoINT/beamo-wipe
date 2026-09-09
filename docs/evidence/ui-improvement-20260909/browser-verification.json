@@ -1,0 +1,546 @@
+{
+  "layouts": [
+    {
+      "width": 390,
+      "height": 844,
+      "state": "splash",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "what",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "owner",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "pick",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "confirm",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "method",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "last",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "working",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "done",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "advanced",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "limits",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "report_help",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "shutdown_confirm",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "empty",
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "state": "blocked",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "splash",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "what",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "owner",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "pick",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "confirm",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "method",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "last",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "working",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "done",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "advanced",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "limits",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "report_help",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "shutdown_confirm",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "empty",
+      "passed": true
+    },
+    {
+      "width": 800,
+      "height": 600,
+      "state": "blocked",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "splash",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "what",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "owner",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "pick",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "confirm",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "method",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "last",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "working",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "done",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "advanced",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "limits",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "report_help",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "shutdown_confirm",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "empty",
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 740,
+      "state": "blocked",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "splash",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "what",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "owner",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "pick",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "confirm",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "method",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "last",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "working",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "done",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "advanced",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "limits",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "report_help",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "shutdown_confirm",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "empty",
+      "passed": true
+    },
+    {
+      "width": 1280,
+      "height": 820,
+      "state": "blocked",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "splash",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "what",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "owner",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "pick",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "confirm",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "method",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "last",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "working",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "done",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "advanced",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "limits",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "report_help",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "shutdown_confirm",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "empty",
+      "passed": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "state": "blocked",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "splash",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "what",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "owner",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "pick",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "confirm",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "method",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "last",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "working",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "done",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "advanced",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "limits",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "report_help",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "shutdown_confirm",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "empty",
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "state": "blocked",
+      "passed": true
+    }
+  ],
+  "keyboard_countdown_fake_completion": "passed",
+  "javascript_errors": []
+}

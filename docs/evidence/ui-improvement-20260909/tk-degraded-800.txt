@@ -1,0 +1,4 @@
+{"screen": "pick", "display": [800, 600], "minimum": [1024, 740], "allocated_window": [1024, 740], "fits_display": false}
+{"screen": "confirm", "display": [800, 600], "minimum": [1024, 740], "allocated_window": [1024, 740], "fits_display": false}
+{"screen": "method", "display": [800, 600], "minimum": [1024, 740], "allocated_window": [1024, 740], "fits_display": false}
+{"screen": "last_chance", "display": [800, 600], "minimum": [1024, 740], "allocated_window": [1024, 740], "fits_display": false}

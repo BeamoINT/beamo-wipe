@@ -87,7 +87,7 @@ SHADOW_H = 8
 HALO_INSET = 5  # canvas margin a haloed _Box reserves for its glow
 
 # Countdown ring on the last-chance screen.
-RING_SIZE = 190
+RING_SIZE = 144
 RING_PAD = 14
 RING_W = 11
 
@@ -1304,6 +1304,7 @@ class TkWizard:
         kind: str,
         text: str,
         extra: Optional[str] = None,
+        compact: bool = False,
     ) -> _Box:
         colors = {
             "warn": (WARN_BG, WARN_BORDER),
@@ -1311,7 +1312,8 @@ class TkWizard:
             "info": (SURFACE_ALT, BORDER),
         }
         bg, border = colors[kind]
-        box = _Box(parent, radius=RADIUS, fill=bg, outline=border, ow=1, padx=16, pady=13)
+        box = _Box(parent, radius=RADIUS, fill=bg, outline=border, ow=1,
+                   padx=16, pady=8 if compact else 13)
         row = tk.Frame(box.inner, bg=bg)
         row.pack(fill=tk.X)
         icon = _icon_alert(row, kind, 28)
@@ -1320,7 +1322,7 @@ class TkWizard:
         lines = tk.Frame(row, bg=bg)
         lines.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
         tk.Label(
-            lines, text=text, font=self.font_b, fg=INK, bg=bg,
+            lines, text=text, font=self.font_s if compact else self.font_b, fg=INK, bg=bg,
             wraplength=WRAP - 110, justify=tk.LEFT, anchor="w",
         ).pack(fill=tk.X)
         if extra:
@@ -1426,7 +1428,7 @@ class TkWizard:
         self._wrapping_label(name, disk.display_name, font=self.font_bold, bg=bg)
 
     def _meta_line(self, parent: tk.Widget, disk: Disk, bg: str) -> tk.Frame:
-        """Full serial on its own line, followed by optional connection/path."""
+        """Always show serial and device path; connection details are optional."""
         meta = tk.Frame(parent, bg=bg)
         if C.kind_label(disk.kind):
             tk.Label(meta, text=C.kind_label(disk.kind), font=self.font_s,
@@ -1439,8 +1441,9 @@ class TkWizard:
         value.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self._wrapping_label(value, disk.serial or C.NO_CODE,
                              font=self.font_mono_bold, bg=bg)
+        self._wrapping_label(value, disk.path, font=self.font_mono_sm, fg=MUTED, bg=bg)
         if self._show_more:
-            self._wrapping_label(value, f"{disk.bus}    {disk.path}",
+            self._wrapping_label(value, f"Connection: {disk.bus or 'unavailable'}",
                                  font=self.font_mono_sm, fg=MUTED, bg=bg)
         return meta
 
@@ -1698,7 +1701,7 @@ class TkWizard:
             fill, outline, ow = SURFACE, BORDER, 1
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=ow,
-            padx=18, pady=15, halo=False,
+            padx=18, pady=10, halo=False,
         )
         card.pack(fill=tk.X, pady=(0, 10), padx=4)
         inner = card.inner
@@ -1748,7 +1751,7 @@ class TkWizard:
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
-            self._panel(col, kind="info", text=C.SSD_FOOTER).pack(fill=tk.X, pady=(0, 12))
+            self._panel(col, kind="info", text=C.SSD_FOOTER, compact=True).pack(fill=tk.X, pady=(0, 8))
         tools = tk.Frame(col, bg=BG)
         tools.pack(fill=tk.X, pady=(0, 4))
         count = len(self.w.selectable)
@@ -1811,6 +1814,15 @@ class TkWizard:
             # total bounds have settled. Restore on row geometry too, so a
             # keyboard-selected disk remains visible through that last pass.
             card.bind("<Configure>", _stretch, add="+")
+            # Tk wheel events do not bubble from a row's labels to its
+            # scrolling canvas. Scroll where the pointer actually rests,
+            # without changing the disk selection or moving keyboard focus.
+            def bind_wheel(widget):
+                for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                    widget.bind(sequence, _wheel)
+                for child in widget.winfo_children():
+                    bind_wheel(child)
+            bind_wheel(card)
         self._pick_canvas = canvas
         # Restore only inside a short post-rebuild window. Row boxes and the
         # footer resolve their heights over several Configure/idle passes and
@@ -2321,7 +2333,7 @@ class TkWizard:
         ring.create_window(RING_SIZE / 2, RING_SIZE / 2 - 3, window=self._countdown_num)
         self._countdown_label = tk.Label(
             zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center",
-            justify=tk.CENTER, wraplength=260,
+            justify=tk.CENTER, wraplength=200,
         )
         self._countdown_label.pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_LAST_CHANCE_TK)
@@ -2366,10 +2378,10 @@ class TkWizard:
                 self._countdown_num.configure(text=str(left), fg=INK)
             self._countdown_label.configure(text=C.COUNTDOWN_CAPTION, fg=MUTED)
         else:
-            ring.create_oval(edge0, edge0, edge1, edge1, outline=OK, width=RING_W, tags="arc")
+            ring.create_oval(edge0, edge0, edge1, edge1, outline=PRIMARY, width=RING_W, tags="arc")
             if self._countdown_num is not None:
-                self._countdown_num.configure(text="✓", fg=OK)
-            self._countdown_label.configure(text=C.COUNTDOWN_READY, fg=OK)
+                self._countdown_num.configure(text="0", fg=PRIMARY)
+            self._countdown_label.configure(text=C.COUNTDOWN_READY, fg=INK)
         self._set_primary_enabled(self.w.erase_enabled)
 
     def _working(self) -> None:

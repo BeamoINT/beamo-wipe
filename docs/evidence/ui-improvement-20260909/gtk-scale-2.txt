@@ -1,0 +1,7 @@
+dbus-daemon[184579]: [session uid=1000 pid=184579 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=184597 comm="python3 -m pytest tests/test_accessible_runtime.py" label="kernel")
+dbus-daemon[184579]: [session uid=1000 pid=184579 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[184607]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=184597 comm="python3 -m pytest tests/test_accessible_runtime.py" label="kernel")
+dbus-daemon[184607]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+.....................                                                    [100%]
+21 passed, 58 deselected in 0.58s

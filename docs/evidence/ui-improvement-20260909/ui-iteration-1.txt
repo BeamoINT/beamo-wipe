@@ -1,0 +1,58 @@
+dbus-daemon[97722]: [session uid=1000 pid=97722 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=97736 comm="python3 -m pytest tests/test_tk_runtime.py tests/t" label="kernel")
+dbus-daemon[97722]: [session uid=1000 pid=97722 pidfd=5] Successfully activated service 'org.a11y.Bus'
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+.dbus-daemon[97746]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=97736 comm="python3 -m pytest tests/test_tk_runtime.py tests/t" label="kernel")
+
+(at-spi2-registryd:98001): dbind-WARNING **: 02:04:10.596: Couldn't connect to accessibility bus: Failed to connect to socket /home/box/.cache/at-spi/bus_37: No such file or directory
+.......................F
+=================================== FAILURES ===================================
+___________ test_atspi_exposes_quick_zero_result_to_external_client ____________
+
+ui = <function ui.<locals>.build at 0x7f92f2ddd1c0>
+
+    def test_atspi_exposes_quick_zero_result_to_external_client(ui):
+        pytest.importorskip("pyatspi")
+        if not os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+            pytest.fail("AT-SPI check requires dbus-run-session")
+        wizard, _, _ = case_evidence(CASES[1])
+        app = ui(wizard)
+        script = """import json, time, pyatspi
+    names=[]
+    def walk(node):
+        if node.name: names.append(node.name)
+        for child in node: walk(child)
+    for attempt in range(30):
+        names=[]
+        walk(pyatspi.Registry.getDesktop(0))
+        if any("verification was not performed" in name for name in names): break
+        time.sleep(0.1)
+    print(json.dumps(names))
+    """
+        proc = subprocess.Popen(
+            [sys.executable, "-c", script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        deadline = time.monotonic() + 10
+        while proc.poll() is None and time.monotonic() < deadline:
+            drain()
+            time.sleep(0.01)
+        if proc.poll() is None:
+            proc.kill()
+        output, errors = proc.communicate(timeout=2)
+>       assert proc.returncode == 0, errors
+E       AssertionError:
+E         (process:98007): dbind-WARNING **: 02:04:11.352: Couldn't connect to accessibility bus: Failed to connect to socket /home/box/.cache/at-spi/bus_37: No such file or directory
+E
+E         (process:98007): dbind-ERROR **: 02:04:11.352: AT-SPI: Couldn't connect to accessibility bus. Is at-spi-bus-launcher running?
+E
+E       assert -5 == 0
+E        +  where -5 = <Popen: returncode: -5 args: ['/usr/bin/python3', '-c', 'import json, time, ...>.returncode
+
+tests/test_accessible_runtime.py:231: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_accessible_runtime.py::test_atspi_exposes_quick_zero_result_to_external_client
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 168 passed in 18.56s

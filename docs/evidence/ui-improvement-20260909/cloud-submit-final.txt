@@ -1,0 +1,12 @@
+Creating temporary archive of 1303 file(s) totalling 92.5 MiB before compression.
+Uploading tarball of [/tmp/beamo-ui-cloud-20260909] to [gs://beamo-wipe_cloudbuild/source/1788920884.928906-4afe0f97fa254e00a94b2f4f30217f90.tgz]
+Created [https://cloudbuild.googleapis.com/v1/projects/beamo-wipe/locations/global/builds/6ff1c860-dd9c-48ab-a8be-fc29c1c42989].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds/6ff1c860-dd9c-48ab-a8be-fc29c1c42989?project=368895881889 ].
+
+gcloud builds submit only displays logs from Cloud Storage. To view logs from Cloud Logging, run:
+gcloud beta builds submit
+
+Waiting for build to complete. Polling interval: 1 second(s).
+
+BUILD FAILURE: Build step failure: user cancelation
+ERROR: (gcloud.builds.submit) build 6ff1c860-dd9c-48ab-a8be-fc29c1c42989 completed with status "CANCELLED"
