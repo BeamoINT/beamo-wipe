@@ -64,6 +64,14 @@ func TestUnattendedInstallRequiresManualReview(t *testing.T) {
 		}
 	}
 }
+func TestEmptyUnattendedInstallRequiresManualReview(t *testing.T) {
+	root := mediaFixture(t)
+	fixtureFile(t, root, "autounattend.xml", "")
+	m := inspectMedia(filepath.Join(root, "app"))
+	if m.Problem != "unattended" {
+		t.Fatalf("%+v", m)
+	}
+}
 func TestCaseInsensitiveMarkers(t *testing.T) {
 	root := mediaFixture(t)
 	if err := os.Rename(filepath.Join(root, "START-HERE.html"), filepath.Join(root, "start-here.html")); err != nil {

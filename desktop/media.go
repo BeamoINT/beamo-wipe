@@ -14,6 +14,10 @@ import (
 // Resolve the fixed, bounded marker paths case-insensitively on FAT/NTFS and
 // case-sensitive staging filesystems. Never follow links or ambiguous casing.
 func mediaFile(root, rel string) (string, error) {
+	return resolveMedia(root, rel, false)
+}
+
+func resolveMedia(root, rel string, allowEmpty bool) (string, error) {
 	if !filepath.IsLocal(rel) {
 		return "", errors.New("invalid media path")
 	}
@@ -44,11 +48,11 @@ func mediaFile(root, rel string) (string, error) {
 			return "", errors.New("linked media path")
 		}
 	}
-	st, err := os.Stat(path)
+	st, err := os.Lstat(path)
 	if err != nil {
 		return "", err
 	}
-	if !st.Mode().IsRegular() || st.Size() == 0 {
+	if !st.Mode().IsRegular() || (!allowEmpty && st.Size() == 0) {
 		return "", errors.New("invalid media file")
 	}
 	return path, nil
@@ -73,7 +77,10 @@ func inspectMedia(exe string) mediaInfo {
 	if _, err := mediaFile(root, "desktop-build.json"); err != nil {
 		return m
 	}
-	has := func(rel string) bool { _, err := mediaFile(root, rel); return err == nil }
+	has := func(rel string) bool {
+		_, err := resolveMedia(root, rel, true)
+		return err == nil
+	}
 	// Recognizable automated installers require the manual boot path, where the
 	// operator can review how that media was prepared before proceeding.
 	if has("autounattend.xml") || has("unattend.xml") || has("autoinstall.yaml") {
