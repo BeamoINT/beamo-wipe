@@ -2653,6 +2653,7 @@ class TkWizard:
         before = screen
         focused = self.root.focus_get()
         acted = False
+        command_drew = False
         if screen == Screen.SHUTDOWN_CONFIRM:
             # Enter is the safe default: keep the session. Discard requires
             # its own focused Space/click confirmation, not this Return.
@@ -2672,6 +2673,9 @@ class TkWizard:
             else:
                 focused._command()
                 acted = True
+                # _nav wrappers and Show more already rebuild. A second
+                # _draw() would steal focus from Show less back to Continue.
+                command_drew = True
         if not acted:
             if screen == Screen.SHUTDOWN_CONFIRM:
                 self.w.keep_report_session()
@@ -2706,7 +2710,7 @@ class TkWizard:
         # If rendering raises, this still distinguishes the accepted state
         # transition from a missing key event or a fail-closed pick result.
         emit_serial_marker(f"BEAMO_WIPE_RETURN_RESULT_{self.w.screen.name}")
-        if self.w.screen != before or screen != Screen.CONFIRM:
+        if not command_drew and (self.w.screen != before or screen != Screen.CONFIRM):
             self._draw()
         return "break"
 

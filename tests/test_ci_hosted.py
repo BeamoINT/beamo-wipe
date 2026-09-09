@@ -275,6 +275,8 @@ def test_cloud_submit_uploads_git_metadata():
     ]
     assert ".git/" not in rules
     assert "**/.git/" not in rules
+    staged = "packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/"
+    assert staged in rules
 
 
 def test_hosted_python_tests_install_git_for_fail_closed_manifest():
