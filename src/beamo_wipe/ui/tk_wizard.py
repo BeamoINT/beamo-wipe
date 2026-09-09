@@ -2040,7 +2040,13 @@ class TkWizard:
         disk = self.w.selected
         assert disk is not None
         spec = self.w.confirm
-        assert spec is not None
+        if spec is None:
+            from beamo_wipe.identity import AMBIGUOUS_IDENTITY
+
+            self.w.error = AMBIGUOUS_IDENTITY
+            self.w.screen = Screen.PICK
+            self._pick()
+            return
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_CONFIRM)
         zone = self._center_zone(col)

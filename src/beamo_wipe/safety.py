@@ -272,7 +272,10 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
     """
     from beamo_wipe.identity import AMBIGUOUS_IDENTITY
 
-    same = [d for d in selectable if d.size_gb_label == disk.size_gb_label]
+    want = os.path.realpath(disk.path)
+    peers = [item for item in selectable if os.path.realpath(item.path) != want]
+    peers.append(disk)
+    same = [item for item in peers if item.size_gb_label == disk.size_gb_label]
     if len(same) > 1:
         spec = _stable_same_size_token(disk, same)
         if spec is None:

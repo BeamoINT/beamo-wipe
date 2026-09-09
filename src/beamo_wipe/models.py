@@ -68,7 +68,7 @@ class Disk:
     @property
     def display_name(self) -> str:
         # Kernel names are not stable identity. Unknown stays unknown.
-        return self.model or self.label or "Unknown model"
+        return (self.model or "").strip() or (self.label or "").strip() or "Unknown model"
 
     @property
     def size_phrase(self) -> str:
