@@ -1432,7 +1432,7 @@ class TkWizard:
         """Model, capacity, connection, and strongest identifier. Path is not identity."""
         view = self.w.disk_view(disk)
         meta = tk.Frame(parent, bg=bg)
-        chip = view.kind_chip or view.connection
+        chip = " · ".join(part for part in (view.kind_chip, view.connection) if part)
         if chip:
             tk.Label(meta, text=chip, font=self.font_s,
                      fg=MUTED, bg=bg, anchor="e").pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
@@ -1443,9 +1443,6 @@ class TkWizard:
         value = tk.Frame(identity, bg=bg)
         value.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self._wrapping_label(value, view.id_value, font=self.font_mono_bold, bg=bg)
-        self._wrapping_label(
-            value, view.connection, font=self.font_mono_sm, fg=MUTED, bg=bg
-        )
         for note in view.notes:
             self._wrapping_label(value, note, font=self.font_s, fg=MUTED, bg=bg)
         if self._show_more:

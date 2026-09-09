@@ -178,7 +178,8 @@ def test_excluded_devices_are_read_only_and_no_selection(ui):
     app = ui(wizard)
     assert wizard.screen == Screen.PICK_EMPTY
     assert "not erasable" in text(app).lower()
-    assert wizard.discovery.boot.path in text(app)
+    assert wizard.discovery.boot.display_name in text(app)
+    assert wizard.discovery.boot.path not in text(app)
     assert "Other detected devices" in text(app)
     readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
     assert readers and all(not w.get_editable() for w in readers)

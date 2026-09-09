@@ -113,7 +113,7 @@ def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: 
     texts = [w.cget('text') for w in descendants(app.root) if w.winfo_class() == 'Label']
     assert view.title in texts
     assert view.id_value in texts
-    assert view.connection in texts
+    assert any(view.connection in (text or '') for text in texts)
     assert wiz.selected.path not in texts
     assert view.system_path == wiz.selected.path
 
