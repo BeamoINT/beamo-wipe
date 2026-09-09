@@ -2724,41 +2724,53 @@ class TkWizard:
         screen = self.w.screen
         before = screen
         focused = self.root.focus_get()
-        if isinstance(focused, _Button) and focused._variant == "ghost" and focused._enabled:
-            focused._command()
-            return "break"
+        acted = False
         if screen == Screen.SHUTDOWN_CONFIRM:
+            # Enter is the safe default: keep the session. Discard requires
+            # its own focused Space/click confirmation, not this Return.
             self.w.keep_report_session()
-        elif screen == Screen.SPLASH:
-            self.w.skip_splash()
-        elif screen == Screen.WHAT:
-            self.w.accept_what()
-        elif screen == Screen.OWNER and self.w.owner_ok:
-            self.w.continue_owner()
-        elif screen == Screen.PICK:
-            self.w.continue_pick()
-        elif screen == Screen.CONFIRM and self.w.token_ok:
-            self.w.continue_confirm()
-        elif screen == Screen.METHOD:
-            self.w.continue_method()
-        elif screen == Screen.LAST_CHANCE:
-            # Back holds the safe default focus on this destructive screen.
-            # Enter must activate that visible control, never bypass it to
-            # erase. Disabled/stale controls and absent focus do nothing.
-            focused = self.root.focus_get()
-            if isinstance(focused, _Button) and focused._enabled:
-                if focused is not self._primary or self.w.erase_enabled:
-                    focused._command()
-        elif screen == Screen.DONE:
-            self.w.accept_done_keyboard()
-        elif screen == Screen.ADVANCED:
-            self.w.close_advanced()
-        elif screen == Screen.REPORT_HELP:
-            self.w.close_report_help()
-        elif screen == Screen.LIMITS:
-            self.w.close_limits()
-        elif screen in (Screen.PICK_BLOCKED, Screen.PICK_EMPTY):
-            self.w.accept_done_keyboard()
+            acted = True
+        elif isinstance(focused, _Button) and focused._enabled:
+            # Enter activates the focused control. Last-chance Erase still
+            # requires the countdown; Done/empty/blocked primary still uses
+            # the key-release arming gate instead of the click handler.
+            if focused is self._primary and screen == Screen.LAST_CHANCE and not self.w.erase_enabled:
+                acted = True
+            elif focused is self._primary and screen in (
+                Screen.DONE, Screen.PICK_EMPTY, Screen.PICK_BLOCKED,
+            ):
+                self.w.accept_done_keyboard()
+                acted = True
+            else:
+                focused._command()
+                acted = True
+        if not acted:
+            if screen == Screen.SHUTDOWN_CONFIRM:
+                self.w.keep_report_session()
+            elif screen == Screen.SPLASH:
+                self.w.skip_splash()
+            elif screen == Screen.WHAT:
+                self.w.accept_what()
+            elif screen == Screen.OWNER and self.w.owner_ok:
+                self.w.continue_owner()
+            elif screen == Screen.PICK:
+                self.w.continue_pick()
+            elif screen == Screen.CONFIRM and self.w.token_ok:
+                self.w.continue_confirm()
+            elif screen == Screen.METHOD:
+                self.w.continue_method()
+            elif screen == Screen.LAST_CHANCE:
+                pass
+            elif screen == Screen.DONE:
+                self.w.accept_done_keyboard()
+            elif screen == Screen.ADVANCED:
+                self.w.close_advanced()
+            elif screen == Screen.REPORT_HELP:
+                self.w.close_report_help()
+            elif screen == Screen.LIMITS:
+                self.w.close_limits()
+            elif screen in (Screen.PICK_BLOCKED, Screen.PICK_EMPTY):
+                self.w.accept_done_keyboard()
         if self.w.wants_shutdown:
             self._teardown()
             return "break"
