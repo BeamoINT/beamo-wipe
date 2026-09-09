@@ -1,0 +1,3 @@
+dbus-daemon[159437]: [session uid=1000 pid=159437 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=159453 comm="python3 docs/evidence/ui-improvement-20260909/capt" label="kernel")
+dbus-daemon[159437]: [session uid=1000 pid=159437 pidfd=5] Successfully activated service 'org.a11y.Bus'
+Captured 30 tk states at 1024x740

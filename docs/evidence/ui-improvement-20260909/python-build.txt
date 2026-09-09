@@ -1,0 +1,370 @@
+[93mWARNING[0m Both NO_COLOR and FORCE_COLOR environment variables are set, disabling color
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+* Getting build dependencies for sdist...
+/tmp/build-env-2o3lgtkq/lib/python3.13/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
+!!
+
+        ********************************************************************************
+        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+
+        By 2027-Feb-18, you need to update your project and remove deprecated calls
+        or your builds will no longer be supported.
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  corresp(dist, value, root_dir)
+running egg_info
+writing src/beamo_wipe.egg-info/PKG-INFO
+writing dependency_links to src/beamo_wipe.egg-info/dependency_links.txt
+writing entry points to src/beamo_wipe.egg-info/entry_points.txt
+writing requirements to src/beamo_wipe.egg-info/requires.txt
+writing top-level names to src/beamo_wipe.egg-info/top_level.txt
+reading manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+adding license file 'NOTICE'
+writing manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+* Installed build dependency versions:
+  - setuptools==84.0.0
+* Building sdist...
+/tmp/build-env-2o3lgtkq/lib/python3.13/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
+!!
+
+        ********************************************************************************
+        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+
+        By 2027-Feb-18, you need to update your project and remove deprecated calls
+        or your builds will no longer be supported.
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  corresp(dist, value, root_dir)
+running sdist
+running egg_info
+writing src/beamo_wipe.egg-info/PKG-INFO
+writing dependency_links to src/beamo_wipe.egg-info/dependency_links.txt
+writing entry points to src/beamo_wipe.egg-info/entry_points.txt
+writing requirements to src/beamo_wipe.egg-info/requires.txt
+writing top-level names to src/beamo_wipe.egg-info/top_level.txt
+reading manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+adding license file 'NOTICE'
+writing manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+running check
+creating beamo_wipe-0.2.6
+creating beamo_wipe-0.2.6/src/beamo_wipe
+creating beamo_wipe-0.2.6/src/beamo_wipe.egg-info
+creating beamo_wipe-0.2.6/src/beamo_wipe/assets
+creating beamo_wipe-0.2.6/src/beamo_wipe/ui
+creating beamo_wipe-0.2.6/tests
+copying files to beamo_wipe-0.2.6...
+copying LICENSE -> beamo_wipe-0.2.6
+copying NOTICE -> beamo_wipe-0.2.6
+copying README.md -> beamo_wipe-0.2.6
+copying pyproject.toml -> beamo_wipe-0.2.6
+copying src/beamo_wipe/__init__.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/__main__.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/app.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/copy.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/demo.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/demo_blocked.json -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/demo_empty.json -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/demo_lsblk.json -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/diagnostic_report.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/diagnostics.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/discover.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/evidence.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/gallery.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/identify.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/inventory.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/methods.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/models.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/nwipe_runner.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/outcomes.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/progress.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/release_manifest.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/report_intent.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/safety.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/session_recovery.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/storage_limits.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/support_export.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe/wizard.py -> beamo_wipe-0.2.6/src/beamo_wipe
+copying src/beamo_wipe.egg-info/PKG-INFO -> beamo_wipe-0.2.6/src/beamo_wipe.egg-info
+copying src/beamo_wipe.egg-info/SOURCES.txt -> beamo_wipe-0.2.6/src/beamo_wipe.egg-info
+copying src/beamo_wipe.egg-info/dependency_links.txt -> beamo_wipe-0.2.6/src/beamo_wipe.egg-info
+copying src/beamo_wipe.egg-info/entry_points.txt -> beamo_wipe-0.2.6/src/beamo_wipe.egg-info
+copying src/beamo_wipe.egg-info/requires.txt -> beamo_wipe-0.2.6/src/beamo_wipe.egg-info
+copying src/beamo_wipe.egg-info/top_level.txt -> beamo_wipe-0.2.6/src/beamo_wipe.egg-info
+copying src/beamo_wipe/assets/logo-header.png -> beamo_wipe-0.2.6/src/beamo_wipe/assets
+copying src/beamo_wipe/assets/logo-mark.svg -> beamo_wipe-0.2.6/src/beamo_wipe/assets
+copying src/beamo_wipe/assets/logo-splash.png -> beamo_wipe-0.2.6/src/beamo_wipe/assets
+copying src/beamo_wipe/ui/__init__.py -> beamo_wipe-0.2.6/src/beamo_wipe/ui
+copying src/beamo_wipe/ui/accessible_wizard.py -> beamo_wipe-0.2.6/src/beamo_wipe/ui
+copying src/beamo_wipe/ui/console_wizard.py -> beamo_wipe-0.2.6/src/beamo_wipe/ui
+copying src/beamo_wipe/ui/tk_wizard.py -> beamo_wipe-0.2.6/src/beamo_wipe/ui
+copying tests/test_accessibility_lowres.py -> beamo_wipe-0.2.6/tests
+copying tests/test_accessible_runtime.py -> beamo_wipe-0.2.6/tests
+copying tests/test_accountable_audit_2026_09_03.py -> beamo_wipe-0.2.6/tests
+copying tests/test_advanced_docs.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260905_boot.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260905_discovery.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260905_evidence.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260905_runner.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260905_wizard.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260907_console_input.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260907_discovery_duplicates.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260907_recovery.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260907_runner_lock.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260908_boot.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260908_discovery.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260908_reports.py -> beamo_wipe-0.2.6/tests
+copying tests/test_audit_20260908_wizard.py -> beamo_wipe-0.2.6/tests
+copying tests/test_boot_exclusion_fails_closed.py -> beamo_wipe-0.2.6/tests
+copying tests/test_busy_transitions.py -> beamo_wipe-0.2.6/tests
+copying tests/test_ci_hosted.py -> beamo_wipe-0.2.6/tests
+copying tests/test_compatibility_matrix.py -> beamo_wipe-0.2.6/tests
+copying tests/test_confirm_token.py -> beamo_wipe-0.2.6/tests
+copying tests/test_confirmation_gates.py -> beamo_wipe-0.2.6/tests
+copying tests/test_console_pick.py -> beamo_wipe-0.2.6/tests
+copying tests/test_copy.py -> beamo_wipe-0.2.6/tests
+copying tests/test_cross_platform_20260908.py -> beamo_wipe-0.2.6/tests
+copying tests/test_dead_code_sweep.py -> beamo_wipe-0.2.6/tests
+copying tests/test_design_runtime.py -> beamo_wipe-0.2.6/tests
+copying tests/test_discover.py -> beamo_wipe-0.2.6/tests
+copying tests/test_evidence.py -> beamo_wipe-0.2.6/tests
+copying tests/test_evidence_retry.py -> beamo_wipe-0.2.6/tests
+copying tests/test_excluded_inventory.py -> beamo_wipe-0.2.6/tests
+copying tests/test_external_boundaries.py -> beamo_wipe-0.2.6/tests
+copying tests/test_failure_visibility_regression.py -> beamo_wipe-0.2.6/tests
+copying tests/test_hidden_failures_visible.py -> beamo_wipe-0.2.6/tests
+copying tests/test_hunt_regressions.py -> beamo_wipe-0.2.6/tests
+copying tests/test_inspection_regression_2026_09_03.py -> beamo_wipe-0.2.6/tests
+copying tests/test_live_image.py -> beamo_wipe-0.2.6/tests
+copying tests/test_method_operation_copy.py -> beamo_wipe-0.2.6/tests
+copying tests/test_nwipe_runner.py -> beamo_wipe-0.2.6/tests
+copying tests/test_pick_scroll_restore.py -> beamo_wipe-0.2.6/tests
+copying tests/test_preview.py -> beamo_wipe-0.2.6/tests
+copying tests/test_progress_timing.py -> beamo_wipe-0.2.6/tests
+copying tests/test_qemu_diagnostic_markers.py -> beamo_wipe-0.2.6/tests
+copying tests/test_qemu_discovery_followup.py -> beamo_wipe-0.2.6/tests
+copying tests/test_refresh_disks.py -> beamo_wipe-0.2.6/tests
+copying tests/test_regression_audit_2026_09_01.py -> beamo_wipe-0.2.6/tests
+copying tests/test_release_manifest.py -> beamo_wipe-0.2.6/tests
+copying tests/test_release_publisher.py -> beamo_wipe-0.2.6/tests
+copying tests/test_report_failure_recovery.py -> beamo_wipe-0.2.6/tests
+copying tests/test_report_intent.py -> beamo_wipe-0.2.6/tests
+copying tests/test_report_shutdown.py -> beamo_wipe-0.2.6/tests
+copying tests/test_result_presentations.py -> beamo_wipe-0.2.6/tests
+copying tests/test_risk_matrix_comprehensive.py -> beamo_wipe-0.2.6/tests
+copying tests/test_runbook.py -> beamo_wipe-0.2.6/tests
+copying tests/test_runner_status_regressions.py -> beamo_wipe-0.2.6/tests
+copying tests/test_safety.py -> beamo_wipe-0.2.6/tests
+copying tests/test_second_usb_export.py -> beamo_wipe-0.2.6/tests
+copying tests/test_security_audit_2026_09_03.py -> beamo_wipe-0.2.6/tests
+copying tests/test_security_hardening.py -> beamo_wipe-0.2.6/tests
+copying tests/test_security_hardening_new.py -> beamo_wipe-0.2.6/tests
+copying tests/test_session_recovery.py -> beamo_wipe-0.2.6/tests
+copying tests/test_startup_diagnostics.py -> beamo_wipe-0.2.6/tests
+copying tests/test_storage_io_recovery.py -> beamo_wipe-0.2.6/tests
+copying tests/test_storage_limits.py -> beamo_wipe-0.2.6/tests
+copying tests/test_storage_limits_ui.py -> beamo_wipe-0.2.6/tests
+copying tests/test_tk_runtime.py -> beamo_wipe-0.2.6/tests
+copying tests/test_ui_rework.py -> beamo_wipe-0.2.6/tests
+copying tests/test_ui_system.py -> beamo_wipe-0.2.6/tests
+copying tests/test_usb_image_readback.py -> beamo_wipe-0.2.6/tests
+copying tests/test_usb_lab.py -> beamo_wipe-0.2.6/tests
+copying tests/test_usb_report_workflow.py -> beamo_wipe-0.2.6/tests
+copying tests/test_wizard_flow.py -> beamo_wipe-0.2.6/tests
+Writing beamo_wipe-0.2.6/setup.cfg
+Creating tar archive
+removing 'beamo_wipe-0.2.6' (and everything under it)
+* Building wheel from sdist
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+* Getting build dependencies for wheel...
+/tmp/build-env-pqfommo4/lib/python3.13/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
+!!
+
+        ********************************************************************************
+        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+
+        By 2027-Feb-18, you need to update your project and remove deprecated calls
+        or your builds will no longer be supported.
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  corresp(dist, value, root_dir)
+running egg_info
+writing src/beamo_wipe.egg-info/PKG-INFO
+writing dependency_links to src/beamo_wipe.egg-info/dependency_links.txt
+writing entry points to src/beamo_wipe.egg-info/entry_points.txt
+writing requirements to src/beamo_wipe.egg-info/requires.txt
+writing top-level names to src/beamo_wipe.egg-info/top_level.txt
+reading manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+adding license file 'NOTICE'
+writing manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+* Installed build dependency versions:
+  - setuptools==84.0.0
+* Building wheel...
+/tmp/build-env-pqfommo4/lib/python3.13/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
+!!
+
+        ********************************************************************************
+        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+
+        By 2027-Feb-18, you need to update your project and remove deprecated calls
+        or your builds will no longer be supported.
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  corresp(dist, value, root_dir)
+running bdist_wheel
+running build
+running build_py
+creating build/lib/beamo_wipe
+copying src/beamo_wipe/report_intent.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/__main__.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/discover.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/outcomes.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/copy.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/wizard.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/__init__.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/nwipe_runner.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/diagnostics.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/gallery.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/release_manifest.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/methods.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/safety.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/identify.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/session_recovery.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/support_export.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/app.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/models.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/diagnostic_report.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/inventory.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/demo.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/evidence.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/storage_limits.py -> build/lib/beamo_wipe
+copying src/beamo_wipe/progress.py -> build/lib/beamo_wipe
+creating build/lib/beamo_wipe/ui
+copying src/beamo_wipe/ui/__init__.py -> build/lib/beamo_wipe/ui
+copying src/beamo_wipe/ui/tk_wizard.py -> build/lib/beamo_wipe/ui
+copying src/beamo_wipe/ui/accessible_wizard.py -> build/lib/beamo_wipe/ui
+copying src/beamo_wipe/ui/console_wizard.py -> build/lib/beamo_wipe/ui
+running egg_info
+writing src/beamo_wipe.egg-info/PKG-INFO
+writing dependency_links to src/beamo_wipe.egg-info/dependency_links.txt
+writing entry points to src/beamo_wipe.egg-info/entry_points.txt
+writing requirements to src/beamo_wipe.egg-info/requires.txt
+writing top-level names to src/beamo_wipe.egg-info/top_level.txt
+reading manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+adding license file 'NOTICE'
+writing manifest file 'src/beamo_wipe.egg-info/SOURCES.txt'
+copying src/beamo_wipe/demo_blocked.json -> build/lib/beamo_wipe
+copying src/beamo_wipe/demo_empty.json -> build/lib/beamo_wipe
+copying src/beamo_wipe/demo_lsblk.json -> build/lib/beamo_wipe
+creating build/lib/beamo_wipe/assets
+copying src/beamo_wipe/assets/logo-splash.png -> build/lib/beamo_wipe/assets
+copying src/beamo_wipe/assets/logo-header.png -> build/lib/beamo_wipe/assets
+copying src/beamo_wipe/assets/logo-mark.svg -> build/lib/beamo_wipe/assets
+installing to build/bdist.linux-x86_64/wheel
+running install
+running install_lib
+creating build/bdist.linux-x86_64/wheel
+creating build/bdist.linux-x86_64/wheel/beamo_wipe
+copying build/lib/beamo_wipe/report_intent.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/__main__.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/discover.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/outcomes.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/copy.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/wizard.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/__init__.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/nwipe_runner.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/demo_empty.json -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/diagnostics.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/demo_blocked.json -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/gallery.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/release_manifest.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/methods.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/safety.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/identify.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/session_recovery.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/support_export.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/app.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/models.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/diagnostic_report.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/inventory.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+creating build/bdist.linux-x86_64/wheel/beamo_wipe/ui
+copying build/lib/beamo_wipe/ui/__init__.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe/ui
+copying build/lib/beamo_wipe/ui/tk_wizard.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe/ui
+copying build/lib/beamo_wipe/ui/accessible_wizard.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe/ui
+copying build/lib/beamo_wipe/ui/console_wizard.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe/ui
+copying build/lib/beamo_wipe/demo.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/demo_lsblk.json -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/evidence.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+creating build/bdist.linux-x86_64/wheel/beamo_wipe/assets
+copying build/lib/beamo_wipe/assets/logo-splash.png -> build/bdist.linux-x86_64/wheel/./beamo_wipe/assets
+copying build/lib/beamo_wipe/assets/logo-mark.svg -> build/bdist.linux-x86_64/wheel/./beamo_wipe/assets
+copying build/lib/beamo_wipe/assets/logo-header.png -> build/bdist.linux-x86_64/wheel/./beamo_wipe/assets
+copying build/lib/beamo_wipe/storage_limits.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+copying build/lib/beamo_wipe/progress.py -> build/bdist.linux-x86_64/wheel/./beamo_wipe
+running install_egg_info
+Copying src/beamo_wipe.egg-info to build/bdist.linux-x86_64/wheel/./beamo_wipe-0.2.6-py3.13.egg-info
+running install_scripts
+creating build/bdist.linux-x86_64/wheel/beamo_wipe-0.2.6.dist-info/WHEEL
+creating '/tmp/beamo-ui-dist/.tmp-d0xocr7g/beamo_wipe-0.2.6-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it
+adding 'beamo_wipe/__init__.py'
+adding 'beamo_wipe/__main__.py'
+adding 'beamo_wipe/app.py'
+adding 'beamo_wipe/copy.py'
+adding 'beamo_wipe/demo.py'
+adding 'beamo_wipe/demo_blocked.json'
+adding 'beamo_wipe/demo_empty.json'
+adding 'beamo_wipe/demo_lsblk.json'
+adding 'beamo_wipe/diagnostic_report.py'
+adding 'beamo_wipe/diagnostics.py'
+adding 'beamo_wipe/discover.py'
+adding 'beamo_wipe/evidence.py'
+adding 'beamo_wipe/gallery.py'
+adding 'beamo_wipe/identify.py'
+adding 'beamo_wipe/inventory.py'
+adding 'beamo_wipe/methods.py'
+adding 'beamo_wipe/models.py'
+adding 'beamo_wipe/nwipe_runner.py'
+adding 'beamo_wipe/outcomes.py'
+adding 'beamo_wipe/progress.py'
+adding 'beamo_wipe/release_manifest.py'
+adding 'beamo_wipe/report_intent.py'
+adding 'beamo_wipe/safety.py'
+adding 'beamo_wipe/session_recovery.py'
+adding 'beamo_wipe/storage_limits.py'
+adding 'beamo_wipe/support_export.py'
+adding 'beamo_wipe/wizard.py'
+adding 'beamo_wipe/assets/logo-header.png'
+adding 'beamo_wipe/assets/logo-mark.svg'
+adding 'beamo_wipe/assets/logo-splash.png'
+adding 'beamo_wipe/ui/__init__.py'
+adding 'beamo_wipe/ui/accessible_wizard.py'
+adding 'beamo_wipe/ui/console_wizard.py'
+adding 'beamo_wipe/ui/tk_wizard.py'
+adding 'beamo_wipe-0.2.6.dist-info/licenses/LICENSE'
+adding 'beamo_wipe-0.2.6.dist-info/licenses/NOTICE'
+adding 'beamo_wipe-0.2.6.dist-info/METADATA'
+adding 'beamo_wipe-0.2.6.dist-info/WHEEL'
+adding 'beamo_wipe-0.2.6.dist-info/entry_points.txt'
+adding 'beamo_wipe-0.2.6.dist-info/top_level.txt'
+adding 'beamo_wipe-0.2.6.dist-info/RECORD'
+removing build/bdist.linux-x86_64/wheel
+Successfully built beamo_wipe-0.2.6.tar.gz and beamo_wipe-0.2.6-py3-none-any.whl

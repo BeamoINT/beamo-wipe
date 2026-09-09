@@ -1,0 +1,181 @@
+dbus-daemon[173642]: [session uid=1000 pid=173642 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=173656 comm="python3 -m pytest -o pythonpath=/tmp/beamo-ui-base" label="kernel")
+dbus-daemon[173642]: [session uid=1000 pid=173642 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[173666]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=173656 comm="python3 -m pytest -o pythonpath=/tmp/beamo-ui-base" label="kernel")
+dbus-daemon[173666]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+.............FF.F..F                                                     [100%]
+=================================== FAILURES ===================================
+_____ test_every_accessible_screen_keeps_actions_inside_800x600[advanced] ______
+
+ui = <function ui.<locals>.build at 0x7fb74ff7be20>
+screen = <Screen.ADVANCED: 'advanced'>
+
+    @pytest.mark.parametrize("screen", list(Screen))
+    def test_every_accessible_screen_keeps_actions_inside_800x600(ui, screen):
+        wizard = make_demo_wizard()
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.screen = screen  # presentation only; no process is started
+>       app = ui(wizard)
+              ^^^^^^^^^^
+
+tests/test_accessible_runtime.py:283:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_accessible_runtime.py:72: in build
+    wait_for_window_size(app.window, size)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+window = <Gtk.Window object at 0x7fb74ffe6380 (GtkWindow at 0x288aa970)>
+size = (800, 600)
+
+    def wait_for_window_size(window, size):
+        # resize() queues an X11 request. An empty GTK event queue does not mean
+        # the server's configure event or the next layout frame has arrived yet.
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            drain()
+            allocation = window.get_allocation()
+            if (
+                window.get_mapped()
+                and tuple(window.get_size()) == size
+                and (allocation.width, allocation.height) == size
+            ):
+                return
+            time.sleep(0.01)
+>       pytest.fail(
+            f"Window did not reach {size}: size={tuple(window.get_size())}, "
+            f"allocation={(allocation.width, allocation.height)}, "
+            f"mapped={window.get_mapped()}"
+        )
+E       Failed: Window did not reach (800, 600): size=(879, 600), allocation=(879, 600), mapped=True
+
+tests/test_accessible_runtime.py:41: Failed
+____ test_every_accessible_screen_keeps_actions_inside_800x600[report_help] ____
+
+ui = <function ui.<locals>.build at 0x7fb74fff40e0>
+screen = <Screen.REPORT_HELP: 'report_help'>
+
+    @pytest.mark.parametrize("screen", list(Screen))
+    def test_every_accessible_screen_keeps_actions_inside_800x600(ui, screen):
+        wizard = make_demo_wizard()
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.screen = screen  # presentation only; no process is started
+>       app = ui(wizard)
+              ^^^^^^^^^^
+
+tests/test_accessible_runtime.py:283:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_accessible_runtime.py:72: in build
+    wait_for_window_size(app.window, size)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+window = <Gtk.Window object at 0x7fb74ffc2000 (GtkWindow at 0x28b0d320)>
+size = (800, 600)
+
+    def wait_for_window_size(window, size):
+        # resize() queues an X11 request. An empty GTK event queue does not mean
+        # the server's configure event or the next layout frame has arrived yet.
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            drain()
+            allocation = window.get_allocation()
+            if (
+                window.get_mapped()
+                and tuple(window.get_size()) == size
+                and (allocation.width, allocation.height) == size
+            ):
+                return
+            time.sleep(0.01)
+>       pytest.fail(
+            f"Window did not reach {size}: size={tuple(window.get_size())}, "
+            f"allocation={(allocation.width, allocation.height)}, "
+            f"mapped={window.get_mapped()}"
+        )
+E       Failed: Window did not reach (800, 600): size=(895, 600), allocation=(895, 600), mapped=True
+
+tests/test_accessible_runtime.py:41: Failed
+______ test_every_accessible_screen_keeps_actions_inside_800x600[limits] _______
+
+ui = <function ui.<locals>.build at 0x7fb74fff4860>
+screen = <Screen.LIMITS: 'limits'>
+
+    @pytest.mark.parametrize("screen", list(Screen))
+    def test_every_accessible_screen_keeps_actions_inside_800x600(ui, screen):
+        wizard = make_demo_wizard()
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        wizard.screen = screen  # presentation only; no process is started
+>       app = ui(wizard)
+              ^^^^^^^^^^
+
+tests/test_accessible_runtime.py:283:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_accessible_runtime.py:72: in build
+    wait_for_window_size(app.window, size)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+window = <Gtk.Window object at 0x7fb750a9db00 (GtkWindow at 0x28b79b00)>
+size = (800, 600)
+
+    def wait_for_window_size(window, size):
+        # resize() queues an X11 request. An empty GTK event queue does not mean
+        # the server's configure event or the next layout frame has arrived yet.
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            drain()
+            allocation = window.get_allocation()
+            if (
+                window.get_mapped()
+                and tuple(window.get_size()) == size
+                and (allocation.width, allocation.height) == size
+            ):
+                return
+            time.sleep(0.01)
+>       pytest.fail(
+            f"Window did not reach {size}: size={tuple(window.get_size())}, "
+            f"allocation={(allocation.width, allocation.height)}, "
+            f"mapped={window.get_mapped()}"
+        )
+E       Failed: Window did not reach (800, 600): size=(899, 600), allocation=(899, 600), mapped=True
+
+tests/test_accessible_runtime.py:41: Failed
+_________ test_accessible_method_choices_visible_above_grouped_actions _________
+
+ui = <function ui.<locals>.build at 0x7fb74fff4e00>
+
+    def test_accessible_method_choices_visible_above_grouped_actions(ui):
+        wizard = make_demo_wizard()
+        wizard.selected = wizard.selectable[0]
+        wizard.screen = Screen.METHOD
+        app = ui(wizard)
+        footer_y = app.footer.translate_coordinates(app.window, 0, 0)[1]
+        choices = [w for w in widgets(app.body) if isinstance(w, Gtk.RadioButton)]
+        assert len(choices) == len(METHODS)
+        for choice in choices:
+            _, y = choice.translate_coordinates(app.window, 0, 0)
+            assert y >= 0
+>           assert y + choice.get_allocated_height() <= footer_y
+E           assert (244 + 42) <= 277
+E            +  where 42 = gi.FunctionInfo(get_allocated_height, bound=<Gtk.RadioButton object at 0x7fb74d272240 (GtkRadioButton at 0x28b70780)>)()
+E            +    where gi.FunctionInfo(get_allocated_height, bound=<Gtk.RadioButton object at 0x7fb74d272240 (GtkRadioButton at 0x28b70780)>) = <Gtk.RadioButton object at 0x7fb74d272240 (GtkRadioButton at 0x28b70780)>.get_allocated_height
+
+tests/test_accessible_runtime.py:304: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_accessible_runtime.py::test_every_accessible_screen_keeps_actions_inside_800x600[advanced]
+FAILED tests/test_accessible_runtime.py::test_every_accessible_screen_keeps_actions_inside_800x600[report_help]
+FAILED tests/test_accessible_runtime.py::test_every_accessible_screen_keeps_actions_inside_800x600[limits]
+FAILED tests/test_accessible_runtime.py::test_accessible_method_choices_visible_above_grouped_actions
+4 failed, 16 passed, 59 deselected in 15.51s

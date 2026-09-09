@@ -14,7 +14,7 @@ os.environ["GTK_MODULES"] = "gail:atk-bridge"
 os.environ["NO_AT_BRIDGE"] = "0"
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa: E402
@@ -43,6 +43,12 @@ class AccessibleWizard:
             #beamo-accessible .preview-notice { background: #E8A317; color: #0A1B34; padding: 8px; }
             #beamo-accessible .disk-identity { background: #EDF3F8; color: #182635; padding: 12px; border: 1px solid #244A73; border-radius: 8px; }
             #beamo-accessible button { padding: 8px 12px; border-radius: 6px; }
+            #beamo-accessible button.primary-action { background-image: none; background-color: #244A73; color: #FFFFFF; }
+            #beamo-accessible button.destructive-action { background-image: none; background-color: #B3261E; color: #FFFFFF; }
+            #beamo-accessible button:disabled { background-image: none; background-color: #E4E8EF; color: #4C5B6B; }
+            #beamo-accessible button:focus { outline: 3px solid #1A3FA0; outline-offset: 2px; }
+            #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #244A73; box-shadow: none; }
+            #beamo-accessible .erase-warning { background: #FBEBE9; color: #B3261E; padding: 10px; border-radius: 6px; }
             #beamo-accessible .screen-actions { border-top: 1px solid #D8DFE6; padding-top: 8px; }
             #beamo-accessible .error-message { color: #B3261E; font-weight: bold; }
         """)
@@ -77,6 +83,7 @@ class AccessibleWizard:
     def label(self, text: str, *, focusable: bool = False):
         widget = Gtk.Label(label=text)
         widget.set_line_wrap(True)
+        widget.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
         widget.set_xalign(0)
         widget.set_max_width_chars(70)
         widget.set_can_focus(focusable)
@@ -84,11 +91,24 @@ class AccessibleWizard:
         self.body.pack_start(widget, False, False, 4)
         return widget
 
-    def button(self, text: str, action: Callable, *, enabled: bool = True):
+    def button(self, text: str, action: Callable, *, enabled: bool = True,
+               utility: bool = False, in_body: bool = False):
         widget = Gtk.Button.new_with_label(text)
         widget.set_sensitive(enabled)
         widget.get_child().set_line_wrap(True)
-        widget.get_child().set_max_width_chars(65)
+        # Footer actions contain short words. Character wrapping would reduce
+        # their minimum width to one glyph and inflate GTK's height request.
+        widget.get_child().set_line_wrap_mode(
+            Pango.WrapMode.WORD_CHAR if in_body else Pango.WrapMode.WORD
+        )
+        widget.get_child().set_max_width_chars(65 if in_body else 24)
+        context = widget.get_style_context()
+        if text in {C.BTN_ERASE, C.SHUTDOWN_DISCARD}:
+            context.add_class("destructive-action")
+        elif text in {C.BTN_CONTINUE, C.SHUTDOWN_KEEP, C.BTN_SAVE_REPORT}:
+            context.add_class("primary-action")
+        elif utility:
+            context.add_class("utility-action")
         generation = self.generation
 
         def clicked(_button):
@@ -102,7 +122,16 @@ class AccessibleWizard:
                 self.render()
 
         widget.connect("clicked", clicked)
-        self.footer.pack_start(widget, False, False, 3)
+        if in_body:
+            self.body.pack_start(widget, False, False, 3)
+        elif utility:
+            self.utilities.attach(widget, self._utility_count % 3, self._utility_count // 3, 1, 1)
+            self._utility_count += 1
+        elif text == C.BTN_BACK:
+            self.navigation.pack_start(widget, False, False, 0)
+            self.navigation.reorder_child(widget, 0)
+        else:
+            self.navigation.pack_end(widget, False, False, 0)
         self.actions[text] = widget
         return widget
 
@@ -128,7 +157,11 @@ class AccessibleWizard:
         view.get_accessible().set_name(text)
         view.set_can_focus(True)
         scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        # A TextView can initially request the width of its longest paragraph
+        # even with wrapping enabled. NEVER propagates that request through
+        # the outer viewport and widens the window (Advanced exceeded 800px).
+        # AUTOMATIC constrains the reader; normal text still wraps in place.
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.set_min_content_height(180)
         scroll.add(view)
         self.body.pack_start(scroll, False, False, 4)
@@ -155,12 +188,24 @@ class AccessibleWizard:
         self.footer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.footer.get_style_context().add_class("screen-actions")
         shell.pack_start(self.footer, False, False, 0)
+        # Utilities wrap independently of navigation. Keep the action footer
+        # outside the scrolling body without six full-width button rows at
+        # 800x600. No fixed content height or minimum window size is imposed.
+        self.utilities = Gtk.Grid()
+        self.utilities.set_column_homogeneous(True)
+        self.utilities.set_column_spacing(6)
+        self.utilities.set_row_spacing(4)
+        self._utility_count = 0
+        self.footer.pack_start(self.utilities, False, False, 0)
+        self.navigation = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.footer.pack_start(self.navigation, False, False, 4)
         if self.w.preview:
             self.label(C.PREVIEW_BANNER).get_style_context().add_class("preview-notice")
         screen = self.w.screen
         generation = self.generation
         heading = self.label("Beamo Wipe", focusable=True)
         heading.get_style_context().add_class("screen-heading")
+        arrival = heading
         if screen == Screen.SPLASH:
             heading.set_text(C.SPLASH_TAGLINE)
             self.button(C.BTN_CONTINUE, self.w.skip_splash)
@@ -185,12 +230,10 @@ class AccessibleWizard:
             )
         elif screen == Screen.PICK:
             heading.set_text(C.TITLE_PICK)
-            self.label("Eligible disks. Choose the exact disk you intend to erase.")
+            self.label(C.pick_subtitle())
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {disk.display_name}; {disk.size_phrase}; {disk.path}; Serial: {disk.serial or 'unavailable'}"
-                button = self.button(text, lambda path=disk.path: self._select(path))
-                self.footer.remove(button)
-                self.body.pack_start(button, False, False, 3)
+                self.button(text, lambda path=disk.path: self._select(path), in_body=True)
             self._inventory()
         elif screen in (Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             heading.set_text(
@@ -204,8 +247,10 @@ class AccessibleWizard:
             self._inventory()
             self.button("Shut down", self.w.shutdown)
         elif screen == Screen.CONFIRM:
-            heading.set_text(self.w.warning_text())
+            heading.set_text(C.TITLE_CONFIRM)
             self.identity()
+            arrival = self.label(self.w.warning_text(), focusable=True)
+            arrival.get_style_context().add_class("erase-warning")
             prompt = self.w.confirm.prompt if self.w.confirm else "No target selected"
             self.label(prompt)
             entry = Gtk.Entry()
@@ -236,8 +281,8 @@ class AccessibleWizard:
                     if widget.get_active() and generation == self.generation
                     else None,
                 )
-            self.button(storage_limits.BUTTON, self.w.open_limits)
-            self.button(C.BTN_ADVANCED, self.w.open_advanced)
+            self.button(storage_limits.BUTTON, self.w.open_limits, utility=True)
+            self.button(C.BTN_ADVANCED, self.w.open_advanced, utility=True)
             self.button(C.BTN_CONTINUE, self.w.continue_method)
         elif screen == Screen.REPORT_HELP:
             heading.set_text(C.REPORT_HELP_TITLE)
@@ -276,8 +321,14 @@ class AccessibleWizard:
             heading.set_text(C.TITLE_ADVANCED)
             self.reader(C.ADVANCED_LEAD + "\n" + C.ADVANCED_LOG_NOTE)
         elif screen == Screen.LAST_CHANCE:
-            heading.set_text(f"{C.TITLE_LAST}. {self.w.erase_label()} {C.LAST_LEAD}")
+            heading.set_text(C.TITLE_LAST)
+            self.label(C.LAST_LEAD)
             self.identity()
+            # Orca reads a label's actual text, even when its accessible name
+            # differs. Focus the full warning notice so arrival still speaks
+            # the destructive consequence, without an oversized heading.
+            arrival = self.label(self.w.erase_label(), focusable=True)
+            arrival.get_style_context().add_class("erase-warning")
             self.label(self.w.method_summary)
             self.countdown_label = self.label("")
             self.primary = self.button(
@@ -393,11 +444,11 @@ class AccessibleWizard:
         self.error_label = self.label(self.w.error or "", focusable=True)
         self.error_label.get_style_context().add_class("error-message")
         if self.w.can_open_diagnostic:
-            self.button("Diagnostic report", self.w.open_diagnostic)
+            self.button("Diagnostic report", self.w.open_diagnostic, utility=True)
         if self.w.can_open_report_help:
-            self.button(C.REPORT_HELP_TITLE, self.w.open_report_help)
+            self.button(C.REPORT_HELP_TITLE, self.w.open_report_help, utility=True)
         if self.w.can_refresh:
-            self.button("Check disks again (F5)", self.w.refresh_disks)
+            self.button("Check disks again (F5)", self.w.refresh_disks, utility=True)
         if screen in {
             Screen.OWNER,
             Screen.PICK,
@@ -413,10 +464,13 @@ class AccessibleWizard:
             self.button(C.BTN_BACK, self.w.back)
         self._style_tree(self.window)
         self.window.show_all()
+        if not self.utilities.get_children():
+            self.footer.remove(self.utilities)
+            self.utilities.destroy()
         self.window.present()
         if self.window.get_window():
             self.window.get_window().focus(Gdk.CURRENT_TIME)
-        heading.grab_focus()
+        arrival.grab_focus()
         self.update_status()
 
     def _inventory(self):
@@ -445,7 +499,7 @@ class AccessibleWizard:
             self.countdown_label.set_text(
                 f"Wait {self.w.countdown_display} seconds."
                 if not self.w.erase_enabled
-                else "The countdown is complete. Erasure still requires Erase now."
+                else C.COUNTDOWN_READY
             )
             self.primary.set_sensitive(self.w.erase_enabled)
         if self.progress_label:
