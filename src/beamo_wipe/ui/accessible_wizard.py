@@ -95,6 +95,8 @@ class AccessibleWizard:
                utility: bool = False, in_body: bool = False):
         widget = Gtk.Button.new_with_label(text)
         widget.set_sensitive(enabled)
+        widget.set_can_default(False)
+        widget.set_receives_default(False)
         widget.get_child().set_line_wrap(True)
         # Footer actions contain short words. Character wrapping would reduce
         # their minimum width to one glyph and inflate GTK's height request.
@@ -244,6 +246,8 @@ class AccessibleWizard:
                 if screen == Screen.PICK_EMPTY
                 else (self.w.error or C.IDENTIFY_ERROR)
             )
+            if screen == Screen.PICK_EMPTY and self.w.empty_detail:
+                self.label(self.w.empty_detail)
             self._inventory()
             self.button("Shut down", self.w.shutdown)
         elif screen == Screen.CONFIRM:
@@ -542,11 +546,26 @@ class AccessibleWizard:
             self.w.open_limits()
             self.render()
             return True
+        if key in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and self.w.screen == Screen.LAST_CHANCE:
+            # Enter must not activate a default Erase button while focus is
+            # on the warning label. Match Tk: only the focused enabled control.
+            focused = self.window.get_focus()
+            erase = self.actions.get(C.BTN_ERASE)
+            back = self.actions.get(C.BTN_BACK)
+            if erase is not None and focused is erase and erase.get_sensitive():
+                erase.clicked()
+            elif back is not None and focused is back and back.get_sensitive():
+                back.clicked()
+            return True
         if key == Gdk.KEY_F5 and self.w.can_refresh:
             self.w.refresh_disks()
             self.render()
             return True
-        if key == Gdk.KEY_Escape and self.w.screen != Screen.WORKING:
+        if key == Gdk.KEY_Escape:
+            if self.w.screen == Screen.WORKING:
+                self.w.begin_cancel()
+                self.render()
+                return True
             self.w.back()
             self.render()
             return True

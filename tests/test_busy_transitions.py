@@ -118,6 +118,7 @@ def test_checking_claim_is_responsive_and_validates_before_start(ready, outcome)
     assert w.screen == (Screen.WORKING if outcome == "valid" else Screen.LAST_CHANCE)
     if outcome != "valid":
         assert w.error
+        assert not w.erase_enabled
 
 
 @pytest.mark.parametrize(
@@ -319,6 +320,7 @@ def test_unexpected_discovery_metadata_failure_is_visible(ready, monkeypatch):
     assert w.screen == Screen.LAST_CHANCE and not w.runner.started
     assert w.error and "private details" not in w.error
     assert w.startup_error_code == "unexpected_startup_failure"
+    assert not w.erase_enabled
 
 
 def test_poll_cleanup_error_refreshes_warning_without_publishing_result(

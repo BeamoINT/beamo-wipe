@@ -55,7 +55,8 @@ def inventory_wizard():
 def test_complete_excluded_inventory_does_not_add_targets():
     wiz = inventory_wizard()
     assert [d.path for d in wiz.selectable] == ["/dev/sda"]
-    assert len(wiz.other_devices) == 8
+    assert len(wiz.other_devices) == 7
+    assert all("/dev/sdb" not in d.identity for d in wiz.other_devices)
     text = full_text(wiz.other_devices)
     for reason in (
         "boot or system protected",
@@ -86,8 +87,8 @@ def test_blocked_boot_hides_inventory_and_refresh_replaces_it():
     )
     wiz._enter_pick()
     assert wiz.screen == Screen.PICK_EMPTY
-    assert len(wiz.other_devices) == 1
-    assert "/dev/sdc" not in full_text(wiz.other_devices)
+    assert not wiz.other_devices
+    assert wiz.empty_detail and "/dev/sdb" in wiz.empty_detail
 
 
 def test_plain_console_has_distinct_unnumbered_inventory(monkeypatch, capsys):

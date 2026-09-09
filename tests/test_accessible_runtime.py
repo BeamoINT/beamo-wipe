@@ -177,11 +177,74 @@ def test_excluded_devices_are_read_only_and_no_selection(ui):
     wizard.continue_owner()
     app = ui(wizard)
     assert wizard.screen == Screen.PICK_EMPTY
+    assert "not erasable" in text(app).lower()
+    assert wizard.discovery.boot.path in text(app)
     assert "Other detected devices" in text(app)
     readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
     assert readers and all(not w.get_editable() for w in readers)
     assert all(w.get_allocation().height >= 180 for w in readers)
     assert not any(name.startswith("Select ") for name in app.actions)
+
+
+def test_last_chance_enter_without_erase_focus_never_erases(ui):
+    from types import SimpleNamespace
+
+    wizard = make_demo_wizard()
+    wizard.skip_splash()
+    wizard.accept_what()
+    wizard.set_owner(True)
+    wizard.continue_owner()
+    wizard.select_disk(wizard.selectable[0].path)
+    wizard.continue_pick()
+    wizard.set_confirm_input(wizard.confirm.token)
+    wizard.continue_confirm()
+    wizard.continue_method()
+    wizard._erase_until = 0
+    app = ui(wizard)
+    app.update_status()
+    erase = app.actions["Erase now"]
+    assert erase.get_sensitive()
+    warning = next(
+        w
+        for w in widgets(app.window)
+        if isinstance(w, Gtk.Label) and w.get_can_focus() and w is not erase
+    )
+    warning.grab_focus()
+    drain()
+    assert app.window.get_focus() is warning
+    assert app._key_press(app.window, SimpleNamespace(keyval=Gdk.KEY_Return))
+    drain()
+    assert wizard.screen == Screen.LAST_CHANCE
+    assert not wizard.runner.started
+    app._key_release(app.window, SimpleNamespace(keyval=Gdk.KEY_Return))
+    erase.grab_focus()
+    drain()
+    assert app._key_press(app.window, SimpleNamespace(keyval=Gdk.KEY_Return))
+    wait_transition(app)
+    assert wizard.screen == Screen.WORKING and wizard.runner.started
+
+
+def test_escape_cancels_working_erase(ui):
+    from types import SimpleNamespace
+
+    wizard = make_demo_wizard()
+    wizard.skip_splash()
+    wizard.accept_what()
+    wizard.set_owner(True)
+    wizard.continue_owner()
+    wizard.select_disk(wizard.selectable[0].path)
+    wizard.continue_pick()
+    wizard.set_confirm_input(wizard.confirm.token)
+    wizard.continue_confirm()
+    wizard.continue_method()
+    wizard._erase_until = 0
+    wizard.confirm_erase()
+    app = ui(wizard)
+    assert wizard.screen == Screen.WORKING
+    assert app._key_press(app.window, SimpleNamespace(keyval=Gdk.KEY_Escape))
+    wait_transition(app)
+    assert wizard.screen == Screen.DONE
+    assert not wizard.runner.started or wizard.wipe_result is not None
 
 
 def test_held_activation_keys_cannot_repeat(ui):
