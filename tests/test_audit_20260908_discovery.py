@@ -55,6 +55,20 @@ def test_standalone_mounted_optical_and_loop_are_not_unresolved_children(monkeyp
     assert [target.path for target in result.selectable] == ["/dev/sda"]
 
 
+@pytest.mark.parametrize("kind", ["raid1", "raid0", "mpath"])
+def test_mounted_multiparent_volume_does_not_leave_sibling_selectable(monkeypatch, kind):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("sdb", tran="sata"),
+        disk("sdc"),
+        disk("sda1", type="part", pkname="sda", tran="sata"),
+        disk("sdb1", type="part", pkname="sdb", tran="sata"),
+        disk("md0", type=kind, pkname="sda1", mountpoints=["/media/data"]),
+    ], boot="/dev/sdc")
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
 def test_nested_mounted_child_without_pkname_uses_tree_parent(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", children=[disk("sda1", type="part", mountpoints=["/media/data"])]),
