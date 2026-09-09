@@ -411,6 +411,13 @@ class Wizard:
                 self._progress_timing.clear_estimate()
             if self.wipe_result is not None or self._recovered:
                 remaining = None
+            terminal = (
+                self.wipe_result is not None
+                or self._recovered
+                or self.screen == Screen.STOPPING
+                or bool(getattr(self.runner, "finalizing", False))
+            )
+            stale_for = None if terminal else timing.stale_for
             percent = self.progress
             now = self.now
             previous = self._display_progress
@@ -422,7 +429,16 @@ class Wizard:
                 percent = previous.percent
             else:
                 self._display_progress_at = now
-            view = ProgressView(phase, percent, timing.elapsed, remaining)
+            view = ProgressView(
+                phase,
+                percent,
+                timing.elapsed,
+                remaining,
+                stale_for=stale_for,
+                percent_is_old=bool(
+                    percent is not None and stale_for is not None
+                ),
+            )
             self._display_progress = view
             return view
 

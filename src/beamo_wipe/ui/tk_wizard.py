@@ -2438,21 +2438,27 @@ class TkWizard:
         view = self.w.progress_view
         pulse = view.timing_text
         pct = view.percent
-        if pct is None:
-            # nwipe has not reported a number yet: slide a segment back and
-            # forth so the screen never looks frozen.
-            if self._progress_pct is not None:
-                self._progress_pct.configure(text="")
-            if self._progress_label.cget("text") != pulse:
-                self._progress_label.configure(text=pulse)
+        if view.percent_is_old and pct is not None:
+            shown = f"{format_progress_percent(pct)} (old)"
+        elif pct is None:
+            shown = ""
+        else:
+            shown = format_progress_percent(pct)
+        if self._progress_pct is not None and self._progress_pct.cget("text") != shown:
+            self._progress_pct.configure(
+                text=shown, fg=MUTED if view.percent_is_old else INK
+            )
+        if self._progress_label.cget("text") != pulse:
+            self._progress_label.configure(text=pulse)
+        if view.animate:
+            # First number has not arrived during the known startup quiet
+            # window. Slide only then; silence must not look like live data.
             self._indet = (self._indet + 0.045) % 2.0
             pos = self._indet if self._indet <= 1.0 else 2.0 - self._indet
             self._paint_bar(None, pos)
+        elif pct is None:
+            self._paint_bar(0.0)
         else:
-            if self._progress_pct is not None:
-                self._progress_pct.configure(text=format_progress_percent(pct))
-            if self._progress_label.cget("text") != pulse:
-                self._progress_label.configure(text=pulse)
             self._paint_bar(max(0.02, pct / 100.0))
 
     def _paint_bar(self, frac: Optional[float], indet_pos: float = 0.0) -> None:
