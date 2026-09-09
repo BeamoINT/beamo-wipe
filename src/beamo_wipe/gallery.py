@@ -205,6 +205,7 @@ def gallery_html() -> str:
                 "docs": METHODS[mid].docs_name,
                 "nwipe": METHODS[mid].nwipe_method,
                 "summary": METHODS[mid].summary,
+                "operation": METHODS[mid].operation_summary,
                 "result": preview_view(True).message,
             }
             for mid in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO)
@@ -865,7 +866,7 @@ function draw() {
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p></div><div class="ringwrap"><div style="position:relative;width:144px;height:144px">
+      <div class="review-grid"><div>${summaryCard(selected)}<p class="small" style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p></div><div class="ringwrap"><div style="position:relative;width:144px;height:144px">
         <svg width="144" height="144" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :

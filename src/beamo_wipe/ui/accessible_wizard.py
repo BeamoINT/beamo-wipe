@@ -333,6 +333,7 @@ class AccessibleWizard:
             heading.set_text(C.TITLE_LAST)
             self.label(C.LAST_LEAD)
             self.identity()
+            self.label(self.w.operation_summary)
             # Orca reads a label's actual text, even when its accessible name
             # differs. Focus the full warning notice so arrival still speaks
             # the destructive consequence, without an oversized heading.

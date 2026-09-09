@@ -17,7 +17,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
-from beamo_wipe.copy import REDISCOVER_ERROR, confirm_warning, erase_now_label
+from beamo_wipe.copy import (
+    AUTHORIZATION_STALE,
+    REDISCOVER_ERROR,
+    confirm_warning,
+    erase_now_label,
+)
 from beamo_wipe.methods import DEFAULT_METHOD, METHODS
 from beamo_wipe.models import (
     ConfirmSpec,
@@ -35,6 +40,7 @@ from beamo_wipe.safety import (
     assert_disk_identity,
     assert_ready_to_wipe,
     confirm_spec,
+    disk_identity,
     listed_disks as safety_listed_disks,
     selectable_disks,
     token_matches,
@@ -154,6 +160,7 @@ class Wizard:
         self.wipe_result: Optional[WipeResult] = None
         self._splash_until = self._clock() + SPLASH_S
         self._erase_until: Optional[float] = None
+        self._authorized_operation: Optional[tuple[Any, ...]] = None
         self._wipe_request: Optional[WipeRequest] = None
         # Set when cancel_wipe starts (under _lock, before runner.cancel())
         # so a concurrent tick() drops the post-cancel poll result instead
@@ -221,6 +228,7 @@ class Wizard:
         self.owner_ok = False
         self.confirm_input = ""
         self._erase_until = None
+        self._authorized_operation = None
         self._wipe_request = None
         self.screen = Screen.PICK_BLOCKED
         self.startup_error_code = "recovery_indeterminate"
@@ -532,6 +540,7 @@ class Wizard:
         self.wipe_result = None
         self._splash_until = self.now + SPLASH_S
         self._erase_until = None
+        self._authorized_operation = None
         self._wipe_request = None
         self._cancel_requested = False
         self._advanced_from = None
@@ -724,6 +733,7 @@ class Wizard:
             self.confirm_input = ""
             self.method = DEFAULT_METHOD
             self._erase_until = None
+            self._authorized_operation = None
             self._advanced_from = None
             self._report_help_from = None
             self._done_keyboard_armed = False
@@ -749,6 +759,38 @@ class Wizard:
             self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.WHAT
         return True
 
+    def _operation_key(self) -> Optional[tuple[Any, ...]]:
+        disk = self.selected
+        if disk is None or self.method not in METHODS:
+            return None
+        spec = METHODS[self.method]
+        boot = self.discovery.boot
+        return (
+            disk_identity(disk),
+            self.method,
+            spec.nwipe_method,
+            spec.rounds,
+            spec.verify,
+            spec.noblank,
+            os.path.realpath(boot.path) if boot is not None else "",
+            tuple(sorted(os.path.realpath(item.path) for item in self.selectable)),
+            bool(self.discovery.boot_identified),
+            self.discovery.error or "",
+        )
+
+    def _clear_authorization_locked(self) -> None:
+        self.confirm_input = ""
+        self._erase_until = None
+        self._authorized_operation = None
+
+    def _authorization_matches(self) -> bool:
+        key = self._operation_key()
+        return (
+            key is not None
+            and self._authorized_operation is not None
+            and key == self._authorized_operation
+        )
+
     def select_disk(self, path: str) -> None:
         with self._lock:
             if self.screen != Screen.PICK:
@@ -759,6 +801,8 @@ class Wizard:
                 return
             for disk in self.selectable:
                 if os.path.realpath(disk.path) == want:
+                    if self.selected is None or os.path.realpath(self.selected.path) != want:
+                        self._clear_authorization_locked()
                     self.selected = disk
                     self.error = None
                     return
@@ -796,6 +840,7 @@ class Wizard:
                 return
             self.error = None
             self.confirm_input = ""
+            self._authorized_operation = None
             self.screen = Screen.CONFIRM
 
     def set_confirm_input(self, text: str) -> None:
@@ -816,12 +861,22 @@ class Wizard:
                 return
             if method not in METHODS:
                 return
+            if method != self.method and self._authorized_operation is not None:
+                self._clear_authorization_locked()
             self.method = method
 
     def continue_method(self) -> None:
         with self._lock:
             if self.screen != Screen.METHOD:
                 return
+            if not self.token_ok or self.selected is None:
+                self.screen = Screen.CONFIRM
+                return
+            key = self._operation_key()
+            if key is None:
+                self.screen = Screen.CONFIRM
+                return
+            self._authorized_operation = key
             self.screen = Screen.LAST_CHANCE
             self._erase_until = self.now + COUNTDOWN_S
 
@@ -839,6 +894,13 @@ class Wizard:
             if self.wants_shutdown or self.screen != Screen.LAST_CHANCE:
                 return None
             if not self.erase_enabled or self.selected is None:
+                return None
+            if self._authorized_operation is None:
+                self._authorized_operation = self._operation_key()
+            if not self._authorization_matches():
+                self._clear_authorization_locked()
+                self.error = AUTHORIZATION_STALE
+                self.screen = Screen.CONFIRM if self.selected is not None else Screen.PICK
                 return None
             if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
                 self.error = "Preview and dry-run cannot exec nwipe."
@@ -1954,6 +2016,10 @@ class Wizard:
     @property
     def method_summary(self) -> str:
         return METHODS[self.method].summary
+
+    @property
+    def operation_summary(self) -> str:
+        return METHODS[self.method].operation_summary
 
     @property
     def method_result(self) -> str:

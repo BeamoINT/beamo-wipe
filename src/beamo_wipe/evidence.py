@@ -334,6 +334,7 @@ def build_evidence(
             "overwrite_passes": spec.overwrite_passes,
             "verification_passes": spec.verification_passes,
             "description": spec.description,
+            "operation_summary": spec.operation_summary,
         },
         "boot_device": boot_path,
         "timestamps": {

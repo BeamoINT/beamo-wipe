@@ -109,6 +109,7 @@ COUNTDOWN_READY = "Nothing has started. Choose Erase now to erase this disk."
 METHOD_LEAD = "Compare overwrite and read-back passes."
 
 LAST_LEAD = "If this is the wrong disk, go back."
+AUTHORIZATION_STALE = "The disk or method changed. Confirm again."
 
 METHOD_CARDS = {
     method: {

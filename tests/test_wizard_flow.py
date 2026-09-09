@@ -320,7 +320,7 @@ def test_confirm_erase_refuses_disk_removed_from_selectable(monkeypatch, tmp_pat
         boot_identified=wiz.discovery.boot_identified,
     )
     wiz.confirm_erase()
-    assert wiz.screen == Screen.LAST_CHANCE
+    assert wiz.screen == Screen.CONFIRM
     assert not getattr(wiz.runner, "started", False)
     assert wiz.error
 

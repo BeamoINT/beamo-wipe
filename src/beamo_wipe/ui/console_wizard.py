@@ -223,6 +223,12 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.continue_method()
             continue
         if screen == Screen.LAST_CHANCE:
+            if wizard.selected:
+                view = wizard.disk_view(wizard.selected)
+                print(view.compact_line)
+                for note in view.notes:
+                    print(note)
+            print(wizard.operation_summary)
             print(wizard.erase_label())
             print(wizard.method_summary)
             if wizard.error:
@@ -482,7 +488,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 y += 1
             _add(stdscr, h - 1, 0, "Arrows/Pg: read. Space: report preference. Esc: back." if wizard.screen == Screen.REPORT_HELP else "Up/Down, PgUp/PgDn: read. Esc: back.")
         elif wizard.screen == Screen.LAST_CHANCE:
-            y = _wrap(stdscr, y, wizard.erase_label(), w)
+            if wizard.selected:
+                view = wizard.disk_view(wizard.selected)
+                y = _wrap(stdscr, y, view.compact_line, w)
+                for note in view.notes:
+                    y = _wrap(stdscr, y, note, w)
+            y = _wrap(stdscr, y, wizard.operation_summary, w)
+            y = _wrap(stdscr, y + 1, wizard.erase_label(), w)
             y = _wrap(stdscr, y + 1, wizard.method_summary, w)
             if wizard.error:
                 _wrap(stdscr, y + 2, wizard.error, w)
