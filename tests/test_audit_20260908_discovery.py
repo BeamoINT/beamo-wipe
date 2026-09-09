@@ -69,6 +69,23 @@ def test_mounted_multiparent_volume_does_not_leave_sibling_selectable(monkeypatc
     assert result.selectable == ()
 
 
+@pytest.mark.parametrize("kind", ["raid1", "raid0", "mpath"])
+def test_nested_mounted_multiparent_volume_does_not_leave_sibling_selectable(monkeypatch, kind):
+    # Production `lsblk -J` nests the array under one member. The sibling
+    # must not remain a normal unmounted disk.
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            disk("sda1", type="part", tran="sata", children=[
+                disk("md0", type=kind, mountpoints=["/media/data"]),
+            ]),
+        ]),
+        disk("sdb", tran="sata", children=[disk("sdb1", type="part", tran="sata")]),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
 def test_nested_mounted_child_without_pkname_uses_tree_parent(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", children=[disk("sda1", type="part", mountpoints=["/media/data"])]),

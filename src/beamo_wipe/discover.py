@@ -344,28 +344,34 @@ def _looks_like_live_medium(node: Dict[str, Any]) -> bool:
     name = _clean(node.get("name")).lower()
     if name.startswith("sr"):
         return True
-    tran = (node.get("tran") or "").lower()
+    # lsblk TRAN is untrusted padding-wise; strip like classify_bus so
+    # " usb " still counts as USB live media instead of a leftover winning.
+    tran = (node.get("tran") or "").lower().strip()
     return tran == "usb"
 
 
 def _could_be_live_medium(node: Dict[str, Any]) -> bool:
     """True for a disk that might be the live stick when mounts are missing.
 
-    USB-SATA bridges often report tran=sata. A leftover BEAMO_WIPE USB must
-    not win label fallback while that bridge remains a plausible live disk.
-    Large internal SATA/NVMe disks are not treated as competing live media.
+    USB-SATA bridges often report tran=sata. USB-NVMe enclosures often report
+    tran=nvme. A leftover BEAMO_WIPE USB must not win label fallback while that
+    bridge remains a plausible live disk. Large internal SATA/NVMe disks are
+    not treated as competing live media.
     """
     if _looks_like_live_medium(node):
         return True
     if _node_type(node) not in {"disk", "rom"}:
         return False
     tran = (node.get("tran") or "").lower().strip()
-    if tran not in {"sata", "ata"}:
+    if tran not in {"sata", "ata", "nvme"}:
         return False
     if _as_bool(node.get("rm")) is True or _as_bool(node.get("hotplug")) is True:
         return True
     size = _as_int(node.get("size"))
-    return 0 < size <= 64_000_000_000
+    # Decimal 128 GB covers 64 GiB USB-SATA/NVMe enclosures (68.7e9) that
+    # sit just above the previous 64e9 cutoff. 256 GB+ internals stay
+    # non-competing so a unique labeled USB can still be identified.
+    return 0 < size <= 128_000_000_000
 
 
 def _node_type(node: Dict[str, Any]) -> str:
@@ -765,6 +771,14 @@ def parse_lsblk_json(
         name = _identity_text(candidate.get("name"), "name")
         if name:
             by_name.setdefault(name, []).append((candidate, parent))
+    for candidate, _parent in flat_nodes:
+        kind = _node_type(candidate)
+        if kind.startswith("raid") or kind in {"mpath", "md"}:
+            # Nested lsblk -J trees attach the array under one member. The
+            # sibling stays a normal unmounted disk unless we refuse the
+            # whole inventory. Flat pkname rows have the same PKNAME gap.
+            if _node_mountpoints(candidate):
+                raise ValueError("lsblk mounted ancestry is unresolved")
     for candidate, parent in flat_nodes:
         if parent is not None or _node_type(candidate) == "disk":
             continue

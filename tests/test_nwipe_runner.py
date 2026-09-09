@@ -336,12 +336,24 @@ def test_evaluate_nwipe_busy_on_boot_usb_does_not_fail_target():
 
     log = (
         "/dev/sdb is reported as IN USE (it could be mounted)\n"
-        "/dev/vda: 100.00%, round 1 of 1\n"
+        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n"
         "Nwipe successfully completed. See summary table for details.\n"
     )
     ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
     assert ok is True
     assert summary == "finished"
+
+
+def test_evaluate_nwipe_truncated_round_line_is_not_success():
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+
+    log = (
+        "/dev/vda: 100.00%, round 1 of 1\n"
+        "Nwipe successfully completed. See summary table for details.\n"
+    )
+    ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
+    assert ok is False
+    assert "without wiping" in summary
 
 
 def test_evaluate_nwipe_exit_zero_with_empty_log_is_not_success():

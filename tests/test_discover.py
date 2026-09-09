@@ -773,6 +773,155 @@ def _leftover_usb_and_sata_bridge():
     )
 
 
+def test_leftover_usb_label_without_mounts_does_not_select_64gib_sata_bridge():
+    """64 GiB USB-SATA (68.7e9) is above the old 64e9 cutoff and must still compete."""
+    payload = _payload(
+        [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "model": "Leftover stick",
+                "serial": "OTHERUSB01",
+                "children": [
+                    {"name": "sda1", "path": "/dev/sda1", "type": "part", "label": "BEAMO_WIPE"}
+                ],
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 68719476736,
+                "type": "disk",
+                "tran": "sata",
+                "rm": False,
+                "hotplug": False,
+                "rota": True,
+                "model": "Actual live USB via SATA bridge",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {"name": "sdb1", "path": "/dev/sdb1", "type": "part", "label": "DEBIAN"}
+                ],
+            },
+            {
+                "name": "nvme0n1",
+                "path": "/dev/nvme0n1",
+                "size": 256060514304,
+                "type": "disk",
+                "tran": "nvme",
+                "rota": False,
+                "model": "SSD",
+                "serial": "N1",
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+    assert result.error
+
+
+def test_leftover_usb_label_without_mounts_does_not_select_usb_nvme_enclosure():
+    payload = _payload(
+        [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "model": "Leftover stick",
+                "serial": "OTHERUSB01",
+                "children": [
+                    {"name": "sda1", "path": "/dev/sda1", "type": "part", "label": "BEAMO_WIPE"}
+                ],
+            },
+            {
+                "name": "nvme0n1",
+                "path": "/dev/nvme0n1",
+                "size": 256060514304,
+                "type": "disk",
+                "tran": "nvme",
+                "rm": True,
+                "hotplug": True,
+                "rota": False,
+                "model": "USB NVMe enclosure",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {
+                        "name": "nvme0n1p1",
+                        "path": "/dev/nvme0n1p1",
+                        "type": "part",
+                        "label": "DEBIAN",
+                    }
+                ],
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+    assert result.error
+
+
+def test_leftover_usb_label_does_not_win_over_padded_usb_tran():
+    payload = _payload(
+        [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "model": "Leftover stick",
+                "serial": "OTHERUSB01",
+                "children": [
+                    {"name": "sda1", "path": "/dev/sda1", "type": "part", "label": "BEAMO_WIPE"}
+                ],
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": " usb",
+                "rota": True,
+                "model": "Actual live USB",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {"name": "sdb1", "path": "/dev/sdb1", "type": "part", "label": "DEBIAN"}
+                ],
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+    assert result.error
+
+
 def test_leftover_usb_label_without_mounts_does_not_select_sata_bridge():
     """A leftover BEAMO_WIPE USB must not make the SATA-bridge live stick wipeable."""
     result = discover(
@@ -785,6 +934,90 @@ def test_leftover_usb_label_without_mounts_does_not_select_sata_bridge():
     assert not result.boot_identified
     assert result.selectable == ()
     assert result.error
+
+
+def test_unique_beamo_usb_label_still_identifies_with_internal_nvme():
+    payload = _payload(
+        [
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "model": "Beamo Wipe",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {"name": "sdb1", "path": "/dev/sdb1", "type": "part", "label": "BEAMO_WIPE"}
+                ],
+            },
+            {
+                "name": "nvme0n1",
+                "path": "/dev/nvme0n1",
+                "size": 256060514304,
+                "type": "disk",
+                "tran": "nvme",
+                "rm": False,
+                "hotplug": False,
+                "rota": False,
+                "model": "Internal SSD",
+                "serial": "N1",
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot_identified
+    assert result.boot is not None
+    assert result.boot.path == "/dev/sdb"
+    assert [disk.path for disk in result.selectable] == ["/dev/nvme0n1"]
+
+
+def test_padded_usb_tran_still_identifies_unique_label():
+    payload = _payload(
+        [
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": " usb",
+                "rota": True,
+                "model": "Beamo Wipe",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {"name": "sdb1", "path": "/dev/sdb1", "type": "part", "label": "BEAMO_WIPE"}
+                ],
+            },
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "sata",
+                "rota": True,
+                "model": "ST500DM002",
+                "serial": "INTERNAL01",
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot_identified
+    assert result.boot is not None
+    assert result.boot.path == "/dev/sdb"
+    assert [disk.path for disk in result.selectable] == ["/dev/sda"]
 
 
 def test_unique_beamo_usb_label_still_identifies_with_internal_sata():
