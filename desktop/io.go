@@ -49,3 +49,27 @@ func boundedOutput(cmd *exec.Cmd, max int) ([]byte, error) {
 	err := cmd.Run()
 	return b.Bytes(), err
 }
+
+func writeExclusiveFile(path string, data []byte, extraFlags int) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|extraFlags, 0600)
+	if err != nil {
+		return err
+	}
+	return finishExclusiveWrite(f, path, data)
+}
+
+func finishExclusiveWrite(f *os.File, path string, data []byte) error {
+	n, writeErr := f.Write(data)
+	closeErr := f.Close()
+	if writeErr != nil || n != len(data) || closeErr != nil {
+		_ = os.Remove(path)
+		if writeErr != nil {
+			return writeErr
+		}
+		if n != len(data) {
+			return errors.New("short write")
+		}
+		return closeErr
+	}
+	return nil
+}

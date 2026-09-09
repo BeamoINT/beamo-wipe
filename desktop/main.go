@@ -14,7 +14,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -26,6 +25,7 @@ var assets embed.FS
 
 var version = "development"
 var sourceCommit = "unknown"
+var sourceDirty = "false"
 
 type view struct {
 	Ready   bool   `json:"ready"`
@@ -40,14 +40,15 @@ func planView(p Plan, preview bool) view {
 	if !p.Direct {
 		v.Title = "Use the computer's boot menu"
 		v.Detail = map[string]string{
-			"legacy":   "This computer does not offer the supported automatic restart path. Keep the USB connected and follow the boot instructions below.",
-			"timeout":  "The compatibility check took too long. Wait a moment, then choose Check again, or use the boot instructions below.",
-			"media":    "Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.",
-			"pending":  "Another application has already requested a special next startup. Beamo will not replace it. Complete that startup before trying again.",
-			"entry":    "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
-			"firmware": "The computer's boot settings could not be read. You can still use the boot menu. Administrator permission may be required for a guided restart.",
-			"platform": "This launcher supports Intel/AMD 64-bit Windows and Linux PCs. This USB does not support Apple Silicon or Chromebooks.",
-			"live":     "You are already in the Beamo USB environment. Use the Beamo Wipe window to choose and confirm a disk.",
+			"legacy":     "This computer does not offer the supported automatic restart path. Keep the USB connected and follow the boot instructions below.",
+			"timeout":    "The compatibility check took too long. Wait a moment, then choose Check again, or use the boot instructions below.",
+			"media":      "Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.",
+			"unattended": "Automated installation files were found on this USB. Beamo Wipe will not request a guided restart. Review those files, then use the boot menu.",
+			"pending":    "Another application has already requested a special next startup. Beamo will not replace it. Complete that startup before trying again.",
+			"entry":      "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+			"firmware":   "The computer's boot settings could not be read. You can still use the boot menu. Administrator permission may be required for a guided restart.",
+			"platform":   "This launcher supports Intel/AMD 64-bit Windows and Linux PCs. This USB does not support Apple Silicon or Chromebooks.",
+			"live":       "You are already in the Beamo USB environment. Use the Beamo Wipe window to choose and confirm a disk.",
 		}[p.Problem]
 		if v.Detail == "" {
 			v.Detail = "Automatic startup could not be checked. Nothing has been changed. Follow the boot instructions below."
@@ -206,22 +207,10 @@ func sendJSON(w http.ResponseWriter, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func mediaLayout(exe string) bool {
-	root := filepath.Dir(exe)
-	// Layout evidence is a compatibility check, not publisher authentication.
-	for _, rel := range []string{"START-HERE.html", "live/filesystem.squashfs"} {
-		info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(rel)))
-		if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func run() error {
 	preview := false
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		fmt.Println(version, sourceCommit)
+		fmt.Println(version, sourceCommit, "dirty="+sourceDirty)
 		return nil
 	}
 	if len(os.Args) == 2 && os.Args[1] == "--help" {
@@ -304,7 +293,7 @@ func run() error {
 }
 
 func main() {
-	if runtime.GOARCH != "amd64" && !(len(os.Args) == 2 && (os.Args[1] == "--preview" || os.Args[1] == "--version" || os.Args[1] == "--help")) {
+	if runtime.GOARCH != "amd64" && !(len(os.Args) == 2 && (os.Args[1] == "--preview" || os.Args[1] == "--version" || os.Args[1] == "--help" || os.Args[1] == "--check-json")) {
 		notifyFailure("This launcher supports Intel/AMD 64-bit Windows and Linux PCs.")
 		os.Exit(2)
 	}

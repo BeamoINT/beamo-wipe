@@ -76,3 +76,8 @@ section:focus { outline: none; }
 @media (forced-colors: active) {
   button, #confirm, .notice { border: 1px solid ButtonText; }
 }
+.ack { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; margin-bottom: 20px; cursor: pointer; }
+input[type=checkbox] { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--primary); }
+.skip { position: absolute; left: 16px; top: -100px; padding: 12px; background: white; z-index: 2; }
+.skip:focus { top: 12px; }
+a:focus-visible, input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
