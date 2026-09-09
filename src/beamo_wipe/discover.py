@@ -88,7 +88,9 @@ TYPED_SOURCE_KEYS = frozenset({"LABEL", "UUID", "PARTUUID", "PARTLABEL"})
 def size_gb_label(size_bytes: int) -> str:
     if size_bytes <= 0:
         return "0"
-    gb = int(round(size_bytes / 1_000_000_000))
+    # Integer half-up in decimal GB. Python 3 round() is banker's rounding, so
+    # 2.5e9 became "2 GB" and collided with a 1.5e9 disk also labeled "2 GB".
+    gb = (int(size_bytes) + 500_000_000) // 1_000_000_000
     return str(max(1, gb))
 
 
@@ -346,6 +348,26 @@ def _looks_like_live_medium(node: Dict[str, Any]) -> bool:
     return tran == "usb"
 
 
+def _could_be_live_medium(node: Dict[str, Any]) -> bool:
+    """True for a disk that might be the live stick when mounts are missing.
+
+    USB-SATA bridges often report tran=sata. A leftover BEAMO_WIPE USB must
+    not win label fallback while that bridge remains a plausible live disk.
+    Large internal SATA/NVMe disks are not treated as competing live media.
+    """
+    if _looks_like_live_medium(node):
+        return True
+    if _node_type(node) not in {"disk", "rom"}:
+        return False
+    tran = (node.get("tran") or "").lower().strip()
+    if tran not in {"sata", "ata"}:
+        return False
+    if _as_bool(node.get("rm")) is True or _as_bool(node.get("hotplug")) is True:
+        return True
+    size = _as_int(node.get("size"))
+    return 0 < size <= 64_000_000_000
+
+
 def _node_type(node: Dict[str, Any]) -> str:
     return (node.get("type") or "").lower()
 
@@ -594,6 +616,16 @@ def _label_boot_disks(blockdevices: Sequence[Dict[str, Any]]) -> List[str]:
         if parent not in seen:
             seen.add(parent)
             found.append(parent)
+    if len(found) != 1:
+        return found
+    labeled_aliases = _path_aliases(found[0])
+    for node, _parent in flatten_blockdevices(blockdevices):
+        if _node_type(node) not in {"disk", "rom"}:
+            continue
+        if labeled_aliases & _path_aliases(node_path(node)):
+            continue
+        if _could_be_live_medium(node):
+            return []
     return found
 
 
@@ -746,6 +778,11 @@ def parse_lsblk_json(
             # missing PKNAME must not leave its backing disk selectable.
             if _node_type(candidate) in {"rom", "loop", "ram"}:
                 continue
+            raise ValueError("lsblk mounted ancestry is unresolved")
+        kind = _node_type(candidate)
+        if kind.startswith("raid") or kind in {"mpath", "md"}:
+            # lsblk exposes one PKNAME. The other RAID/multipath member stays
+            # a normal unmounted disk unless we refuse the whole inventory.
             raise ValueError("lsblk mounted ancestry is unresolved")
         # Flat lsblk rows can describe disk -> partition -> crypt/LVM chains.
         # Exclude every possible whole-disk ancestor; an unknown or cyclic

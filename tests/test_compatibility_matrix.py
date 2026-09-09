@@ -254,10 +254,11 @@ def test_matrix_mmcblk_kind_and_bus():
 
 
 def test_matrix_sata_bridge_mount_wins_over_stale_usb_label():
-    """BM-05/06: leftover USB BEAMO_WIPE + live stick behind SATA bridge — mount resolves, label alone picks leftover (single usb candidate)."""
-    # stale label only → single usb candidate sda (leftover) is picked as boot; not fail-closed because only one BEAMO_WIPE on usb
-    # This demonstrates why mount is ground truth: without it the leftover is mistaken for the live stick.
-    # The safe behaviour is still to have a boot (sda) but the real live sdb would be selectable — which is why mounts must win.
+    """BM-05/06: leftover USB BEAMO_WIPE + live stick behind SATA bridge.
+
+    Label fallback cannot tell which stick is live, so it lists no disks.
+    A live mount remains ground truth and identifies the SATA-bridge stick.
+    """
     stale = discover(
         lsblk_payload=_load("lsblk_sata_bridge.json"),
         boot_path=None,
@@ -265,10 +266,8 @@ def test_matrix_sata_bridge_mount_wins_over_stale_usb_label():
         cmdline="",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
-    # With our fixture (sda usb BEAMO_WIPE, sdb sata DEBIAN), label scan finds sda only → boot sda
-    assert stale.boot_identified
-    assert stale.boot is not None
-    assert stale.boot.path == "/dev/sda"
+    assert not stale.boot_identified
+    assert stale.selectable == ()
     # mounted case must win over that stale pick and correctly identify sdb
     mounted = discover(
         lsblk_payload=_load("lsblk_sata_bridge.json"),

@@ -45,6 +45,7 @@ def _app(wizard, focus):
     app._return_release_time = None
     app._return_held = False
     app._draw = Mock()
+    app._teardown = Mock()
     app._click_erase = Mock()
     app._primary = _button(app._click_erase)
     return app
@@ -66,6 +67,28 @@ def test_last_chance_enter_without_erase_focus_never_erases(focus):
     app._on_return(SimpleNamespace(time=100))
     assert wizard.screen == Screen.LAST_CHANCE
     app._click_erase.assert_not_called()
+
+
+def test_enter_on_focused_save_does_not_shutdown():
+    wizard = make_demo_wizard()
+    wizard.preview = False
+    wizard.screen = Screen.DONE
+    wizard._done_keyboard_armed = True
+    save = Mock()
+    app = _app(wizard, _button(save))
+    app._on_return(SimpleNamespace(time=100))
+    save.assert_called_once_with()
+    assert not wizard.wants_shutdown
+
+
+def test_enter_on_focused_back_does_not_advance_method():
+    wizard = _last_chance()
+    wizard.back()
+    assert wizard.screen == Screen.METHOD
+    app = _app(wizard, _button(wizard.back))
+    app._on_return(SimpleNamespace(time=100))
+    assert wizard.screen == Screen.CONFIRM
+    assert wizard._erase_until is None
 
 
 def test_focused_erase_requires_countdown_and_new_keypress():

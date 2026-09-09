@@ -15,6 +15,8 @@ def test_size_rounding():
     assert size_gb_label(256060514304) == "256"
     assert size_gb_label(16000000000) == "16"
     assert size_gb_label(10737418240) == "11"
+    assert size_gb_label(2_500_000_000) == "3"
+    assert size_gb_label(4_500_000_000) == "5"
 
 
 def test_boot_usb_excluded_and_marked():
@@ -769,6 +771,66 @@ def _leftover_usb_and_sata_bridge():
             },
         ]
     )
+
+
+def test_leftover_usb_label_without_mounts_does_not_select_sata_bridge():
+    """A leftover BEAMO_WIPE USB must not make the SATA-bridge live stick wipeable."""
+    result = discover(
+        lsblk_payload=_leftover_usb_and_sata_bridge(),
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+    assert result.error
+
+
+def test_unique_beamo_usb_label_still_identifies_with_internal_sata():
+    payload = _payload(
+        [
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16000000000,
+                "type": "disk",
+                "tran": "usb",
+                "rota": True,
+                "model": "Beamo Wipe",
+                "serial": "BEAMOUSB001",
+                "children": [
+                    {
+                        "name": "sdb1",
+                        "path": "/dev/sdb1",
+                        "type": "part",
+                        "label": "BEAMO_WIPE",
+                    }
+                ],
+            },
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500107862016,
+                "type": "disk",
+                "tran": "sata",
+                "rota": True,
+                "model": "ST500DM002",
+                "serial": "INTERNAL01",
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot_identified
+    assert result.boot is not None
+    assert result.boot.path == "/dev/sdb"
+    assert [disk.path for disk in result.selectable] == ["/dev/sda"]
 
 
 def test_unresolved_cmdline_does_not_fall_through_to_stale_label():
