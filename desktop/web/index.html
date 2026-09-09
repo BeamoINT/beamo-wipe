@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Start Beamo Wipe</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
-<body><header><strong>Beamo Wipe</strong><button id="close" class="quiet">Close</button></header>
-<main><p id="preview" class="notice" hidden>Preview — nothing on this computer will change.</p>
+<body><a class="skip" href="#main">Skip to instructions</a><header><strong>Beamo Wipe</strong><button id="close" class="quiet">Close</button></header>
+<main id="main"><p id="preview" class="notice" hidden>Preview — nothing on this computer will change.</p>
 <section id="check"><h1 id="title" tabindex="-1">Checking this computer…</h1><p id="detail">Reading compatibility information. Nothing is changed during this check.</p>
 <p id="status" tabindex="-1" role="status" aria-live="polite"></p>
 <button id="inspect" class="primary" hidden>Check again</button>
-<div id="confirm" hidden><h2>Save your work first</h2><p>Close your applications. Keep the Beamo USB and the drive you intend to erase connected.</p><button id="restart" class="primary">Restart into Beamo Wipe</button></div>
+<div id="confirm" hidden><h2>Save your work first</h2><p>Close your applications. Keep the Beamo USB and the drive you intend to erase connected.</p><label class="ack"><input id="saved" type="checkbox"> I’ve saved my work. After restarting I will still choose and confirm the disk before anything is erased.</label><button id="restart" class="primary" disabled>Restart into Beamo Wipe</button></div>
 <p class="muted">This version restarts before erasing any drive. After startup, you choose the disk and confirm the erase. You can keep working by closing this window.</p></section>
 <details id="help"><summary>Need help starting from the USB?</summary><p>Keep the USB connected. Restart, then press the boot-menu key for your PC and choose the USB.</p><dl><dt>Dell, Lenovo, Acer</dt><dd>F12</dd><dt>HP</dt><dd>Esc, then F9</dd><dt>ASUS</dt><dd>F8 or Esc</dd><dt>MSI, Gigabyte</dt><dd>F11 (MSI), F12 (Gigabyte)</dd></dl><p>Windows 11 also offers Settings → System → Recovery → Advanced startup. On Windows 10, use Settings → Update &amp; Security → Recovery. Choose Restart now, then Use a device.</p><p>If the USB is missing, try a direct USB port instead of a hub. Firmware settings and Secure Boot trust may affect whether it starts. See START-HERE.html on the USB for more help.</p><p>Not Apple Silicon. Not Chromebooks. Intel Mac booting is best-effort and this desktop launcher does not run on macOS.</p></details>
 <footer><p>Powered by nwipe, free software. Read-back verification checks exposed storage; SSD hidden areas may retain data. Treat erasure as permanent.</p><small id="version"></small></footer></main></body></html>

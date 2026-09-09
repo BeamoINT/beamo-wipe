@@ -140,6 +140,13 @@ func nativeX64() bool {
 
 func platformProbe(ctx context.Context) Snapshot {
 	s := Snapshot{}
+	exe, exeErr := os.Executable()
+	if exeErr != nil {
+		s.Problem = "media"
+		return s
+	}
+	mediaInfo := inspectMedia(exe)
+	s.Layout = mediaInfo.Fingerprint
 	if !nativeX64() {
 		s.Problem = "platform"
 		return s
@@ -151,9 +158,9 @@ func platformProbe(ctx context.Context) Snapshot {
 		return s
 	}
 	s.UEFI = true
-	exe, err := os.Executable()
-	if err != nil || !mediaLayout(exe) {
-		s.Problem = "media"
+	var err error
+	if mediaInfo.Problem != "" {
+		s.Problem = mediaInfo.Problem
 		return s
 	}
 	win := windowsDirectory()

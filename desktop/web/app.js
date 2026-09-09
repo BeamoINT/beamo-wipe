@@ -16,6 +16,7 @@ async function api(action, confirm = false) {
   return response.json();
 }
 function show(v) {
+  $("saved").checked=false; $("restart").disabled=true;
   $("preview").hidden = !v.preview;
   $("title").textContent = v.title; $("detail").textContent = v.detail;
   $("version").textContent = `Version ${v.version} · Runs locally on this computer`;
@@ -35,13 +36,16 @@ async function action(fn, focusId = "title") {
     focusId="status";
   } finally {
     busy=false; document.querySelectorAll("button").forEach(b => b.disabled=false);
+    if ($("restart")) $("restart").disabled=!$("saved").checked;
     // Announce the result without moving focus onto an action that a held key
     // could activate. Preserve focus if the user moved elsewhere while waiting.
     if (fromButton && document.activeElement === document.body) $(focusId)?.focus();
   }
 }
 $("inspect").onclick=()=>action(async()=>{show(await api("check"));$("status").textContent="";});
+$("saved").onchange=()=>{$("restart").disabled=busy||!$("saved").checked;};
 $("restart").onclick=()=>action(async()=>{
+  if (!$("saved").checked) return;
   $("status").textContent="Requesting permission to restart…";
   const result=await api("restart",true);
   $("status").textContent=result.message; $("confirm").hidden=true; $("inspect").hidden=false;

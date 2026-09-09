@@ -32,20 +32,7 @@ func (linuxFirmware) write(name string, data []byte) error {
 		return errors.New("unsupported firmware write")
 	}
 	path := "/sys/firmware/efi/efivars/BootNext-" + efiGlobal
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
-	if err != nil {
-		return err
-	}
-	b := append([]byte{7, 0, 0, 0}, data...)
-	n, writeErr := f.Write(b)
-	closeErr := f.Close()
-	if writeErr != nil {
-		return writeErr
-	}
-	if n != len(b) {
-		return errors.New("short firmware write")
-	}
-	return closeErr
+	return writeExclusiveFile(path, append([]byte{7, 0, 0, 0}, data...), syscall.O_NOFOLLOW)
 }
 func (linuxFirmware) remove(name string) error {
 	if name != "BootNext" {
@@ -196,6 +183,13 @@ func nativeX64() bool {
 
 func platformProbe(ctx context.Context) Snapshot {
 	s := Snapshot{}
+	exe, exeErr := os.Executable()
+	if exeErr != nil {
+		s.Problem = "media"
+		return s
+	}
+	mediaInfo := inspectMedia(exe)
+	s.Layout = mediaInfo.Fingerprint
 	if !nativeX64() {
 		s.Problem = "platform"
 		return s
@@ -213,9 +207,9 @@ func platformProbe(ctx context.Context) Snapshot {
 			}
 		}
 	}
-	exe, err := os.Executable()
-	if err != nil || !mediaLayout(exe) {
-		s.Problem = "media"
+	var err error
+	if mediaInfo.Problem != "" {
+		s.Problem = mediaInfo.Problem
 		return s
 	}
 	resolved, err := filepath.EvalSymlinks(exe)

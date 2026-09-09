@@ -141,3 +141,21 @@ func TestIncompleteCheckDiscardsOtherwiseReadySnapshot(t *testing.T) {
 		}
 	}
 }
+
+func TestRestartControlRequiresSavedWorkAck(t *testing.T) {
+	a := testApp()
+	r := httptest.NewRequest("GET", "http://"+a.host+"/", nil)
+	w := httptest.NewRecorder()
+	a.serve(w, r)
+	page := w.Body.String()
+	if !strings.Contains(page, `id="saved"`) || !strings.Contains(page, `id="restart"`) || !strings.Contains(page, "disabled") {
+		t.Fatal("restart acknowledgement control missing from page")
+	}
+	r = httptest.NewRequest("GET", "http://"+a.host+"/app.js", nil)
+	w = httptest.NewRecorder()
+	a.serve(w, r)
+	js := w.Body.String()
+	if !strings.Contains(js, `$("saved")`) || !strings.Contains(js, `$("restart").disabled`) {
+		t.Fatal("restart acknowledgement not enforced in the UI")
+	}
+}

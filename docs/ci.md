@@ -74,7 +74,7 @@ Branch protection on `main` should require the Cloud Build triggers (`beamo-wipe
 
 ## Desktop and regular-file packaging checks
 
-Use the repository-pinned Go 1.26.5 for shipped builds. From `desktop/`,
+Use the repository-pinned Go 1.26.8 for shipped builds. From `desktop/`,
 `go test -race ./...` and `go vet ./...` run the local launcher gate.
 `GOOS=windows GOARCH=amd64 go test -c -o /tmp/beamo-desktop-windows.test.exe`
 compiles the Windows suite; run that executable on an isolated x64 Windows

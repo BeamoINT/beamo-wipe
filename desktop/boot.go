@@ -17,6 +17,7 @@ import (
 const efiGlobal = "8be4df61-93ca-11d2-aa0d-00e098032b8c"
 
 type Snapshot struct {
+	Layout     string
 	UEFI       bool
 	MediaID    string
 	Partitions []string
@@ -158,12 +159,13 @@ func makePlan(s Snapshot) Plan {
 	sort.Strings(parts)
 	entry := matches[0]
 	blob, _ := json.Marshal(struct {
+		Layout string
 		Media  string
 		Parts  []string
 		Entry  uint16
 		Raw    []byte
 		Secure string
-	}{s.MediaID, parts, entry, s.Entries[entry], s.SecureBoot})
+	}{s.Layout, s.MediaID, parts, entry, s.Entries[entry], s.SecureBoot})
 	sum := sha256.Sum256(blob)
 	return Plan{Direct: true, Entry: entry, Fingerprint: hex.EncodeToString(sum[:])}
 }
