@@ -1,0 +1,3 @@
+[2026/07/15 12:00:00] warning: hdparm command not found.
+[2026/07/15 12:00:00] warning: Required by nwipe for HPA/DCO detection & correction and ATA secure erase.
+[2026/07/15 12:00:00] warning: ** Please install hdparm **

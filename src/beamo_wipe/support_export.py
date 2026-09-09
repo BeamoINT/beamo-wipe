@@ -903,13 +903,26 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
         result_view = present_evidence(json.loads(evidence))
     except (ValueError, UnicodeDecodeError):
         result_view = present_evidence(None)
-    readme = (
-        f"{result_view.announcement}\r\n"
-        "Beamo Wipe report\r\n"
-        "result.json records the wipe outcome and disk identifiers.\r\n"
-        f"nwipe log: {log_status}.\r\n"
-        "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
-    ).encode("utf-8")
+    readme_lines = [
+        result_view.announcement,
+        "Beamo Wipe report",
+        "result.json records the wipe outcome and disk identifiers.",
+        f"nwipe log: {log_status}.",
+        "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.",
+    ]
+    try:
+        payload = json.loads(evidence)
+        for check in payload.get("checks") or ():
+            if not isinstance(check, dict):
+                continue
+            ident = check.get("id")
+            status = check.get("status")
+            summary = check.get("summary")
+            if isinstance(ident, str) and isinstance(status, str) and isinstance(summary, str):
+                readme_lines.append(f"Check {ident}: {status}. {summary}")
+    except (ValueError, TypeError, AttributeError):
+        pass
+    readme = ("\r\n".join(readme_lines) + "\r\n").encode("utf-8")
     if diagnostic:
         files = {"diagnostic.json": evidence,
                  "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}

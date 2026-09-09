@@ -131,6 +131,12 @@ an erase completed. If temporary evidence was lost, the result is indeterminate.
 Save available evidence and contact support. Do not resume from a percentage or
 automatically retry an erase.
 
+Hidden-storage, disk-error, and coverage checks record what pinned nwipe v0.42
+logged. `unavailable` means the check did not run or could not be read; it is
+not a pass. Those checks never change Finished versus failed. Do not run
+`hdparm` or `smartctl` against a customer or development disk to complete a
+missing check.
+
 ### 4.g nwipe errors — structured outcomes and safe next steps
 
 `nwipe_runner.py` interprets process termination and target-specific log evidence.

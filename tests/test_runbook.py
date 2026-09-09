@@ -155,6 +155,12 @@ def test_runbook_matches_fail_closed_completion_and_authenticated_log_export():
     assert "authenticated log suffix" in text
 
 
+def test_runbook_engine_checks_are_not_a_host_probe():
+    text = _lower("docs/runbook.md")
+    assert "unavailable" in text and "not a pass" in text
+    assert "do not run" in text and "hdparm" in text and "smartctl" in text
+
+
 def test_startup_reports_are_separate_and_minimal():
     text = _lower("docs/runbook.md")
     assert "diagnostic.json" in text and "not erase evidence" in text

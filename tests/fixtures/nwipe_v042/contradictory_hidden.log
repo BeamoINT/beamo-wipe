@@ -1,0 +1,3 @@
+[2026/07/15 12:00:00] warning:  *** HIDDEN SECTORS DETECTED ! *** on /dev/sda
+[2026/07/15 12:00:00]    info: No hidden sectors on /dev/sda
+      sda | Erased |  120MB/s | 01:25:04 | FAKE/DISK

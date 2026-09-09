@@ -236,12 +236,18 @@ def build_evidence(
     except Exception:
         boot_path = ""
 
-    # Warnings
+    # Warnings stay advisory. Structured checks never rewrite outcome.
     selectable: Sequence[Disk] = getattr(discovery, "selectable", ())  # type: ignore[assignment]
-    warnings = _warnings_for(disk, selectable)
+    warnings = list(_warnings_for(disk, selectable))
+    device_path = disk.path if disk else (request.device if request else "")
+    from beamo_wipe.engine_checks import alert_summaries, check_payloads
+
+    checks = check_payloads(log_text or "", device_path, disk)
+    for summary in alert_summaries(checks):
+        if summary not in warnings:
+            warnings.append(summary)
 
     # Verification
-    device_path = disk.path if disk else (request.device if request else "")
     validated_ok = False
     if result is not None and result.ok:
         try:
@@ -353,6 +359,7 @@ def build_evidence(
             "scope": VERIFICATION_SCOPE,
         },
         "warnings": warnings,
+        "checks": checks,
         "interruption": {
             "interrupted": bool(interrupted or cancelled),
             "cancelled": bool(cancelled),

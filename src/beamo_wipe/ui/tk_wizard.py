@@ -2493,6 +2493,8 @@ class TkWizard:
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(4, 0))
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
         self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
+        for alert in self.w.check_alerts:
+            self._panel(col, kind="warn", text=alert).pack(fill=tk.X, pady=(8, 0))
         if report.evidence_error:
             self._p(
                 col,
