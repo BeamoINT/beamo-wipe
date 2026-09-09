@@ -24,6 +24,27 @@ def drain():
         Gtk.main_iteration_do(False)
 
 
+def wait_for_window_size(window, size):
+    # resize() queues an X11 request. An empty GTK event queue does not mean
+    # the server's configure event or the next layout frame has arrived yet.
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        drain()
+        allocation = window.get_allocation()
+        if (
+            window.get_mapped()
+            and tuple(window.get_size()) == size
+            and (allocation.width, allocation.height) == size
+        ):
+            return
+        time.sleep(0.01)
+    pytest.fail(
+        f"Window did not reach {size}: size={tuple(window.get_size())}, "
+        f"allocation={(allocation.width, allocation.height)}, "
+        f"mapped={window.get_mapped()}"
+    )
+
+
 def widgets(widget):
     yield widget
     if isinstance(widget, Gtk.Container):
@@ -41,11 +62,14 @@ def text(app):
 def ui():
     instances = []
 
-    def build(wizard=None):
+    def build(wizard=None, *, size=(800, 600)):
         app = AccessibleWizard(wizard or make_demo_wizard())
-        app.window.resize(800, 600)
         instances.append(app)
-        drain()
+        if size is not None:
+            app.window.resize(*size)
+        else:
+            size = tuple(app.window.get_default_size())
+        wait_for_window_size(app.window, size)
         return app
 
     yield build
@@ -222,6 +246,28 @@ def test_result_focus_does_not_create_a_text_selection(ui, case):
     assert heading.get_selectable()
     has_selection, start, end = heading.get_selection_bounds()
     assert not has_selection and start == end
+
+
+@pytest.mark.parametrize("workarea_size", [(800, 600), (1600, 1000)])
+def test_accessible_default_fits_monitor_workarea(ui, monkeypatch, workarea_size):
+    workarea = Gdk.Rectangle()
+    workarea.width, workarea.height = workarea_size
+    monkeypatch.setattr(Gdk.Monitor, "get_workarea", lambda _monitor: workarea)
+    app = ui(size=None)
+    expected = (min(900, workarea.width), min(700, workarea.height))
+    assert tuple(app.window.get_default_size()) == expected
+    assert tuple(app.window.get_size()) == expected
+
+
+def test_accessible_window_shrinks_after_default_is_mapped(ui, monkeypatch):
+    workarea = Gdk.Rectangle()
+    workarea.width, workarea.height = 1600, 1000
+    monkeypatch.setattr(Gdk.Monitor, "get_workarea", lambda _monitor: workarea)
+    app = ui(size=None)
+    assert tuple(app.window.get_size()) == (900, 700)
+    app.window.resize(800, 600)
+    wait_for_window_size(app.window, (800, 600))
+    assert tuple(app.window.get_size()) == (800, 600)
 
 
 def test_low_resolution_footer_and_focus(ui):

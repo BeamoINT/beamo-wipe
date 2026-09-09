@@ -1,0 +1,40 @@
+dbus-daemon[69239]: [session uid=1000 pid=69239 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=69255 comm="python3 -m pytest -o pythonpath=/tmp/pr5-lowres-ba" label="kernel")
+dbus-daemon[69239]: [session uid=1000 pid=69239 pidfd=5] Successfully activated service 'org.a11y.Bus'
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.3, pluggy-1.6.0
+rootdir: /tmp/pr5-lowres-baseline
+plugins: typeguard-4.4.2
+collected 1 item
+
+../../../tmp/pr5-lowres-baseline/test_accessible_runtime_before.py dbus-daemon[69263]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=69255 comm="python3 -m pytest -o pythonpath=/tmp/pr5-lowres-ba" label="kernel")
+dbus-daemon[69263]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+F     [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_low_resolution_footer_and_focus _____________________
+
+ui = <function ui.<locals>.build at 0x7fbe75d3fe20>
+
+    def test_low_resolution_footer_and_focus(ui):
+        for screen in (
+            Screen.WHAT,
+            Screen.OWNER,
+            Screen.PICK,
+            Screen.METHOD,
+            Screen.LAST_CHANCE,
+            Screen.DONE,
+        ):
+            wizard = make_demo_wizard()
+            wizard.selected = wizard.selectable[0]
+            wizard.screen = screen
+            app = ui(wizard)
+            assert app.window.get_focus() is not None
+            width, height = app.window.get_size()
+>           assert width <= 800 and height <= 600
+E           assert (900 <= 800)
+
+/tmp/pr5-lowres-baseline/test_accessible_runtime_before.py:242: AssertionError
+=========================== short test summary info ============================
+FAILED ../../../tmp/pr5-lowres-baseline/test_accessible_runtime_before.py::test_low_resolution_footer_and_focus
+============================== 1 failed in 0.22s ===============================

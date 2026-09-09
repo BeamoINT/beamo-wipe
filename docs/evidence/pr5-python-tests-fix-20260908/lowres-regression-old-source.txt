@@ -1,0 +1,30 @@
+dbus-daemon[66204]: [session uid=1000 pid=66204 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=66218 comm="python3 -m pytest -o pythonpath=/tmp/pr5-lowres-ba" label="kernel")
+dbus-daemon[66204]: [session uid=1000 pid=66204 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[66231]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=66218 comm="python3 -m pytest -o pythonpath=/tmp/pr5-lowres-ba" label="kernel")
+dbus-daemon[66231]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+________ test_accessible_default_fits_monitor_workarea[workarea_size0] _________
+
+ui = <function ui.<locals>.build at 0x7fdf31f6e3e0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fdf3202bce0>
+workarea_size = (800, 600)
+
+    @pytest.mark.parametrize("workarea_size", [(800, 600), (1600, 1000)])
+    def test_accessible_default_fits_monitor_workarea(ui, monkeypatch, workarea_size):
+        workarea = Gdk.Rectangle()
+        workarea.width, workarea.height = workarea_size
+        monkeypatch.setattr(Gdk.Monitor, "get_workarea", lambda _monitor: workarea)
+        app = ui(size=None)
+        expected = (min(900, workarea.width), min(700, workarea.height))
+>       assert tuple(app.window.get_default_size()) == expected
+E       assert (900, 700) == (800, 600)
+E
+E         At index 0 diff: 900 != 800
+E         Use -v to get more diff
+
+tests/test_accessible_runtime.py:258: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_accessible_runtime.py::test_accessible_default_fits_monitor_workarea[workarea_size0]
+1 failed, 1 passed, 55 deselected in 0.25s
