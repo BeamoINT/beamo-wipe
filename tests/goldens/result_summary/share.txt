@@ -1,0 +1,22 @@
+Sharing copy. Serials and hardware IDs withheld.
+Report file: unavailable
+Report checksum: 931fbcb9295c4398a221cad5a0bcc34ff06ad01f4eef819b45cf2c2d6070a8e3
+Disk: Samsung SSD 970 EVO
+Capacity: 256 GB
+Connection: NVMe
+Serial: withheld
+Hardware ID: unavailable
+Method: Everyday. One overwrite, followed by verification.
+Overwrites: 1
+Elapsed: less than 1 minute
+Result: Erase completed; verification passed
+Verification: Read-back verification passed
+Warnings:
+- SSD limits: Overwriting reaches only storage the device exposes. It cannot guarantee coverage of inaccessible, remapped, over-provisioned (spare), or controller-managed flash areas. Additional overwrite passes do not fix these limitations.
+- Two disks share the same size; verify the serial suffix.
+Limitations: Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed.
+Application: Beamo Wipe 0.2.7
+Engine: nwipe 0.42
+Engine commit: 6082bde060091e66365d852a1877f2ee80c67105
+Started (clock not verified): unavailable
+Ended (clock not verified): unavailable

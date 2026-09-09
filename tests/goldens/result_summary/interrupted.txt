@@ -1,0 +1,22 @@
+Beamo Wipe result
+Report file: unavailable
+Report checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Disk: Samsung SSD 970 EVO
+Capacity: 256 GB
+Connection: NVMe
+Serial: S4EVNX0N123456
+Hardware ID: unavailable
+Method: Everyday. One overwrite, followed by verification.
+Overwrites: 1
+Elapsed: less than 1 minute
+Result: The erase was interrupted
+Verification: unavailable
+Warnings:
+- SSD limits: Overwriting reaches only storage the device exposes. It cannot guarantee coverage of inaccessible, remapped, over-provisioned (spare), or controller-managed flash areas. Additional overwrite passes do not fix these limitations.
+- Two disks share the same size; verify the serial suffix.
+Limitations: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
+Application: Beamo Wipe 0.2.7
+Engine: nwipe 0.42
+Engine commit: 6082bde060091e66365d852a1877f2ee80c67105
+Started (clock not verified): unavailable
+Ended (clock not verified): unavailable

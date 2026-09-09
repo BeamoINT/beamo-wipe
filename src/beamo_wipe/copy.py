@@ -156,6 +156,10 @@ REPORT_HELP_SECTIONS = (
     "Diagnostics are not erase evidence and do not establish that an erase ran.",
 )
 REPORT_HELP_TEXT = "\n\n".join(REPORT_HELP_SECTIONS)
+REPORT_SHARE_REDACTED = (
+    "Also save a sharing copy without serials or hardware IDs. The original report is kept."
+)
+
 REPORT_INSERT = (
     "No erase is running. Leave the boot USB and selected disk connected. "
     "Insert one separate FAT32 USB, then choose Save report to USB. "

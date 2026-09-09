@@ -85,11 +85,11 @@ def test_terminal_export_preserves_evidence_when_log_read_fails_then_recovers(
     def fake_worker(command, **kwargs):
         # Exercise request decoding and actual bundle writes/readback on an
         # ordinary directory. No mount command or process is started.
-        report, _, _, _, exported_log, status = support_export._decode_worker_request(
+        report, _, _, _, exported_log, status, privacy = support_export._decode_worker_request(
             kwargs["input"].encode()
         )
         session, files = support_export.write_report_bundle(
-            tmp_path, report.data, exported_log, status
+            tmp_path, report.data, exported_log, status, privacy_reduced=privacy
         )
         support_export.verify_report_bundle(tmp_path, session, files)
         exported.append((status, files))

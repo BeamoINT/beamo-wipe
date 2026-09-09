@@ -2305,6 +2305,20 @@ class TkWizard:
             takefocus=True,
             command=set_preference,
         ).pack(anchor="w", pady=8)
+        share = tk.BooleanVar(value=self.w.report_share_redacted)
+
+        def set_share():
+            self.w.set_report_share_redacted(share.get())
+
+        tk.Checkbutton(
+            col,
+            text=C.REPORT_SHARE_REDACTED,
+            variable=share,
+            bg=BG,
+            font=self.font_s,
+            takefocus=True,
+            command=set_share,
+        ).pack(anchor="w", pady=(0, 8))
         self._back_btn(self._footer_shell("Enter or Esc returns. Nothing is saved here."))
         text.focus_set()
 

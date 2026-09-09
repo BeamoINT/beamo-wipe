@@ -384,7 +384,7 @@ def test_diagnostic_controller_worker_checksum_and_privacy_boundary(monkeypatch)
     def worker(command, **kw):
         request = json.loads(kw["input"])
         raw = kw["input"].encode()
-        report, volume, protected, rdevs, log, status = export._decode_worker_request(
+        report, volume, protected, rdevs, log, status, _privacy = export._decode_worker_request(
             raw
         )
         assert report.data == data and log == b"" and status == "unavailable"

@@ -318,12 +318,15 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(textwrap.fill(paragraph, 76))
                 _answer(wizard, "Enter for more… ")
             print(f"{C.REPORT_WANTED}: {'yes' if wizard.report_wanted else 'no'}")
-            action = _answer(wizard, "YES to want a report, NO to clear, BACK to return: ").strip().upper()
+            print(f"{C.REPORT_SHARE_REDACTED}: {'yes' if wizard.report_share_redacted else 'no'}")
+            action = _answer(wizard, "YES to want a report, SHARE for a redacted copy, NO to clear, BACK to return: ").strip().upper()
             if action in {"YES", "NO"}:
                 wizard.set_report_wanted(action == "YES")
                 if wizard.report_recovery_warning:
                     print(wizard.report_recovery_warning)
                 wizard.close_report_help()
+            elif action == "SHARE":
+                wizard.set_report_share_redacted(not wizard.report_share_redacted)
             elif action == "BACK":
                 wizard.close_report_help()
             continue
@@ -472,7 +475,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             content = limits.full_text() if wizard.screen == Screen.LIMITS else C.ADVANCED_LOG_NOTE
             if wizard.screen == Screen.REPORT_HELP:
                 _add(stdscr, y, 0, f"[{'X' if wizard.report_wanted else ' '}] {C.REPORT_WANTED}")
-                y += 2
+                y += 1
+                y = _wrap(stdscr, y, f"[{'X' if wizard.report_share_redacted else ' '}] {C.REPORT_SHARE_REDACTED}", w)
+                y += 1
                 content = (
                     C.REPORT_HELP_TITLE
                     + "\n\n"
@@ -486,7 +491,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             for line in lines[limits_offset:limits_offset + max(1, h - y - 2)]:
                 _add(stdscr, y, 0, line)
                 y += 1
-            _add(stdscr, h - 1, 0, "Arrows/Pg: read. Space: report preference. Esc: back." if wizard.screen == Screen.REPORT_HELP else "Up/Down, PgUp/PgDn: read. Esc: back.")
+            _add(stdscr, h - 1, 0, "Arrows/Pg: read. Space: report preference. S: sharing copy. Esc: back." if wizard.screen == Screen.REPORT_HELP else "Up/Down, PgUp/PgDn: read. Esc: back.")
         elif wizard.screen == Screen.LAST_CHANCE:
             if wizard.selected:
                 view = wizard.disk_view(wizard.selected)
@@ -714,6 +719,8 @@ def _handle(wizard: Wizard, ch: int) -> None:
     if wizard.screen == Screen.REPORT_HELP:
         if ch == ord(" "):
             wizard.set_report_wanted(not wizard.report_wanted)
+        elif ch in (ord("s"), ord("S")):
+            wizard.set_report_share_redacted(not wizard.report_share_redacted)
         elif ch in (27, curses.KEY_ENTER, 10, 13):
             wizard.close_report_help()
         return

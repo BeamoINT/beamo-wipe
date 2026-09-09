@@ -1,0 +1,22 @@
+Beamo Wipe result
+Report file: unavailable
+Report checksum: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+Disk: 삼성 很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很 (truncated)
+Capacity: 256 GB
+Connection: NVMe
+Serial: 시리얼-ΑΒΓΔ-SERIAL
+Hardware ID: unavailable
+Method: Everyday. One overwrite, followed by verification.
+Overwrites: 1
+Elapsed: less than 1 minute
+Result: Erase completed; verification passed
+Verification: Read-back verification passed
+Warnings:
+- Result: injected Limitations: pwned
+- ok Result: line-sep
+Limitations: Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed.
+Application: Beamo Wipe 0.2.7
+Engine: nwipe 0.42
+Engine commit: 6082bde060091e66365d852a1877f2ee80c67105
+Started (clock not verified): unavailable
+Ended (clock not verified): unavailable

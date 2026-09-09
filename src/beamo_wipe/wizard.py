@@ -104,6 +104,7 @@ class _ReportExportClaim:
     target_path: str
     target_rdev: int
     boot_rdev: int
+    privacy_reduced: bool = False
 
 
 def format_progress_percent(pct: float) -> str:
@@ -144,6 +145,7 @@ class Wizard:
         self.preview = False
         self.screen = Screen.SPLASH
         self.report_wanted = False
+        self.report_share_redacted = False
         self._intent_store = None
         self.report_recovery_warning = ""
         self._shutdown_from: Optional[Screen] = None
@@ -526,6 +528,7 @@ class Wizard:
         self.runner = DryRunRunner(duration_s=duration, fail=fail)
         self.screen = Screen.SPLASH
         self.report_wanted = False
+        self.report_share_redacted = False
         self._shutdown_from = None
         self.shutdown_generation += 1
         self._saved_report_claim = None
@@ -1583,6 +1586,7 @@ class Wizard:
             result = self.wipe_result
             assert result is not None
             discovery_snapshot = copy.deepcopy(self.discovery)
+            privacy_reduced = bool(self.report_share_redacted)
             assert self.evidence is not None
             expected_payload = dict(self.evidence)
             expected_provenance = dict(expected_payload.get("provenance", {}))
@@ -1628,6 +1632,7 @@ class Wizard:
             target_path=target,
             target_rdev=target_rdev,
             boot_rdev=boot_rdev,
+            privacy_reduced=privacy_reduced,
         )
         with self._lock:
             current_target = (
@@ -1689,6 +1694,7 @@ class Wizard:
                 target_rdev=claim.target_rdev,
                 boot_rdev=claim.boot_rdev,
                 expected_evidence_sha256=claim.evidence_sha256,
+                privacy_reduced=claim.privacy_reduced,
             )
             ok = getattr(receipt, "ok", None) is True
             safe = getattr(receipt, "safe_to_remove", None) is True
@@ -1929,6 +1935,11 @@ class Wizard:
             if self.can_open_report_help:
                 self._report_help_from = self.screen
                 self.screen = Screen.REPORT_HELP
+
+    def set_report_share_redacted(self, wanted: bool) -> None:
+        with self._lock:
+            if self.screen == Screen.REPORT_HELP and type(wanted) is bool:
+                self.report_share_redacted = wanted
 
     def set_report_wanted(self, wanted: bool) -> None:
         with self._lock:

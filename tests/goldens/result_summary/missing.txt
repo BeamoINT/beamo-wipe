@@ -1,0 +1,20 @@
+Beamo Wipe result
+Report file: unavailable
+Report checksum: unavailable
+Disk: unavailable
+Capacity: unavailable
+Connection: unavailable
+Serial: unavailable
+Hardware ID: unavailable
+Method: unavailable
+Overwrites: unavailable
+Elapsed: unavailable
+Result: The result could not be confirmed
+Verification: unavailable
+Warnings: unavailable
+Limitations: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
+Application: Beamo Wipe
+Engine: unavailable
+Engine commit: unavailable
+Started (clock not verified): unavailable
+Ended (clock not verified): unavailable

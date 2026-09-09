@@ -323,6 +323,15 @@ class AccessibleWizard:
                 set_preference,
             )
             self.body.pack_start(choice, False, False, 4)
+            share = Gtk.CheckButton.new_with_label(C.REPORT_SHARE_REDACTED)
+            share.set_active(self.w.report_share_redacted)
+            share.connect(
+                "toggled",
+                lambda widget: self.w.set_report_share_redacted(widget.get_active())
+                if generation == self.generation
+                else None,
+            )
+            self.body.pack_start(share, False, False, 4)
         elif screen == Screen.LIMITS:
             heading.set_text(storage_limits.TITLE)
             self.reader(storage_limits.full_text())
