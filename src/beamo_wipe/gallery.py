@@ -727,8 +727,10 @@ function draw() {
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
     btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "empty") {
-    main.innerHTML = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
+    let html = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
       <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p></div>`;
+    html += `<div class="disklist">` + disks().map(diskCard).join("") + `</div>`;
+    main.innerHTML = html;
     renderOtherDevices();
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
     btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));

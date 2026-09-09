@@ -154,6 +154,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
+            if wizard.empty_detail:
+                print(wizard.empty_detail)
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -413,7 +415,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _wrap(stdscr, y, wizard.error or C.IDENTIFY_ERROR, w)
             _add(stdscr, min(h - 2, y + 4), 0, "Enter: shut down    Esc: back")
         elif wizard.screen == Screen.PICK_EMPTY:
-            y = _wrap(stdscr, y, C.EMPTY_DISKS, w)
+            _empty_text = C.EMPTY_DISKS
+            if wizard.empty_detail:
+                _empty_text = f"{_empty_text}\n\n{wizard.empty_detail}"
+            y = _wrap(stdscr, y, _empty_text, w)
             if wizard.other_devices:
                 _add(stdscr, min(h - 3, y + 1), 0, "Other detected devices (O): read reasons; not selectable.")
             _add(stdscr, h - 2, 0, "Enter: shut down    Esc: back")
