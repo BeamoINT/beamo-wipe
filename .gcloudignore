@@ -23,3 +23,8 @@ packaging/live/.build/
 packaging/live/.stage/
 packaging/live/binary/
 packaging/live/tmp/
+# Generated live-build copies of src/. Uploading a stale local tree makes
+# test_staged_chroot_package_matches_src fail before the ISO step restages.
+packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/
+packaging/live/config/includes.chroot/usr/share/beamo-wipe/
+packaging/live/config/includes.chroot/usr/share/doc/beamo-wipe/

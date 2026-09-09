@@ -69,6 +69,23 @@ def test_last_chance_enter_without_erase_focus_never_erases(focus):
     app._click_erase.assert_not_called()
 
 
+def test_enter_on_focused_details_does_not_redraw_after_command():
+    wizard = make_demo_wizard()
+    wizard.skip_splash()
+    wizard.accept_what()
+    wizard.set_owner(True)
+    wizard.continue_owner()
+    assert wizard.screen == Screen.PICK
+    toggle = Mock()
+    focused = _button(toggle)
+    focused._variant = "ghost"
+    app = _app(wizard, focused)
+    app._on_return(SimpleNamespace(time=100))
+    toggle.assert_called_once_with()
+    app._draw.assert_not_called()
+    assert wizard.screen == Screen.PICK
+
+
 def test_enter_on_focused_save_does_not_shutdown():
     wizard = make_demo_wizard()
     wizard.preview = False
