@@ -93,8 +93,7 @@ DONE_FAIL_PREVIEW = (
 )
 
 SAME_SIZE_HINT = (
-    "Two disks are the same size. Look at the characters under the name "
-    "so you pick the right one."
+    "Two disks are the same size. Compare their serial numbers before choosing."
 )
 
 RECOMMENDED_TAG = "Recommended"
@@ -104,8 +103,8 @@ CONFIRM_LEAD = "Type what we ask for, then continue."
 CONFIRM_MATCH_WAIT = "Type it exactly, then you can continue."
 CONFIRM_MATCH_OK = "That matches. You can continue."
 
-COUNTDOWN_CAPTION = "seconds until you can press Erase"
-COUNTDOWN_READY = "You can press Erase now."
+COUNTDOWN_CAPTION = "seconds until Erase is available. Nothing starts automatically."
+COUNTDOWN_READY = "Nothing has started. Choose Erase now to erase this disk."
 
 METHOD_LEAD = "Compare overwrite and read-back passes."
 
@@ -254,4 +253,4 @@ def erase_now_label(disk: Disk) -> str:
 
 
 def pick_subtitle() -> str:
-    return "Click the name and size that match this PC."
+    return "Match the disk name, size and serial number. Choose only the disk you intend to erase."

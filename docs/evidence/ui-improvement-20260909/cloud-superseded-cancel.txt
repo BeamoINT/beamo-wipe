@@ -1,0 +1,213 @@
+Cancelled [https://cloudbuild.googleapis.com/v1/projects/beamo-wipe/locations/global/builds/c87764ca-a264-4eb8-8cde-e91347cba01f].
+---
+createTime: '2026-09-09T02:19:58.196043891Z'
+id: c87764ca-a264-4eb8-8cde-e91347cba01f
+logUrl: https://console.cloud.google.com/cloud-build/builds/c87764ca-a264-4eb8-8cde-e91347cba01f?project=368895881889
+name: projects/368895881889/locations/global/builds/c87764ca-a264-4eb8-8cde-e91347cba01f
+options:
+  diskSizeGb: '200'
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  pool: {}
+projectId: beamo-wipe
+queueTtl: 3600s
+results:
+  buildStepImages:
+  - sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  - sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  - sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  - sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  - sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  - ''
+  - ''
+  - ''
+  buildStepOutputs:
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  buildStepResults:
+    desktop-launchers: {}
+    lint: {}
+    negative-test: {}
+    preview: {}
+    python-tests: {}
+serviceAccount: projects/beamo-wipe/serviceAccounts/368895881889-compute@developer.gserviceaccount.com
+source:
+  storageSource:
+    bucket: beamo-wipe_cloudbuild
+    generation: '1788920397745206'
+    object: source/1788920389.836434-4877497fbe7b4299b19eee666d386f6b.tgz
+sourceProvenance:
+  fileHashes:
+    gs://beamo-wipe_cloudbuild/source/1788920389.836434-4877497fbe7b4299b19eee666d386f6b.tgz#1788920397745206:
+      fileHash:
+      - type: MD5
+        value: usZ6wPEmrgpRKZA4eLrquQ==
+      - type: SHA256
+        value: 3OGxZzhj_1b_rqZXk5leaGbyBLBw32iDr_t-FpNcqDY=
+  resolvedStorageSource:
+    bucket: beamo-wipe_cloudbuild
+    generation: '1788920397745206'
+    object: source/1788920389.836434-4877497fbe7b4299b19eee666d386f6b.tgz
+startTime: '2026-09-09T02:20:44.005374301Z'
+status: WORKING
+steps:
+- args:
+  - scripts/ci-desktop.sh
+  entrypoint: bash
+  id: desktop-launchers
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  pullTiming:
+    endTime: '2026-09-09T02:20:53.903668781Z'
+    startTime: '2026-09-09T02:20:49.025784408Z'
+  status: SUCCESS
+  timing:
+    endTime: '2026-09-09T02:22:53.429233872Z'
+    startTime: '2026-09-09T02:20:49.025784408Z'
+  waitFor:
+  - '-'
+- args:
+  - -ceu
+  - |
+    chmod +x scripts/ci-hosted.sh scripts/test-all.sh
+    ./scripts/ci-hosted.sh lint
+  entrypoint: bash
+  id: lint
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  pullTiming:
+    endTime: '2026-09-09T02:20:53.903623010Z'
+    startTime: '2026-09-09T02:20:49.025839408Z'
+  status: SUCCESS
+  timing:
+    endTime: '2026-09-09T02:21:21.252087533Z'
+    startTime: '2026-09-09T02:20:49.025839408Z'
+  waitFor:
+  - '-'
+- args:
+  - -ceu
+  - |
+    chmod +x scripts/ci-hosted.sh scripts/test-all.sh scripts/build-iso.sh
+    ./scripts/ci-hosted.sh tests
+  entrypoint: bash
+  id: python-tests
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  pullTiming:
+    endTime: '2026-09-09T02:20:53.904713723Z'
+    startTime: '2026-09-09T02:20:49.025840837Z'
+  status: SUCCESS
+  timing:
+    endTime: '2026-09-09T02:24:33.217542353Z'
+    startTime: '2026-09-09T02:20:49.025840837Z'
+  waitFor:
+  - '-'
+- args:
+  - -ceu
+  - |
+    chmod +x scripts/ci-hosted.sh preview
+    ./scripts/ci-hosted.sh preview
+  entrypoint: bash
+  id: preview
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  pullTiming:
+    endTime: '2026-09-09T02:20:53.905452885Z'
+    startTime: '2026-09-09T02:20:49.025835428Z'
+  status: SUCCESS
+  timing:
+    endTime: '2026-09-09T02:21:08.345807544Z'
+    startTime: '2026-09-09T02:20:49.025835428Z'
+  waitFor:
+  - '-'
+- args:
+  - -ceu
+  - |
+    chmod +x scripts/ci-hosted.sh scripts/test-all.sh
+    ./scripts/ci-hosted.sh negative
+  entrypoint: bash
+  id: negative-test
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  pullTiming:
+    endTime: '2026-09-09T02:24:33.218891288Z'
+    startTime: '2026-09-09T02:24:33.217700159Z'
+  status: SUCCESS
+  timing:
+    endTime: '2026-09-09T02:25:23.991488145Z'
+    startTime: '2026-09-09T02:24:33.217700159Z'
+  waitFor:
+  - python-tests
+  - lint
+  - preview
+- args:
+  - -ceu
+  - |
+    apt-get update -qq
+    apt-get install -y -qq --no-install-recommends ca-certificates docker.io git python3
+    chmod +x scripts/ci-hosted.sh scripts/build-iso.sh
+    ./scripts/ci-hosted.sh iso
+  entrypoint: bash
+  env:
+  - SKIP_ISO=false
+  - BUILD_ID=c87764ca-a264-4eb8-8cde-e91347cba01f
+  - BEAMO_WIPE_VERSION=0.2.6
+  id: iso-build
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  pullTiming:
+    endTime: '2026-09-09T02:25:23.992666328Z'
+    startTime: '2026-09-09T02:25:23.991664048Z'
+  status: WORKING
+  timing:
+    startTime: '2026-09-09T02:25:23.991664048Z'
+  waitFor:
+  - negative-test
+  - desktop-launchers
+- args:
+  - -ceu
+  - |
+    chmod +x scripts/ci-hosted.sh scripts/qemu-verify.sh scripts/build-iso.sh
+    ./scripts/ci-hosted.sh qemu
+  entrypoint: bash
+  env:
+  - SKIP_QEMU=false
+  - BEAMO_WIPE_VERSION=0.2.6
+  id: qemu-verify
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  status: QUEUED
+  waitFor:
+  - iso-build
+- args:
+  - -ceu
+  - |
+    apt-get update -qq
+    apt-get install -y -qq --no-install-recommends ca-certificates git python3
+    python3 scripts/publish_release_gcs.py
+  entrypoint: bash
+  env:
+  - PUBLISH_RELEASE=false
+  - SKIP_ISO=false
+  - SKIP_QEMU=false
+  - BEAMO_WIPE_VERSION=0.2.6
+  - BUILD_ID=c87764ca-a264-4eb8-8cde-e91347cba01f
+  id: publish-release
+  name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
+  status: QUEUED
+  waitFor:
+  - qemu-verify
+substitutions:
+  _PUBLISH_RELEASE: 'false'
+  _SKIP_ISO: 'false'
+  _SKIP_QEMU: 'false'
+timeout: 7200s
+timing:
+  BUILD:
+    endTime: '2026-09-09T02:25:24.206237133Z'
+    startTime: '2026-09-09T02:20:48.489818300Z'
+  FETCHSOURCE:
+    endTime: '2026-09-09T02:20:48.489624250Z'
+    startTime: '2026-09-09T02:20:45.203438297Z'
+  STORAGE_SOURCE:
+    endTime: '2026-09-09T02:20:48.489624250Z'
+    startTime: '2026-09-09T02:20:45.203438297Z'

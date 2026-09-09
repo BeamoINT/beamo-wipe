@@ -1,0 +1,6 @@
+dbus-daemon[182702]: [session uid=1000 pid=182702 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=182716 comm="python3 docs/evidence/ui-improvement-20260909/capt" label="kernel")
+dbus-daemon[182702]: [session uid=1000 pid=182702 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[182724]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=182716 comm="python3 docs/evidence/ui-improvement-20260909/capt" label="kernel")
+dbus-daemon[182724]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+Captured 30 gtk states at 800x600

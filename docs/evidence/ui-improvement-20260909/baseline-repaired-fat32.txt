@@ -1,0 +1,43 @@
+dbus-daemon[93446]: [session uid=1000 pid=93446 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=93460 comm="python3 -m pytest -rs -k not test_iso_build_uses_h" label="kernel")
+dbus-daemon[93446]: [session uid=1000 pid=93446 pidfd=5] Successfully activated service 'org.a11y.Bus'
+.............................dbus-daemon[93473]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=93460 comm="python3 -m pytest -rs -k not test_iso_build_uses_h" label="kernel")
+.dbus-daemon[93473]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+.......................................... [  4%]
+........................................................................ [  8%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 20%]
+........................................................................ [ 25%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 45%]
+........................................................................ [ 50%]
+......................................................................ss [ 54%]
+s..s.ssssssss........................................................... [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 66%]
+........................................................................ [ 70%]
+........................................................................ [ 75%]
+........................................................................ [ 79%]
+........................................................................ [ 83%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 95%]
+........................................................................ [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_release_manifest.py:130: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:158: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:171: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:227: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:259: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:280: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:298: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:315: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:332: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:358: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:371: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:384: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+1716 passed, 12 skipped, 2 deselected in 80.03s (0:01:20)

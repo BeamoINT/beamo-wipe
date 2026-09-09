@@ -1,0 +1,11 @@
+Creating temporary archive of 1315 file(s) totalling 92.6 MiB before compression.
+Uploading tarball of [/tmp/beamo-ui-cloud-20260909] to [gs://beamo-wipe_cloudbuild/source/1788921623.48437-83671e2588514a3b921e5e2f2e17b21b.tgz]
+Created [https://cloudbuild.googleapis.com/v1/projects/beamo-wipe/locations/global/builds/80eac957-d39a-496d-89b6-8c0811831a0b].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds/80eac957-d39a-496d-89b6-8c0811831a0b?project=368895881889 ].
+
+gcloud builds submit only displays logs from Cloud Storage. To view logs from Cloud Logging, run:
+gcloud beta builds submit
+
+Waiting for build to complete. Polling interval: 1 second(s).
+ID                                    CREATE_TIME                DURATION  SOURCE                                                                                   IMAGES  STATUS
+80eac957-d39a-496d-89b6-8c0811831a0b  2026-09-09T02:40:32+00:00  22M53S    gs://beamo-wipe_cloudbuild/source/1788921623.48437-83671e2588514a3b921e5e2f2e17b21b.tgz  -       SUCCESS

@@ -1,0 +1,185 @@
+{
+  "createTime": "2026-09-09T02:28:14.065148196Z",
+  "finishTime": "2026-09-09T02:34:25.005016Z",
+  "id": "6ff1c860-dd9c-48ab-a8be-fc29c1c42989",
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds/6ff1c860-dd9c-48ab-a8be-fc29c1c42989?project=368895881889",
+  "startTime": "2026-09-09T02:28:59.256971308Z",
+  "status": "CANCELLED",
+  "steps": [
+    {
+      "args": [
+        "scripts/ci-desktop.sh"
+      ],
+      "entrypoint": "bash",
+      "id": "desktop-launchers",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-09T02:29:08.839693844Z",
+        "startTime": "2026-09-09T02:29:04.263469686Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-09T02:30:56.034659409Z",
+        "startTime": "2026-09-09T02:29:04.263469686Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/test-all.sh\n./scripts/ci-hosted.sh lint\n"
+      ],
+      "entrypoint": "bash",
+      "id": "lint",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-09T02:29:08.839923114Z",
+        "startTime": "2026-09-09T02:29:04.263466316Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-09T02:29:32.865859993Z",
+        "startTime": "2026-09-09T02:29:04.263466316Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/test-all.sh scripts/build-iso.sh\n./scripts/ci-hosted.sh tests\n"
+      ],
+      "entrypoint": "bash",
+      "id": "python-tests",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-09T02:29:08.838931043Z",
+        "startTime": "2026-09-09T02:29:04.263484326Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-09T02:32:31.797192420Z",
+        "startTime": "2026-09-09T02:29:04.263484326Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh preview\n./scripts/ci-hosted.sh preview\n"
+      ],
+      "entrypoint": "bash",
+      "id": "preview",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-09T02:29:08.840120894Z",
+        "startTime": "2026-09-09T02:29:04.263458046Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-09T02:29:20.309739412Z",
+        "startTime": "2026-09-09T02:29:04.263458046Z"
+      },
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/test-all.sh\n./scripts/ci-hosted.sh negative\n"
+      ],
+      "entrypoint": "bash",
+      "id": "negative-test",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-09T02:32:31.798220266Z",
+        "startTime": "2026-09-09T02:32:31.797313443Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-09-09T02:33:16.631852943Z",
+        "startTime": "2026-09-09T02:32:31.797313443Z"
+      },
+      "waitFor": [
+        "python-tests",
+        "lint",
+        "preview"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "apt-get update -qq\napt-get install -y -qq --no-install-recommends ca-certificates docker.io git python3\nchmod +x scripts/ci-hosted.sh scripts/build-iso.sh\n./scripts/ci-hosted.sh iso\n"
+      ],
+      "entrypoint": "bash",
+      "env": [
+        "SKIP_ISO=false",
+        "BUILD_ID=6ff1c860-dd9c-48ab-a8be-fc29c1c42989",
+        "BEAMO_WIPE_VERSION=0.2.6"
+      ],
+      "id": "iso-build",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "pullTiming": {
+        "endTime": "2026-09-09T02:33:16.632926044Z",
+        "startTime": "2026-09-09T02:33:16.632011170Z"
+      },
+      "status": "CANCELLED",
+      "timing": {
+        "endTime": "2026-09-09T02:34:25.007375212Z",
+        "startTime": "2026-09-09T02:33:16.632011170Z"
+      },
+      "waitFor": [
+        "negative-test",
+        "desktop-launchers"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "chmod +x scripts/ci-hosted.sh scripts/qemu-verify.sh scripts/build-iso.sh\n./scripts/ci-hosted.sh qemu\n"
+      ],
+      "entrypoint": "bash",
+      "env": [
+        "SKIP_QEMU=false",
+        "BEAMO_WIPE_VERSION=0.2.6"
+      ],
+      "id": "qemu-verify",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "status": "QUEUED",
+      "waitFor": [
+        "iso-build"
+      ]
+    },
+    {
+      "args": [
+        "-ceu",
+        "apt-get update -qq\napt-get install -y -qq --no-install-recommends ca-certificates git python3\npython3 scripts/publish_release_gcs.py\n"
+      ],
+      "entrypoint": "bash",
+      "env": [
+        "PUBLISH_RELEASE=false",
+        "SKIP_ISO=false",
+        "SKIP_QEMU=false",
+        "BEAMO_WIPE_VERSION=0.2.6",
+        "BUILD_ID=6ff1c860-dd9c-48ab-a8be-fc29c1c42989"
+      ],
+      "id": "publish-release",
+      "name": "debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "status": "QUEUED",
+      "waitFor": [
+        "qemu-verify"
+      ]
+    }
+  ],
+  "substitutions": {
+    "_PUBLISH_RELEASE": "false",
+    "_SKIP_ISO": "false",
+    "_SKIP_QEMU": "false"
+  }
+}
