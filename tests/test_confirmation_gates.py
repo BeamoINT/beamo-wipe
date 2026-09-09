@@ -741,16 +741,14 @@ def test_all_gates_must_be_simultaneously_valid(tmp_path, monkeypatch):
     assert wiz.screen == Screen.PICK
     assert spy.start_calls == []
 
-    # Case B: owner false at final moment
+    # Case B: ownership cannot be cleared after leaving the Owner screen
     wiz, clock, spy = _wiz_with_clock(clock=Clock())
     _drive_to_last_chance(wiz, clock, tmp_path)
     clock.add(5.0)
     wiz.tick()
     wiz.set_owner(False)
-    wiz.confirm_erase()
-    assert wiz.screen == Screen.LAST_CHANCE
+    assert wiz.owner_ok is True
     assert spy.start_calls == []
-    assert wiz.error is not None
 
     # Case C: token stale
     wiz, clock, spy = _wiz_with_clock(clock=Clock())

@@ -99,14 +99,10 @@ run_lint() {
 run_pytest() {
   export BEAMO_ISOLATED_X11_TEST=1
   log "pytest under Xvfb 1600x1000 @ 72 DPI"
-  # Two live-image tests need lb config (bootstrap/binary) from the ISO
-  # build; skip them when those artifacts are absent.
-  PYTEST_ARGS=()
-  if [ ! -f packaging/live/config/bootstrap ] || [ ! -f packaging/live/config/binary ]; then
-    log "skipping two live-image tests that need 'lb config' artifacts"
-    PYTEST_ARGS=(-k "not test_iso_build_uses_https_debian_mirrors and not test_live_config_xinit_cannot_hijack_kiosk")
-  fi
-  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest "${PYTEST_ARGS[@]}"
+  # Live-image tests that need lb config artifacts skip themselves when
+  # packaging/live/config/{bootstrap,binary} are absent. Source assertions
+  # for HTTPS mirrors and nox11autologin always run.
+  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest
 }
 
 run_preview() {

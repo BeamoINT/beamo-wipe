@@ -520,7 +520,10 @@ def _progress_is_final_pass(match: re.Match) -> bool:
         return False
     pass_i, pass_n = match.group(5), match.group(6)
     if pass_i is None or pass_n is None:
-        return True
+        # A truncated SIGUSR1 line that ends after "round N of N" is not
+        # proof of the last pass. nwipe 0.42 logs pass counters; | Erased |
+        # remains the independent completion marker.
+        return False
     return int(pass_i) == int(pass_n)
 
 

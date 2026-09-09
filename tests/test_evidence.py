@@ -687,7 +687,8 @@ def test_malformed_log_output_and_signals_do_not_overstate(tmp_path, monkeypatch
         ("Unable to open device '/dev/sda'.\n", 0, False),
         ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 3\nNwipe successfully completed\n", 0, False),
         ("      sda | Erased |  120MB/s\n", 0, True),
-        ("/dev/sda: 100.00%, round 1 of 1\n", 0, True),
+        ("/dev/sda: 100.00%, round 1 of 1\n", 0, False),
+        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n", 0, True),
     ]
     for log, code, should_ok in cases:
         ok, reason = evaluate_nwipe_completion(code, log, "/dev/sda")

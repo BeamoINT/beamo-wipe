@@ -66,9 +66,11 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     assert "build-iso.sh" in hosted
     assert "qemu-verify.sh" in hosted
     assert "SKIP_QEMU" in hosted
-    # lb-config live-image tests skip when bootstrap/binary are absent.
-    assert "test_iso_build_uses_https_debian_mirrors" in hosted
-    assert "test_live_config_xinit_cannot_hijack_kiosk" in hosted
+    # Source live-image assertions always run; lb-config file checks skip
+    # themselves when bootstrap/binary are absent.
+    assert "not test_iso_build_uses_https_debian_mirrors" not in hosted
+    assert "not test_live_config_xinit_cannot_hijack_kiosk" not in hosted
+    assert "python3 -m pytest" in hosted
     assert (ROOT / "scripts" / "install-cloud-triggers.sh").is_file()
 
 

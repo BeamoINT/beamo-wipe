@@ -263,10 +263,13 @@ def test_confirm_erase_safety_error_stays_on_last_chance(monkeypatch, tmp_path):
     wiz.continue_method()
     clock.add(5.0)
     wiz.set_owner(False)
+    assert wiz.owner_ok is True
+    wiz.confirm_input = ""
     wiz.confirm_erase()
     assert wiz.screen == Screen.LAST_CHANCE
     assert wiz.error
     assert not getattr(wiz.runner, "started", False)
+    assert not wiz.erase_enabled
 
 
 def test_select_disk_ignored_after_confirm(monkeypatch, tmp_path):

@@ -326,11 +326,27 @@ class Wizard:
         # Never display inventory when boot identity failed closed.
         if not self.discovery.boot_identified or self.discovery.error or self.discovery.boot is None:
             return ()
+        boot_markers = tuple(
+            f" | {path} | "
+            for path in dict.fromkeys(
+                (self.discovery.boot.path, os.path.realpath(self.discovery.boot.path))
+            )
+            if path
+        )
+
+        def _not_boot(device) -> bool:
+            return not any(marker in device.identity for marker in boot_markers)
+
         if self.discovery.excluded:
-            return self.discovery.excluded
+            return tuple(device for device in self.discovery.excluded if _not_boot(device))
         from beamo_wipe.inventory import excluded_device
         eligible = {d.path for d in self.selectable}
-        return tuple(excluded_device(d) for d in self.discovery.disks if d.path not in eligible)
+        boot_paths = {self.discovery.boot.path, os.path.realpath(self.discovery.boot.path)}
+        return tuple(
+            excluded_device(d)
+            for d in self.discovery.disks
+            if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
+        )
 
     @property
     def confirm(self) -> Optional[ConfirmSpec]:
@@ -640,8 +656,9 @@ class Wizard:
 
     def set_owner(self, checked: bool) -> None:
         with self._lock:
-            if self.screen not in {Screen.REFRESHING, Screen.CHECKING, Screen.STOPPING, Screen.WORKING}:
-                self.owner_ok = bool(checked)
+            if self.screen != Screen.OWNER:
+                return
+            self.owner_ok = bool(checked)
 
     def continue_owner(self) -> None:
         with self._lock:
@@ -847,7 +864,11 @@ class Wizard:
         except Exception:
             with self._lock:
                 if self.screen == screen:
-                    self.screen = Screen.LAST_CHANCE if screen == Screen.CHECKING else Screen.WORKING
+                    if screen == Screen.CHECKING:
+                        self._erase_until = self.now + COUNTDOWN_S
+                        self.screen = Screen.LAST_CHANCE
+                    else:
+                        self.screen = Screen.WORKING
                     self._start_claim = None
                     self._cancel_requested = False
                     self.error = ("Disk checking could not start. Try again." if screen == Screen.CHECKING
@@ -980,6 +1001,10 @@ class Wizard:
                 if self._start_claim is claim:
                     self._start_claim = None
                     if self.screen == Screen.CHECKING:
+                        if self.error:
+                            # Identity/preflight failure must not leave Erase
+                            # armed from the previous countdown.
+                            self._erase_until = self.now + COUNTDOWN_S
                         self.screen = Screen.LAST_CHANCE
 
     def _finish(self, result: WipeResult, *, cancelled: bool = False, interrupted: bool = False, from_stop: bool = False) -> None:

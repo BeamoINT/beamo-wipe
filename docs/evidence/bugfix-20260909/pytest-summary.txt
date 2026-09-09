@@ -1,0 +1,7 @@
+command: dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest -q --tb=no
+exit: 0
+collected: 1829
+failures: 0
+desktop: go test ./... ok
+compileall: ok
+ruff: not installed in this environment
