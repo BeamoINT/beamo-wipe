@@ -1,0 +1,237 @@
+dbus-daemon[179881]: [session uid=1000 pid=179881 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=179895 comm="python3 -m pytest docs/evidence/ui-improvement-202" label="kernel")
+dbus-daemon[179881]: [session uid=1000 pid=179881 pidfd=5] Successfully activated service 'org.a11y.Bus'
+Fdbus-daemon[179905]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=179895 comm="python3 -m pytest docs/evidence/ui-improvement-202" label="kernel")
+                                                                        [100%]dbus-daemon[179905]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+
+=================================== FAILURES ===================================
+___________________ test_orca_announces_destructive_warnings ___________________
+
+ui = <function ui.<locals>.build at 0x7ff6664249a0>
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-20/test_orca_announces_destructiv0')
+
+    def test_orca_announces_destructive_warnings(ui, tmp_path):
+        """Real Orca reads GTK focus events via AT-SPI; no host audio/devices used."""
+        import shutil
+
+        if os.environ.get("BEAMO_TEST_ORCA_CHILD") != "1":
+            # A fresh application and private bus avoid previously destroyed test
+            # windows in the AT-SPI registry. No application behavior is mocked.
+            result = subprocess.run(
+                [
+                    "dbus-run-session",
+                    "--",
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-p",
+                    "no:cacheprovider",
+                    f"{__file__}::test_orca_announces_destructive_warnings",
+                ],
+                env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+>           assert result.returncode == 0, result.stdout + result.stderr
+E           AssertionError: SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+E             F                                                                        [100%]
+E             =================================== FAILURES ===================================
+E             ___________________ test_orca_announces_destructive_warnings ___________________
+E
+E             ui = <function ui.<locals>.build at 0x7f845d86c360>
+E             tmp_path = PosixPath('/tmp/pytest-of-box/pytest-21/test_orca_announces_destructiv0')
+E
+E                 def test_orca_announces_destructive_warnings(ui, tmp_path):
+E                     """Real Orca reads GTK focus events via AT-SPI; no host audio/devices used."""
+E                     import shutil
+E
+E                     if os.environ.get("BEAMO_TEST_ORCA_CHILD") != "1":
+E                         # A fresh application and private bus avoid previously destroyed test
+E                         # windows in the AT-SPI registry. No application behavior is mocked.
+E                         result = subprocess.run(
+E                             [
+E                                 "dbus-run-session",
+E                                 "--",
+E                                 sys.executable,
+E                                 "-m",
+E                                 "pytest",
+E                                 "-p",
+E                                 "no:cacheprovider",
+E                                 f"{__file__}::test_orca_announces_destructive_warnings",
+E                             ],
+E                             env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
+E                             capture_output=True,
+E                             text=True,
+E                             timeout=180,
+E                         )
+E                         assert result.returncode == 0, result.stdout + result.stderr
+E                         assert "warning" not in result.stdout.lower(), result.stdout
+E                         return
+E                     assert shutil.which("orca"), "The supported Linux image requires Orca"
+E                     assert os.environ.get("DBUS_SESSION_BUS_ADDRESS"), "Use dbus-run-session"
+E                     audio = subprocess.Popen(
+E                         ["pulseaudio", "--daemonize=no", "--exit-idle-time=30"],
+E                         stdout=subprocess.DEVNULL,
+E                         stderr=subprocess.DEVNULL,
+E                     )
+E                     logfile = tmp_path / "orca.log"
+E                     reader = subprocess.Popen(
+E                         [
+E                             sys.executable,
+E                             "-c",
+E                             """import runpy, sys
+E                 entry = runpy.run_path('/usr/bin/orca', run_name='orca_entry')
+E                 from orca import debug
+E                 # Line buffering changes only diagnostic delivery, not Orca speech generation.
+E                 debug.debugFile = open(sys.argv[1], 'w', buffering=1)
+E                 debug.debugLevel = debug.LEVEL_ALL
+E                 debug.eventDebugLevel = debug.LEVEL_OFF
+E                 sys.argv = ['orca']
+E                 sys.exit(entry['main']())
+E                 """,
+E                             str(logfile),
+E                         ],
+E                         stdout=subprocess.DEVNULL,
+E                         stderr=subprocess.DEVNULL,
+E                     )
+E
+E                     def wait_for(phrase, *, since=0):
+E                         deadline = time.monotonic() + 15
+E                         while time.monotonic() < deadline:
+E                             drain()
+E                             content = logfile.read_text(errors="replace") if logfile.exists() else ""
+E                             if any(
+E                                 "SPEECH OUTPUT:" in line and phrase in line
+E                                 for line in content[since:].splitlines()
+E                             ):
+E                                 # Finish the current AT-SPI event before replacing its widgets.
+E                                 # This models a reader finishing a screen before navigation.
+E                                 previous_size = -1
+E                                 quiet_since = time.monotonic()
+E                                 settle_deadline = time.monotonic() + 5
+E                                 while time.monotonic() < settle_deadline:
+E                                     drain()
+E                                     size = logfile.stat().st_size
+E                                     if size != previous_size:
+E                                         quiet_since = time.monotonic()
+E                                         previous_size = size
+E                                     elif time.monotonic() - quiet_since >= 0.3:
+E                                         break
+E                                     time.sleep(0.01)
+E                                 return
+E                             assert reader.poll() is None, content[-3000:]
+E                             time.sleep(0.02)
+E                         pytest.fail(f"Orca did not announce {phrase!r}: {content[-3000:]}")
+E
+E                     try:
+E                         wait_for("Screen reader on")
+E                         app = ui()
+E                         wizard = app.w
+E                         wizard.skip_splash()
+E                         wizard.accept_what()
+E                         wizard.set_owner(True)
+E                         wizard.continue_owner()
+E                         wizard.select_disk(wizard.selectable[0].path)
+E                         wizard.continue_pick()
+E                         checkpoint = len(logfile.read_text(errors="replace"))
+E                         app.render()
+E             >           wait_for(wizard.warning_text(), since=checkpoint)
+E
+E             docs/evidence/ui-improvement-20260909/verify-orca-warnings.py:106:
+E             _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+E
+E             phrase = 'Every file on Samsung SSD 970 EVO, 256 GB, will be erased. You cannot get them back.'
+E
+E                 def wait_for(phrase, *, since=0):
+E                     deadline = time.monotonic() + 15
+E                     while time.monotonic() < deadline:
+E                         drain()
+E                         content = logfile.read_text(errors="replace") if logfile.exists() else ""
+E                         if any(
+E                             "SPEECH OUTPUT:" in line and phrase in line
+E                             for line in content[since:].splitlines()
+E                         ):
+E                             # Finish the current AT-SPI event before replacing its widgets.
+E                             # This models a reader finishing a screen before navigation.
+E                             previous_size = -1
+E                             quiet_since = time.monotonic()
+E                             settle_deadline = time.monotonic() + 5
+E                             while time.monotonic() < settle_deadline:
+E                                 drain()
+E                                 size = logfile.stat().st_size
+E                                 if size != previous_size:
+E                                     quiet_since = time.monotonic()
+E                                     previous_size = size
+E                                 elif time.monotonic() - quiet_since >= 0.3:
+E                                     break
+E                                 time.sleep(0.01)
+E                             return
+E                         assert reader.poll() is None, content[-3000:]
+E                         time.sleep(0.02)
+E             >       pytest.fail(f"Orca did not announce {phrase!r}: {content[-3000:]}")
+E             E       Failed: Orca did not announce 'Every file on Samsung SSD 970 EVO, 256 GB, will be erased. You cannot get them back.': 25 - EVENT MANAGER: Dequeueing object:children-changed:add for [frame: 'Beamo Wipe — screen-reader view'] in __main__.py (gtk 3.24.49) (0, 0, [filler])
+E             E       02:32:34.700557 - EVENT MANAGER: Dequeued object:children-changed:add for [frame: 'Beamo Wipe — screen-reader view'] in __main__.py (gtk 3.24.49) (0, 0, [filler]) priority: 5, counter: 11
+E             E
+E             E       vvvvv START PRIORITY-5 OBJECT EVENT OBJECT:CHILDREN-CHANGED:ADD (queue size: 0) vvvvv
+E             E       02:32:34.929426 - EVENT SOURCE:
+E             E                         app='__main__.py (gtk 3.24.49)' name='Beamo Wipe — screen-reader view' role='frame' id=''
+E             E                         description=''
+E             E                         help=''
+E             E                         states='active, enabled, resizable, sensitive, showing, visible'
+E             E                         relations=''
+E             E                         actions=''
+E             E                         interfaces='Collection, Component'
+E             E                         attributes='toolkit:gtk, window-type:normal'
+E             E                         text=''
+E             E                         path=[-1, 0]
+E             E
+E             E                         EVENT ANY DATA:
+E             E                         name='' role='filler' id=''
+E             E                         description=''
+E             E                         help=''
+E             E                         states='enabled, sensitive, vertical, visible'
+E             E                         relations=''
+E             E                         actions=''
+E             E                         interfaces='Collection, Component'
+E             E                         attributes='toolkit:gtk'
+E             E                         text=''
+E             E                         path=[-1, 0, 0]
+E             E
+E             E       02:32:34.929547 - SCRIPT MANAGER: Active script is: __main__.py (module=orca.scripts.toolkits.gtk.script)
+E             E       02:32:34.929646 - FOCUS MANAGER: Locus of focus is [label: 'Make sure this is the... You cannot get them back. (118 chars.)']
+E             E       02:32:34.929714 - EVENT MANAGER: Getting script for event for [application: '__main__.py'] [frame: 'Beamo Wipe — screen-reader view']
+E             E       02:32:34.929746 - SCRIPT MANAGER: Getting script for [application: '__main__.py'] [frame: 'Beamo Wipe — screen-reader view']
+E             E       02:32:34.929788 - SCRIPT MANAGER: Script is app script __main__.py (module=orca.scripts.toolkits.gtk.script)
+E             E       02:32:34.929803 - EVENT MANAGER: Script for event is __main__.py (module=orca.scripts.toolkits.gtk.script)
+E             E       02:32:34.929814 - EVENT MANAGER: Processing object:children-changed:add: script for event is active
+E             E       02:32:34.929832 - AXUtilitiesRelation: Clearing local cache. Reason: children-changed event.
+E             E       02:32:34.929845 - AXObject: Clearing local cache. Reason: children-changed event.
+E             E       02:32:34.929854 - AXUtilitiesRelation: Clearing local cache. Reason: children-changed event.
+E             E       02:32:34.929865 - AXUtilitiesEvent: Clearing local cache. Reason: children-changed event.
+E             E       TOTAL PROCESSING TIME: 0.2293
+E             E       ^^^^^ FINISHED PRIORITY-5 OBJECT EVENT OBJECT:CHILDREN-CHANGED:ADD ^^^^^
+E             E
+E             E       02:32:36.422788 - GENERATOR: Clearing cache.
+E             E       02:32:37.430938 - SCRIPT MANAGER: Active script is: __main__.py (module=orca.scripts.toolkits.gtk.script)
+E             E       02:32:38.422989 - GENERATOR: Clearing cache.
+E             E       02:32:40.423183 - GENERATOR: Clearing cache.
+E             E       02:32:42.423372 - GENERATOR: Clearing cache.
+E             E       02:32:44.423570 - GENERATOR: Clearing cache.
+E
+E             docs/evidence/ui-improvement-20260909/verify-orca-warnings.py:92: Failed
+E             =========================== short test summary info ============================
+E             FAILED docs/evidence/ui-improvement-20260909/verify-orca-warnings.py::test_orca_announces_destructive_warnings
+E             1 failed in 26.29s
+E             dbus-daemon[179907]: [session uid=1000 pid=179907 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=179908 comm="/usr/bin/python3 -m pytest -p no:cacheprovider /ho" label="kernel")
+E             dbus-daemon[179907]: [session uid=1000 pid=179907 pidfd=5] Successfully activated service 'org.a11y.Bus'
+E             dbus-daemon[179921]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=179908 comm="/usr/bin/python3 -m pytest -p no:cacheprovider /ho" label="kernel")
+E             dbus-daemon[179921]: Successfully activated service 'org.a11y.atspi.Registry'
+E
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['dbus-run-session', '--', '/usr/bin/python3', '-m', 'pytest', '-p', 'no:cacheprovider', '/home/...cacheprovider /ho" label="kernel")\ndbus-daemon[179921]: Successfully activated service \'org.a11y.atspi.Registry\'\n').returncode
+
+docs/evidence/ui-improvement-20260909/verify-orca-warnings.py:35: AssertionError
+=========================== short test summary info ============================
+FAILED docs/evidence/ui-improvement-20260909/verify-orca-warnings.py::test_orca_announces_destructive_warnings
+1 failed in 26.81s

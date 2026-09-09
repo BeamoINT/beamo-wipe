@@ -270,6 +270,68 @@ def test_accessible_window_shrinks_after_default_is_mapped(ui, monkeypatch):
     assert tuple(app.window.get_size()) == (800, 600)
 
 
+@pytest.mark.parametrize("screen", list(Screen))
+def test_every_accessible_screen_keeps_actions_inside_800x600(ui, screen):
+    wizard = make_demo_wizard()
+    wizard.skip_splash()
+    wizard.accept_what()
+    wizard.set_owner(True)
+    wizard.continue_owner()
+    wizard.select_disk(wizard.selectable[0].path)
+    wizard.continue_pick()
+    wizard.screen = screen  # presentation only; no process is started
+    app = ui(wizard)
+    for button in widgets(app.footer):
+        if not isinstance(button, Gtk.Button):
+            continue
+        x, y = button.translate_coordinates(app.window, 0, 0)
+        assert x >= 0 and y >= 0
+        assert x + button.get_allocated_width() <= 800
+        assert y + button.get_allocated_height() <= 600
+
+
+def test_accessible_method_choices_visible_above_grouped_actions(ui):
+    wizard = make_demo_wizard()
+    wizard.selected = wizard.selectable[0]
+    wizard.screen = Screen.METHOD
+    app = ui(wizard)
+    footer_y = app.footer.translate_coordinates(app.window, 0, 0)[1]
+    choices = [w for w in widgets(app.body) if isinstance(w, Gtk.RadioButton)]
+    assert len(choices) == len(METHODS)
+    for choice in choices:
+        _, y = choice.translate_coordinates(app.window, 0, 0)
+        assert y >= 0
+        assert y + choice.get_allocated_height() <= footer_y
+    # Keyboard traversal reaches every footer action through native controls.
+    reached = set()
+    for _ in range(50):
+        app.window.child_focus(Gtk.DirectionType.TAB_FORWARD)
+        focus = app.window.get_focus()
+        if isinstance(focus, Gtk.Button):
+            reached.add(focus)
+    assert set(app.actions.values()) <= reached
+
+
+@pytest.mark.parametrize("screen", [Screen.CONFIRM, Screen.LAST_CHANCE])
+def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
+    from beamo_wipe import copy as C
+
+    wizard = make_demo_wizard()
+    wizard.selected = replace(wizard.selectable[0], model="M" * 128, serial="A" * 128)
+    wizard.screen = screen
+    app = ui(wizard)
+    assert wizard.selected.serial in text(app)
+    assert wizard.selected.path in text(app)
+    assert "You cannot get" in text(app)
+    assert (C.TITLE_CONFIRM if screen == Screen.CONFIRM else C.TITLE_LAST) in text(app)
+    arrival = app.window.get_focus()
+    warning = wizard.warning_text() if screen == Screen.CONFIRM else wizard.erase_label()
+    assert arrival.get_text() == warning
+    has_selection, start, end = arrival.get_selection_bounds()
+    assert not has_selection and start == end
+    assert not wizard.runner.started
+
+
 def test_low_resolution_footer_and_focus(ui):
     for screen in (
         Screen.WHAT,
@@ -399,6 +461,26 @@ sys.exit(entry['main']())
         checkpoint = len(logfile.read_text(errors="replace"))
         app.render()
         wait_for(VIEWS["indeterminate"].message, since=checkpoint)
+        # Short visual headings must not suppress the full warning on arrival.
+        # An overridden accessible name alone is insufficient: Orca reads the
+        # label's text interface instead. Exercise the actual speech output.
+        app.w = wizard = make_demo_wizard()
+        wizard.skip_splash()
+        wizard.accept_what()
+        wizard.set_owner(True)
+        wizard.continue_owner()
+        wizard.select_disk(wizard.selectable[0].path)
+        wizard.continue_pick()
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.render()
+        wait_for(wizard.warning_text(), since=checkpoint)
+        wizard.set_confirm_input(wizard.confirm.token)
+        wizard.continue_confirm()
+        wizard.continue_method()
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.render()
+        wait_for(wizard.erase_label(), since=checkpoint)
+        assert not wizard.runner.started
         app.close()
     finally:
         reader.terminate()

@@ -1,0 +1,72 @@
+dbus-daemon[165410]: [session uid=1000 pid=165410 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=165424 comm="python3 -m pytest -rs -k not test_iso_build_uses_h" label="kernel")
+dbus-daemon[165410]: [session uid=1000 pid=165410 pidfd=5] Successfully activated service 'org.a11y.Bus'
+.............................dbus-daemon[165439]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=165424 comm="python3 -m pytest -rs -k not test_iso_build_uses_h" label="kernel")
+dbus-daemon[165439]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+........................................... [  4%]
+...................dbus-daemon[165410]: [session uid=1000 pid=165410 pidfd=5] Reloaded configuration
+..................................................... [  8%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 20%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+........................................................................ [ 32%]
+........................................................................ [ 36%]
+........................................................................ [ 40%]
+...............................F........................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 52%]
+.................................................................sss..s. [ 56%]
+ssssssss................................................................ [ 60%]
+........................................................................ [ 64%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+........................................................................ [ 80%]
+........................................................................ [ 84%]
+........................................................................ [ 88%]
+........................................................................ [ 92%]
+........................................................................ [ 96%]
+...................................................................      [100%]
+=================================== FAILURES ===================================
+____________________ test_staged_chroot_package_matches_src ____________________
+
+    def test_staged_chroot_package_matches_src():
+        src = ROOT / "src/beamo_wipe"
+        staged = (
+            ROOT
+            / "packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe"
+        )
+        if not staged.is_dir():
+            return
+        for path in src.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix == ".pyc" or "__pycache__" in path.parts:
+                continue
+            rel = path.relative_to(src)
+            other = staged / rel
+            assert other.is_file(), f"missing staged copy of {rel}"
+>           assert other.read_bytes() == path.read_bytes(), f"staged copy drifted: {rel}"
+E           AssertionError: staged copy drifted: copy.py
+E           assert b'# SPDX-Lice...h this PC."\n' == b'# SPDX-Lice... to erase."\n'
+E
+E             At index 3225 diff: b'L' != b'C'
+E             Use -v to get more diff
+
+tests/test_live_image.py:180: AssertionError
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_release_manifest.py:130: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:158: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:171: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:227: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:259: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:280: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:298: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:315: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:332: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:358: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:371: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:384: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+1 failed, 1782 passed, 12 skipped, 2 deselected in 86.87s (0:01:26)

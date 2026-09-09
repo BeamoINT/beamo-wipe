@@ -38,7 +38,7 @@ def test_all_hints_render_as_key_caps():
         C.HINT_OWNER,
         C.HINT_METHOD,
         C.HINT_CONFIRM,
-        C.HINT_LAST_CHANCE,
+        C.HINT_LAST_CHANCE_TK,
         C.HINT_BLOCKED,
         C.HINT_DONE,
         C.HINT_SPLASH,

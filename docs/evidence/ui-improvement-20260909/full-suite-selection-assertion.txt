@@ -1,0 +1,97 @@
+dbus-daemon[181027]: [session uid=1000 pid=181027 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=181041 comm="python3 -m pytest -rs -k not test_iso_build_uses_h" label="kernel")
+dbus-daemon[181027]: [session uid=1000 pid=181027 pidfd=5] Successfully activated service 'org.a11y.Bus'
+.............................dbus-daemon[181053]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=181041 comm="python3 -m pytest -rs -k not test_iso_build_uses_h" label="kernel")
+dbus-daemon[181053]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+........................................... [  4%]
+...............FF....................................................... [  8%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 20%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+........................................................................ [ 32%]
+........................................................................ [ 36%]
+........................................................................ [ 40%]
+........................................................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 52%]
+.................................................................sss..s. [ 56%]
+ssssssss................................................................ [ 60%]
+........................................................................ [ 64%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+........................................................................ [ 80%]
+........................................................................ [ 84%]
+........................................................................ [ 88%]
+........................................................................ [ 92%]
+........................................................................ [ 96%]
+...................................................................      [100%]
+=================================== FAILURES ===================================
+______ test_accessible_long_identity_and_warning_remain_readable[confirm] ______
+
+ui = <function ui.<locals>.build at 0x7f1df98228e0>
+screen = <Screen.CONFIRM: 'confirm'>
+
+    @pytest.mark.parametrize("screen", [Screen.CONFIRM, Screen.LAST_CHANCE])
+    def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
+        from beamo_wipe import copy as C
+
+        wizard = make_demo_wizard()
+        wizard.selected = replace(wizard.selectable[0], model="M" * 128, serial="A" * 128)
+        wizard.screen = screen
+        app = ui(wizard)
+        assert wizard.selected.serial in text(app)
+        assert wizard.selected.path in text(app)
+        assert "You cannot get" in text(app)
+        assert (C.TITLE_CONFIRM if screen == Screen.CONFIRM else C.TITLE_LAST) in text(app)
+        arrival = app.window.get_focus()
+        warning = wizard.warning_text() if screen == Screen.CONFIRM else wizard.erase_label()
+        assert arrival.get_text() == warning
+>       assert not arrival.get_selection_bounds()
+E       assert not (False, start=0, end=0)
+E        +  where (False, start=0, end=0) = gi.FunctionInfo(get_selection_bounds, bound=<Gtk.Label object at 0x7f1df983c240 (GtkLabel at 0x39243250)>)()
+E        +    where gi.FunctionInfo(get_selection_bounds, bound=<Gtk.Label object at 0x7f1df983c240 (GtkLabel at 0x39243250)>) = <Gtk.Label object at 0x7f1df983c240 (GtkLabel at 0x39243250)>.get_selection_bounds
+
+tests/test_accessible_runtime.py:330: AssertionError
+____ test_accessible_long_identity_and_warning_remain_readable[last_chance] ____
+
+ui = <function ui.<locals>.build at 0x7f1df9822a20>
+screen = <Screen.LAST_CHANCE: 'last_chance'>
+
+    @pytest.mark.parametrize("screen", [Screen.CONFIRM, Screen.LAST_CHANCE])
+    def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
+        from beamo_wipe import copy as C
+
+        wizard = make_demo_wizard()
+        wizard.selected = replace(wizard.selectable[0], model="M" * 128, serial="A" * 128)
+        wizard.screen = screen
+        app = ui(wizard)
+        assert wizard.selected.serial in text(app)
+        assert wizard.selected.path in text(app)
+        assert "You cannot get" in text(app)
+        assert (C.TITLE_CONFIRM if screen == Screen.CONFIRM else C.TITLE_LAST) in text(app)
+        arrival = app.window.get_focus()
+        warning = wizard.warning_text() if screen == Screen.CONFIRM else wizard.erase_label()
+        assert arrival.get_text() == warning
+>       assert not arrival.get_selection_bounds()
+E       assert not (False, start=0, end=0)
+E        +  where (False, start=0, end=0) = gi.FunctionInfo(get_selection_bounds, bound=<Gtk.Label object at 0x7f1df1fa5a80 (GtkLabel at 0x39252250)>)()
+E        +    where gi.FunctionInfo(get_selection_bounds, bound=<Gtk.Label object at 0x7f1df1fa5a80 (GtkLabel at 0x39252250)>) = <Gtk.Label object at 0x7f1df1fa5a80 (GtkLabel at 0x39252250)>.get_selection_bounds
+
+tests/test_accessible_runtime.py:330: AssertionError
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_release_manifest.py:130: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:158: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:171: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:227: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:259: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:280: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:298: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:315: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:332: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:358: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:371: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:384: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+2 failed, 1781 passed, 12 skipped, 2 deselected in 90.92s (0:01:30)

@@ -1,0 +1,169 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+_________ test_device_path_is_visible_without_expanding_details[pick] __________
+
+ui = <function ui.<locals>.build at 0x7f0eb175dbc0>
+screen = <Screen.PICK: 'pick'>
+
+    @pytest.mark.parametrize('screen', [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE])
+    def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: F811
+        wiz, app = ui(size=(1024, 740))
+        _drive_to(wiz, app, Screen.CONFIRM)
+        wiz.screen = screen  # presentation only
+        app._draw()
+        app.root.update()
+        assert not app._show_more
+        labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
+                  and w.cget('text') == wiz.selected.path]
+>       assert len(labels) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_design_runtime.py:114: AssertionError
+________ test_device_path_is_visible_without_expanding_details[confirm] ________
+
+ui = <function ui.<locals>.build at 0x7f0eb175e840>
+screen = <Screen.CONFIRM: 'confirm'>
+
+    @pytest.mark.parametrize('screen', [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE])
+    def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: F811
+        wiz, app = ui(size=(1024, 740))
+        _drive_to(wiz, app, Screen.CONFIRM)
+        wiz.screen = screen  # presentation only
+        app._draw()
+        app.root.update()
+        assert not app._show_more
+        labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
+                  and w.cget('text') == wiz.selected.path]
+>       assert len(labels) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_design_runtime.py:114: AssertionError
+______ test_device_path_is_visible_without_expanding_details[last_chance] ______
+
+ui = <function ui.<locals>.build at 0x7f0eb175f9c0>
+screen = <Screen.LAST_CHANCE: 'last_chance'>
+
+    @pytest.mark.parametrize('screen', [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE])
+    def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: F811
+        wiz, app = ui(size=(1024, 740))
+        _drive_to(wiz, app, Screen.CONFIRM)
+        wiz.screen = screen  # presentation only
+        app._draw()
+        app.root.update()
+        assert not app._show_more
+        labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
+                  and w.cget('text') == wiz.selected.path]
+>       assert len(labels) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_design_runtime.py:114: AssertionError
+----------------------------- Captured stderr call -----------------------------
+invalid command name "139701085034816<lambda>"
+    while executing
+"139701085034816<lambda>"
+    ("after" script)
+invalid command name "139701085038720<lambda>"
+    while executing
+"139701085038720<lambda>"
+    ("after" script)
+________ test_device_path_is_visible_without_expanding_details[working] ________
+
+ui = <function ui.<locals>.build at 0x7f0eb175ea20>
+screen = <Screen.WORKING: 'working'>
+
+    @pytest.mark.parametrize('screen', [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE])
+    def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: F811
+        wiz, app = ui(size=(1024, 740))
+        _drive_to(wiz, app, Screen.CONFIRM)
+        wiz.screen = screen  # presentation only
+        app._draw()
+        app.root.update()
+        assert not app._show_more
+        labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
+                  and w.cget('text') == wiz.selected.path]
+>       assert len(labels) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_design_runtime.py:114: AssertionError
+----------------------------- Captured stderr call -----------------------------
+invalid command name "139701082159104<lambda>"
+    while executing
+"139701082159104<lambda>"
+    ("after" script)
+_________ test_device_path_is_visible_without_expanding_details[done] __________
+
+ui = <function ui.<locals>.build at 0x7f0eb175ed40>
+screen = <Screen.DONE: 'done'>
+
+    @pytest.mark.parametrize('screen', [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE])
+    def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: F811
+        wiz, app = ui(size=(1024, 740))
+        _drive_to(wiz, app, Screen.CONFIRM)
+        wiz.screen = screen  # presentation only
+        app._draw()
+        app.root.update()
+        assert not app._show_more
+        labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
+                  and w.cget('text') == wiz.selected.path]
+>       assert len(labels) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_design_runtime.py:114: AssertionError
+----------------------------- Captured stderr call -----------------------------
+invalid command name "139701084452480<lambda>"
+    while executing
+"139701084452480<lambda>"
+    ("after" script)
+_____________ test_countdown_ready_still_explains_nothing_started ______________
+
+ui = <function ui.<locals>.build at 0x7f0eb175f880>
+
+    def test_countdown_ready_still_explains_nothing_started(ui):  # noqa: F811
+        from test_tk_runtime import _button_named
+        wiz, app = ui(size=(1024, 740))
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+>       assert 'Nothing starts automatically' in app._countdown_label.cget('text')
+E       AssertionError: assert 'Nothing starts automatically' in 'seconds until you can press Erase'
+E        +  where 'seconds until you can press Erase' = cget('text')
+E        +    where cget = <tkinter.Label object .!frame3.!frame2.!frame.!frame.!label>.cget
+E        +      where <tkinter.Label object .!frame3.!frame2.!frame.!frame.!label> = <beamo_wipe.ui.tk_wizard.TkWizard object at 0x7f0eb173f390>._countdown_label
+
+tests/test_design_runtime.py:123: AssertionError
+----------------------------- Captured stderr call -----------------------------
+invalid command name "139701083908544<lambda>"
+    while executing
+"139701083908544<lambda>"
+    ("after" script)
+___________ test_wheel_over_disk_identity_scrolls_without_selecting ____________
+
+ui = <function ui.<locals>.build at 0x7f0eb1794b80>
+
+    def test_wheel_over_disk_identity_scrolls_without_selecting(ui):  # noqa: F811
+        wiz, app = ui(size=(1024, 740))
+        _drive_to(wiz, app, Screen.PICK)
+        canvas = app._pick_canvas
+        canvas.yview_moveto(0)
+        selected = wiz.selected
+        label = next(w for w in descendants(app._pick_cards[selected.path])
+                     if w.winfo_class() == 'Label' and w.cget('text') == selected.serial)
+        before = canvas.yview()[0]
+        label.event_generate('<MouseWheel>', delta=-120)
+        app.root.update()
+>       assert canvas.yview()[0] > before
+E       assert 0.0 > 0.0
+
+tests/test_design_runtime.py:143: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_design_runtime.py::test_device_path_is_visible_without_expanding_details[pick]
+FAILED tests/test_design_runtime.py::test_device_path_is_visible_without_expanding_details[confirm]
+FAILED tests/test_design_runtime.py::test_device_path_is_visible_without_expanding_details[last_chance]
+FAILED tests/test_design_runtime.py::test_device_path_is_visible_without_expanding_details[working]
+FAILED tests/test_design_runtime.py::test_device_path_is_visible_without_expanding_details[done]
+FAILED tests/test_design_runtime.py::test_countdown_ready_still_explains_nothing_started
+FAILED tests/test_design_runtime.py::test_wheel_over_disk_identity_scrolls_without_selecting
+7 failed, 44 deselected in 0.85s

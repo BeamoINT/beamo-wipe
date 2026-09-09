@@ -179,7 +179,7 @@ def gallery_html() -> str:
             "owner": C.HINT_OWNER,
             "method": C.HINT_METHOD,
             "confirm": C.HINT_CONFIRM,
-            "lastChance": C.HINT_LAST_CHANCE,
+            "lastChance": C.HINT_LAST_CHANCE_TK,
             "blocked": C.HINT_BLOCKED,
             "working": C.HINT_WORKING,
             "splash": C.HINT_SPLASH,
@@ -293,7 +293,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .journey .number { display: block; width: 21px; height: 21px; line-height: 19px; margin: 0 auto 5px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface-alt); font-weight: 700; }
   .journey [aria-current="step"] { color: var(--primary); }
   .journey [aria-current="step"] .number { color: white; background: var(--primary); border-color: var(--primary); }
-  .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; margin-top: 8px; }
+  .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; margin-top: 8px; }
   .review-grid .countcap { max-width: 260px; text-align: center; }
   .review-warning { color: var(--danger); font-weight: 700; overflow-wrap: anywhere; }
   .card.identity { background: var(--primary-tint); border-color: var(--primary); padding: 12px 20px; }
@@ -414,7 +414,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .ringwrap { display: flex; flex-direction: column; align-items: center; }
   .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 56px; font-weight: 700; }
   .countcap { font-size: 16px; color: var(--muted); margin-top: 12px; }
-  .countcap.ready { color: var(--ok); font-weight: 600; }
+  .countcap.ready { color: var(--ink); font-weight: 600; }
   .advrow { font-size: 13px; margin: 0; padding: 7px 0; }
   .advrow + .advrow { border-top: 1px solid var(--border); }
   .methodblurb { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
@@ -447,6 +447,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .card .title, .card .meta { overflow-wrap: anywhere; }
   .card .meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; }
   .connection { grid-column: 1 / -1; }
+  .compact-notice { padding: 8px 16px; font-size: 14px; }
   .card .meta .ser { display: block; }
   .page, .shell, .body, .col { min-width: 0; }
   @media (max-width: 1000px) { .journey { display: none; } }
@@ -500,6 +501,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <script>
 const P = __PAYLOAD__;
 let screen = "splash";
+let renderedScreen = null;
 let reportWanted = false;
 let reportHelpFrom = "what";
 let shutdownFrom = "what";
@@ -611,8 +613,8 @@ function closePreview() {
 function tokenOk() {
   return selected && token.trim().toLowerCase() === selected.token.toLowerCase();
 }
-function panel(kind, text) {
-  return `<div class="panel ${kind}">${badge(kind, 28)}<div>${text}</div></div>`;
+function panel(kind, text, compact = false) {
+  return `<div class="panel ${kind}${compact ? " compact-notice" : ""}">${badge(kind, 28)}<div>${text}</div></div>`;
 }
 function moreLink() {
   return `<button type="button" class="linkbtn morelink" id="more">${showMore ? P.buttons.less : P.buttons.more}</button>`;
@@ -627,7 +629,7 @@ function esc(s) {
 function metaLine(d) {
   return `<div class="meta"><span class="serialpair"><span class="serial-label">${P.serialLabel}</span><span class="mono ser">${esc(d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
-    ${showMore ? `<div class="connection"><span>${esc(d.bus)}</span> <span class="mono dev">${esc(d.path)}</span></div>` : ""}</div>`;
+    <div class="connection"><span class="mono dev">${esc(d.path)}</span>${showMore ? ` <span>Connection: ${esc(d.bus)}</span>` : ""}</div></div>`;
 }
 function summaryCard(d) {
   return `<div class="card hero identity"><div class="identity-label">${P.selectedDisk}</div><div class="row" style="align-items:flex-start">
@@ -663,6 +665,10 @@ function refreshPreview() {
   draw();
 }
 function draw() {
+  // Countdown redraws must preserve deliberate keyboard focus. Entering
+  // final review always starts on Back, including screenshot deep links.
+  const reviewFocus = screen === "last" && renderedScreen === "last"
+    && document.activeElement.matches(".foot button") ? document.activeElement.textContent : null;
   const info = stepInfo();
   const stepEl = document.getElementById("step");
   document.getElementById("journey").innerHTML = info[0] ? P.journey.map((label, index) =>
@@ -729,7 +735,7 @@ function draw() {
   } else if (screen === "pick") {
     let html = `<h1 class="sub">${P.titles.pick}</h1><p class="subtitle">${P.pickSubtitle}</p>`;
     if (P.sameSizeConflict && mode === "happy") html += `<div style="margin-bottom:12px">${panel("warn", P.sameSize)}</div>`;
-    if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd)}</div>`;
+    if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd, true)}</div>`;
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
     selectable().forEach(d => { html += diskCard(d); });
@@ -738,7 +744,12 @@ function draw() {
     renderOtherDevices();
     bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
-      const pick = () => { selected = disks().find(d => d.path === el.dataset.path); draw(); };
+      const pick = () => {
+        selected = disks().find(d => d.path === el.dataset.path);
+        draw();
+        Array.from(main.querySelectorAll(".card.pickable"))
+          .find(card => card.dataset.path === selected.path).focus();
+      };
       el.onclick = pick;
       el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
     });
@@ -836,16 +847,16 @@ function draw() {
     const ready = tLeft <= 0;
     const CIRC = 2 * Math.PI * 81;
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
-    const ringColor = ready ? "var(--ok)" : "var(--primary)";
+    const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p></div><div class="ringwrap"><div style="position:relative;width:190px;height:190px">
-        <svg width="190" height="190" viewBox="0 0 190 190">
+      <div class="review-grid"><div>${summaryCard(selected)}<p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p></div><div class="ringwrap"><div style="position:relative;width:144px;height:144px">
+        <svg width="144" height="144" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
-          ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--ok)" stroke-width="11"/>` :
+          ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :
             `<circle cx="95" cy="95" r="81" fill="none" stroke="${ringColor}" stroke-width="11" stroke-linecap="round"
               stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC * (1 - frac)}" transform="rotate(-90 95 95)"/>`}
         </svg>
-        <div class="ringnum" style="${ready ? "color:var(--ok)" : ""}">${ready ? "✓" : tLeft}</div></div>
+        <div class="ringnum" style="${ready ? "color:var(--primary)" : ""}">${ready ? "0" : tLeft}</div></div>
       <div class="countcap${ready ? " ready" : ""}">${ready ? P.countdownReady : P.countdownCaption}</div></div></div>`;
     btnsL.append(btn(P.buttons.back, () => { if (timer) clearInterval(timer); screen = "method"; draw(); }));
     btnsR.append(btn(P.buttons.erase, () => { if (tLeft<=0) startWork(); }, "danger", tLeft>0));
@@ -885,6 +896,12 @@ function draw() {
   if (!["working", "done", "splash", "shutdown_confirm"].includes(screen)) {
     utilities.prepend(btn("Check disks again (F5)", refreshPreview, "ghost"));
   }
+  if (screen === "last") {
+    const focused = Array.from(foot.querySelectorAll("button"))
+      .find(button => button.textContent === reviewFocus && !button.disabled);
+    (focused || btnsL.querySelector("button")).focus();
+  }
+  renderedScreen = screen;
 }
 document.addEventListener("keydown", e => {
   if (screen === "shutdown_confirm" && ["Escape", "Enter"].includes(e.key)) {

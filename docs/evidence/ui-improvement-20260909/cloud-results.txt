@@ -1,0 +1,36 @@
+Build: 80eac957-d39a-496d-89b6-8c0811831a0b
+Validation source: 73bb6504a05865e1a82e4e81a66e3a7fadd90e6c
+
+Step #3 - "preview": [ci-hosted] PASS phase=preview
+Step #1 - "lint": [ci-hosted] PASS phase=lint
+Step #2 - "python-tests": 1783 passed, 12 skipped, 2 deselected in 157.18s (0:02:37)
+Step #2 - "python-tests": [ci-hosted] PASS phase=tests
+Step #4 - "negative-test": [ci-hosted] PASS phase=negative
+Step #5 - "iso-build": '/build/packaging/live/live-image-amd64.hybrid.iso' -> '/out/beamo-wipe-0.2.6-amd64.iso'
+Step #5 - "iso-build": -rw-r--r-- 1 root root 537M Sep  9 02:51 /out/beamo-wipe-0.2.6-amd64.iso
+Step #5 - "iso-build": Wrote /workspace/dist/beamo-wipe-0.2.6-amd64.iso
+Step #5 - "iso-build": -rw-r--r-- 1 root root 537M Sep  9 02:51 /workspace/dist/beamo-wipe-0.2.6-amd64.iso
+Step #5 - "iso-build": beamo-wipe-0.2.6-amd64.iso: OK
+Step #5 - "iso-build": beamo-wipe-0.2.6-amd64.iso: OK
+Step #5 - "iso-build": Consumer: sha256sum -c beamo-wipe-0.2.6-amd64.iso.sha256 (from dist/)
+Step #5 - "iso-build": -rw------- 1 root root   93 Sep  9 02:51 dist/beamo-wipe-0.2.6-amd64.iso.sha256
+Step #5 - "iso-build": [ci-hosted] ISO ok path=/workspace/dist/beamo-wipe-0.2.6-amd64.iso bytes=563085312 pvd=CD001
+Step #5 - "iso-build": 968339508615de07cc1e6febe6e89e77e24d3f561a56cdac39d0c2f14c7ec49e  /workspace/dist/beamo-wipe-0.2.6-amd64.iso
+Step #5 - "iso-build": [ci-hosted] PASS phase=iso
+Step #6 - "qemu-verify": [qemu-verify] worker_os=Linux worker_arch=x86_64
+Step #6 - "qemu-verify": [qemu-verify] artifact checksums verified
+Step #6 - "qemu-verify": [qemu-verify] live filesystem package and permission policy verified
+Step #6 - "qemu-verify": [qemu-verify] private report helper crash left no host-namespace mount
+Step #6 - "qemu-verify": [qemu-verify] fake-disk confirmation and boot-exclusion checks passed
+Step #6 - "qemu-verify": [qemu-verify] disposable target and boot loop identities verified
+Step #6 - "qemu-verify": [qemu-verify] pinned nwipe boundary and anonymized logging verified
+Step #6 - "qemu-verify": [qemu-verify] bios boot completed the shipped Wizard report export
+Step #6 - "qemu-verify": [qemu-verify] shipped Wizard zeroed the guest target prefill
+Step #6 - "qemu-verify": [qemu-verify] guest report passed clean-FAT, completion, checksum, read-only, and unmount checks
+Step #6 - "qemu-verify": [qemu-verify] uefi boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] bios-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] uefi-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] secureboot-usb boot reached the shipped Tk WHAT screen
+Step #6 - "qemu-verify": [qemu-verify] PASS; evidence=/tmp/beamo-wipe-qemu.VRScTq/evidence
+Step #6 - "qemu-verify": [ci-hosted] PASS phase=qemu
+Step #7 - "publish-release": Release publication disabled; verified artifacts remain ephemeral.

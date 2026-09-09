@@ -1,0 +1,23 @@
+dbus-daemon[95708]: [session uid=1000 pid=95708 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=95724 comm="python3 docs/evidence/ui-improvement-20260909/capt" label="kernel")
+dbus-daemon[95708]: [session uid=1000 pid=95708 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[95732]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=95724 comm="python3 docs/evidence/ui-improvement-20260909/capt" label="kernel")
+dbus-daemon[95732]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+Traceback (most recent call last):
+  File "/home/box/beamo-wipe/docs/evidence/ui-improvement-20260909/capture-ui.py", line 57, in <module>
+    wait_for_window_size(app.window, (width, height))
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/box/beamo-wipe/tests/test_accessible_runtime.py", line 41, in wait_for_window_size
+    pytest.fail(
+    ~~~~~~~~~~~^
+        f"Window did not reach {size}: size={tuple(window.get_size())}, "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"allocation={(allocation.width, allocation.height)}, "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"mapped={window.get_mapped()}"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/local/lib/python3.13/dist-packages/_pytest/outcomes.py", line 163, in __call__
+    raise Failed(msg=reason, pytrace=pytrace)
+Failed: Window did not reach (800, 600): size=(879, 600), allocation=(879, 600), mapped=True

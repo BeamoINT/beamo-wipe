@@ -99,3 +99,60 @@ def test_result_tab_order_reaches_report_without_shutdown(ui, tmp_path):  # noqa
     next_control._key()
     save.assert_called_once_with()
     assert not wiz.wants_shutdown
+
+
+@pytest.mark.parametrize('screen', [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE])
+def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: F811
+    wiz, app = ui(size=(1024, 740))
+    _drive_to(wiz, app, Screen.CONFIRM)
+    wiz.screen = screen  # presentation only
+    app._draw()
+    app.root.update()
+    assert not app._show_more
+    labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
+              and w.cget('text') == wiz.selected.path]
+    assert len(labels) == 1
+    assert labels[0].winfo_ismapped()
+    assert labels[0].winfo_reqwidth() <= labels[0].winfo_width() + 2
+
+
+def test_countdown_ready_still_explains_nothing_started(ui):  # noqa: F811
+    from test_tk_runtime import _button_named
+    wiz, app = ui(size=(1024, 740))
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    assert 'Nothing starts automatically' in app._countdown_label.cget('text')
+    wiz._erase_until = 0
+    app._refresh_last_chance()
+    assert 'Nothing has started' in app._countdown_label.cget('text')
+    assert app._countdown_num.cget('text') == '0'
+    assert app.root.focus_get() is _button_named(app, C.BTN_BACK)
+    assert not wiz.runner.started
+
+
+def test_wheel_over_disk_identity_scrolls_without_selecting(ui):  # noqa: F811
+    wiz, app = ui(size=(1024, 740))
+    _drive_to(wiz, app, Screen.PICK)
+    canvas = app._pick_canvas
+    canvas.yview_moveto(0)
+    selected = wiz.selected
+    label = next(w for w in descendants(app._pick_cards[selected.path])
+                 if w.winfo_class() == 'Label' and w.cget('text') == selected.serial)
+    before = canvas.yview()[0]
+    label.event_generate('<MouseWheel>', delta=-120)
+    app.root.update()
+    assert canvas.yview()[0] > before
+    assert wiz.selected == selected
+    assert wiz.screen == Screen.PICK
+
+
+@pytest.mark.parametrize('size', [(1366, 768), (1920, 1080)])
+@pytest.mark.parametrize('screen', list(Screen))
+def test_wizard_fits_supported_desktop_sizes(ui, size, screen):  # noqa: F811
+    from test_tk_runtime import _clipping_problems, _off_window_problems
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, Screen.CONFIRM)
+    wiz.screen = screen  # presentation only
+    app._draw()
+    app.root.update()
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
