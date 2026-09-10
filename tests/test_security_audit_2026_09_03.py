@@ -76,9 +76,10 @@ def _manifest_for(root: Path, iso_bytes: bytes = b"known image") -> Path:
         f"{iso_sha}  {iso.name}\n", encoding="ascii"
     )
     body = {
-        "schema_version": 1,
+        "schema_version": 2,
         "beamo_wipe_version": "1.2.3",
-        "source": {"dirty": False},
+        "source": {"dirty": False, "commit": "a" * 40},
+        "build": {"release_build_id": "local"},
         "nwipe": {"version": "0.42", "commit": "a" * 40},
         "artifact": {
             "iso_name": iso.name,

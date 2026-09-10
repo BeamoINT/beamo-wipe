@@ -134,7 +134,8 @@ def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     import beamo_wipe.release_manifest as rm
 
     m = rm.generate_manifest(version="0.1.0", strict=False)
-    assert m["schema_version"] == 1
+    assert m["schema_version"] == 2
+    assert m["build"]["release_build_id"]
     assert m["beamo_wipe_version"] == "0.1.0"
     assert m["source"]["commit"]
     assert "dirty" in m["source"]

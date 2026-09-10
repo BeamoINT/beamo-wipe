@@ -79,10 +79,20 @@ def test_schema_covers_required_fields(tmp_path, monkeypatch):
     wiz.confirm_erase()
     assert wiz.evidence is not None
     ev = wiz.evidence
-    assert ev["schema_version"] == 1
+    assert ev["schema_version"] == 2
     assert ev["beamo_wipe_version"] == __version__
     assert ev["nwipe_version"] == NWIPE_PINNED_VERSION
     assert ev["nwipe_commit"] == NWIPE_PINNED_COMMIT
+    assert ev["build_status"] in {
+        "production",
+        "development",
+        "dirty",
+        "source_mismatch",
+        "unavailable",
+    }
+    assert ev["timestamps"]["duration_source"] == "monotonic"
+    assert ev["timestamps"]["wall_confidence"] in {"unverified", "unavailable"}
+    assert ev["timestamps"]["wall_provenance"] in {"os_utc", "injected", "unavailable"}
     assert ev["outcome"] in ALLOWED_OUTCOMES
     assert ev["device"] is not None
     assert ev["device"]["path"] == wiz.selected.path  # type: ignore[union-attr]

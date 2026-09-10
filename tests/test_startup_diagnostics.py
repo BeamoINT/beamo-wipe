@@ -208,7 +208,7 @@ def test_build_identity_is_exact_and_runtime_overrides_are_ignored(
     monkeypatch.setattr(d, "BUILD_PATH", path)
     monkeypatch.setenv("BUILD_ID", "private")
     assert d.application_identity()["build"] == metadata
-    assert d.validate_report(blob())["application"]["build_status"] == "recorded"
+    assert d.validate_report(blob())["application"]["build_status"] == "production"
     metadata["hostname"] = "private"
     path.write_text(json.dumps(metadata))
     assert d.application_identity()["build_status"] == "unavailable"

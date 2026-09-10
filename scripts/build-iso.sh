@@ -84,15 +84,23 @@ find "$STAGE_PY" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 find "$STAGE_PY" -type d -name __pycache__ -empty -delete
 # Record only bounded immutable build identity inside the live image.
 PYTHONPATH="$ROOT/src" python3 - <<'PYIDENTITY'
-import json, os, pathlib, re
+import os, pathlib
+from beamo_wipe.build_identity import write_injected
 from beamo_wipe.release_manifest import git_commit, git_dirty, live_build_inputs
 build_id = os.environ.get("BUILD_ID", "local")
-if not re.fullmatch(r"(?:[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}|local)", build_id):
-    raise SystemExit("Invalid build identity")
-identity = {"source_commit": git_commit(), "source_dirty": git_dirty()[0],
-            "source_sha256": live_build_inputs()["src/beamo_wipe/"], "build_id": build_id}
-path = pathlib.Path("packaging/live/config/includes.chroot/usr/share/beamo-wipe/build-identity.json")
-path.write_text(json.dumps(identity, sort_keys=True) + "\n", encoding="ascii")
+dirty = git_dirty()[0]
+try:
+    write_injected(
+        pathlib.Path("packaging/live/config/includes.chroot/usr/share/beamo-wipe/build-identity.json"),
+        source_commit=git_commit(),
+        source_sha256=live_build_inputs()["src/beamo_wipe/"],
+        build_id=build_id,
+        source_dirty=dirty,
+        allow_dirty=os.environ.get("ALLOW_DIRTY") == "1",
+        hosted=os.environ.get("PROJECT_ID") == "beamo-wipe",
+    )
+except RuntimeError as exc:
+    raise SystemExit(str(exc)) from exc
 PYIDENTITY
 cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"
 cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"

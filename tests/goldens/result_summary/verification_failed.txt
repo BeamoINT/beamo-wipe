@@ -16,7 +16,11 @@ Warnings:
 - Two disks share the same size; verify the serial suffix.
 Limitations: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
 Application: Beamo Wipe 0.2.7
+Wrapper commit: unavailable
+Release build: unavailable
+Build status: unavailable
 Engine: nwipe 0.42
 Engine commit: 6082bde060091e66365d852a1877f2ee80c67105
+Clock: unavailable
 Started (clock not verified): unavailable
 Ended (clock not verified): unavailable

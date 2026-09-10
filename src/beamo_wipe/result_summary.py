@@ -9,6 +9,7 @@ import re
 import unicodedata
 from typing import Any, Mapping
 
+from beamo_wipe.build_identity import BUILD_ID_RE, COMMIT_RE as WRAPPER_COMMIT_RE, STATUSES
 from beamo_wipe.identity import HARDWARE_ID_LABEL, SERIAL_LABEL, SERIAL_NOT_REPORTED
 from beamo_wipe.outcomes import present_evidence
 from beamo_wipe.progress import duration
@@ -20,6 +21,13 @@ WALL_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 RESULT_FILE_RE = re.compile(r"^result-[A-Za-z0-9._-]{1,120}\.json$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+STATUS_LABELS = {
+    "production": "production",
+    "development": "development",
+    "dirty": "dirty",
+    "source_mismatch": "source mismatch",
+    "unavailable": UNAVAILABLE,
+}
 
 def sanitize_value(text: object, *, limit: int = MAX_VALUE) -> str:
     """Flatten untrusted text so it cannot inject headings or control codes."""
@@ -79,6 +87,36 @@ def _wall(value: object) -> str:
     if not isinstance(value, str) or not WALL_RE.fullmatch(value):
         return UNAVAILABLE
     return value
+
+
+def _schema_version(evidence: Mapping[str, Any]) -> int:
+    version = evidence.get("schema_version")
+    return version if type(version) is int else 0
+
+
+def _clock_line(timestamps: Mapping[str, Any], schema_version: int) -> str:
+    if schema_version >= 2:
+        confidence = timestamps.get("wall_confidence")
+        provenance = timestamps.get("wall_provenance")
+        if confidence == "verified":
+            return UNAVAILABLE
+        if confidence == "unverified" and provenance in {"os_utc", "injected"}:
+            return f"unverified ({provenance})"
+        return UNAVAILABLE
+    if _wall(timestamps.get("started_at_wall")) != UNAVAILABLE or _wall(
+        timestamps.get("ended_at_wall")
+    ) != UNAVAILABLE:
+        return "unverified"
+    return UNAVAILABLE
+
+
+def _wall_display(timestamps: Mapping[str, Any], key: str, schema_version: int) -> str:
+    if schema_version >= 2:
+        if timestamps.get("wall_confidence") != "unverified":
+            return UNAVAILABLE
+        if timestamps.get("wall_provenance") not in {"os_utc", "injected"}:
+            return UNAVAILABLE
+    return _wall(timestamps.get(key))
 
 
 def _elapsed(timestamps: object) -> str:
@@ -237,8 +275,26 @@ def _application(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
         commit_text = UNAVAILABLE
     else:
         commit_text = commit
+    wrapper = evidence.get("source_commit")
+    if not isinstance(wrapper, str) or not WRAPPER_COMMIT_RE.fullmatch(wrapper):
+        wrapper_text = UNAVAILABLE
+    else:
+        wrapper_text = wrapper
+    build_id = evidence.get("build_id")
+    if not isinstance(build_id, str) or not BUILD_ID_RE.fullmatch(build_id):
+        build_text = UNAVAILABLE
+    else:
+        build_text = build_id
+    status = evidence.get("build_status")
+    status_text = STATUS_LABELS.get(status, UNAVAILABLE) if status in STATUSES else UNAVAILABLE
+    if status_text == UNAVAILABLE:
+        wrapper_text = UNAVAILABLE
+        build_text = UNAVAILABLE
     return [
         ("Application", application),
+        ("Wrapper commit", wrapper_text),
+        ("Release build", build_text),
+        ("Build status", status_text),
         ("Engine", engine),
         ("Engine commit", commit_text),
     ]
@@ -273,8 +329,9 @@ def build_result_summary(
         ("Warnings", _warnings(payload, secrets)),
         ("Limitations", _limitations(payload)),
         *_application(payload),
-        ("Started (clock not verified)", _wall(timestamps.get("started_at_wall"))),
-        ("Ended (clock not verified)", _wall(timestamps.get("ended_at_wall"))),
+        ("Clock", _clock_line(timestamps, _schema_version(payload))),
+        ("Started (clock not verified)", _wall_display(timestamps, "started_at_wall", _schema_version(payload))),
+        ("Ended (clock not verified)", _wall_display(timestamps, "ended_at_wall", _schema_version(payload))),
     ]
     for label, value in fields:
         if "\n" in value:

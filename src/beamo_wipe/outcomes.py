@@ -129,9 +129,11 @@ def present_evidence(evidence: object) -> ResultView:
         from beamo_wipe.methods import METHODS
         from beamo_wipe.models import MethodId
 
+        from beamo_wipe.evidence import SUPPORTED_SCHEMA_VERSIONS
+
         if (
             type(evidence.get("schema_version")) is not int
-            or evidence["schema_version"] != 1
+            or evidence["schema_version"] not in SUPPORTED_SCHEMA_VERSIONS
         ):
             return unknown
         device = evidence["device"]

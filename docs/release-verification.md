@@ -29,10 +29,11 @@ and writes `RELEASE_COMPLETE.txt` last under a unique build-ID path.
 
 ## What the manifest contains
 
-`dist/beamo-wipe-*.manifest.json` (`schema_version: 1`):
+`dist/beamo-wipe-*.manifest.json` (`schema_version: 2`):
 
 - `source`: `commit` (40-hex), `tag`, `dirty`/redacted `dirty_count`, `branch`, canonical `remote_url`
-- `build`: content-addressed `debian:bookworm@sha256:…`, runner, `build_commands`, `built_at` UTC
+- `build`: content-addressed `debian:bookworm@sha256:…`, runner, `build_commands`, `built_at` UTC, `release_build_id` (Cloud Build UUID or explicit `local` for development)
+- Live image identity is the same payload written once to `/usr/share/beamo-wipe/build-identity.json` (`source_commit`, `source_sha256`, `build_id`, `source_dirty`). Runtime never infers commit from git. Missing or invalid identity is `unavailable`; dirty trees are `dirty`; `local` is `development`; a matching UUID is `production`. ISO format never implies a trusted wall clock.
 - `dependencies`: `pyproject.toml`/`THIRD_PARTY.md`/`NOTICE` hashes, `live_build_inputs` (bootstrap/binary/package-lists/hooks/src hashes), `nwipe` (`version` `0.42`, `commit` `6082bde…`, `pinned_path`)
 - `artifact`: `iso_name`, `iso_size_bytes`, `iso_sha256`, `iso_sha256_sidecar`
 - `test_evidence`: pytest (xvfb 72 DPI, `BEAMO_WIPE_DRY_RUN=1`), preview (`--web`/`--console`), QEMU (disposable qcow2 per `docs/qemu-verify.md`)

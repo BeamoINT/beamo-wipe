@@ -175,6 +175,7 @@ class Wizard:
         self._evidence_start_mono: Optional[float] = None
         self._evidence_end_mono: Optional[float] = None
         self._evidence_end_wall = ""
+        self._evidence_wall_provenance = "unavailable"
         self._progress_timing = ProgressTiming(self._clock, time.time)
         self._display_progress: Optional[ProgressView] = None
         self._display_progress_at = 0.0
@@ -268,7 +269,8 @@ class Wizard:
                 inputs = dict(
                     disk=target, discovery=discovery, method=self.method,
                     request=None, result=None, started_at_wall=None, ended_at_wall=None,
-                    started_mono=None, ended_mono=None, argv=[], log_text="", interrupted=True)
+                    started_mono=None, ended_mono=None, argv=[], log_text="", interrupted=True,
+                    wall_provenance="unavailable")
                 self._evidence_write_seq += 1
                 self._pending_evidence = (copy.deepcopy(inputs), self._evidence_context(),
                                           self.wipe_result, self._result_evidence_key(self.wipe_result))
@@ -437,6 +439,24 @@ class Wizard:
             view = ProgressView(phase, percent, timing.elapsed, remaining)
             self._display_progress = view
             return view
+
+    def _capture_wall(self) -> tuple[str, str]:
+        """Return (stamp, provenance). Format never implies a trusted clock."""
+        from beamo_wipe.evidence import _iso_now_wall, valid_wall
+
+        try:
+            if self._wall_clock is not None:
+                raw = self._wall_clock()
+                provenance = "injected"
+            else:
+                raw = _iso_now_wall()
+                provenance = "os_utc"
+        except Exception:
+            return "", "unavailable"
+        stamp = valid_wall(raw)
+        if not stamp:
+            return "", "unavailable"
+        return stamp, provenance
 
     @property
     def elapsed_text(self) -> str:
@@ -1041,13 +1061,9 @@ class Wizard:
                 self._evidence_flag_hint = {}
                 self.screen = Screen.WORKING
                 # Record evidence start (wall + monotonic) + redacted argv for later completion
-                try:
-                    from beamo_wipe.evidence import _iso_now_wall
-
-                    wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
-                except Exception:
-                    wall = ""
+                wall, provenance = self._capture_wall()
                 self._evidence_start_wall = wall
+                self._evidence_wall_provenance = provenance
                 self._evidence_start_mono = self.now
                 self._evidence_end_mono = None
                 self._progress_timing = ProgressTiming(self._clock, time.time)
@@ -1089,11 +1105,10 @@ class Wizard:
             if self.screen == Screen.DONE and self.wipe_result is not None:
                 return
             self._evidence_end_mono = self.now
-            try:
-                from beamo_wipe.evidence import _iso_now_wall
-                self._evidence_end_wall = self._wall_clock() if self._wall_clock else _iso_now_wall()
-            except Exception:
-                self._evidence_end_wall = ""
+            end_wall, end_provenance = self._capture_wall()
+            self._evidence_end_wall = end_wall
+            if self._evidence_wall_provenance == "unavailable":
+                self._evidence_wall_provenance = end_provenance
             self._progress_timing.finish(self._evidence_end_mono)
             if self._progress_timing.invalid_clock:
                 self._evidence_end_mono = None
@@ -1267,21 +1282,12 @@ class Wizard:
                     pass
                 log_text = ""
 
-            # Wall clocks
-            try:
-                from beamo_wipe.evidence import _iso_now_wall
-
-                end_wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
-            except Exception as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("wizard", "wall_clock_failed", type(exc).__name__)
-                except Exception:
-                    pass
-                end_wall = ""
             if result is not None:
                 end_wall = self._evidence_end_wall
+            else:
+                end_wall, end_provenance = self._capture_wall()
+                if self._evidence_wall_provenance == "unavailable":
+                    self._evidence_wall_provenance = end_provenance
             start_wall = self._evidence_start_wall or ""
             start_mono = self._evidence_start_mono
             end_mono = self._evidence_end_mono if result is not None else None
@@ -1314,6 +1320,7 @@ class Wizard:
                 started_at_wall=start_wall, ended_at_wall=end_wall if result is not None else "",
                 started_mono=start_mono, ended_mono=end_mono, argv=copy.deepcopy(argv),
                 log_text=log_text or "", interrupted=interrupted, cancelled=cancelled,
+                wall_provenance=self._evidence_wall_provenance,
             )
             with self._lock:
                 if write_seq != self._evidence_write_seq:

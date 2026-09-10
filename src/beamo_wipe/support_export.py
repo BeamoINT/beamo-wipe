@@ -579,7 +579,12 @@ def prepare_terminal_evidence(path: Path, target_path: str) -> VerifiedEvidence:
         payload = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetyError("The saved wipe evidence is malformed.") from exc
-    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+    from beamo_wipe.evidence import SUPPORTED_SCHEMA_VERSIONS
+
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS
+    ):
         raise SafetyError("The saved wipe evidence has an unsupported schema.")
     outcome = payload.get("outcome")
     if outcome not in TERMINAL_OUTCOMES:

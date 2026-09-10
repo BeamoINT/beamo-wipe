@@ -15,9 +15,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
+from beamo_wipe.build_identity import BUILD_ID_RE
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MANIFEST_NAME_TEMPLATE = "beamo-wipe-{version}-amd64.manifest.json"
 VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 EXPECTED_REMOTE = "https://github.com/BeamoINT/beamo-wipe"
@@ -252,6 +253,16 @@ def build_env() -> Dict[str, Any]:
         "packaging/live/inside-docker.sh lb config && lb build",
     ]
     env["built_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    build_id = os.environ.get("BUILD_ID", "local")
+    if not BUILD_ID_RE.fullmatch(build_id):
+        raise RuntimeError("invalid release build identity")
+    if (
+        os.environ.get("PROJECT_ID") == "beamo-wipe"
+        and build_id == "local"
+        and os.environ.get("ALLOW_DIRTY") != "1"
+    ):
+        raise RuntimeError("hosted production image requires BUILD_ID")
+    env["release_build_id"] = build_id
     return env
 
 
@@ -517,6 +528,13 @@ def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
         raise RuntimeError(f"unexpected nwipe version {data['nwipe']['version']}")
     if not re.fullmatch(r"[0-9a-f]{40}", data.get("nwipe", {}).get("commit", "")):
         raise RuntimeError("placeholder nwipe commit")
+    if data.get("schema_version") != SCHEMA_VERSION:
+        raise RuntimeError("unsupported release manifest schema")
+    build_id = data.get("build", {}).get("release_build_id", "")
+    if not isinstance(build_id, str) or not BUILD_ID_RE.fullmatch(build_id):
+        raise RuntimeError("missing release build identity")
+    if not re.fullmatch(r"[0-9a-f]{40}", str(data.get("source", {}).get("commit", ""))):
+        raise RuntimeError("untraceable source state: commit not 40-hex")
     artifact = data.get("artifact", {})
     version = _validate_version(data.get("beamo_wipe_version", ""))
     iso_name = f"beamo-wipe-{version}-amd64.iso"

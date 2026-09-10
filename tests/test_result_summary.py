@@ -86,8 +86,18 @@ def test_untrusted_clocks_are_not_presented_as_fact():
     ev["timestamps"]["started_at_wall"] = "2026-09-09T12:00:00Z"
     ev["timestamps"]["ended_at_wall"] = "2026-09-09T12:01:00.5Z"
     text = build_result_summary(ev, evidence_sha256="b" * 64)
+    assert f"Started (clock not verified): {UNAVAILABLE}" in text
+    assert f"Clock: {UNAVAILABLE}" in text
+    ev["timestamps"]["wall_confidence"] = "unverified"
+    ev["timestamps"]["wall_provenance"] = "os_utc"
+    text = build_result_summary(ev, evidence_sha256="b" * 64)
     assert "Started (clock not verified): 2026-09-09T12:00:00Z" in text
     assert "Ended (clock not verified): 2026-09-09T12:01:00.5Z" in text
+    assert "Clock: unverified (os_utc)" in text
+    ev["timestamps"]["wall_confidence"] = "verified"
+    text = build_result_summary(ev, evidence_sha256="b" * 64)
+    assert f"Started (clock not verified): {UNAVAILABLE}" in text
+    assert f"Clock: {UNAVAILABLE}" in text
 
 
 def test_long_unicode_is_stable_and_cannot_inject_headings():

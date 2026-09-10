@@ -366,7 +366,7 @@ class SessionStore:
         )
 
     def terminal(self):
-        from beamo_wipe.evidence import recover_result
+        from beamo_wipe.evidence import SUPPORTED_SCHEMA_VERSIONS, recover_result
         from beamo_wipe.outcomes import present_evidence
 
         reference = self.record["terminal"]
@@ -391,6 +391,7 @@ class SessionStore:
             or evidence.get("beamo_wipe_version") != __version__
             or evidence.get("nwipe_version") != NWIPE_PINNED_VERSION
             or evidence.get("nwipe_commit") != NWIPE_PINNED_COMMIT
+            or evidence.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS
             or evidence.get("provenance", {}).get("evidence_file") != str(path)
         ):
             raise SafetyError("Contradictory terminal evidence")
