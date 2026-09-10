@@ -216,6 +216,8 @@ class AccessibleWizard:
             heading.set_text(C.TITLE_WHAT)
             self.label(C.WHAT_LEAD)
             self.label("\n".join(C.WHAT_BULLETS))
+            self.label(C.POWER_REMINDER)
+            self.label(C.POWER_BLANKING)
             self.button(C.BTN_CONTINUE, self.w.accept_what)
         elif screen == Screen.OWNER:
             heading.set_text(C.TITLE_OWNER)

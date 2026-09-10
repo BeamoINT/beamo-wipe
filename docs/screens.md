@@ -4,14 +4,14 @@ Every interface uses the same Wizard authorization and validated result model.
 
 | Screen | Purpose |
 | --- | --- |
-| Splash / What | Explain ownership, irreversible erasure, backup copies, OS-disk consequences, and supported PCs. Nothing starts automatically. |
+| Splash / What | Explain ownership, irreversible erasure, backup copies, OS-disk consequences, wall-power reminder, display blanking, and supported PCs. Nothing starts automatically. |
 | Owner | Require the ownership or written-permission acknowledgement. |
 | Pick a disk | Keep eligible targets separate from read-only Other detected devices. Show identity and deterministic exclusion reasons. No excluded row offers a bypass. Empty or uncertain discovery gives safe support steps. |
 | Confirm | Show the irreversible-action warning, exact device identity, and partition-evidence preparation for the selected disk. Require the displayed confirmation token. |
 | Choose an erase method | Show the operations below and the device-specific storage notice. SSD and unknown-device warnings explain inaccessible, remapped, over-provisioned and controller-managed storage; additional overwrite passes do not fix those limits. |
 | Supported storage limits | Full offline limits, reached directly from method selection. Back returns to the chosen method. |
 | Last chance to stop | Show identity, partition-evidence preparation, irreversible-action warning and canonical method summary. Require a fresh five-second countdown and explicit Erase now action. |
-| Working | Keep device identity and progress visible. Confirmed cancellation, interruption and inability to confirm a stop remain distinct. |
+| Working | Keep device identity and progress visible. Remind the owner to leave the USB in and keep wall power connected. Confirmed cancellation, interruption and inability to confirm a stop remain distinct. Shut down is not offered while an erase may still be running. |
 | Finished | Use validated evidence and the canonical explanation in `outcomes.py`. Successful outcomes add that only the validated selected disk was processed and that reinstalling an operating system is a separate task. Failures, cancellation and indeterminate results do not claim a disk was processed. Quick zero completion explicitly says verification was not performed. Provide the guarded separate-USB report workflow where available. |
 | Advanced | Technician information and the report workflow guidance. |
 | Shut down without saving? | Shown when a report was requested but no current verified export is confirmed. Keep session open returns; explicit discard authorizes shutdown. [State and recovery rules](report-shutdown.md). |

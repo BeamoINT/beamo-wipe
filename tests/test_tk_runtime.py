@@ -1407,6 +1407,8 @@ def test_what_screen_shows_backup_and_os_prepare_at_minimum_size(ui):
         assert bullet in shown
     assert "copies you need" in shown
     assert "recovery partitions on that disk" in shown
+    assert C.POWER_REMINDER in shown
+    assert C.POWER_BLANKING in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
 

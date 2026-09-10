@@ -73,6 +73,9 @@ def _happy_blob() -> str:
             copy.PREPARE_SYSTEM,
             copy.PREPARE_DATA,
             copy.PREPARE_UNKNOWN,
+            copy.POWER_REMINDER,
+            copy.POWER_BLANKING,
+            copy.WORKING_PULSE,
             copy.VIEWS["verified"].next_step,
             copy.VIEWS["unverified"].next_step,
             copy.VIEWS["cancelled"].next_step,
@@ -125,6 +128,8 @@ def test_what_screen_is_plain_prepare_bullets():
     assert "operating system" in blob
     assert "recovery partitions" in blob
     assert "not apple silicon" in blob
+    assert "wall power" in copy.POWER_REMINDER.lower()
+    assert "not sleep" in copy.POWER_BLANKING.lower()
     assert "nwipe" not in blob
     assert "warranty" not in blob
     assert "did not write" not in blob

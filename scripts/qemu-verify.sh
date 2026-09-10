@@ -300,6 +300,51 @@ grep -q '^PrivateMounts=yes$' \
   echo "kiosk private mount namespace is missing" >&2
   exit 2
 }
+LOGIND_POLICY="$SQUASH_MOUNT/etc/systemd/logind.conf.d/beamo-kiosk.conf"
+SLEEP_POLICY="$SQUASH_MOUNT/etc/systemd/sleep.conf.d/beamo-kiosk.conf"
+XORG_POLICY="$SQUASH_MOUNT/etc/X11/xorg.conf.d/10-beamo.conf"
+[[ -f "$LOGIND_POLICY" && -f "$SLEEP_POLICY" && -f "$XORG_POLICY" ]] || {
+  echo "live-session power policy missing from ISO" >&2
+  exit 2
+}
+grep -q '^HandleLidSwitch=ignore$' "$LOGIND_POLICY" || {
+  echo "logind lid policy is not ignore" >&2
+  exit 2
+}
+grep -q '^HandlePowerKey=ignore$' "$LOGIND_POLICY" || {
+  echo "logind power-key policy is not ignore" >&2
+  exit 2
+}
+grep -q '^IdleAction=ignore$' "$LOGIND_POLICY" || {
+  echo "logind idle action is not ignore" >&2
+  exit 2
+}
+grep -q '^AllowSuspend=no$' "$SLEEP_POLICY" || {
+  echo "OS suspend is not refused" >&2
+  exit 2
+}
+grep -q 'Option "BlankTime" "10"' "$XORG_POLICY" || {
+  echo "display blanking policy missing" >&2
+  exit 2
+}
+grep -q 'Option "SuspendTime" "0"' "$XORG_POLICY" || {
+  echo "Xorg suspend time is not display-idle zero" >&2
+  exit 2
+}
+for unit in sleep.target suspend.target hibernate.target hybrid-sleep.target \
+  suspend-then-hibernate.target
+do
+  [[ "$(readlink "$SQUASH_MOUNT/etc/systemd/system/${unit}" 2>/dev/null || true)" == /dev/null ]] || {
+    echo "sleep unit is not masked: $unit" >&2
+    exit 2
+  }
+done
+if grep -R -l 'xfce4-power-manager\|gnome-settings-daemon-power\|power-profiles-daemon' \
+  "$SQUASH_MOUNT/var/lib/dpkg/status" 2>/dev/null | grep -q .; then
+  echo "desktop power manager present in ISO" >&2
+  exit 2
+fi
+log "live-session power policy present in squashfs"
 for symbol in 'def export_to_new_usb(' 'def write_report_bundle(' 'def verify_report_bundle('; do
   grep -qF "$symbol" \
     "$SQUASH_MOUNT/usr/lib/python3/dist-packages/beamo_wipe/support_export.py" || {

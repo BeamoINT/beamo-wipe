@@ -137,6 +137,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen == Screen.WHAT:
             for b in C.WHAT_BULLETS:
                 print(" -", b)
+            print(C.POWER_REMINDER)
+            print(C.POWER_BLANKING)
             _answer(wizard, "Press Enter to continue… ")
             wizard.accept_what()
             continue
@@ -384,7 +386,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
         elif wizard.screen == Screen.WHAT:
             for bullet in C.WHAT_BULLETS:
                 y = _wrap(stdscr, y, " * " + bullet, w) + 1
-            _add(stdscr, min(h - 2, y + 2), 0, "Enter: I understand    S: shut down")
+            y = _wrap(stdscr, y, C.POWER_REMINDER, w)
+            y = _wrap(stdscr, y, C.POWER_BLANKING, w)
+            _add(stdscr, min(h - 2, y + 1), 0, "Enter: I understand    S: shut down")
         elif wizard.screen == Screen.OWNER:
             y = _wrap(stdscr, y, C.OWNER_CHECKBOX, w)
             mark = "[X]" if wizard.owner_ok else "[ ]"

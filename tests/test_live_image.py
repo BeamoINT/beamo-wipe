@@ -117,7 +117,11 @@ def test_nwipe_hook_hides_engine_and_extra_gettys():
     assert "/usr/sbin/nwipe" in text
     assert "nwipe is not run directly" in text
     assert 'systemctl mask "getty@${tty}.service"' in text or "getty@tty2.service" in text
-    assert "NAutoVTs=1" in text
+    logind = (
+        ROOT
+        / "packaging/live/config/includes.chroot/etc/systemd/logind.conf.d/beamo-kiosk.conf"
+    ).read_text(encoding="utf-8")
+    assert "NAutoVTs=1" in logind
     assert "systemd-networkd.service" in text
     assert "sshd.service" in text
     assert "getty@tty1" in text or 'getty@${tty}' in text

@@ -55,6 +55,16 @@ WHAT_BULLETS = (
     "Not Apple Silicon Macs. Not Chromebooks.",
 )
 
+POWER_REMINDER = (
+    "If this computer has a battery, plug it into wall power before you erase. "
+    "A power cut stops the erase."
+)
+
+POWER_BLANKING = (
+    "The screen may go dark. Press a key or move the mouse to bring it back. "
+    "That is the display, not sleep."
+)
+
 PREPARE_WINDOWS = (
     "This selected disk shows Windows partitions. Erasing it also removes "
     "Windows, applications, files, and recovery partitions on this disk."
@@ -101,7 +111,10 @@ EMPTY_DISKS = EMPTY_STEPS
 
 SSD_FOOTER = OVERWRITE_LIMITS + " Not a formal certificate."
 
-WORKING_PULSE = "Leave the USB in. Do not turn the PC off."
+WORKING_PULSE = (
+    "Leave the USB in. Keep wall power connected if this computer has a battery. "
+    "Do not turn the PC off."
+)
 
 DONE_OK = VIEWS["verified"].message
 

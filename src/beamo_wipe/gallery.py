@@ -148,6 +148,8 @@ def gallery_html() -> str:
         },
         "whatLead": C.WHAT_LEAD,
         "what": list(C.WHAT_BULLETS),
+        "powerReminder": C.POWER_REMINDER,
+        "powerBlanking": C.POWER_BLANKING,
         "whatMore": C.WHAT_MORE,
         "engine": C.ENGINE_LINE,
         "secureBoot": C.SECURE_BOOT_HINT,
@@ -720,6 +722,8 @@ function draw() {
   } else if (screen === "what") {
     main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
+      <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
+      <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div></div></div>
       ${moreLink()}
       ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.secureBoot}</div><div class="extra">${P.engine}</div></div></div>` : ""}</div></div>`;

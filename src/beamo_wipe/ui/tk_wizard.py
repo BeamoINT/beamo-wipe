@@ -1629,6 +1629,9 @@ class TkWizard:
                 line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
                 wraplength=WRAP - 120, justify=tk.LEFT, anchor="w",
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        self._panel(
+            zone, kind="info", text=C.POWER_REMINDER, extra=C.POWER_BLANKING
+        ).pack(fill=tk.X, pady=(12, 0))
         if self._more_link(zone):
             self._panel(
                 zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE

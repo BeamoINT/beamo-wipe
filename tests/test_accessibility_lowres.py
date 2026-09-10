@@ -314,6 +314,9 @@ def test_copy_never_forbids_recovery_language():
         C.PREPARE_SYSTEM,
         C.PREPARE_DATA,
         C.PREPARE_UNKNOWN,
+        C.POWER_REMINDER,
+        C.POWER_BLANKING,
+        C.WORKING_PULSE,
         C.VIEWS["verified"].next_step,
         C.VIEWS["cancelled"].next_step,
     )
