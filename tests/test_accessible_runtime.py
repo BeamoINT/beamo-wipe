@@ -696,7 +696,7 @@ def test_accessible_finished_announces_receipt_location(ui, tmp_path):
     assert "SanDisk Ultra, 16 GB" in shown
     assert "Folder: BEAMO-WIPE-REPORTS/" in shown
     assert "RESULT.txt is the original report." in shown
-    assert "SHARE.txt is a sharing copy" in shown
+    assert "SHARE.json is a privacy-reduced sharing copy" in shown
     assert "Engine log: complete." in shown
 
 

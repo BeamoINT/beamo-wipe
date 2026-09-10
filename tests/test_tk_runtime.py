@@ -967,7 +967,7 @@ def test_saved_receipt_location_fits_minimum_window(ui, tmp_path):
     blob = "\n".join(rendered)
     assert "Folder: BEAMO-WIPE-REPORTS/" in blob
     assert "RESULT.txt is the original report." in blob
-    assert "SHARE.txt is a sharing copy" in blob
+    assert "SHARE.json is a privacy-reduced sharing copy" in blob
     assert "Engine log: only a final tail." in blob
     assert "/run/" not in blob and "/dev/" not in blob
 

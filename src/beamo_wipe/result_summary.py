@@ -12,6 +12,7 @@ from typing import Any, Mapping
 from beamo_wipe.build_identity import BUILD_ID_RE, COMMIT_RE as WRAPPER_COMMIT_RE, STATUSES
 from beamo_wipe.identity import HARDWARE_ID_LABEL, SERIAL_LABEL, SERIAL_NOT_REPORTED
 from beamo_wipe.outcomes import present_evidence
+from beamo_wipe.privacy import NOTICE as SHARE_NOTICE, SHARE_JSON, UNSUITABLE, is_sharing_copy
 from beamo_wipe.progress import duration
 
 UNAVAILABLE = "unavailable"
@@ -156,6 +157,8 @@ def _scrub(text: str, secrets: tuple[str, ...]) -> str:
 
 
 def _report_file(evidence: Mapping[str, Any]) -> str:
+    if is_sharing_copy(evidence):
+        return SHARE_JSON
     provenance = evidence.get("provenance")
     if not isinstance(provenance, dict):
         return UNAVAILABLE
@@ -194,12 +197,12 @@ def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[st
         serial = presented
     if hardware == UNAVAILABLE and label == HARDWARE_ID_LABEL:
         hardware = presented
-    if redacted:
+    if redacted or is_sharing_copy(evidence):
         title = _scrub(title, secrets)
         capacity = _scrub(capacity, secrets)
         connection = _scrub(connection, secrets)
-        serial = _maybe_withhold(serial)
-        hardware = _maybe_withhold(hardware)
+        serial = WITHHELD
+        hardware = WITHHELD
     return [
         ("Disk", title),
         ("Capacity", capacity),
@@ -308,16 +311,19 @@ def build_result_summary(
 ) -> str:
     """Stable labeled summary. Headings never come from evidence or logs."""
     payload = evidence if isinstance(evidence, dict) else {}
+    sharing = is_sharing_copy(payload)
     view = present_evidence(payload)
     device = payload.get("device") if isinstance(payload.get("device"), dict) else {}
-    secrets = _secrets(device) if redacted else ()
+    secrets = _secrets(device) if (redacted or sharing) else ()
     checksum = evidence_sha256 if HEX64_RE.fullmatch(evidence_sha256 or "") else UNAVAILABLE
     timestamps = payload.get("timestamps") if isinstance(payload.get("timestamps"), dict) else {}
-    lines: list[str] = [
-        "Sharing copy. Serials and hardware IDs withheld."
-        if redacted
-        else "Beamo Wipe result"
-    ]
+    if sharing:
+        header = SHARE_NOTICE
+    elif redacted:
+        header = "Sharing copy. Serials and hardware IDs withheld."
+    else:
+        header = "Beamo Wipe result"
+    lines: list[str] = [header]
     fields: list[tuple[str, str]] = [
         ("Report file", _report_file(payload)),
         ("Report checksum", checksum),
@@ -333,6 +339,8 @@ def build_result_summary(
         ("Started (clock not verified)", _wall_display(timestamps, "started_at_wall", _schema_version(payload))),
         ("Ended (clock not verified)", _wall_display(timestamps, "ended_at_wall", _schema_version(payload))),
     ]
+    if sharing:
+        fields.append(("Identity evidence", UNSUITABLE))
     for label, value in fields:
         if "\n" in value:
             lines.append(f"{label}:")
@@ -340,6 +348,6 @@ def build_result_summary(
         else:
             lines.append(f"{label}: {value}")
     text = "\n".join(lines)
-    if redacted:
+    if redacted or sharing:
         text = _scrub(text, secrets)
     return text

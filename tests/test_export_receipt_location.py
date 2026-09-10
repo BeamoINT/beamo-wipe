@@ -98,7 +98,8 @@ def test_every_log_status_has_explicit_wording(status):
 def test_share_copy_is_distinguished_from_the_original():
     text = present_export_receipt(_receipt(share_copy=True))
     assert "RESULT.txt is the original report." in text
-    assert "SHARE.txt is a sharing copy without serials or hardware IDs." in text
+    assert "SHARE.json is a privacy-reduced sharing copy" in text
+    assert "not identity evidence" in text
 
 
 def test_diagnostic_receipt_wording_is_not_erase_evidence():
@@ -146,7 +147,8 @@ def test_privacy_reduced_success_names_the_sharing_copy(tmp_path):
     wizard.screen = Screen.DONE
     wizard.save_report_to_usb()
     assert wizard.report_status == "saved"
-    assert "SHARE.txt is a sharing copy without serials or hardware IDs." in wizard.report_message
+    assert "SHARE.json is a privacy-reduced sharing copy" in wizard.report_message
+    assert "not identity evidence" in wizard.report_message
     assert "RESULT.txt is the original report." in wizard.report_message
     assert "Engine log: complete." in wizard.report_message
 
@@ -340,4 +342,4 @@ def test_plain_console_prints_receipt_lines(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert "Folder: BEAMO-WIPE-REPORTS/" in out
     assert "Engine log: only a final tail." in out
-    assert "SHARE.txt is a sharing copy" in out
+    assert "SHARE.json is a privacy-reduced sharing copy" in out

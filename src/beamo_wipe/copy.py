@@ -147,7 +147,10 @@ REPORT_HELP_SECTIONS = (
     "session. It does not choose media or save a report. If you request a report "
     "and no verified export has completed, Shut down asks before discarding it. "
     "A report is available only if the operation produced eligible evidence. "
-    "Erase reports include disk identifiers; review them before sharing.",
+    "The original report (result.json and RESULT.txt) includes disk identifiers. "
+    "A sharing copy (SHARE.json and SHARE.txt) omits serials, hardware IDs, "
+    "device paths, and engine logs. Do not use the sharing copy where full "
+    "identity evidence is required. To share, copy only SHARE.json and SHARE.txt.",
     "Wait for the saved and safe-to-remove message before removing the report USB. "
     "If saving fails, follow the displayed error and retry while this session is "
     "still running. Never remove report media while saving.",
@@ -157,13 +160,14 @@ REPORT_HELP_SECTIONS = (
 )
 REPORT_HELP_TEXT = "\n\n".join(REPORT_HELP_SECTIONS)
 REPORT_SHARE_REDACTED = (
-    "Also save a sharing copy without serials or hardware IDs. The original report is kept."
+    "Also save a labeled sharing copy without serials, hardware IDs, device paths, "
+    "or engine logs. It is not identity evidence. The original report is kept."
 )
 
 REPORT_INSERT = (
     "No erase is running. Leave the boot USB and selected disk connected. "
     "Insert one separate FAT32 USB, then choose Save report to USB. "
-    "The report includes disk identifiers."
+    "The original report includes disk identifiers. A sharing copy, if saved, is not identity evidence."
 )
 ADVANCED_LOG_NOTE = (
     "Keep the separate FAT32 report USB unplugged until the erase has stopped "

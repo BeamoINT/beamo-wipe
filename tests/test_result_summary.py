@@ -147,14 +147,19 @@ def test_redacted_share_withholds_identifiers_and_keeps_owner_original():
     )
     assert serial.encode() in bundle["RESULT.txt"]
     assert serial.encode() not in bundle["SHARE.txt"]
-    assert f"Hardware ID: {UNAVAILABLE}".encode() in bundle["SHARE.txt"]
-    assert bundle["result.json"]  # original preserved
+    assert serial.encode() not in bundle["SHARE.json"]
+    assert b"Serial: withheld" in bundle["SHARE.txt"]
+    assert bundle["result.json"] == json.dumps(ev).encode()
     complete = json.loads(bundle["COMPLETE"])
     assert complete["result_summary"] == "RESULT.txt"
+    assert complete["share_copy"] == "SHARE.json"
     assert complete["share_summary"] == "SHARE.txt"
+    assert complete["privacy_policy_version"] == 1
     assert complete["files"]["RESULT.txt"] == hashlib.sha256(bundle["RESULT.txt"]).hexdigest()
     assert complete["files"]["SHARE.txt"] == hashlib.sha256(bundle["SHARE.txt"]).hexdigest()
-    _assert_golden("share.txt", share)
+    assert complete["files"]["SHARE.json"] == hashlib.sha256(bundle["SHARE.json"]).hexdigest()
+    share_text = bundle["SHARE.txt"].decode("utf-8").replace("\r\n", "\n").rstrip("\n")
+    _assert_golden("share.txt", share_text)
 
 
 def test_bundle_checksums_cover_the_summary():
