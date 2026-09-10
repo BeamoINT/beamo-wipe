@@ -191,6 +191,8 @@ def test_helper_page_focus_visible_and_key_caps():
     html = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
     assert 'a:focus-visible' in html
     assert 'outline: 3px solid var(--focus)' in html
+    assert 'Skip to instructions' in html
+    assert 'href="#main"' in html
     keys = re.findall(r'class="kbd">([^<]+)<', html)
     assert "F12" in keys
     assert 'max-width: 920px' in html  # wraps at 360px
