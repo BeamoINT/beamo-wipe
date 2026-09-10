@@ -308,9 +308,18 @@ def test_copy_never_forbids_recovery_language():
         "impossible to recover",
         "works on any computer",
     )
+    surfaces = (
+        *C.WHAT_BULLETS,
+        C.PREPARE_WINDOWS,
+        C.PREPARE_SYSTEM,
+        C.PREPARE_DATA,
+        C.PREPARE_UNKNOWN,
+        C.VIEWS["verified"].next_step,
+        C.VIEWS["cancelled"].next_step,
+    )
     for phrase in forbidden:
-        assert phrase not in C.WHAT_BULLETS[0].lower()
-        assert phrase not in C.WHAT_BULLETS[1].lower()
+        for surface in surfaces:
+            assert phrase not in surface.lower()
 
 
 def test_done_failure_copy_never_says_secure():

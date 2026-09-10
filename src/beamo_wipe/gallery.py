@@ -93,6 +93,8 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "token": spec.token if spec else "",
                 "prompt": spec.prompt if spec else "",
                 "warning": "" if disk.is_boot else C.confirm_warning(disk),
+                "prepare": "" if disk.is_boot else C.prepare_selected(disk),
+                "contents": disk.contents,
                 "eraseLabel": "" if disk.is_boot else C.erase_now_label(disk),
             }
         )

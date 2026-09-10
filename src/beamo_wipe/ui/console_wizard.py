@@ -228,6 +228,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(view.compact_line)
                 for note in view.notes:
                     print(note)
+            print(wizard.prepare_text())
             print(wizard.operation_summary)
             print(wizard.erase_label())
             print(wizard.method_summary)
@@ -498,6 +499,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 y = _wrap(stdscr, y, view.compact_line, w)
                 for note in view.notes:
                     y = _wrap(stdscr, y, note, w)
+            y = _wrap(stdscr, y, wizard.prepare_text(), w)
             y = _wrap(stdscr, y, wizard.operation_summary, w)
             y = _wrap(stdscr, y + 1, wizard.erase_label(), w)
             y = _wrap(stdscr, y + 1, wizard.method_summary, w)

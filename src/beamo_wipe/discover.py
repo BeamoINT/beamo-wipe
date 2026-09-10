@@ -12,7 +12,15 @@ from dataclasses import replace
 from typing import Mapping, Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from beamo_wipe.copy import IDENTIFY_ERROR as CANNOT_IDENTIFY
-from beamo_wipe.models import Disk, DiskKind, DiscoveryResult
+from beamo_wipe.models import (
+    CONTENTS_DATA,
+    CONTENTS_SYSTEM,
+    CONTENTS_UNKNOWN,
+    CONTENTS_WINDOWS,
+    Disk,
+    DiskKind,
+    DiscoveryResult,
+)
 
 HIDDEN_TYPES = frozenset({"loop", "ram", "rom"})
 # eMMC boot/RPMB hardware areas are type=disk siblings of mmcblk0. They are
@@ -446,6 +454,79 @@ def _volume_label(node: Dict[str, Any]) -> str:
     return ""
 
 
+_POSIX_FS = frozenset({"ext4", "ext3", "xfs", "btrfs", "f2fs"})
+_WINDOWS_LABELS = frozenset(
+    {"recovery", "winre", "windows", "system reserved", "windows recovery"}
+)
+_EFI_PARTTYPES = frozenset(
+    {
+        "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+        "ef00",
+    }
+)
+_WINDOWS_OS_PARTTYPES = frozenset(
+    {
+        "de94bba4-06d1-4d40-a16a-bfd50179d6ac",  # Windows recovery
+        "e3c9e316-0b5c-4db8-817d-f92df00215ae",  # Microsoft reserved
+    }
+)
+
+
+_WINDOWS_PARTNAMES = (
+    "microsoft reserved",
+    "windows recovery",
+    "windows recovery environment",
+)
+
+
+def classify_contents(node: Mapping[str, Any]) -> str:
+    """Classify disk contents from partition evidence only. No guessing."""
+    fstypes: set[str] = set()
+    labels: set[str] = set()
+    partnames: set[str] = set()
+    parttypes: set[str] = set()
+
+    def walk(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        if _node_type(item) == "part":
+            fs = _clean(item.get("fstype")).casefold()
+            if fs:
+                fstypes.add(fs)
+            lab = _clean(item.get("label")).casefold()
+            if lab:
+                labels.add(lab)
+            name = _clean(item.get("parttypename")).casefold()
+            if name:
+                partnames.add(name)
+            ptype = _clean(item.get("parttype")).casefold()
+            if ptype:
+                parttypes.add(ptype)
+        for child in item.get("children") or []:
+            walk(child)
+
+    walk(node)
+    windows_marks = bool(
+        labels & _WINDOWS_LABELS
+        or "bitlocker" in fstypes
+        or any(any(mark in name for mark in _WINDOWS_PARTNAMES) for name in partnames)
+        or parttypes & _WINDOWS_OS_PARTTYPES
+    )
+    efi = bool(
+        labels & {item.casefold() for item in FIRMWARE_LABELS}
+        or any("efi" in name or name == "esp" for name in partnames)
+        or parttypes & _EFI_PARTTYPES
+    )
+    posix = bool(fstypes & _POSIX_FS)
+    if windows_marks or (bool(fstypes & {"ntfs"}) and efi):
+        return CONTENTS_WINDOWS
+    if efi and posix:
+        return CONTENTS_SYSTEM
+    if fstypes:
+        return CONTENTS_DATA
+    return CONTENTS_UNKNOWN
+
+
 def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
     name = _identity_text(node.get("name"), "name") if node.get("name") is not None else ""
     path = node_path(node)
@@ -479,6 +560,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
         vendor=_clean(node.get("vendor")) or _first_descendant_field(node, "vendor"),
         mountpoints=mountpoints,
         raw_model=raw_model,
+        contents=classify_contents(node),
     )
 
 

@@ -3,7 +3,14 @@
 
 from beamo_wipe.inventory import EMPTY_STEPS
 from beamo_wipe.outcomes import VIEWS
-from beamo_wipe.models import Disk, DiskKind
+from beamo_wipe.models import (
+    CONTENTS_DATA,
+    CONTENTS_SYSTEM,
+    CONTENTS_UNKNOWN,
+    CONTENTS_WINDOWS,
+    Disk,
+    DiskKind,
+)
 from beamo_wipe.methods import METHODS
 from beamo_wipe.storage_limits import OVERWRITE_LIMITS
 
@@ -40,10 +47,29 @@ SPLASH_TAGLINE = (
 WHAT_LEAD = "Nothing starts until you say so."
 
 WHAT_BULLETS = (
-    "You will pick a disk. Everything on it will be erased. "
-    "You cannot get the files back.",
+    "Check that you have the copies you need. You will pick a disk. "
+    "Everything on that disk will be erased. You cannot get the files back.",
+    "If that disk holds an operating system, erasing it also removes "
+    "Windows or Linux, applications, files, and recovery partitions on that disk.",
     "For 64-bit Intel/AMD Windows or Linux PCs that start from this USB. "
     "Not Apple Silicon Macs. Not Chromebooks.",
+)
+
+PREPARE_WINDOWS = (
+    "This selected disk shows Windows partitions. Erasing it also removes "
+    "Windows, applications, files, and recovery partitions on this disk."
+)
+PREPARE_SYSTEM = (
+    "This selected disk shows operating-system partitions. Erasing it also removes "
+    "the operating system, applications, files, and recovery partitions on this disk."
+)
+PREPARE_DATA = (
+    "This selected disk does not show operating-system partitions. "
+    "Erasing it still removes every file on this disk."
+)
+PREPARE_UNKNOWN = (
+    "Erasing this selected disk removes every file on it, including any "
+    "operating system, applications, files, and recovery partitions on this disk."
 )
 
 # Closed-by-default Show more. Help first; nwipe by name only for honesty.
@@ -246,12 +272,24 @@ def confirm_type_chars(token: str) -> str:
     return f"Type these characters so we know it is the right disk: {token}"
 
 
+def prepare_selected(disk: Disk) -> str:
+    """Consequence of erasing this disk, from partition evidence only."""
+    contents = getattr(disk, "contents", CONTENTS_UNKNOWN)
+    if contents == CONTENTS_WINDOWS:
+        return PREPARE_WINDOWS
+    if contents == CONTENTS_SYSTEM:
+        return PREPARE_SYSTEM
+    if contents == CONTENTS_DATA:
+        return PREPARE_DATA
+    return PREPARE_UNKNOWN
+
+
 def confirm_warning(disk: Disk) -> str:
     from beamo_wipe.identity import display_title
 
     return (
         f"Every file on {display_title(disk)}, {disk.size_phrase}, will be erased. "
-        "You cannot get them back."
+        f"You cannot get them back. {prepare_selected(disk)}"
     )
 
 

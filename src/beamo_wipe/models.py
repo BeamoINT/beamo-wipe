@@ -15,6 +15,15 @@ class DiskKind(str, Enum):
     UNKNOWN = "Unknown"
 
 
+CONTENTS_WINDOWS = "windows"
+CONTENTS_SYSTEM = "system"
+CONTENTS_DATA = "data"
+CONTENTS_UNKNOWN = "unknown"
+CONTENTS_VALUES = frozenset(
+    {CONTENTS_WINDOWS, CONTENTS_SYSTEM, CONTENTS_DATA, CONTENTS_UNKNOWN}
+)
+
+
 class MethodId(str, Enum):
     EVERYDAY = "everyday"
     EXTRA = "extra"
@@ -64,6 +73,8 @@ class Disk:
     # metadata; discovery always sets this to the exact cleaned lsblk MODEL,
     # including an empty string when MODEL is absent.
     raw_model: Optional[str] = None
+    # Proven from lsblk partitions only: windows, system, data, or unknown.
+    contents: str = CONTENTS_UNKNOWN
 
     @property
     def display_name(self) -> str:

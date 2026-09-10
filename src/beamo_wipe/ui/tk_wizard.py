@@ -2355,6 +2355,13 @@ class TkWizard:
         details.pack(side=tk.LEFT, fill=tk.X, expand=True, anchor="n")
         if self.w.selected is not None:
             self._disk_summary(details, self.w.selected).pack(fill=tk.X)
+            self._p(
+                details,
+                self.w.prepare_text(),
+                font=self.font_s,
+                bg=BG,
+                wraplength=WRAP - 180,
+            ).pack(fill=tk.X, pady=(8, 0))
         self._wrapping_label(
             details, self.w.operation_summary, font=self.font_b, bg=BG
         ).pack_configure(pady=(12, 0))

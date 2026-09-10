@@ -2030,6 +2030,13 @@ class Wizard:
                     self._erase_until = None
                 self.error = None
 
+    def prepare_text(self) -> str:
+        from beamo_wipe.copy import prepare_selected
+
+        if self.selected is None:
+            return ""
+        return prepare_selected(self.selected)
+
     def warning_text(self) -> str:
         if self.selected is None:
             return ""

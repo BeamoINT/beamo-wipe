@@ -828,6 +828,13 @@ def test_every_terminal_result_renders_consistent_text(ui, case, size):
     assert wiz.result_view.message in texts
     assert wiz.result_view.next_step in texts
     assert evidence["presentation"]["announcement"] == wiz.result_view.announcement
+    from beamo_wipe.outcomes import AFTERCARE_SUCCESS
+    shown = " ".join(texts)
+    if wiz.result_view.success:
+        assert AFTERCARE_SUCCESS in shown
+    else:
+        assert AFTERCARE_SUCCESS not in shown
+        assert "was processed" not in shown
     from beamo_wipe.ui.tk_wizard import OK, WARN, DANGER
     tone = {"ok": OK, "warn": WARN, "danger": DANGER}[wiz.result_view.tone]
     assert tone in colors
@@ -1375,3 +1382,57 @@ def test_last_chance_enter_activates_default_back(ui, keysym, countdown_complete
     app.root.update()
     assert wiz.screen == Screen.METHOD
     assert not getattr(wiz.runner, "started", False)
+
+
+def _label_text(app) -> str:
+    texts = []
+
+    def visit(widget):
+        if widget.winfo_ismapped() and widget.winfo_class() == "Label":
+            texts.append(str(widget.cget("text")))
+        for child in widget.winfo_children():
+            visit(child)
+
+    visit(app.root)
+    return "\n".join(texts)
+
+
+def test_what_screen_shows_backup_and_os_prepare_at_minimum_size(ui):
+    from beamo_wipe import copy as C
+
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.WHAT, size=MIN_WINDOW)
+    shown = _label_text(app)
+    for bullet in C.WHAT_BULLETS:
+        assert bullet in shown
+    assert "copies you need" in shown
+    assert "recovery partitions on that disk" in shown
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize("contents,prepare", [
+    ("windows", "This selected disk shows Windows partitions"),
+    ("system", "This selected disk shows operating-system partitions"),
+    ("data", "does not show operating-system partitions"),
+    ("unknown", "including any operating system"),
+])
+@pytest.mark.parametrize("screen", [Screen.CONFIRM, Screen.LAST_CHANCE])
+def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, screen):
+    from dataclasses import replace
+    from beamo_wipe import copy as C
+
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, screen, size=MIN_WINDOW)
+    wiz.selected = replace(wiz.selected, contents=contents)
+    app._draw()
+    app.root.update_idletasks()
+    app.root.update()
+    shown = _label_text(app)
+    assert prepare in shown
+    assert wiz.selected.display_name in shown
+    assert wiz.selected.serial in shown
+    assert C.prepare_selected(wiz.selected) in shown
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+

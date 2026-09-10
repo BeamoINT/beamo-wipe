@@ -143,8 +143,8 @@ consistent method/verification facts, and no conflicting failure or interruption
 | Code | Visible explanation and safe next step |
 | --- | --- |
 | `start_failed` | The erase could not start. Keep the disks connected and contact support. Do not bypass protection. |
-| `verified` | Erase completed; verification passed. Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. |
-| `unverified` | Erase completed; verification was not performed. The erase was not checked by a read-back pass. Save the report if needed. |
+| `verified` | Erase completed; verification passed. Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. Only this validated selected disk was processed. Other disks were not. Putting an operating system back on is a separate task. |
+| `unverified` | Erase completed; verification was not performed. The erase was not checked by a read-back pass. Save the report if needed. Only this validated selected disk was processed. Other disks were not. Putting an operating system back on is a separate task. |
 | `occupied` | The disk is in use. The erase did not complete. Save the report and ask support what is using the disk. Do not force access. |
 | `open_failed` | The disk could not be opened. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `geometry_unusable` | The disk could not be used safely. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
