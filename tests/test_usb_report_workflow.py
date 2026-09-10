@@ -28,11 +28,14 @@ from beamo_wipe.support_export import (
     DeviceFingerprint,
     ExportVolume,
     ExportReceipt,
+    OWNER_DIAGNOSTIC_FILE,
+    OWNER_WIPE_FILE,
     VerifiedEvidence,
     baseline_fingerprints,
     export_to_new_usb,
     prepare_terminal_evidence,
     read_export_log,
+    report_folder_for,
     select_export_volume,
     verify_report_bundle,
     write_report_bundle,
@@ -316,16 +319,7 @@ def test_controller_uses_two_stable_scans_and_exact_private_worker_command(
         return subprocess.CompletedProcess(
             command,
             0,
-            stdout=json.dumps(
-                {
-                    "ok": True,
-                    "safe_to_remove": True,
-                    "code": "saved_verified_unmounted",
-                    "evidence_sha256": request["evidence_sha256"],
-                    "session_name": "report-0123456789abcdef01234567",
-                    "log_status": "unavailable",
-                }
-            ),
+            stdout=_worker_success_stdout(request),
             stderr="",
         )
 
@@ -397,16 +391,7 @@ def test_controller_allows_an_unrelated_optional_disk_to_be_removed(tmp_path, mo
         return subprocess.CompletedProcess(
             command,
             0,
-            stdout=json.dumps(
-                {
-                    "ok": True,
-                    "safe_to_remove": True,
-                    "code": "saved_verified_unmounted",
-                    "evidence_sha256": request["evidence_sha256"],
-                    "session_name": "report-0123456789abcdef01234567",
-                    "log_status": "unavailable",
-                }
-            ),
+            stdout=_worker_success_stdout(request),
             stderr="",
         )
 
@@ -953,12 +938,36 @@ def _done_wizard(exporter, tmp_path: Path) -> Wizard:
 
 
 def _success_receipt(**kwargs) -> ExportReceipt:
+    session = kwargs.get("session_name", "report-0123456789abcdef01234567")
     return ExportReceipt(
         True,
         True,
         "saved_verified_unmounted",
         evidence_sha256=kwargs["expected_evidence_sha256"],
-        session_name="report-0123456789abcdef01234567",
+        session_name=session,
+        log_status=kwargs.get("log_status", "unavailable"),
+        destination_label=kwargs.get("destination_label", "the report USB, 1 GB"),
+        report_folder=report_folder_for(session),
+        share_copy=bool(kwargs.get("privacy_reduced", False)),
+        owner_file=kwargs.get("owner_file", OWNER_WIPE_FILE),
+    )
+
+
+def _worker_success_stdout(request, *, diagnostic: bool = False) -> str:
+    session = "report-0123456789abcdef01234567"
+    return json.dumps(
+        {
+            "ok": True,
+            "safe_to_remove": True,
+            "code": "saved_verified_unmounted",
+            "evidence_sha256": request["evidence_sha256"],
+            "session_name": session,
+            "log_status": request["log_status"],
+            "destination_label": "Report USB, 1 GB",
+            "report_folder": f"BEAMO-WIPE-REPORTS/{session}",
+            "share_copy": bool(request.get("privacy_reduced")) and not diagnostic,
+            "owner_file": OWNER_DIAGNOSTIC_FILE if diagnostic else OWNER_WIPE_FILE,
+        }
     )
 
 

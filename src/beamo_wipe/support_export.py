@@ -65,6 +65,31 @@ BLOCK_PATH_RE = re.compile(
 )
 SAFE_ID_RE = re.compile(r"^[^\x00-\x1f\x7f]{1,128}$")
 SESSION_RE = re.compile(r"^report-[0-9a-f]{24}$")
+REPORT_FOLDER_RE = re.compile(r"^BEAMO-WIPE-REPORTS/report-[0-9a-f]{24}$")
+GENERIC_DESTINATION = "the report USB"
+DESTINATION_MAX = 64
+OWNER_WIPE_FILE = "RESULT.txt"
+OWNER_DIAGNOSTIC_FILE = "diagnostic.json"
+OWNER_FILES = frozenset({OWNER_WIPE_FILE, OWNER_DIAGNOSTIC_FILE})
+LOG_STATUS_LINES = {
+    "complete": "Engine log: complete.",
+    "tail": "Engine log: only a final tail.",
+    "unavailable": "Engine log: unavailable.",
+}
+RECEIPT_KEYS = frozenset(
+    {
+        "ok",
+        "safe_to_remove",
+        "code",
+        "evidence_sha256",
+        "session_name",
+        "log_status",
+        "destination_label",
+        "report_folder",
+        "share_copy",
+        "owner_file",
+    }
+)
 
 
 def _emit_export_marker(marker: str) -> None:
@@ -153,6 +178,151 @@ class ExportReceipt:
     evidence_sha256: str = ""
     session_name: str = ""
     log_status: str = "unavailable"
+    destination_label: str = ""
+    report_folder: str = ""
+    share_copy: bool = False
+    owner_file: str = ""
+
+
+def _is_diagnostic_evidence(data: bytes) -> bool:
+    try:
+        return json.loads(data).get("report_type") == "startup_diagnostic"
+    except (ValueError, TypeError, AttributeError, UnicodeDecodeError):
+        return False
+
+
+def destination_label_for(model: str, size_bytes: int) -> str:
+    """Safe USB identity for owners. Never a mount, device, or relative path."""
+    cleaned = (model or "").strip()
+    unsafe = (
+        not cleaned
+        or "/" in cleaned
+        or "\\" in cleaned
+        or cleaned.startswith(".")
+        or cleaned.lower().startswith("dev/")
+    )
+    if unsafe:
+        name = GENERIC_DESTINATION
+    else:
+        name = cleaned
+        if len(name) > DESTINATION_MAX:
+            name = name[:DESTINATION_MAX].rstrip() + " (truncated)"
+        if not SAFE_ID_RE.fullmatch(name):
+            name = GENERIC_DESTINATION
+    from beamo_wipe.discover import size_gb_label
+
+    if type(size_bytes) is not int or isinstance(size_bytes, bool) or size_bytes <= 0:
+        return name
+    size = size_gb_label(size_bytes)
+    if not size or size == "0":
+        return name
+    return f"{name}, {size} GB"
+
+
+def report_folder_for(session_name: str) -> str:
+    if not SESSION_RE.fullmatch(session_name):
+        return ""
+    return f"{REPORTS_DIR}/{session_name}"
+
+
+def _destination_label_ok(label: str) -> bool:
+    if (
+        not isinstance(label, str)
+        or not label
+        or len(label) > DESTINATION_MAX + 24
+        or "/" in label
+        or "\\" in label
+        or "\n" in label
+        or "\r" in label
+        or label.startswith(".")
+        or label.lower().startswith("dev/")
+        or not SAFE_ID_RE.fullmatch(label)
+    ):
+        return False
+    return True
+
+
+def build_success_receipt(
+    *,
+    evidence_sha256: str,
+    session_name: str,
+    log_status: str,
+    volume: ExportVolume,
+    privacy_reduced: bool,
+    diagnostic: bool,
+) -> ExportReceipt:
+    folder = report_folder_for(session_name)
+    owner_file = OWNER_DIAGNOSTIC_FILE if diagnostic else OWNER_WIPE_FILE
+    share_copy = bool(privacy_reduced) and not diagnostic
+    return ExportReceipt(
+        ok=True,
+        safe_to_remove=True,
+        code="saved_verified_unmounted",
+        evidence_sha256=evidence_sha256,
+        session_name=session_name,
+        log_status=log_status,
+        destination_label=destination_label_for(
+            volume.parent.model, volume.parent.size_bytes
+        ),
+        report_folder=folder,
+        share_copy=share_copy,
+        owner_file=owner_file,
+    )
+
+
+def receipt_is_saved(
+    receipt: object,
+    *,
+    expected_sha256: str,
+    owner_file: str = OWNER_WIPE_FILE,
+    share_copy: bool | None = None,
+) -> bool:
+    """True only for a structurally valid, verified, unmounted success receipt."""
+    if not isinstance(receipt, ExportReceipt):
+        return False
+    if share_copy is not None and receipt.share_copy is not bool(share_copy):
+        return False
+    return (
+        receipt.ok is True
+        and receipt.safe_to_remove is True
+        and receipt.code == "saved_verified_unmounted"
+        and receipt.evidence_sha256 == expected_sha256
+        and SESSION_RE.fullmatch(receipt.session_name) is not None
+        and receipt.log_status in LOG_STATUS_LINES
+        and receipt.report_folder == report_folder_for(receipt.session_name)
+        and REPORT_FOLDER_RE.fullmatch(receipt.report_folder) is not None
+        and receipt.owner_file == owner_file
+        and receipt.owner_file in OWNER_FILES
+        and type(receipt.share_copy) is bool
+        and not (receipt.share_copy and receipt.owner_file != OWNER_WIPE_FILE)
+        and _destination_label_ok(receipt.destination_label)
+    )
+
+
+def present_export_receipt(receipt: ExportReceipt) -> str:
+    """Owner-facing success copy. Call only after receipt_is_saved()."""
+    log_line = LOG_STATUS_LINES[receipt.log_status]
+    if receipt.owner_file == OWNER_DIAGNOSTIC_FILE:
+        lead = (
+            f"Diagnostic report saved and verified on {receipt.destination_label}. "
+            "The report USB is safe to remove. This is not erase evidence."
+        )
+    else:
+        lead = (
+            f"Report saved and verified on {receipt.destination_label}. "
+            "The report USB is safe to remove."
+        )
+    lines = [
+        lead,
+        f"Folder: {receipt.report_folder}",
+        f"{receipt.owner_file} is the original report.",
+    ]
+    if receipt.share_copy:
+        lines.append(
+            "SHARE.txt is a sharing copy without serials or hardware IDs."
+        )
+    lines.append(log_line)
+    return "\n".join(lines)
 
 
 def _strict_text(node: Mapping[str, Any], key: str, *, required: bool = False) -> str:
@@ -796,19 +966,12 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
         raise SafetyError("The isolated report helper failed. Shut down before removing the USB.")
     try:
         raw = json.loads((proc.stdout or "").strip())
-        required_receipt_keys = {
-            "ok",
-            "safe_to_remove",
-            "code",
-            "evidence_sha256",
-            "session_name",
-            "log_status",
-        }
         if (
             not isinstance(raw, dict)
-            or set(raw) != required_receipt_keys
+            or set(raw) != RECEIPT_KEYS
             or type(raw["ok"]) is not bool
             or type(raw["safe_to_remove"]) is not bool
+            or type(raw["share_copy"]) is not bool
             or any(
                 not isinstance(raw[key], str)
                 for key in (
@@ -816,6 +979,9 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
                     "evidence_sha256",
                     "session_name",
                     "log_status",
+                    "destination_label",
+                    "report_folder",
+                    "owner_file",
                 )
             )
         ):
@@ -824,12 +990,20 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         raise SafetyError("The isolated report helper returned an invalid receipt.") from exc
     if receipt.ok is True:
-        if (
-            not receipt.safe_to_remove
-            or receipt.code != "saved_verified_unmounted"
-            or receipt.evidence_sha256 != evidence.sha256
-            or not SESSION_RE.fullmatch(receipt.session_name)
-            or receipt.log_status != log_status
+        diagnostic = _is_diagnostic_evidence(evidence.data)
+        expected = build_success_receipt(
+            evidence_sha256=evidence.sha256,
+            session_name=receipt.session_name,
+            log_status=log_status,
+            volume=volume,
+            privacy_reduced=privacy_reduced,
+            diagnostic=diagnostic,
+        )
+        if receipt != expected or not receipt_is_saved(
+            receipt,
+            expected_sha256=evidence.sha256,
+            owner_file=expected.owner_file,
+            share_copy=expected.share_copy,
         ):
             raise SafetyError("The exported report success receipt is invalid.")
     elif receipt != ExportReceipt(False, False, "export_failed"):
@@ -1320,13 +1494,13 @@ def _persist_and_verify_report(
         if _mount_record(mountpoint) is not None:
             raise SafetyError("The report USB is still mounted.")
         _emit_export_marker("BEAMO_WIPE_EXPORT_RO_UNMOUNTED")
-        return ExportReceipt(
-            ok=True,
-            safe_to_remove=True,
-            code="saved_verified_unmounted",
+        return build_success_receipt(
             evidence_sha256=evidence.sha256,
             session_name=session_name,
             log_status=log_status,
+            volume=volume,
+            privacy_reduced=privacy_reduced,
+            diagnostic=_is_diagnostic_evidence(evidence.data),
         )
     finally:
         if mountpoint is not None and mounted:

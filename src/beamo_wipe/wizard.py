@@ -8,7 +8,6 @@ import errno
 import json
 import math
 import os
-import re
 import stat
 import subprocess
 import threading
@@ -1696,24 +1695,21 @@ class Wizard:
                 expected_evidence_sha256=claim.evidence_sha256,
                 privacy_reduced=claim.privacy_reduced,
             )
-            ok = getattr(receipt, "ok", None) is True
-            safe = getattr(receipt, "safe_to_remove", None) is True
-            code = getattr(receipt, "code", None)
-            receipt_hash = getattr(receipt, "evidence_sha256", None)
-            session = str(getattr(receipt, "session_name", "") or "")
-            if (
-                ok
-                and safe
-                and code == "saved_verified_unmounted"
-                and receipt_hash == claim.evidence_sha256
-                and getattr(receipt, "log_status", None) in {"complete", "tail", "unavailable"}
-                and re.fullmatch(r"report-[0-9a-f]{24}", session) is not None
+            from beamo_wipe.support_export import (
+                OWNER_WIPE_FILE,
+                present_export_receipt,
+                receipt_is_saved,
+            )
+
+            if receipt_is_saved(
+                receipt,
+                expected_sha256=claim.evidence_sha256,
+                owner_file=OWNER_WIPE_FILE,
+                share_copy=claim.privacy_reduced,
             ):
                 final_status = "saved"
-                final_session = session
-                final_message = (
-                    "Report saved and verified. The report USB is safe to remove."
-                )
+                final_session = receipt.session_name
+                final_message = present_export_receipt(receipt)
             else:
                 final_message = (
                     "The report was not saved and verified. "
@@ -1862,10 +1858,18 @@ class Wizard:
                     data = create_report(code, self.discovery, ui=self.diagnostic_ui, session_started=self._session_started)
                     receipt = export.export_diagnostic_to_new_usb(data=data, baseline=baseline)
                     import hashlib
-                    if (receipt.ok is not True or receipt.safe_to_remove is not True
-                            or receipt.code != "saved_verified_unmounted"
-                            or receipt.evidence_sha256 != hashlib.sha256(data).hexdigest()
-                            or re.fullmatch(r"report-[0-9a-f]{24}", receipt.session_name) is None):
+                    from beamo_wipe.support_export import (
+                        OWNER_DIAGNOSTIC_FILE,
+                        present_export_receipt,
+                        receipt_is_saved,
+                    )
+
+                    if not receipt_is_saved(
+                        receipt,
+                        expected_sha256=hashlib.sha256(data).hexdigest(),
+                        owner_file=OWNER_DIAGNOSTIC_FILE,
+                        share_copy=False,
+                    ):
                         raise SafetyError("Diagnostic report was not saved and verified. Shut down before removing the USB.")
                     with self._lock:
                         if context != self._diagnostic_context():
@@ -1873,7 +1877,7 @@ class Wizard:
                                 "Startup status changed. Save a new diagnostic report before shutting down."
                             )
                         self._saved_diagnostic_context = context
-                        self.diagnostic_message = "Diagnostic report saved and verified. Report USB is safe to remove. This is not erase evidence."
+                        self.diagnostic_message = present_export_receipt(receipt)
                         self._diagnostic_baseline = ()
             except SafetyError as exc:
                 with self._lock:

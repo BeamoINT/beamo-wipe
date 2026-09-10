@@ -18,7 +18,7 @@ from beamo_wipe.models import DiscoveryResult, Screen
 from beamo_wipe.nwipe_runner import DryRunRunner
 from beamo_wipe.safety import SafetyError
 from beamo_wipe.wizard import Wizard
-from test_usb_report_workflow import _payload, _discovery
+from test_usb_report_workflow import _payload, _discovery, _worker_success_stdout
 
 
 @pytest.fixture
@@ -392,18 +392,10 @@ def test_diagnostic_controller_worker_checksum_and_privacy_boundary(monkeypatch)
         request["evidence_sha256"] = "0" * 64
         with pytest.raises(SafetyError, match="checksum"):
             export._decode_worker_request(json.dumps(request).encode())
+        original = json.loads(kw["input"])
         return SimpleNamespace(
             returncode=0,
-            stdout=json.dumps(
-                {
-                    "ok": True,
-                    "safe_to_remove": True,
-                    "code": "saved_verified_unmounted",
-                    "evidence_sha256": hashlib.sha256(data).hexdigest(),
-                    "session_name": "report-" + "c" * 24,
-                    "log_status": "unavailable",
-                }
-            ),
+            stdout=_worker_success_stdout(original, diagnostic=True),
         )
 
     receipt = export.export_diagnostic_to_new_usb(

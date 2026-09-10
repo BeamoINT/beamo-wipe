@@ -676,6 +676,30 @@ def test_accessible_unsaved_report_close_escape_and_stale_actions(ui, origin):
     assert w.wants_shutdown and app.closed
 
 
+def test_accessible_finished_announces_receipt_location(ui, tmp_path):
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+
+    w = _done_wizard(
+        lambda **kw: _success_receipt(
+            **kw,
+            log_status="complete",
+            destination_label="SanDisk Ultra, 16 GB",
+        ),
+        tmp_path,
+    )
+    w.screen = Screen.REPORT_HELP
+    w.set_report_share_redacted(True)
+    w.screen = Screen.DONE
+    w.save_report_to_usb()
+    app = ui(w)
+    shown = text(app)
+    assert "SanDisk Ultra, 16 GB" in shown
+    assert "Folder: BEAMO-WIPE-REPORTS/" in shown
+    assert "RESULT.txt is the original report." in shown
+    assert "SHARE.txt is a sharing copy" in shown
+    assert "Engine log: complete." in shown
+
+
 @pytest.mark.parametrize("wanted,saved", [(False, False), (True, True), (True, False)])
 def test_accessible_finished_shutdown_receipt_state(ui, tmp_path, wanted, saved):
     from test_usb_report_workflow import _done_wizard, _success_receipt

@@ -374,12 +374,18 @@ def test_diagnostic_receipt_only_covers_current_startup(tmp_path, monkeypatch, c
     w._diagnostic_baseline = ("fake",)
 
     def exporter(**kw):
+        session = "report-" + "a" * 24
         return ExportReceipt(
             True,
             True,
             "saved_verified_unmounted",
             evidence_sha256=hashlib.sha256(kw["data"]).hexdigest(),
-            session_name="report-" + "a" * 24,
+            session_name=session,
+            log_status="unavailable",
+            destination_label="the report USB, 1 GB",
+            report_folder=f"BEAMO-WIPE-REPORTS/{session}",
+            share_copy=False,
+            owner_file="diagnostic.json",
         )
 
     monkeypatch.setattr(support_export, "export_diagnostic_to_new_usb", exporter)

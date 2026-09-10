@@ -16,7 +16,6 @@ from test_result_presentations import CASES as RESULT_CASES, case_evidence
 from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.models import Screen
 from beamo_wipe.methods import METHODS
-from beamo_wipe.support_export import ExportReceipt
 try:
     import tkinter as tk
     from beamo_wipe.ui.tk_wizard import TkWizard, _Button
@@ -554,13 +553,9 @@ def test_held_space_from_save_cannot_repeat_onto_shutdown(ui, tmp_path, monkeypa
     assert wiz.screen == Screen.DONE
 
     def exporter(**kwargs):
-        return ExportReceipt(
-            True,
-            True,
-            "saved_verified_unmounted",
-            evidence_sha256=kwargs["expected_evidence_sha256"],
-            session_name="report-0123456789abcdef01234567",
-        )
+        from test_usb_report_workflow import _success_receipt
+
+        return _success_receipt(**kwargs)
 
     wiz._report_exporter = exporter
     app._draw()
@@ -936,6 +931,45 @@ def test_report_help_rendered_preference_and_layout(ui, wanted, size, origin):
     assert wiz.screen == origin and not wiz.runner.started
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
+
+
+def test_saved_receipt_location_fits_minimum_window(ui, tmp_path):
+    from beamo_wipe.support_export import destination_label_for
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+
+    _, app = ui(size=MIN_WINDOW)
+    wiz = _done_wizard(
+        lambda **kw: _success_receipt(
+            **kw,
+            destination_label=destination_label_for("W" * 200, 32_000_000),
+            log_status="tail",
+        ),
+        tmp_path,
+    )
+    wiz.screen = Screen.REPORT_HELP
+    wiz.set_report_share_redacted(True)
+    wiz.screen = Screen.DONE
+    wiz.save_report_to_usb()
+    app.w = wiz
+    app._draw()
+    app.root.update_idletasks()
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    rendered = []
+
+    def visit(w):
+        if isinstance(w, tk.Label):
+            rendered.append(w.cget("text"))
+        for child in w.winfo_children():
+            visit(child)
+
+    visit(app.root)
+    blob = "\n".join(rendered)
+    assert "Folder: BEAMO-WIPE-REPORTS/" in blob
+    assert "RESULT.txt is the original report." in blob
+    assert "SHARE.txt is a sharing copy" in blob
+    assert "Engine log: only a final tail." in blob
+    assert "/run/" not in blob and "/dev/" not in blob
 
 
 @pytest.mark.parametrize('message', ['No new report USB found. Insert exactly one new FAT32 report USB, then try again.',

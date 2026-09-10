@@ -85,7 +85,7 @@ def test_terminal_export_preserves_evidence_when_log_read_fails_then_recovers(
     def fake_worker(command, **kwargs):
         # Exercise request decoding and actual bundle writes/readback on an
         # ordinary directory. No mount command or process is started.
-        report, _, _, _, exported_log, status, privacy = support_export._decode_worker_request(
+        report, volume, _, _, exported_log, status, privacy = support_export._decode_worker_request(
             kwargs["input"].encode()
         )
         session, files = support_export.write_report_bundle(
@@ -93,8 +93,13 @@ def test_terminal_export_preserves_evidence_when_log_read_fails_then_recovers(
         )
         support_export.verify_report_bundle(tmp_path, session, files)
         exported.append((status, files))
-        receipt = support_export.ExportReceipt(
-            True, True, "saved_verified_unmounted", report.sha256, session, status
+        receipt = support_export.build_success_receipt(
+            evidence_sha256=report.sha256,
+            session_name=session,
+            log_status=status,
+            volume=volume,
+            privacy_reduced=privacy,
+            diagnostic=support_export._is_diagnostic_evidence(report.data),
         )
         return subprocess.CompletedProcess(command, 0, json.dumps(asdict(receipt)), "")
 
