@@ -119,11 +119,9 @@ def test_wrap_lengths_are_bounded_by_content_width():
     # Every panel/card label uses a wraplength derived from WRAP so 1024-width
     # never leaves text hanging off the window edge.
     src = inspect.getsource(tkui.TkWizard)
-    assert 'wraplength=WRAP' in src
-    # Check specific screens use tighter wraps than WRAP
-    assert 'WRAP - 110' in src  # panel text
-    assert 'WRAP - 140' in src  # owner checkbox
-    assert 'WRAP - 120' in src  # whats bullets
+    assert 'wraplength=self.lay.wrap' in src
+    assert 'self.lay.wrap - 80' in src
+    assert 'self.root.minsize(*MIN_SIZE)' in src or 'minsize(*MIN_SIZE)' in src
 
 
 def test_no_label_uses_unbounded_wraplength():

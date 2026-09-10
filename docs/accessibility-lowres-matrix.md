@@ -62,7 +62,7 @@ One palette is shared by Tk, gallery, helper and pinned by `tests/test_ui_system
 `Tab` = logical Tab order (wraps, no trap).
 `Visible focus` = focus ring color `FOCUS #1A3FA0` on `BORDER_STRONG` or `PRIMARY` halo.
 `Low 1024` = `test_screen_fits_without_clipping[WINDOW|MIN_WINDOW]` → `[]`.
-`800×600` = degraded (needs vertical scroll) — documented below, verified not to bypass safety.
+`800×600` = compact supported layout — body may scroll; footer actions stay on-screen.
 `Warning` = panel text always `wraplength=WRAP-110` so it never truncates before the window edge.
 `Recovery` = Esc/Back path from this screen.
 
@@ -94,8 +94,8 @@ One palette is shared by Tk, gallery, helper and pinned by `tests/test_ui_system
 | **DISP-02** | **1280×820** (default) | 72 DPI | 13" laptop | Same with breathing room | `test_screen_fits_without_clipping[WINDOW]` | **Supported** |
 | **DISP-03** | **1366×768** | 72 DPI | Common 720p laptop | Width >1024 so `CONTENT_W 940` fits via `fill=X`; inferred from bounds | Manual `./preview` resize check + `CONTENT_W 940` ≤ 1366 | **Supported** |
 | **DISP-04** | **1920×1080** | 72 DPI | External FHD | Centered `CONTENT_W 940`, `center_zone` vertical centering, no stretch | Gallery `max-width:940`, Tk `CONTENT_W` | **Supported** |
-| **DISP-05** | **800×600** | 72 DPI | Very old 4:3 / VM fallback `vga=788` | **Degraded:** content renders but requires vertical scroll or pick-list scroll; primary stays reachable via Tab, safety gates intact, no bypass | `test_small_window_never_bypasses_safety` (logic-level) + `test_pick_list_scrolls_selected_card_into_view[MIN_WINDOW]` overflow path | **Degraded (safe)** |
-| **DISP-06** | **1024×600** | 72 DPI | Netbook (e.g. 10" 1024×600) | **Degraded:** height 600 < 740, vertical centering compresses but footer still packed last (`side=BOTTOM` packing order guarantees action buttons are last clipped) | Pack order comment in `_build_chrome` + footer shell test | **Degraded (safe)** |
+| **DISP-05** | **800×600** | 72 DPI | Very old 4:3 / VM fallback `vga=788` | Compact layout: narrower wrap, stacked Last chance, body may scroll; identity, warnings, and footer actions stay reachable | `tests/test_adaptive_layout.py` at `MIN_SIZE (800, 600)` | **Supported** |
+| **DISP-06** | **1024×600** | 72 DPI | Netbook (e.g. 10" 1024×600) | Short layout: compact type and stacked review; footer packed last; body may scroll | `tests/test_adaptive_layout.py` at `NETBOOK_SIZE (1024, 600)` | **Supported** |
 | **DISP-07** | **HiDPI 200% (2560×1440 @2×)** | 144 DPI logical | Modern laptop | Without pinning would clip at `WRAP`; pinned `tk scaling 1.0` keeps layout identical to 72 DPI | `test_tk_scaling_is_pinned_to_one` (structural) + `Wraplength` checks | **Supported via pinning** |
 | **DISP-08** | **800×600 @ 96 DPI VNC** | 96 DPI (`DISPLAY=:1`) | VNC desktop | **Not the gate** — VNC 96 DPI would enlarge ~33% vs live USB and clip. Gate uses `DISPLAY=:99` 72 DPI. | `docs/ci.md` gate definition | **Not claimed** |
 | **DISP-09** | **Browser 360×640** | CSS px | Phone-preview of gallery/helper | Cards stack, `disklist` `overflow-y:auto` with 12px thumb, `wraplength` not needed; `kbd` caps still 12px bold | `test_browser_cards_have_tabindex_and_focus_visible` + manual resize | **Supported (degraded width)** |

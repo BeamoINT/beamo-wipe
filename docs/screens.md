@@ -28,6 +28,11 @@ confirmation, method and countdown, and requires the full flow again. A failed
 refresh leaves no stale target selectable. Refresh is disabled once starting or
 running. Returning to a disk never automatically selects or authorizes it.
 
+The graphical wizard uses real layouts at 800×600 and 1024×600 as well as
+1024×740 and larger. Short windows may scroll the body; identity, warnings,
+and footer actions stay reachable. Type enlarges slightly on large windows.
+Tk scaling stays pinned so X DPI does not change the layout.
+
 Tk and the keyboard console support Tab, Enter, Escape, disk-selection arrows,
 and 1–2–3 for methods. L opens full limits from method selection. The 80×24
 console offers O for the read-only excluded inventory. The sequential console
