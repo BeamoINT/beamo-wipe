@@ -18,6 +18,7 @@ from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa: E402
+from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
 from beamo_wipe.models import Screen  # noqa: E402
 from beamo_wipe.safety import same_size_conflict  # noqa: E402
@@ -212,6 +213,39 @@ class AccessibleWizard:
         if screen == Screen.SPLASH:
             heading.set_text(C.SPLASH_TAGLINE)
             self.button(C.BTN_CONTINUE, self.w.skip_splash)
+        elif screen == Screen.KEYBOARD:
+            heading.set_text(C.TITLE_KEYBOARD)
+            self.label(C.KEYBOARD_LEAD)
+            self.label(C.KEYBOARD_LIMITS)
+            for index, layout_id in enumerate(LAYOUT_ORDER, 1):
+                spec = LAYOUTS[layout_id]
+                state = "selected" if self.w.keyboard_layout == layout_id else "not selected"
+                self.button(
+                    f"{index} {spec.title} ({state})",
+                    lambda lid=layout_id: self.w.set_keyboard_layout(lid),
+                    in_body=True,
+                )
+                self.label(spec.note)
+            if self.w.keyboard_message:
+                self.label(self.w.keyboard_message)
+            elif self.w.error:
+                self.label(self.w.error)
+            self.label(C.KEYBOARD_CHECK_LABEL)
+            entry = Gtk.Entry()
+            entry.set_visibility(True)
+            purpose = getattr(Gtk, "InputPurpose", None)
+            if purpose is not None:
+                entry.set_input_purpose(purpose.FREE_FORM)
+            entry.set_text(self.w.typing_check)
+            entry.set_placeholder_text(C.KEYBOARD_CHECK_HINT)
+            generation = self.generation
+            entry.connect(
+                "changed",
+                lambda widget: self._typing(widget.get_text(), generation),
+            )
+            self.body.pack_start(entry, False, False, 4)
+            arrival = entry
+            self.button(C.BTN_CONTINUE, self.w.accept_keyboard)
         elif screen == Screen.WHAT:
             heading.set_text(C.TITLE_WHAT)
             self.label(C.WHAT_LEAD)
@@ -471,6 +505,8 @@ class AccessibleWizard:
             self.button(C.REPORT_HELP_TITLE, self.w.open_report_help, utility=True)
         if self.w.can_refresh:
             self.button("Check disks again (F5)", self.w.refresh_disks, utility=True)
+        if self.w.can_open_keyboard and screen != Screen.KEYBOARD:
+            self.button(C.KEYBOARD_UTILITY, self.w.open_keyboard, utility=True)
         if screen in {
             Screen.OWNER,
             Screen.PICK,
@@ -482,7 +518,7 @@ class AccessibleWizard:
             Screen.LIMITS,
             Screen.REPORT_HELP,
             Screen.ADVANCED,
-        }:
+        } or (screen == Screen.KEYBOARD and self.w._keyboard_from):
             self.button(C.BTN_BACK, self.w.back)
         self._style_tree(self.window)
         self.window.show_all()
@@ -515,6 +551,11 @@ class AccessibleWizard:
             return
         self.w.set_confirm_input(text)
         self.primary.set_sensitive(self.w.token_ok)
+
+    def _typing(self, text, generation):
+        if generation != self.generation or self.w.screen != Screen.KEYBOARD:
+            return
+        self.w.set_typing_check(text)
 
     def update_status(self):
         if self.countdown_label:

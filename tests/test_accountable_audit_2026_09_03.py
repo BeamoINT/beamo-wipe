@@ -390,7 +390,7 @@ def test_export_post_rename_fsync_failure_is_retryable(tmp_path, monkeypatch):
 
 
 def _drive_to_working(wizard: Wizard) -> None:
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()

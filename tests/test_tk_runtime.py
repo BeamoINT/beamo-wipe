@@ -146,7 +146,10 @@ def _button_named(app, text):
 def _drive_to(wiz, app, screen, size=WINDOW):
     """Walk the real wizard state machine to a screen, then redraw."""
     if wiz.screen == Screen.SPLASH and screen != Screen.SPLASH:
-        wiz.skip_splash()
+        if screen == Screen.KEYBOARD:
+            wiz.skip_splash()
+        else:
+            wiz.skip_intro()
     if screen in (
         Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
         Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED,
@@ -181,7 +184,7 @@ def _drive_to(wiz, app, screen, size=WINDOW):
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 @pytest.mark.parametrize(
     "screen",
-    [Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
+    [Screen.KEYBOARD, Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
      Screen.ADVANCED, Screen.LAST_CHANCE],
 )
 def test_screen_fits_without_clipping(ui, screen, size):
@@ -196,7 +199,7 @@ def test_screen_fits_without_clipping(ui, screen, size):
 def test_status_screens_fit(ui, size):
     for scenario, screen in (("empty", Screen.PICK_EMPTY), ("blocked", Screen.PICK_BLOCKED)):
         wiz, app = ui(scenario=scenario, size=size)
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         wiz.set_owner(True)
         wiz.continue_owner()
@@ -246,6 +249,8 @@ def test_keyboard_only_flow_reaches_working(ui):
         root.update()
 
     key("a")
+    assert wiz.screen == Screen.KEYBOARD
+    key("Return")
     assert wiz.screen == Screen.WHAT
     key("Return")
     assert wiz.screen == Screen.OWNER
@@ -362,7 +367,7 @@ def test_held_enter_does_not_shutdown_pick_empty(ui):
     """Auto-repeat Return from Owner must not power off the empty-disk copy."""
     wiz, app = ui(scenario="empty")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     app._draw()
@@ -432,7 +437,7 @@ def test_held_space_does_not_shutdown_pick_empty(ui):
     """Auto-repeat Space from Owner Continue must not power off the empty-disk copy."""
     wiz, app = ui(scenario="empty")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     app._draw()
@@ -519,7 +524,7 @@ def test_x11_space_release_press_pair_does_not_shutdown_done(ui):
     """A synthetic X11 release/press repeat pair is still one Space hold."""
     wiz, app = ui(scenario="empty")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -860,7 +865,7 @@ def test_graphical_refresh_restarts_full_authorization(ui, screen):
 def test_screen_reader_switch_clears_authorization(ui, monkeypatch, fresh_ok):
     wiz, app = ui()
     monkeypatch.setattr("beamo_wipe.ui.tk_wizard.sys.platform", "linux")
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

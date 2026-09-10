@@ -76,7 +76,7 @@ def _footer(term, rows=4):
 
 def _at_pick():
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -113,7 +113,7 @@ def _long_list(wiz, count=18):
 
 def test_what_keeps_enter_action_on_80x24(monkeypatch):
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     shown, packed, term = _draw(monkeypatch, wiz)
     footer = _footer(term)
     assert "Enter: I understand" in footer
@@ -237,7 +237,7 @@ def test_unicode_identity_wraps_on_80x24(monkeypatch):
 
 def test_short_terminal_scrolls_power_warning_into_view(monkeypatch):
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     shown, packed, term = _draw(
         monkeypatch,
         wiz,
@@ -253,7 +253,7 @@ def test_short_terminal_scrolls_power_warning_into_view(monkeypatch):
 
 def test_resize_keeps_action_on_last_rows(monkeypatch):
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     shown, packed, term = _draw(
         monkeypatch,
         wiz,
@@ -296,7 +296,7 @@ def test_plain_fallback_methods_identity_and_busy(monkeypatch, capsys):
 
 def test_report_help_is_reachable_from_what(monkeypatch):
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     shown, packed, term = _draw(monkeypatch, wiz, keys=[ord("r")])
     assert C.REPORT_HELP_TITLE in shown
     assert "FAT32" in packed

@@ -61,6 +61,7 @@ def test_helper_page_uses_the_same_color_tokens():
 
 def test_every_hint_key_name_renders_as_a_key_cap():
     hints = (
+        C.HINT_KEYBOARD,
         C.HINT_DEFAULT,
         C.HINT_PICK,
         C.HINT_OWNER,

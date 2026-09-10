@@ -15,7 +15,7 @@ from beamo_wipe.ui.tk_wizard import TkWizard, _Button
 
 def _last_chance():
     wizard = make_demo_wizard()
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()
@@ -71,7 +71,7 @@ def test_last_chance_enter_without_erase_focus_never_erases(focus):
 
 def test_enter_on_focused_details_does_not_redraw_after_command():
     wizard = make_demo_wizard()
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()

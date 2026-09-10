@@ -22,6 +22,13 @@ from beamo_wipe.copy import (
     confirm_warning,
     erase_now_label,
 )
+from beamo_wipe.keyboard import (
+    APPLY_FAILED,
+    DEFAULT_LAYOUT,
+    UNAVAILABLE,
+    apply_layout,
+    is_allowed,
+)
 from beamo_wipe.methods import DEFAULT_METHOD, METHODS
 from beamo_wipe.models import (
     ConfirmSpec,
@@ -155,6 +162,11 @@ class Wizard:
         self.owner_ok = False
         self.selected: Optional[Disk] = None
         self.confirm_input = ""
+        self.keyboard_layout = DEFAULT_LAYOUT
+        self.typing_check = ""
+        self.keyboard_message = ""
+        self._keyboard_from: Optional[Screen] = None
+        self._apply_keyboard = apply_layout
         self.method = DEFAULT_METHOD
         self.wants_shutdown = False
         self.error: Optional[str] = None
@@ -505,7 +517,7 @@ class Wizard:
             and not self.preview
             and self.now >= self._splash_until
         ):
-            self.screen = Screen.WHAT
+            self.screen = Screen.KEYBOARD
         # Poll under lock to avoid races with cancel_wipe / confirm_erase
         # that both touch _wipe_request / screen / evidence.
         should_finish = None
@@ -534,7 +546,125 @@ class Wizard:
     def skip_splash(self) -> None:
         with self._lock:
             if self.screen == Screen.SPLASH:
+                self.screen = Screen.KEYBOARD
+
+    def skip_intro(self) -> None:
+        """Tests: advance past splash and keyboard. Production walks each screen."""
+        with self._lock:
+            if self.screen == Screen.SPLASH:
+                self.screen = Screen.KEYBOARD
+            if self.screen == Screen.KEYBOARD:
+                self.typing_check = ""
                 self.screen = Screen.WHAT
+
+    def accept_keyboard(self) -> None:
+        with self._lock:
+            if self.screen != Screen.KEYBOARD:
+                return
+            dest = self._keyboard_from or Screen.WHAT
+            if dest in {
+                Screen.WORKING,
+                Screen.CHECKING,
+                Screen.STOPPING,
+                Screen.REFRESHING,
+                Screen.KEYBOARD,
+                Screen.SPLASH,
+            }:
+                dest = Screen.WHAT
+            self._keyboard_from = None
+            self.typing_check = ""
+            self.screen = dest
+
+    @property
+    def can_open_keyboard(self) -> bool:
+        return (
+            self.screen
+            in {
+                Screen.KEYBOARD,
+                Screen.WHAT,
+                Screen.OWNER,
+                Screen.PICK,
+                Screen.PICK_EMPTY,
+                Screen.PICK_BLOCKED,
+                Screen.CONFIRM,
+                Screen.METHOD,
+                Screen.LAST_CHANCE,
+                Screen.ADVANCED,
+                Screen.LIMITS,
+                Screen.REPORT_HELP,
+            }
+            and self._wipe_request is None
+            and not self.wants_shutdown
+            and not self._startup_blocked
+            and not self._diagnostic_busy
+        )
+
+    def open_keyboard(self) -> None:
+        with self._lock:
+            if not self.can_open_keyboard or self.screen == Screen.KEYBOARD:
+                return
+            self._keyboard_from = self.screen
+            self.screen = Screen.KEYBOARD
+            self.typing_check = ""
+            self.keyboard_message = ""
+
+    def set_typing_check(self, text: str) -> None:
+        with self._lock:
+            if self.screen != Screen.KEYBOARD:
+                return
+            raw = text if isinstance(text, str) else ""
+            self.typing_check = "".join(ch for ch in raw[:64] if ch.isprintable())
+
+    def set_keyboard_layout(self, layout_id: str) -> bool:
+        """Apply an allowlisted layout. Failed applies leave the previous layout."""
+        with self._lock:
+            if not self.can_open_keyboard:
+                return False
+            if not is_allowed(layout_id):
+                self.error = UNAVAILABLE
+                self.keyboard_message = UNAVAILABLE
+                return False
+            if layout_id == self.keyboard_layout:
+                self.error = None
+                self.keyboard_message = ""
+                return True
+            if self.screen in {
+                Screen.WORKING,
+                Screen.CHECKING,
+                Screen.STOPPING,
+                Screen.REFRESHING,
+            }:
+                return False
+            applier = self._apply_keyboard
+        result = applier(layout_id)
+        with self._lock:
+            if not result.ok:
+                self.error = result.message or APPLY_FAILED
+                self.keyboard_message = self.error
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("keyboard", "apply_failed", layout_id if is_allowed(layout_id) else "rejected")
+                except Exception:
+                    pass
+                return False
+            self.keyboard_layout = layout_id
+            self.typing_check = ""
+            self.keyboard_message = result.message
+            self.error = None
+            self._invalidate_after_layout_change_locked()
+            return True
+
+    def _invalidate_after_layout_change_locked(self) -> None:
+        self.owner_ok = False
+        self.confirm_input = ""
+        self.selected = None
+        self._erase_until = None
+        self._authorized_operation = None
+        self._keyboard_from = None
+        self.typing_check = ""
+        if self.screen not in {Screen.KEYBOARD, Screen.SPLASH, Screen.WHAT}:
+            self.screen = Screen.WHAT
 
     def reset_for_preview(self) -> None:
         """Start the wizard over. Preview only — never used on a live wipe."""
@@ -556,6 +686,10 @@ class Wizard:
         self.owner_ok = False
         self.selected = None
         self.confirm_input = ""
+        self.keyboard_layout = DEFAULT_LAYOUT
+        self.typing_check = ""
+        self.keyboard_message = ""
+        self._keyboard_from = None
         self.method = DEFAULT_METHOD
         self.wants_shutdown = False
         self.error = None
@@ -1988,7 +2122,7 @@ class Wizard:
 
     def open_advanced(self) -> None:
         with self._lock:
-            if self.screen in (Screen.SPLASH, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
+            if self.screen in (Screen.SPLASH, Screen.KEYBOARD, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
                 return
             self._advanced_from = self.screen
             self.screen = Screen.ADVANCED
@@ -2012,6 +2146,20 @@ class Wizard:
                 return
             if self.screen == Screen.DIAGNOSTIC:
                 self.close_diagnostic()
+                return
+            if self.screen == Screen.KEYBOARD:
+                dest = self._keyboard_from
+                self._keyboard_from = None
+                self.typing_check = ""
+                if dest and dest not in {
+                    Screen.KEYBOARD,
+                    Screen.SPLASH,
+                    Screen.WORKING,
+                    Screen.CHECKING,
+                    Screen.STOPPING,
+                    Screen.REFRESHING,
+                }:
+                    self.screen = dest
                 return
             mapping = {
                 Screen.OWNER: Screen.WHAT,

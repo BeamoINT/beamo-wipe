@@ -13,6 +13,7 @@ from beamo_wipe import copy as C
 from beamo_wipe import diagnostic_report as D
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
+from beamo_wipe.keyboard import CONSOLE_DEAD_KEYS, LAYOUT_ORDER, LAYOUTS
 from beamo_wipe.methods import METHODS, MethodId
 from beamo_wipe.models import Screen
 from beamo_wipe.safety import same_size_conflict
@@ -132,6 +133,8 @@ def _chrome_extra(wizard: Wizard) -> list[str]:
         bits.append("R: Need a report? (optional)")
     if wizard.can_refresh and wizard.screen != Screen.REPORT_HELP:
         bits.append("F5: Check disks again (clears all confirmations)")
+    if wizard.can_open_keyboard and wizard.screen != Screen.KEYBOARD:
+        bits.append("K: Keyboard layout")
     return bits
 
 
@@ -141,6 +144,11 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     screen = wizard.screen
     if screen == Screen.SPLASH:
         return ["Press any key."]
+    if screen == Screen.KEYBOARD:
+        return [
+            "1/2/3: layout. Type to check. Enter continues.",
+            "> " + wizard.typing_check,
+        ]
     if screen == Screen.WHAT:
         return ["Enter: I understand    S: shut down", "Up/Down: read more"]
     if screen == Screen.OWNER:
@@ -221,9 +229,11 @@ def _footer_lines(wizard: Wizard, inventory_open: bool, width: int, height: int)
         Screen.REFRESHING,
         Screen.SHUTDOWN_CONFIRM,
         Screen.CONFIRM,
+        Screen.KEYBOARD,
     }:
-        for bit in _chrome_extra(wizard):
-            extra.extend(_lines(bit, width))
+        joined = "    ".join(_chrome_extra(wizard))
+        if joined:
+            extra.extend(_lines(joined, width))
     # Keep at least two body rows (title plus one content line).
     max_footer = max(1, height - 2)
     if len(primary) >= max_footer:
@@ -359,6 +369,33 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(C.SPLASH_TAGLINE)
             _answer(wizard, "Press Enter… ")
             wizard.skip_splash()
+            continue
+        if screen == Screen.KEYBOARD:
+            print(C.TITLE_KEYBOARD)
+            print(C.KEYBOARD_LEAD)
+            print(C.KEYBOARD_LIMITS)
+            print(CONSOLE_DEAD_KEYS)
+            for i, layout_id in enumerate(LAYOUT_ORDER, 1):
+                spec = LAYOUTS[layout_id]
+                mark = ">" if wizard.keyboard_layout == layout_id else " "
+                print(f"{mark} {i} {spec.title}")
+                print(spec.note)
+            if wizard.keyboard_message:
+                print(wizard.keyboard_message)
+            elif wizard.error:
+                print(wizard.error)
+            print(C.KEYBOARD_CHECK_LABEL)
+            typed = input("> ")
+            key = typed.strip()
+            mapping = {"1": "us", "2": "fr", "3": "de"}
+            if key in mapping:
+                wizard.set_keyboard_layout(mapping[key])
+            elif key.upper() == "K":
+                pass
+            elif key == "":
+                wizard.accept_keyboard()
+            else:
+                wizard.set_typing_check(typed)
             continue
         if screen == Screen.WHAT:
             for b in C.WHAT_BULLETS:
@@ -624,6 +661,22 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 y += 1
         elif wizard.screen == Screen.SPLASH:
             y = _wrap(stdscr, y, C.SPLASH_TAGLINE, w, y_max)
+        elif wizard.screen == Screen.KEYBOARD:
+            y = _wrap(stdscr, y, C.KEYBOARD_LEAD, w, y_max)
+            y = _wrap(stdscr, y, C.KEYBOARD_LIMITS, w, y_max)
+            y = _wrap(stdscr, y, CONSOLE_DEAD_KEYS, w, y_max) + 1
+            lines = []
+            for i, layout_id in enumerate(LAYOUT_ORDER, 1):
+                spec = LAYOUTS[layout_id]
+                star = ">" if wizard.keyboard_layout == layout_id else " "
+                lines.extend(_lines(f"{star} {i} {spec.title}: {spec.note}", w))
+                lines.append("")
+            if wizard.keyboard_message:
+                lines.extend(_lines(wizard.keyboard_message, w))
+            elif wizard.error:
+                lines.extend(_lines(wizard.error, w))
+            lines.extend(_lines(C.KEYBOARD_CHECK_LABEL, w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.WHAT:
             lines = []
             for bullet in C.WHAT_BULLETS:
@@ -884,6 +937,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             Screen.METHOD,
             Screen.LAST_CHANCE,
             Screen.CONFIRM,
+            Screen.KEYBOARD,
         }
         if wizard.screen in _paged and ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE):
             delta = {curses.KEY_UP: -1, curses.KEY_DOWN: 1,
@@ -976,6 +1030,27 @@ def _confirm_report_save(stdscr, wizard: Wizard) -> None:
 
 
 def _handle(wizard: Wizard, ch: int) -> None:
+    if wizard.can_open_keyboard and wizard.screen != Screen.KEYBOARD and ch in (ord("k"), ord("K")):
+        wizard.open_keyboard()
+        return
+    if wizard.screen == Screen.KEYBOARD:
+        mapping = {ord("1"): "us", ord("2"): "fr", ord("3"): "de"}
+        if ch in mapping:
+            wizard.set_keyboard_layout(mapping[ch])
+            return
+        if ch in (curses.KEY_ENTER, 10, 13):
+            wizard.accept_keyboard()
+            return
+        if ch in (curses.KEY_BACKSPACE, 127, 8):
+            wizard.set_typing_check(wizard.typing_check[:-1])
+            return
+        if 32 <= ch < 127:
+            wizard.set_typing_check(wizard.typing_check + chr(ch))
+            return
+        if ch == 27:
+            wizard.back()
+            return
+        return
     if wizard.screen == Screen.DONE and ch in (ord("e"), ord("E")):
         wizard.begin_evidence_retry()
         return

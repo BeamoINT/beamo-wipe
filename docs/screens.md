@@ -4,7 +4,7 @@ Every interface uses the same Wizard authorization and validated result model.
 
 | Screen | Purpose |
 | --- | --- |
-| Splash / What | Explain ownership, irreversible erasure, backup copies, OS-disk consequences, wall-power reminder, display blanking, and supported PCs. Nothing starts automatically. |
+| Splash / Keyboard / What | Splash explains that nothing starts automatically. Keyboard offers only the shipped US QWERTY, French AZERTY, and German QWERTZ layouts plus a typing-check box that is never saved. What explains ownership, irreversible erasure, backup copies, OS-disk consequences, wall-power reminder, display blanking, and supported PCs. |
 | Owner | Require the ownership or written-permission acknowledgement. |
 | Pick a disk | Keep eligible targets separate from read-only Other detected devices. Show identity and deterministic exclusion reasons. No excluded row offers a bypass. Empty or uncertain discovery gives safe support steps. |
 | Confirm | Show the irreversible-action warning, exact device identity, and partition-evidence preparation for the selected disk. Require the displayed confirmation token. |
@@ -28,13 +28,21 @@ confirmation, method and countdown, and requires the full flow again. A failed
 refresh leaves no stale target selectable. Refresh is disabled once starting or
 running. Returning to a disk never automatically selects or authorizes it.
 
+The keyboard screen is required after splash. Only US QWERTY, French AZERTY,
+and German QWERTZ are offered. A successful layout change clears typed
+confirmations, the ownership acknowledgement, the selected disk, and last-chance
+authorization, and requires that flow again. A failed or unknown layout leaves
+the previous layout and is shown as an error; it does not silently substitute
+another map. The typing-check box is not a password, is not logged, and is not
+written to evidence. A kiosk restart returns to the shipped US QWERTY default.
+
 The graphical wizard uses real layouts at 800×600 and 1024×600 as well as
 1024×740 and larger. Short windows may scroll the body; identity, warnings,
 and footer actions stay reachable. Type enlarges slightly on large windows.
 Tk scaling stays pinned so X DPI does not change the layout.
 
 Tk and the keyboard console support Tab, Enter, Escape, disk-selection arrows,
-and 1–2–3 for methods. L opens full limits from method selection. The 80×24
+1–2–3 for keyboard layouts and methods. L opens full limits from method selection. The 80×24
 console offers O for the read-only excluded inventory. The sequential console
 accepts `CHECK DISKS AGAIN` at its pre-erase prompts.
 

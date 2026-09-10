@@ -26,6 +26,7 @@ from beamo_wipe.diagnostics import emit_serial_marker
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
+from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.ui.layout import DEFAULT_SIZE, MIN_SIZE, layout_for
@@ -93,6 +94,7 @@ RING_PAD = 14
 RING_W = 11
 
 _STEP_ORDER = {
+    Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
     Screen.WHAT: (1, "Step 1 of 8", C.TITLE_WHAT),
     Screen.OWNER: (2, "Step 2 of 8", "Ownership"),
     Screen.PICK: (3, "Step 3 of 8", C.TITLE_PICK),
@@ -822,6 +824,7 @@ class TkWizard:
         self._logo_header = self._load_image("logo-header.png")
         self._logo_splash = self._load_image("logo-splash.png")
         self._confirm_var = tk.StringVar()
+        self._typing_var = tk.StringVar()
         self._owner_var = tk.IntVar(value=0)
         self._body: Optional[tk.Frame] = None
         self._footer: Optional[tk.Frame] = None
@@ -876,6 +879,7 @@ class TkWizard:
         self._build_chrome()
         self.root.bind("<Configure>", self._on_root_configure)
         self._confirm_var.trace_add("write", self._confirm_var_written)
+        self._typing_var.trace_add("write", self._typing_var_written)
         self.root.bind("<Escape>", self._on_escape)
         self.root.bind("<KP_Enter>", self._on_return)
         self.root.bind("<Return>", self._on_return)
@@ -1258,6 +1262,7 @@ class TkWizard:
         self._body.configure(bg=BG)
         dispatch = {
             Screen.SPLASH: self._splash,
+            Screen.KEYBOARD: lambda: self._keyboard(),
             Screen.WHAT: self._what,
             Screen.OWNER: self._owner,
             Screen.PICK: self._pick,
@@ -1601,6 +1606,8 @@ class TkWizard:
             _Button(tools, text=text, font=self.font_s, command=command,
                     variant="ghost", compact=True).pack(side=tk.LEFT, padx=(0, 4))
 
+        if self.w.can_open_keyboard and self.w.screen != Screen.KEYBOARD:
+            utility(C.KEYBOARD_UTILITY, self._nav(self.w.open_keyboard))
         if self.w.can_refresh:
             utility("Check disks again (F5)", self._click_refresh)
             if self.w.can_open_report_help:
@@ -1723,6 +1730,80 @@ class TkWizard:
         tk.Label(col, text=C.HINT_SPLASH, font=self.font_meta, fg=MUTED, bg=BG).pack(pady=(14, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         hero.focus_set()
+
+    def _keyboard(self) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, C.TITLE_KEYBOARD, C.KEYBOARD_LEAD)
+        zone = self._center_zone(col)
+        self._p(zone, C.KEYBOARD_LIMITS, font=self.font_s, fg=MUTED).pack(fill=tk.X)
+        for index, layout_id in enumerate(LAYOUT_ORDER, 1):
+            spec = LAYOUTS[layout_id]
+            selected = self.w.keyboard_layout == layout_id
+            fill = PRIMARY_TINT if selected else SURFACE
+            outline = PRIMARY if selected else BORDER_STRONG
+            card = _Box(
+                zone, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
+                padx=16, pady=10, halo=False,
+            )
+            card.pack(fill=tk.X, pady=(6, 0))
+            inner = card.inner
+            top = tk.Frame(inner, bg=fill)
+            top.pack(fill=tk.X)
+            self._kbd(top, str(index)).pack(side=tk.LEFT)
+            tk.Label(
+                top, text=spec.title, font=self.font_bold, fg=INK, bg=fill, anchor="w",
+            ).pack(side=tk.LEFT, padx=(10, 0))
+            tk.Label(
+                inner, text=spec.note, font=self.font_s, fg=MUTED, bg=fill,
+                wraplength=max(200, self.lay.wrap - 80), justify=tk.LEFT, anchor="w",
+            ).pack(fill=tk.X, pady=(6, 0))
+
+            def _click(_e=None, lid=layout_id):
+                self.w.set_keyboard_layout(lid)
+                self._draw()
+                return "break"
+
+            self._bind_tree(card, _click)
+            card.configure(cursor="hand2")
+        if self.w.keyboard_message:
+            self._panel(zone, kind="warn", text=self.w.keyboard_message).pack(fill=tk.X, pady=(12, 0))
+        elif self.w.error:
+            self._panel(zone, kind="warn", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+        tk.Label(
+            zone, text=C.KEYBOARD_CHECK_LABEL, font=self.font_s, fg=INK, bg=BG, anchor="w",
+        ).pack(fill=tk.X, pady=(10, 4))
+        shell = _Box(
+            zone, radius=RADIUS, fill=SURFACE, outline=BORDER_STRONG, ow=1,
+            padx=16, pady=10, ring=True, shadow=False,
+        )
+        shell.pack(fill=tk.X)
+        entry = tk.Entry(
+            shell.inner,
+            textvariable=self._typing_var,
+            font=self.font_entry,
+            fg=INK,
+            bg=SURFACE,
+            insertbackground=INK,
+            relief=tk.FLAT,
+            highlightthickness=0,
+            show="",
+            bd=0,
+        )
+        self._typing_var.set(self.w.typing_check)
+        entry.pack(fill=tk.X, ipady=4)
+        entry.bind("<FocusIn>", lambda _e: shell.set_focused(True))
+        entry.bind("<FocusOut>", lambda _e: shell.set_focused(False))
+        shell.set_focused(True)
+        entry.focus_set()
+        row = self._footer_shell(C.HINT_KEYBOARD)
+        if self.w._keyboard_from:
+            self._back_btn(row)
+        self._primary_btn(row, C.BTN_CONTINUE, self.w.accept_keyboard)
+
+    def _typing_var_written(self, *_a) -> None:
+        if self.w.screen != Screen.KEYBOARD:
+            return
+        self.w.set_typing_check(self._typing_var.get())
 
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
@@ -2922,6 +3003,8 @@ class TkWizard:
                 self.w.keep_report_session()
             elif screen == Screen.SPLASH:
                 self.w.skip_splash()
+            elif screen == Screen.KEYBOARD:
+                self.w.accept_keyboard()
             elif screen == Screen.WHAT:
                 self.w.accept_what()
             elif screen == Screen.OWNER and self.w.owner_ok:
@@ -2992,6 +3075,15 @@ class TkWizard:
             self.w.move_selection(-1 if event.keysym == "Up" else 1)
             self._draw()
             return "break"
+        if self.w.screen == Screen.KEYBOARD:
+            focused = self.root.focus_get()
+            if isinstance(focused, tk.Entry):
+                return None
+            mapping = {"1": "us", "2": "fr", "3": "de"}
+            if event.keysym in mapping:
+                self.w.set_keyboard_layout(mapping[event.keysym])
+                self._draw()
+                return "break"
         if self.w.screen == Screen.METHOD:
             if event.keysym.lower() == "l":
                 self.w.open_limits()

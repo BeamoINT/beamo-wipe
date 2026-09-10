@@ -210,7 +210,7 @@ def test_accessibility_shortcuts_cannot_bypass_gates():
     for scenario in ("happy", "empty", "blocked"):
         wiz = make_demo_wizard(scenario=scenario)  # DryRunRunner
         # Drive to at least PICK and poke
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         if wiz.screen == Screen.WHAT:
             continue  # demo empty/blocked edge — still no wipe
@@ -253,7 +253,7 @@ def test_accessibility_shortcuts_cannot_bypass_gates():
 
 def test_method_keyboard_up_down_cycles():
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -369,7 +369,7 @@ def test_runtime_accessibility_lowres_matrix(size):
     def drive(app_wizard, screen):
         w = app_wizard
         if w.screen == Screen.SPLASH and screen != Screen.SPLASH:
-            w.skip_splash()
+            w.skip_intro()
         if screen in (Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             if w.screen == Screen.WHAT:
                 w.accept_what()
@@ -452,7 +452,7 @@ def test_runtime_safe_default_focus_is_never_erase():
         app.root.geometry("1280x820+40+40")
         app.root.update_idletasks()
         # Drive to LAST_CHANCE
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         wiz.set_owner(True)
         wiz.continue_owner()
@@ -485,7 +485,7 @@ def test_runtime_tab_does_not_trap_on_confirm_and_pick():
     try:
         app.root.geometry("1280x820+40+40")
         app.root.update_idletasks()
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         wiz.set_owner(True)
         wiz.continue_owner()
