@@ -175,7 +175,7 @@ def test_malformed_control_serial_is_stripped_not_used_as_name():
 def test_wizard_blocks_confirm_when_identity_is_ambiguous():
     result = _disc("lsblk_identical_missing_serial.json")
     wiz = Wizard(result, DryRunRunner(duration_s=0.5), dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 import re
 import sys
+import threading
 from functools import partial
 import tkinter as tk
 from pathlib import Path
@@ -26,8 +27,10 @@ from beamo_wipe.diagnostics import emit_serial_marker
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
+from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
+from beamo_wipe.ui.layout import DEFAULT_SIZE, MIN_SIZE, layout_for
 from beamo_wipe.wizard import COUNTDOWN_S, ReportView, Wizard, format_progress_percent
 
 # --- Design tokens ---------------------------------------------------------
@@ -92,6 +95,7 @@ RING_PAD = 14
 RING_W = 11
 
 _STEP_ORDER = {
+    Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
     Screen.WHAT: (1, "Step 1 of 8", C.TITLE_WHAT),
     Screen.OWNER: (2, "Step 2 of 8", "Ownership"),
     Screen.PICK: (3, "Step 3 of 8", C.TITLE_PICK),
@@ -515,6 +519,55 @@ class _Box(tk.Canvas):
             self._repaint(child, bg)
 
 
+def _soft_break_tokens(
+    text: str, measure: Callable[[str], int], max_px: int
+) -> str:
+    """Insert explicit breaks so space-only Tk wrapping never clips long tokens.
+
+    Tk ``wraplength`` breaks lines at spaces only, so an unbroken serial
+    number or device path wider than its card renders past the edge and
+    hides the distinguishing tail. This pre-breaks only tokens wider than
+    ``max_px`` (measured with the real font, so it holds at any DPI),
+    inserting ``"\\n"`` and nothing else: removing the breaks restores the
+    exact input, and callers keep the raw string for evidence, copy, and
+    readout paths. Plain spaced text passes through untouched.
+    """
+
+    def _split_long(word: str) -> list:
+        parts: list = []
+        cur = ""
+        for ch in word:
+            trial = cur + ch
+            if cur and measure(trial) > max_px:
+                parts.append(cur)
+                cur = ch
+            else:
+                cur = trial
+        if cur:
+            parts.append(cur)
+        return parts
+
+    max_px = max(1, int(max_px))
+    out: list = []
+    for para in (text or "").split("\n"):
+        cur = ""
+        for tok in re.split(r"(\s+)", para):
+            if not tok:
+                continue
+            # Whitespace runs split into single spaces too: an over-wide
+            # run must still fit, and spaces rejoin greedily when they do.
+            pieces = [tok] if measure(tok) <= max_px else _split_long(tok)
+            for piece in pieces:
+                trial = cur + piece
+                if cur and measure(trial) > max_px:
+                    out.append(cur)
+                    cur = piece
+                else:
+                    cur = trial
+        out.append(cur)
+    return "\n".join(out)
+
+
 class _Button(tk.Canvas):
     """Canvas button: identical rendering on Linux Tk and macOS preview.
 
@@ -785,26 +838,29 @@ class TkWizard:
             title = f"{C.APP_NAME} — PREVIEW (nothing is erased)"
         self.root.title(title)
         self.root.configure(bg=BG)
-        self.root.minsize(1024, 740)
+        self.root.minsize(*MIN_SIZE)
         if fullscreen:
+            # The live startx kiosk has no window manager to honor the EWMH
+            # fullscreen hint. Pin geometry too, or content-driven sizing
+            # can feed back into responsive redraws and starve key releases.
+            self.root.geometry(
+                f"{self.root.winfo_screenwidth()}x{self.root.winfo_screenheight()}+0+0"
+            )
             self.root.attributes("-fullscreen", True)
         else:
-            self.root.geometry("1280x820")
+            self.root.geometry(f"{DEFAULT_SIZE[0]}x{DEFAULT_SIZE[1]}")
         family = _family(self.root)
         mono = _mono_family(self.root)
         # Negative Tk font sizes are pixels. Tk 9 on macOS can adjust its
         # point scale after mapping a window; pixel sizes keep text and our
-        # fixed geometry in agreement on both the live USB and local preview.
-        # One deliberate type scale: a strong title step, calm body sizes,
-        # and small quiet meta steps. Hierarchy comes from the steps between
-        # sizes, not from making everything big.
+        # geometry in agreement. Type scale follows window size (compact on
+        # 800x600, slightly larger on 1600x1000+), never the X server DPI.
+        self.lay = layout_for(*DEFAULT_SIZE)
         self.font_hero = tkfont.Font(root=self.root, family=family, size=-52, weight="bold")
         self.font_h = tkfont.Font(root=self.root, family=family, size=-30, weight="bold")
         self.font_lead = tkfont.Font(root=self.root, family=family, size=-18)
         self.font_b = tkfont.Font(root=self.root, family=family, size=-16)
         self.font_bold = tkfont.Font(root=self.root, family=family, size=-16, weight="bold")
-        # The size is the first thing owners scan for on a disk row; it gets
-        # its own step on the scale so it wins the row without shouting.
         self.font_size_big = tkfont.Font(root=self.root, family=family, size=-20, weight="bold")
         self.font_s = tkfont.Font(root=self.root, family=family, size=-14)
         self.font_s_bold = tkfont.Font(root=self.root, family=family, size=-14, weight="bold")
@@ -812,19 +868,19 @@ class TkWizard:
         self.font_meta = tkfont.Font(root=self.root, family=family, size=-12)
         self.font_btn = tkfont.Font(root=self.root, family=family, size=-16, weight="bold")
         self.font_mono = tkfont.Font(root=self.root, family=mono, size=-14)
-        # Serials are the safety disambiguator (the confirm token and the
-        # same-size warning both point at them): bold mono, never buried.
         self.font_mono_bold = tkfont.Font(root=self.root, family=mono, size=-14, weight="bold")
         self.font_mono_sm = tkfont.Font(root=self.root, family=mono, size=-13)
         self.font_entry = tkfont.Font(root=self.root, family=mono, size=-26, weight="bold")
         self.font_stat = tkfont.Font(root=self.root, family=family, size=-56, weight="bold")
         self.font_brand = tkfont.Font(root=self.root, family=family, size=-16, weight="bold")
+        self._apply_fonts()
         # The brand mark ships as PNGs (Tk cannot draw the SVG source).
         # Bound to this app's root explicitly: tests run several roots per
         # process, and an unbound PhotoImage dies with the first root.
         self._logo_header = self._load_image("logo-header.png")
         self._logo_splash = self._load_image("logo-splash.png")
         self._confirm_var = tk.StringVar()
+        self._typing_var = tk.StringVar()
         self._owner_var = tk.IntVar(value=0)
         self._body: Optional[tk.Frame] = None
         self._footer: Optional[tk.Frame] = None
@@ -860,6 +916,10 @@ class TkWizard:
         self._pick_applied_geometry: Optional[tuple[float, float]] = None
         self._pick_after_ids: list[str] = []
         self._pick_gen = 0
+        self._refresh_lock = threading.Lock()
+        self._refresh_results: dict = {}
+        self._refresh_threads: dict = {}
+        self._ui_dead = False
         self._return_held = False
         self._return_release_after: Optional[str] = None
         self._return_release_time: Optional[int] = None
@@ -872,8 +932,14 @@ class TkWizard:
         # Optional extra detail (device path, bus) on existing screens.
         # One flag for the session; not a new wizard step.
         self._show_more = False
+        self._body_inner: Optional[tk.Frame] = None
+        self._body_canvas: Optional[tk.Canvas] = None
+        self._ring_px = self.lay.ring
+        self._layout_drawing = False
         self._build_chrome()
+        self.root.bind("<Configure>", self._on_root_configure)
         self._confirm_var.trace_add("write", self._confirm_var_written)
+        self._typing_var.trace_add("write", self._typing_var_written)
         self.root.bind("<Escape>", self._on_escape)
         self.root.bind("<KP_Enter>", self._on_return)
         self.root.bind("<Return>", self._on_return)
@@ -901,7 +967,7 @@ class TkWizard:
                 font=self.font_s_bold,
             ).pack(side=tk.LEFT, padx=24, pady=7)
         self._header = tk.Canvas(
-            self.root, height=56, bg=BG, highlightthickness=0, bd=0
+            self.root, height=self.lay.header_h, bg=BG, highlightthickness=0, bd=0
         )
         self._header.pack(fill=tk.X)
         self._header.bind("<Configure>", lambda _e: self._draw_header())
@@ -915,11 +981,71 @@ class TkWizard:
         self._footer.pack(fill=tk.X, side=tk.BOTTOM)
         self._body = tk.Frame(self.root, bg=BG)
         self._body.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
+        self._apply_grid()
+
+    def _apply_grid(self) -> None:
         for area, expand in ((self._body, True), (self._footer, False)):
+            if area is None:
+                continue
             area.grid_columnconfigure(0, weight=1)
-            area.grid_columnconfigure(1, minsize=CONTENT_W, weight=0)
+            area.grid_columnconfigure(1, minsize=self.lay.content_w, weight=0)
             area.grid_columnconfigure(2, weight=1)
             area.grid_rowconfigure(0, weight=1 if expand else 0)
+
+    def _apply_fonts(self) -> None:
+        px = self.lay.font
+        self.font_hero.configure(size=-px["hero"])
+        self.font_h.configure(size=-px["h"])
+        self.font_lead.configure(size=-px["lead"])
+        self.font_b.configure(size=-px["b"])
+        self.font_bold.configure(size=-px["b"])
+        self.font_size_big.configure(size=-px["size_big"])
+        self.font_s.configure(size=-px["s"])
+        self.font_s_bold.configure(size=-px["s"])
+        self.font_tiny.configure(size=-px["tiny"])
+        self.font_meta.configure(size=-px["tiny"])
+        self.font_btn.configure(size=-px["btn"])
+        self.font_mono.configure(size=-px["mono"])
+        self.font_mono_bold.configure(size=-px["mono"])
+        self.font_mono_sm.configure(size=-px["mono_sm"])
+        self.font_entry.configure(size=-px["entry"])
+        self.font_stat.configure(size=-px["stat"])
+        self.font_brand.configure(size=-px["brand"])
+
+    def _sync_layout(self) -> bool:
+        """Match fonts and wrap to the mapped window. Returns True if layout changed."""
+        root = getattr(self, "root", None)
+        if root is None or not hasattr(root, "winfo_width"):
+            if not hasattr(self, "lay"):
+                self.lay = layout_for(*DEFAULT_SIZE)
+            return False
+        try:
+            width = root.winfo_width()
+            height = root.winfo_height()
+        except tk.TclError:
+            return False
+        if width < 2 or height < 2:
+            return False
+        new = layout_for(width, height)
+        if new.key == self.lay.key:
+            self.lay = new
+            return False
+        self.lay = new
+        self._apply_fonts()
+        if self._header is not None:
+            self._header.configure(height=self.lay.header_h)
+        self._apply_grid()
+        return True
+
+    def _on_root_configure(self, event) -> None:
+        if event.widget is not self.root or self._layout_drawing:
+            return
+        if self._sync_layout():
+            self._layout_drawing = True
+            try:
+                self._draw()
+            finally:
+                self._layout_drawing = False
 
     def _load_image(self, name: str) -> Optional[tk.PhotoImage]:
         try:
@@ -1016,9 +1142,59 @@ class TkWizard:
 
     def _column(self, parent: Optional[tk.Widget], *, fill_height: bool, bg: str = BG) -> tk.Frame:
         assert parent is not None
-        col = tk.Frame(parent, bg=bg)
+        host = parent
+        if parent is self._body and self._body_inner is not None:
+            host = self._body_inner
+            col = tk.Frame(host, bg=bg)
+            col.pack(fill=tk.BOTH if fill_height else tk.X, expand=fill_height)
+            return col
+        col = tk.Frame(host, bg=bg)
         col.grid(row=0, column=1, sticky="nsew" if fill_height else "ew")
         return col
+
+    def _prepare_body_host(self) -> None:
+        self._body_inner = None
+        self._body_canvas = None
+        if self._body is None or not (self.lay.short or self.w.screen == Screen.LAST_CHANCE):
+            return
+        if self.w.screen in {
+            Screen.PICK,
+            Screen.LIMITS,
+            Screen.REPORT_HELP,
+        }:
+            return
+        host = tk.Frame(self._body, bg=BG)
+        host.grid(row=0, column=1, sticky="nsew")
+        canvas = tk.Canvas(host, bg=BG, highlightthickness=0, bd=0)
+        scroll = _Scrollbar(host, canvas.yview)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._body.grid_rowconfigure(0, weight=1)
+        inner = tk.Frame(canvas, bg=BG)
+        window = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def on_inner(_event=None) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all") or (0, 0, 0, 0))
+
+        def on_canvas(event) -> None:
+            canvas.itemconfigure(window, width=max(1, event.width))
+
+        inner.bind("<Configure>", on_inner)
+        canvas.bind("<Configure>", on_canvas)
+
+        def wheel(event) -> str:
+            steps = int(-event.delta / 120) if event.delta else 0
+            if steps:
+                canvas.yview_scroll(steps, "units")
+            return "break"
+
+        canvas.bind("<MouseWheel>", wheel)
+        inner.bind("<MouseWheel>", wheel)
+        canvas.bind("<Button-4>", lambda _e: canvas.yview_scroll(-1, "units"))
+        canvas.bind("<Button-5>", lambda _e: canvas.yview_scroll(1, "units"))
+        self._body_canvas = canvas
+        self._body_inner = inner
 
     def _clear(self, frame: tk.Frame) -> None:
         for child in frame.winfo_children():
@@ -1047,6 +1223,9 @@ class TkWizard:
             self.w.arm_done_keyboard()
 
     def _teardown(self) -> None:
+        # In-flight scans finish into the void: polls stop here and any late
+        # worker result finds no owner. Workers are daemons; join them only.
+        self._ui_dead = True
         self._cancel_pick_restore()
         for attr in ("_return_release_after", "_space_release_after"):
             callback = getattr(self, attr)
@@ -1109,6 +1288,9 @@ class TkWizard:
             self._teardown()
 
     def _draw(self) -> None:
+        sync = getattr(self, "_sync_layout", None)
+        if callable(sync):
+            sync()
         self._draw_generation = getattr(self, "_draw_generation", 0) + 1
         assert self._body is not None and self._footer is not None
         if self._pick_canvas is not None:
@@ -1127,6 +1309,9 @@ class TkWizard:
             self._pick_restore_pending = False
         self._clear(self._body)
         self._clear(self._footer)
+        prepare = getattr(self, "_prepare_body_host", None)
+        if callable(prepare):
+            prepare()
         self._primary = None
         self._countdown_ring = None
         self._countdown_num = None
@@ -1145,6 +1330,7 @@ class TkWizard:
         self._body.configure(bg=BG)
         dispatch = {
             Screen.SPLASH: self._splash,
+            Screen.KEYBOARD: lambda: self._keyboard(),
             Screen.WHAT: self._what,
             Screen.OWNER: self._owner,
             Screen.PICK: self._pick,
@@ -1213,7 +1399,7 @@ class TkWizard:
     def _h(self, parent: tk.Widget, text: str, *, bg: str = BG, fg: str = INK) -> tk.Label:
         return tk.Label(
             parent, text=text, font=self.font_h, fg=fg, bg=bg,
-            wraplength=WRAP, justify=tk.LEFT,
+            wraplength=self.lay.wrap, justify=tk.LEFT,
         )
 
     def _p(self, parent: tk.Widget, text: str, **kw) -> tk.Label:
@@ -1223,7 +1409,7 @@ class TkWizard:
             font=kw.get("font", self.font_lead),
             fg=kw.get("fg", INK),
             bg=kw.get("bg", BG),
-            wraplength=kw.get("wraplength", WRAP),
+            wraplength=kw.get("wraplength", self.lay.wrap),
             justify=kw.get("justify", tk.LEFT),
             anchor=kw.get("anchor", "w"),
         )
@@ -1239,14 +1425,14 @@ class TkWizard:
         """The one screen-header pattern: bold title, optional muted subtitle.
 
         Every working screen opens with the same rhythm so the eye lands in
-        the same place on each step. ``compact`` is for the method screen,
-        the tightest layout, which must fit the 1024x740 minimum window.
+        the same place on each step. ``compact`` squeezes the method screen
+        further; short and narrow windows already use compact layout pads.
         """
-        top = 10 if compact else 24
-        bottom = 6 if compact else 14
+        top = min(10, self.lay.title_top) if compact else self.lay.title_top
+        bottom = min(6, self.lay.title_bottom) if compact else self.lay.title_bottom
         tk.Label(
             col, text=title, font=self.font_h, fg=INK, bg=BG,
-            wraplength=WRAP, justify=tk.LEFT, anchor="w",
+            wraplength=self.lay.wrap, justify=tk.LEFT, anchor="w",
         ).pack(fill=tk.X, pady=(top, 4 if subtitle else bottom))
         if subtitle:
             self._p(col, subtitle, fg=MUTED, font=self.font_b).pack(
@@ -1321,14 +1507,14 @@ class TkWizard:
         icon.pack(side=tk.LEFT, anchor="n", pady=1)
         lines = tk.Frame(row, bg=bg)
         lines.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
-        tk.Label(
-            lines, text=text, font=self.font_s if compact else self.font_b, fg=INK, bg=bg,
-            wraplength=WRAP - 110, justify=tk.LEFT, anchor="w",
+        # Panels carry disk names, models, and errors: same wrapping as
+        # identity labels, including unbroken serials and paths.
+        self._wrapping_label(
+            lines, text, font=self.font_s if compact else self.font_b, bg=bg,
         ).pack(fill=tk.X)
         if extra:
-            tk.Label(
-                lines, text=extra, font=self.font_s, fg=MUTED, bg=bg,
-                wraplength=WRAP - 110, justify=tk.LEFT, anchor="w",
+            self._wrapping_label(
+                lines, extra, font=self.font_s, fg=MUTED, bg=bg,
             ).pack(fill=tk.X, pady=(4, 0))
         return box
 
@@ -1406,11 +1592,25 @@ class TkWizard:
         Observe the allocated parent width without feeding the label's
         requested width back into the layout.
         """
-        label = tk.Label(parent, text=text, font=font, fg=fg, bg=bg,
-                         anchor="w", justify=tk.LEFT, wraplength=WRAP - 180)
+        base = max(200, self.lay.wrap - 120)
+        def displayed(width):
+            # Native word wrapping preserves prose and avoids double wrapping
+            # explicit newlines at spaces. Split only when a token cannot fit.
+            if all(font.measure(token) <= width for token in text.split()):
+                return text
+            return _soft_break_tokens(text, font.measure, width)
+
+        label = tk.Label(parent, text=displayed(base),
+                         font=font, fg=fg, bg=bg,
+                         anchor="w", justify=tk.LEFT, wraplength=base)
         def fit(event) -> None:
             width = max(1, event.width - 4)
             if int(label.cget("wraplength")) != width:
+                # Long serials and device paths have no spaces for Tk to
+                # wrap at; re-chunk to the actual allocation on resize.
+                broken = displayed(width)
+                if broken != str(label.cget("text")):
+                    label.configure(text=broken)
                 label.configure(wraplength=width)
         parent.bind("<Configure>", fit, add="+")
         label.pack(fill=tk.X)
@@ -1488,6 +1688,8 @@ class TkWizard:
             _Button(tools, text=text, font=self.font_s, command=command,
                     variant="ghost", compact=True).pack(side=tk.LEFT, padx=(0, 4))
 
+        if self.w.can_open_keyboard and self.w.screen != Screen.KEYBOARD:
+            utility(C.KEYBOARD_UTILITY, self._nav(self.w.open_keyboard))
         if self.w.can_refresh:
             utility("Check disks again (F5)", self._click_refresh)
             if self.w.can_open_report_help:
@@ -1498,7 +1700,8 @@ class TkWizard:
             utility("Diagnostic report", self._nav(self.w.open_diagnostic))
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
         row = tk.Frame(col, bg=BG)
-        row.pack(fill=tk.X, pady=(12, 16))
+        pad = self.lay.footer_pad_y
+        row.pack(fill=tk.X, pady=(max(8, pad - 4), pad))
         left = tk.Frame(row, bg=BG)
         left.pack(side=tk.LEFT)
         right = tk.Frame(row, bg=BG)
@@ -1610,6 +1813,80 @@ class TkWizard:
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         hero.focus_set()
 
+    def _keyboard(self) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, C.TITLE_KEYBOARD, C.KEYBOARD_LEAD)
+        zone = self._center_zone(col)
+        self._p(zone, C.KEYBOARD_LIMITS, font=self.font_s, fg=MUTED).pack(fill=tk.X)
+        for index, layout_id in enumerate(LAYOUT_ORDER, 1):
+            spec = LAYOUTS[layout_id]
+            selected = self.w.keyboard_layout == layout_id
+            fill = PRIMARY_TINT if selected else SURFACE
+            outline = PRIMARY if selected else BORDER_STRONG
+            card = _Box(
+                zone, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
+                padx=16, pady=10, halo=False,
+            )
+            card.pack(fill=tk.X, pady=(6, 0))
+            inner = card.inner
+            top = tk.Frame(inner, bg=fill)
+            top.pack(fill=tk.X)
+            self._kbd(top, str(index)).pack(side=tk.LEFT)
+            tk.Label(
+                top, text=spec.title, font=self.font_bold, fg=INK, bg=fill, anchor="w",
+            ).pack(side=tk.LEFT, padx=(10, 0))
+            tk.Label(
+                inner, text=spec.note, font=self.font_s, fg=MUTED, bg=fill,
+                wraplength=max(200, self.lay.wrap - 80), justify=tk.LEFT, anchor="w",
+            ).pack(fill=tk.X, pady=(6, 0))
+
+            def _click(_e=None, lid=layout_id):
+                self.w.set_keyboard_layout(lid)
+                self._draw()
+                return "break"
+
+            self._bind_tree(card, _click)
+            card.configure(cursor="hand2")
+        if self.w.keyboard_message:
+            self._panel(zone, kind="warn", text=self.w.keyboard_message).pack(fill=tk.X, pady=(12, 0))
+        elif self.w.error:
+            self._panel(zone, kind="warn", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+        tk.Label(
+            zone, text=C.KEYBOARD_CHECK_LABEL, font=self.font_s, fg=INK, bg=BG, anchor="w",
+        ).pack(fill=tk.X, pady=(10, 4))
+        shell = _Box(
+            zone, radius=RADIUS, fill=SURFACE, outline=BORDER_STRONG, ow=1,
+            padx=16, pady=10, ring=True, shadow=False,
+        )
+        shell.pack(fill=tk.X)
+        entry = tk.Entry(
+            shell.inner,
+            textvariable=self._typing_var,
+            font=self.font_entry,
+            fg=INK,
+            bg=SURFACE,
+            insertbackground=INK,
+            relief=tk.FLAT,
+            highlightthickness=0,
+            show="",
+            bd=0,
+        )
+        self._typing_var.set(self.w.typing_check)
+        entry.pack(fill=tk.X, ipady=4)
+        entry.bind("<FocusIn>", lambda _e: shell.set_focused(True))
+        entry.bind("<FocusOut>", lambda _e: shell.set_focused(False))
+        shell.set_focused(True)
+        entry.focus_set()
+        row = self._footer_shell(C.HINT_KEYBOARD)
+        if self.w._keyboard_from:
+            self._back_btn(row)
+        self._primary_btn(row, C.BTN_CONTINUE, self.w.accept_keyboard)
+
+    def _typing_var_written(self, *_a) -> None:
+        if self.w.screen != Screen.KEYBOARD:
+            return
+        self.w.set_typing_check(self._typing_var.get())
+
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_WHAT, C.WHAT_LEAD)
@@ -1627,7 +1904,7 @@ class TkWizard:
             marker.pack(side=tk.LEFT, anchor="n")
             tk.Label(
                 line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
-                wraplength=WRAP - 120, justify=tk.LEFT, anchor="w",
+                wraplength=max(200, self.lay.wrap - 80), justify=tk.LEFT, anchor="w",
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
         self._panel(
             zone, kind="info", text=C.POWER_REMINDER, extra=C.POWER_BLANKING
@@ -1670,7 +1947,7 @@ class TkWizard:
             font=self.font_lead,
             fg=INK,
             bg=card._fill,
-            wraplength=WRAP - 140,
+            wraplength=max(200, self.lay.wrap - 100),
             justify=tk.LEFT,
             anchor="w",
         )
@@ -1993,9 +2270,13 @@ class TkWizard:
         heading = self._h(col, title)
         heading.configure(anchor="center", justify=tk.CENTER)
         heading.pack(fill=tk.X, pady=(22, 8))
+        wrap = min(700, self.lay.wrap)
         self._p(
-            col, message, fg=MUTED, font=self.font_b,
-            wraplength=700, justify=tk.CENTER, anchor="center",
+            # Blocked-screen errors carry discovery/exception text, which can
+            # hold long device names: same character-level wrapping as identity.
+            col, _soft_break_tokens(message, self.font_b.measure, wrap),
+            fg=MUTED, font=self.font_b,
+            wraplength=wrap, justify=tk.CENTER, anchor="center",
         ).pack(fill=tk.X)
         if self.w.screen == Screen.STOPPING:
             self._progress_label = self._p(col, self.w.progress_view.timing_text, fg=MUTED)
@@ -2056,7 +2337,11 @@ class TkWizard:
         self._disk_summary(zone, disk).pack(fill=tk.X)
         self._more_link(zone)
         self._panel(zone, kind="warn", text=self.w.warning_text()).pack(fill=tk.X, pady=(12, 0))
-        self._p(zone, spec.prompt, font=self.font_b).pack(fill=tk.X, pady=(14, 8))
+        # The prompt can carry a full serial as the typed token: same
+        # character-level wrapping as identity labels, never a clipped tail.
+        self._wrapping_label(zone, spec.prompt, font=self.font_b, bg=BG).pack(
+            fill=tk.X, pady=(14, 8)
+        )
         shell = _Box(
             zone, radius=RADIUS, fill=SURFACE, outline=BORDER_STRONG, ow=1,
             padx=16, pady=10, ring=True, shadow=False,
@@ -2194,7 +2479,7 @@ class TkWizard:
             font=self.font_s,
             fg=MUTED,
             bg=fill,
-            wraplength=WRAP - 130,
+            wraplength=max(200, self.lay.wrap - 90),
             justify=tk.LEFT,
             anchor="w",
         ).pack(fill=tk.X, pady=(4, 0))
@@ -2209,7 +2494,7 @@ class TkWizard:
             font=self.font_s,
             fg=MUTED,
             bg=fill,
-            wraplength=WRAP - 160,
+            wraplength=max(200, self.lay.wrap - 110),
             justify=tk.LEFT,
             anchor="w",
         ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(7, 0))
@@ -2280,14 +2565,14 @@ class TkWizard:
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
         text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
-                       height=10, bg=SURFACE, fg=INK)
+                       width=1, height=10, bg=SURFACE, fg=INK)
         scrollbar = tk.Scrollbar(frame, command=text.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.configure(yscrollcommand=scrollbar.set)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         text.insert("1.0", C.REPORT_HELP_TEXT + ("\n\n" + self.w.report_recovery_warning if self.w.report_recovery_warning else ""))
         text.configure(state=tk.DISABLED)
-        choice = tk.BooleanVar(value=self.w.report_wanted)
+        choice = tk.BooleanVar(master=self.root, value=self.w.report_wanted)
 
         def set_preference():
             previous = self.w.report_recovery_warning
@@ -2302,13 +2587,15 @@ class TkWizard:
         tk.Checkbutton(
             col,
             text=C.REPORT_WANTED,
+            wraplength=max(200, self.lay.wrap - 40),
+            justify=tk.LEFT,
             variable=choice,
             bg=BG,
             font=self.font_s,
             takefocus=True,
             command=set_preference,
         ).pack(anchor="w", pady=8)
-        share = tk.BooleanVar(value=self.w.report_share_redacted)
+        share = tk.BooleanVar(master=self.root, value=self.w.report_share_redacted)
 
         def set_share():
             self.w.set_report_share_redacted(share.get())
@@ -2316,6 +2603,8 @@ class TkWizard:
         tk.Checkbutton(
             col,
             text=C.REPORT_SHARE_REDACTED,
+            wraplength=max(200, self.lay.wrap - 40),
+            justify=tk.LEFT,
             variable=share,
             bg=BG,
             font=self.font_s,
@@ -2331,7 +2620,7 @@ class TkWizard:
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
         text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
-                       height=10, bg=SURFACE, fg=INK)
+                       width=1, height=10, bg=SURFACE, fg=INK)
         scrollbar = tk.Scrollbar(frame, command=text.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.configure(yscrollcommand=scrollbar.set)
@@ -2351,11 +2640,14 @@ class TkWizard:
         self._title_block(col, C.TITLE_LAST, C.LAST_LEAD)
         review = tk.Frame(col, bg=BG)
         review.pack(fill=tk.X, pady=(8, 0))
-        # Reserve the countdown before allocating the wrapping review column.
         zone = tk.Frame(review, bg=BG)
-        zone.pack(side=tk.RIGHT, padx=(24, 0), anchor="n")
         details = tk.Frame(review, bg=BG)
-        details.pack(side=tk.LEFT, fill=tk.X, expand=True, anchor="n")
+        if self.lay.stack_review:
+            details.pack(fill=tk.X, anchor="n")
+            zone.pack(fill=tk.X, pady=(8, 0), anchor="n")
+        else:
+            zone.pack(side=tk.RIGHT, padx=(24, 0), anchor="n")
+            details.pack(side=tk.LEFT, fill=tk.X, expand=True, anchor="n")
         if self.w.selected is not None:
             self._disk_summary(details, self.w.selected).pack(fill=tk.X)
             self._p(
@@ -2363,7 +2655,7 @@ class TkWizard:
                 self.w.prepare_text(),
                 font=self.font_s,
                 bg=BG,
-                wraplength=WRAP - 180,
+                wraplength=max(200, self.lay.wrap - 120),
             ).pack(fill=tk.X, pady=(8, 0))
         self._wrapping_label(
             details, self.w.operation_summary, font=self.font_b, bg=BG
@@ -2375,18 +2667,20 @@ class TkWizard:
                              fg=MUTED, bg=BG).pack_configure(pady=(12, 0))
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+        ring_px = self.lay.ring
+        self._ring_px = ring_px
         ring = tk.Canvas(
-            zone, width=RING_SIZE, height=RING_SIZE, bg=BG, highlightthickness=0
+            zone, width=ring_px, height=ring_px, bg=BG, highlightthickness=0
         )
         ring.pack()
         self._countdown_ring = ring
         self._countdown_num = tk.Label(
             ring, text="", font=self.font_stat, fg=INK, bg=BG, anchor="center"
         )
-        ring.create_window(RING_SIZE / 2, RING_SIZE / 2 - 3, window=self._countdown_num)
+        ring.create_window(ring_px / 2, ring_px / 2 - 3, window=self._countdown_num)
         self._countdown_label = tk.Label(
             zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center",
-            justify=tk.CENTER, wraplength=200,
+            justify=tk.CENTER, wraplength=max(120, ring_px + 40),
         )
         self._countdown_label.pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_LAST_CHANCE_TK)
@@ -2407,9 +2701,10 @@ class TkWizard:
             return
         left = self.w.countdown_display
         ring = self._countdown_ring
+        size = getattr(self, "_ring_px", RING_SIZE)
         edge0 = RING_PAD
-        edge1 = RING_SIZE - RING_PAD
-        center = RING_SIZE / 2.0
+        edge1 = size - RING_PAD
+        center = size / 2.0
         # The ring stroke is centered on the oval/arc path, so the tip cap
         # rides the path radius, not the band's inner edge.
         radius = (edge1 - edge0) / 2.0
@@ -2487,21 +2782,27 @@ class TkWizard:
         view = self.w.progress_view
         pulse = view.timing_text
         pct = view.percent
-        if pct is None:
-            # nwipe has not reported a number yet: slide a segment back and
-            # forth so the screen never looks frozen.
-            if self._progress_pct is not None:
-                self._progress_pct.configure(text="")
-            if self._progress_label.cget("text") != pulse:
-                self._progress_label.configure(text=pulse)
+        if view.percent_is_old and pct is not None:
+            shown = f"{format_progress_percent(pct)} (old)"
+        elif pct is None:
+            shown = ""
+        else:
+            shown = format_progress_percent(pct)
+        if self._progress_pct is not None and self._progress_pct.cget("text") != shown:
+            self._progress_pct.configure(
+                text=shown, fg=MUTED if view.percent_is_old else INK
+            )
+        if self._progress_label.cget("text") != pulse:
+            self._progress_label.configure(text=pulse)
+        if view.animate:
+            # First number has not arrived during the known startup quiet
+            # window. Slide only then; silence must not look like live data.
             self._indet = (self._indet + 0.045) % 2.0
             pos = self._indet if self._indet <= 1.0 else 2.0 - self._indet
             self._paint_bar(None, pos)
+        elif pct is None:
+            self._paint_bar(0.0)
         else:
-            if self._progress_pct is not None:
-                self._progress_pct.configure(text=format_progress_percent(pct))
-            if self._progress_label.cget("text") != pulse:
-                self._progress_label.configure(text=pulse)
             self._paint_bar(max(0.02, pct / 100.0))
 
     def _paint_bar(self, frac: Optional[float], indet_pos: float = 0.0) -> None:
@@ -2536,18 +2837,20 @@ class TkWizard:
         msg = result.message
         # The badge carries the state color; the message stays readable ink.
         self._p(
-            col, msg, font=self.font_b, wraplength=700, justify=tk.CENTER, anchor="center"
+            col, msg, font=self.font_b, wraplength=min(700, self.lay.wrap), justify=tk.CENTER, anchor="center"
         ).pack(fill=tk.X)
         self._p(col, self.w.elapsed_text, fg=MUTED, font=self.font_s,
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(4, 0))
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
         self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
+        for alert in self.w.check_alerts:
+            self._panel(col, kind="warn", text=alert).pack(fill=tk.X, pady=(8, 0))
         if report.evidence_error:
             self._p(
                 col,
                 self.w.evidence_warning,
                 font=self.font_s_bold,
-                wraplength=700,
+                wraplength=min(700, self.lay.wrap),
                 justify=tk.CENTER,
                 anchor="center",
                 fg=DANGER,
@@ -2558,7 +2861,7 @@ class TkWizard:
                 col,
                 instruction,
                 font=self.font_s_bold,
-                wraplength=700,
+                wraplength=min(700, self.lay.wrap),
                 justify=tk.CENTER,
                 anchor="center",
                 fg=(DANGER if report.status == "error" else INK),
@@ -2614,7 +2917,7 @@ class TkWizard:
                 bg=SURFACE,
                 anchor="w",
                 # Long method names must wrap inside the card, never clip.
-                wraplength=WRAP - 60,
+                wraplength=max(200, self.lay.wrap - 40),
                 justify=tk.LEFT,
             ).pack(fill=tk.X, pady=(7, 7))
         log = self.w._wipe_request.logfile if self.w._wipe_request else "(no wipe yet)"
@@ -2802,6 +3105,8 @@ class TkWizard:
                 self.w.keep_report_session()
             elif screen == Screen.SPLASH:
                 self.w.skip_splash()
+            elif screen == Screen.KEYBOARD:
+                self.w.accept_keyboard()
             elif screen == Screen.WHAT:
                 self.w.accept_what()
             elif screen == Screen.OWNER and self.w.owner_ok:
@@ -2835,12 +3140,84 @@ class TkWizard:
             self._draw()
         return "break"
 
-    def _click_refresh(self) -> None:
-        # Synchronous, bounded discovery keeps all Tk calls on the UI thread.
-        if self.w.refresh_disks():
-            self._show_more = False
-            self._pick_scroll = 0.0
+    def _start_refresh_scan(self, on_done) -> Optional[int]:
+        """Begin a scan, paint checking now, run I/O on a worker thread.
+
+        Returns the scan sequence, or None when refresh is not allowed.
+        The checking state draws synchronously so the owner sees feedback
+        before discovery I/O starts; ``on_done(applied)`` runs on the UI
+        thread when this scan's result arrives. A repeat attempt while a
+        scan is in flight is refused, so only one scan ever runs.
+        """
+        seq = self.w.begin_refresh()
+        if seq is None:
+            return None
+        self._draw()
+        worker = threading.Thread(
+            target=self._refresh_worker, args=(seq,),
+            daemon=True, name=f"beamo-refresh-{seq}",
+        )
+        with self._refresh_lock:
+            self._refresh_threads[seq] = worker
+        worker.start()
+        try:
+            self.root.after(50, lambda: self._poll_refresh(seq, on_done))
+        except tk.TclError:
+            pass
+        return seq
+
+    def _refresh_worker(self, seq: int) -> None:
+        # Worker discipline: discovery I/O only. No Tk calls, no wizard
+        # state — the outcome slot is the only shared touchpoint, and the
+        # UI thread owns everything after the poll picks it up.
+        try:
+            outcome = self.w._run_rediscovery()
+        except BaseException as exc:
+            outcome = exc
+        with self._refresh_lock:
+            self._refresh_results[seq] = outcome
+
+    def _poll_refresh(self, seq: int, on_done) -> None:
+        if self._ui_dead:
+            return
+        _missing = object()
+        with self._refresh_lock:
+            outcome = self._refresh_results.pop(seq, _missing)
+        if outcome is _missing:
+            try:
+                self.root.after(50, lambda: self._poll_refresh(seq, on_done))
+            except tk.TclError:
+                pass
+            return
+        applied = False
+        if not self._ui_dead:
+            applied = self.w.finish_refresh(seq, outcome)
+        if self._ui_dead:
+            return
+        try:
+            on_done(applied)
+        except tk.TclError:
+            pass
+
+    def _redraw_after_refresh(self, applied: bool) -> None:
+        # A dropped (stale or post-teardown) result draws nothing.
+        if applied and not self._ui_dead:
             self._draw()
+
+    def _open_reader_after_refresh(self, applied: bool) -> None:
+        # Same contract as the old synchronous F8: an applied scan — success
+        # or fail-closed error — hands off to the screen-reader view, which
+        # renders whatever the fresh inventory holds.
+        if self._ui_dead or not applied:
+            return
+        self._accessible_requested = True
+        self._teardown()
+
+    def _click_refresh(self) -> None:
+        if self._start_refresh_scan(self._redraw_after_refresh) is None:
+            return
+        self._show_more = False
+        self._pick_scroll = 0.0
 
     def _on_key(self, event) -> Optional[str]:
         if event.keysym == "F8" and sys.platform.startswith("linux") and self.w.can_refresh:
@@ -2848,6 +3225,9 @@ class TkWizard:
             return "break"
         if event.keysym == "F5" and self.w.can_refresh:
             self._click_refresh()
+            return "break"
+        if self._body_canvas is not None and event.keysym in ("Prior", "Next"):
+            self._body_canvas.yview_scroll(-1 if event.keysym == "Prior" else 1, "pages")
             return "break"
         if event.keysym in ("Return", "KP_Enter", "Escape", "Tab"):
             return None
@@ -2869,6 +3249,15 @@ class TkWizard:
             self.w.move_selection(-1 if event.keysym == "Up" else 1)
             self._draw()
             return "break"
+        if self.w.screen == Screen.KEYBOARD:
+            focused = self.root.focus_get()
+            if isinstance(focused, tk.Entry):
+                return None
+            keyboard_mapping = {"1": "us", "2": "fr", "3": "de"}
+            if event.keysym in keyboard_mapping:
+                self.w.set_keyboard_layout(keyboard_mapping[event.keysym])
+                self._draw()
+                return "break"
         if self.w.screen == Screen.METHOD:
             if event.keysym.lower() == "l":
                 self.w.open_limits()
@@ -2919,13 +3308,147 @@ class TkWizard:
     def _click_accessible(self) -> None:
         if not sys.platform.startswith("linux") or not self.w.can_refresh:
             return
-        if self.w.refresh_disks():
-            self._accessible_requested = True
-            self._teardown()
-        else:
+        if self._start_refresh_scan(self._open_reader_after_refresh) is None:
             self._draw()
 
 
 def run_tk(wizard: Wizard, fullscreen: bool = False) -> int:
     ui = TkWizard(wizard, fullscreen=fullscreen)
     return ui.run()
+
+
+def _ensure_tk_display() -> None:
+    """Raise RuntimeError when no graphical display is reachable.
+
+    Constructing a Tk root with no display aborts the whole interpreter
+    (Tcl_Panic), which no caller can catch — so app.py could never fall
+    back to the keyboard screens. Probe in a child process instead: a
+    crash there becomes a catchable error here and startup stays on the
+    existing graphical-failure path.
+    """
+    import subprocess as _subprocess
+
+    try:
+        probe = _subprocess.run(
+            [sys.executable, "-c", "import tkinter as _t; _t.Tk().destroy()"],
+            stdin=_subprocess.DEVNULL,
+            stdout=_subprocess.DEVNULL,
+            stderr=_subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, _subprocess.SubprocessError):
+        raise RuntimeError("no graphical display for startup stages")
+    if probe.returncode != 0:
+        raise RuntimeError("no graphical display for startup stages")
+
+
+def run_tk_startup(build, *, fullscreen: bool = False,
+                   stall_after_s: float | None = None) -> tuple:
+    """Show startup stages while ``build()`` runs on a worker thread.
+
+    ``build`` receives a worker-safe ``report(stage_key)`` callback and
+    returns the built wizard; anything it raises becomes the failure
+    outcome. Returns ("wizard", wizard), ("failed", exc), or
+    ("abandoned", None) when the owner closes the splash (Escape or window
+    close), mirroring the wizard's close-means-stop contract. Raises
+    RuntimeError (never aborts) when no display is reachable.
+    """
+    from beamo_wipe.startup_stages import STALL_AFTER_S, StartupRun
+
+    _ensure_tk_display()
+    run = StartupRun(
+        build,
+        stall_after_s=STALL_AFTER_S if stall_after_s is None else stall_after_s,
+    )
+    try:
+        root = tk.Tk()
+    except tk.TclError as exc:
+        raise RuntimeError(f"no graphical display for startup stages: {exc}")
+    root.title("Beamo Wipe")
+    if fullscreen:
+        root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
+        root.attributes("-fullscreen", True)
+    else:
+        root.geometry("640x440")
+    try:
+        root.eval("tk::PlaceWindow . center")
+    except tk.TclError:
+        pass
+    root.configure(bg=BG)
+    outcome: list = []
+
+    body = tk.Frame(root, bg=BG)
+    body.pack(fill=tk.BOTH, expand=True, padx=48, pady=36)
+    rows = []
+    for _i in range(3):
+        status = tk.Label(body, text="", font=("TkDefaultFont", 13, "bold"),
+                          fg=FOCUS, bg=BG, anchor="w")
+        title = tk.Label(body, text="", font=("TkDefaultFont", 17, "bold"),
+                         fg=INK, bg=BG, anchor="w")
+        hint = tk.Label(body, text="", font=("TkDefaultFont", 13),
+                        fg=MUTED, bg=BG, anchor="w", justify=tk.LEFT,
+                        wraplength=540)
+        status.pack(fill=tk.X)
+        title.pack(fill=tk.X)
+        hint.pack(fill=tk.X, pady=(0, 14))
+        rows.append((status, title, hint))
+    stall = tk.Label(body, text="", font=("TkDefaultFont", 13, "italic"),
+                     fg=MUTED, bg=BG, anchor="w", justify=tk.LEFT,
+                     wraplength=540)
+    stall.pack(fill=tk.X)
+
+    _STATUS_WORDS = {"pending": "Waiting", "active": "Working…", "done": "Done"}
+
+    def render() -> None:
+        snap = run.drain()
+        for (status, title, hint), row in zip(rows, snap):
+            status.configure(text=_STATUS_WORDS[row["state"]])
+            title.configure(text=row["title"])
+            hint.configure(text=row["hint"])
+        note = run.stalled_note()
+        stall.configure(text=note or "")
+
+    def close() -> None:
+        if not outcome:
+            outcome.append(("abandoned", None))
+        try:
+            root.destroy()
+        except tk.TclError:
+            pass
+
+    def poll() -> None:
+        if outcome:
+            return
+        try:
+            render()
+        except tk.TclError:
+            return
+        result = run.poll()
+        if result is None:
+            try:
+                root.after(100, poll)
+            except tk.TclError:
+                pass
+            return
+        try:
+            # run.poll() applied the final report; paint it before closing
+            # so the last frame never shows "Waiting" for finished work.
+            render()
+        except tk.TclError:
+            pass
+        outcome.append(result)
+        try:
+            root.destroy()
+        except tk.TclError:
+            pass
+
+    root.protocol("WM_DELETE_WINDOW", close)
+    root.bind("<Escape>", lambda _event: close())
+    render()
+    run.start()
+    root.after(100, poll)
+    root.mainloop()
+    if outcome:
+        return outcome[0]
+    return ("abandoned", None)

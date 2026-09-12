@@ -241,7 +241,7 @@ def test_console_what_wraps_prepare_bullets_at_80x24(monkeypatch):
     from beamo_wipe.models import Screen
 
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     assert wiz.screen == Screen.WHAT
     shown, _ = _draw_console(monkeypatch, wiz)
     for bullet in C.WHAT_BULLETS:

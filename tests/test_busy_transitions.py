@@ -19,7 +19,7 @@ def ready(monkeypatch, tmp_path):
     w.preview = False
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     monkeypatch.setattr(w, "_write_evidence", lambda **kwargs: None)
-    w.skip_splash()
+    w.skip_intro()
     w.accept_what()
     w.set_owner(True)
     w.continue_owner()
