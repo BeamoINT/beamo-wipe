@@ -3,7 +3,14 @@
 
 from beamo_wipe.inventory import EMPTY_STEPS
 from beamo_wipe.outcomes import VIEWS
-from beamo_wipe.models import Disk, DiskKind
+from beamo_wipe.models import (
+    CONTENTS_DATA,
+    CONTENTS_SYSTEM,
+    CONTENTS_UNKNOWN,
+    CONTENTS_WINDOWS,
+    Disk,
+    DiskKind,
+)
 from beamo_wipe.methods import METHODS
 from beamo_wipe.storage_limits import OVERWRITE_LIMITS
 
@@ -18,6 +25,7 @@ SPLASH_ROADMAP = "Choose a disk  →  Confirm its identity  →  Review and eras
 
 # --- Screen titles (happy path talks like a person) ------------------------
 
+TITLE_KEYBOARD = "Check your keyboard"
 TITLE_WHAT = "Here's what happens"
 TITLE_OWNER = "Is this your computer?"
 TITLE_PICK = "Which disk should we erase?"
@@ -37,13 +45,56 @@ SPLASH_TAGLINE = (
     "You already started from this USB. Next you will pick a disk to erase."
 )
 
+KEYBOARD_LEAD = (
+    "Choose the layout that matches the keys you see. "
+    "Then type a few characters to check."
+)
+KEYBOARD_LIMITS = (
+    "Only US QWERTY, French AZERTY, and German QWERTZ are offered. "
+    "This USB does not include other layouts. "
+    "The change lasts until this USB session restarts. "
+    "It does not change firmware or BIOS keyboards."
+)
+KEYBOARD_CHECK_LABEL = "Type here to check. This is not a password and is not saved."
+KEYBOARD_CHECK_HINT = "Try letters that differ on your keyboard, then a number."
+KEYBOARD_UTILITY = "Keyboard layout"
+
 WHAT_LEAD = "Nothing starts until you say so."
 
 WHAT_BULLETS = (
-    "You will pick a disk. Everything on it will be erased. "
-    "You cannot get the files back.",
+    "Check that you have the copies you need. You will pick a disk. "
+    "Everything on that disk will be erased. You cannot get the files back.",
+    "If that disk holds an operating system, erasing it also removes "
+    "Windows or Linux, applications, files, and recovery partitions on that disk.",
     "For 64-bit Intel/AMD Windows or Linux PCs that start from this USB. "
     "Not Apple Silicon Macs. Not Chromebooks.",
+)
+
+POWER_REMINDER = (
+    "If this computer has a battery, plug it into wall power before you erase. "
+    "A power cut stops the erase."
+)
+
+POWER_BLANKING = (
+    "The screen may go dark. Press a key or move the mouse to bring it back. "
+    "That is the display, not sleep."
+)
+
+PREPARE_WINDOWS = (
+    "This selected disk shows Windows partitions. Erasing it also removes "
+    "Windows, applications, files, and recovery partitions on this disk."
+)
+PREPARE_SYSTEM = (
+    "This selected disk shows operating-system partitions. Erasing it also removes "
+    "the operating system, applications, files, and recovery partitions on this disk."
+)
+PREPARE_DATA = (
+    "This selected disk does not show operating-system partitions. "
+    "Erasing it still removes every file on this disk."
+)
+PREPARE_UNKNOWN = (
+    "Erasing this selected disk removes every file on it, including any "
+    "operating system, applications, files, and recovery partitions on this disk."
 )
 
 # Closed-by-default Show more. Help first; nwipe by name only for honesty.
@@ -58,6 +109,21 @@ WHAT_MORE = SECURE_BOOT_HINT + " " + ENGINE_LINE
 
 OWNER_CHECKBOX = (
     "I own this computer and these disks, or I have written permission to erase them."
+)
+
+# Startup stages. Plain customer language; stages describe work in progress
+# and never claim a safety check has passed. The exclusion of the boot USB
+# is verified by discovery itself, never by these lines.
+STARTUP_TITLE = "Starting Beamo Wipe"
+STARTUP_TITLE_HINT = "Getting ready."
+STARTUP_STAGE_BOOT_USB = "Checking the boot USB"
+STARTUP_STAGE_BOOT_USB_HINT = (
+    "Learning which disk is this USB stick, so it is never offered for erasure."
+)
+STARTUP_STAGE_FINDING = "Finding disks"
+STARTUP_STAGE_FINDING_HINT = "Listing the disks connected to this computer."
+STARTUP_STILL_WORKING = (
+    "Still working — this can take a minute on older machines."
 )
 
 OWNER_LEAD = "Check the box, then continue."
@@ -75,7 +141,10 @@ EMPTY_DISKS = EMPTY_STEPS
 
 SSD_FOOTER = OVERWRITE_LIMITS + " Not a formal certificate."
 
-WORKING_PULSE = "Leave the USB in. Do not turn the PC off."
+WORKING_PULSE = (
+    "Leave the USB in. Keep wall power connected if this computer has a battery. "
+    "Do not turn the PC off."
+)
 
 DONE_OK = VIEWS["verified"].message
 
@@ -201,6 +270,7 @@ BTN_SAVE_REPORT = "Save report to USB"
 
 PREVIEW_BANNER = "PREVIEW on this computer — fake disks — nothing is erased"
 
+HINT_KEYBOARD = "1, 2, or 3 chooses a layout. Type in the check box. Enter continues."
 HINT_DEFAULT = "Enter continues.  Esc goes back."
 HINT_PICK = "Click a disk, or use Up/Down.  Enter continues.  Esc goes back."
 HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
@@ -246,12 +316,24 @@ def confirm_type_chars(token: str) -> str:
     return f"Type these characters so we know it is the right disk: {token}"
 
 
+def prepare_selected(disk: Disk) -> str:
+    """Consequence of erasing this disk, from partition evidence only."""
+    contents = getattr(disk, "contents", CONTENTS_UNKNOWN)
+    if contents == CONTENTS_WINDOWS:
+        return PREPARE_WINDOWS
+    if contents == CONTENTS_SYSTEM:
+        return PREPARE_SYSTEM
+    if contents == CONTENTS_DATA:
+        return PREPARE_DATA
+    return PREPARE_UNKNOWN
+
+
 def confirm_warning(disk: Disk) -> str:
     from beamo_wipe.identity import display_title
 
     return (
         f"Every file on {display_title(disk)}, {disk.size_phrase}, will be erased. "
-        "You cannot get them back."
+        f"You cannot get them back. {prepare_selected(disk)}"
     )
 
 

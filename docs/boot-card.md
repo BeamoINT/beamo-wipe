@@ -25,9 +25,17 @@ image; it does not change the contents of previously sold sticks.
 | MSI | F11 |
 | Gigabyte | F12 |
 
-Windows 11 fallback: Settings → System → Recovery → Advanced startup.
-Windows 10: Settings → Update & Security → Recovery → Advanced startup.
-Then choose Restart now → Use a device → pick this USB, if it is listed.
+Windows 11 fallback: Settings → System → Recovery → Advanced startup →
+Restart now → Use a device (UEFI).
+Windows 10: Settings → Update & Security → Recovery → Advanced startup →
+Restart now → Use a device (UEFI).
+Those keys and menus vary by PC. Open START-HERE.html on the USB for the
+full steps.
+
+If you might start this Windows installation again, confirm you can reach
+the BitLocker recovery key **before** changing firmware, boot order, or
+Secure Boot. Those changes can trigger BitLocker recovery. Do not disable
+Secure Boot as a routine step.
 
 Plug into a **USB-A or USB-C** port on the PC, not a keyboard hub if you
 can avoid it. Then restart and tap the key above.
@@ -36,6 +44,10 @@ can avoid it. Then restart and tap the key above.
 show this USB; many will not.
 
 ## After it boots
+
+When the Beamo Wipe menu appears, pick **Beamo Wipe: start the erase guide**
+(or **troubleshoot startup** if the PC does not start normally). Opening the
+guide erases nothing by itself.
 
 1. Read the first screen. This is nwipe with a guide on top.
 2. Check the owner box.

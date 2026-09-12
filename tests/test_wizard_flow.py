@@ -35,13 +35,13 @@ def test_splash_times_out():
     wiz, clock = _wiz()
     clock.add(3.1)
     wiz.tick()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.KEYBOARD
 
 
 def test_happy_path_dry_run(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     assert wiz.screen == Screen.OWNER
     wiz.continue_owner()
@@ -82,7 +82,7 @@ def test_happy_path_dry_run(monkeypatch, tmp_path):
 def test_kill_mid_run_is_failure(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -103,7 +103,7 @@ def test_kill_mid_run_is_failure(monkeypatch, tmp_path):
 def test_nonzero_exit_is_not_success(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(fail=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -123,7 +123,7 @@ def test_nonzero_exit_is_not_success(monkeypatch, tmp_path):
 
 def test_back_from_last_chance_redraws_method_state():
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -140,7 +140,7 @@ def test_back_from_last_chance_redraws_method_state():
 
 def test_move_selection_does_not_start_on_boot():
     wiz, _clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -157,7 +157,7 @@ def test_move_selection_does_not_start_on_boot():
 def test_move_selection_follows_path_sorted_order():
     """Keyboard highlight must match the on-screen sort (path, boot last)."""
     wiz, _clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -177,19 +177,19 @@ def test_preview_splash_does_not_auto_advance():
     wiz._splash_until = wiz.now - 1
     wiz.tick()
     assert wiz.screen == Screen.SPLASH
-    wiz.skip_splash()
+    wiz.skip_intro()
     assert wiz.screen == Screen.WHAT
 
 
 def test_empty_and_blocked_scenarios():
     empty = make_demo_wizard(scenario="empty")
-    empty.skip_splash()
+    empty.skip_intro()
     empty.accept_what()
     empty.set_owner(True)
     empty.continue_owner()
     assert empty.screen == Screen.PICK_EMPTY
     blocked = make_demo_wizard(scenario="blocked")
-    blocked.skip_splash()
+    blocked.skip_intro()
     blocked.accept_what()
     blocked.set_owner(True)
     blocked.continue_owner()
@@ -199,7 +199,7 @@ def test_empty_and_blocked_scenarios():
 def test_reset_for_preview_clears_selection(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -228,7 +228,7 @@ class _BoomRunner:
 def test_confirm_erase_does_not_enter_working_if_start_fails(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -252,7 +252,7 @@ def test_confirm_erase_does_not_enter_working_if_start_fails(monkeypatch, tmp_pa
 def test_confirm_erase_safety_error_stays_on_last_chance(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -275,7 +275,7 @@ def test_confirm_erase_safety_error_stays_on_last_chance(monkeypatch, tmp_path):
 def test_select_disk_ignored_after_confirm(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -300,7 +300,7 @@ def test_confirm_erase_refuses_disk_removed_from_selectable(monkeypatch, tmp_pat
     from beamo_wipe.models import DiscoveryResult
 
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -330,7 +330,7 @@ def test_confirm_erase_refuses_identity_change_on_rediscover(monkeypatch, tmp_pa
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -364,7 +364,7 @@ def test_confirm_erase_fails_closed_on_unexpected_rediscover_error(monkeypatch, 
     refuse the wipe with a visible error, never start nwipe. Fake disks only."""
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -392,7 +392,7 @@ def test_confirm_erase_refuses_real_runner_in_dry_run(monkeypatch, tmp_path):
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -414,7 +414,7 @@ def test_preview_confirm_erase_ignores_host_sysfs_size(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     monkeypatch.setattr("beamo_wipe.safety.block_size_bytes", lambda _path: 1)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -436,7 +436,7 @@ def test_set_method_ignored_off_method_screen():
     from beamo_wipe.models import MethodId
 
     wiz, _clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     assert wiz.method == DEFAULT_METHOD
     wiz.set_method(MethodId.QUICK_ZERO)
@@ -455,7 +455,7 @@ def test_set_method_ignored_off_method_screen():
 def test_confirm_input_ignored_after_confirm_screen(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -477,7 +477,7 @@ def test_confirm_input_ignored_after_confirm_screen(monkeypatch, tmp_path):
 
 def test_open_advanced_twice_does_not_trap_on_advanced():
     wiz, _clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -504,7 +504,7 @@ def test_confirm_erase_unidentified_rediscover_is_not_usb_unplug_copy(
 
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -530,7 +530,7 @@ def test_confirm_erase_unidentified_rediscover_is_not_usb_unplug_copy(
 def test_pick_empty_keyboard_ignored_until_armed():
     empty = make_demo_wizard(scenario="empty")
     empty.preview = False
-    empty.skip_splash()
+    empty.skip_intro()
     empty.accept_what()
     empty.set_owner(True)
     empty.continue_owner()
@@ -545,7 +545,7 @@ def test_pick_empty_keyboard_ignored_until_armed():
 def test_pick_blocked_keyboard_ignored_until_armed():
     blocked = make_demo_wizard(scenario="blocked")
     blocked.preview = False
-    blocked.skip_splash()
+    blocked.skip_intro()
     blocked.accept_what()
     blocked.set_owner(True)
     blocked.continue_owner()
@@ -600,7 +600,7 @@ def test_working_uis_never_round_percent_with_point_zero_f():
 
 
 def _drive_to_working(wiz, clock):
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

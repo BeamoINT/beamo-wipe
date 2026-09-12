@@ -56,6 +56,12 @@ def _disk(raw):
                 raise ValueError("Unexpected mount metadata")
         elif key == "raw_model" and value is None:
             continue
+        elif key == "contents":
+            from beamo_wipe.models import CONTENTS_VALUES
+
+            if value not in CONTENTS_VALUES:
+                raise ValueError("Invalid disk contents")
+            continue
         elif (
             not isinstance(value, str)
             or len(value) > 256

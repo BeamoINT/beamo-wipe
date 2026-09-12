@@ -93,6 +93,10 @@ _KEEP_PRESENTATION = frozenset(
 )
 
 
+def _object_mapping(value: object) -> Mapping[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def is_sharing_copy(evidence: object) -> bool:
     if not isinstance(evidence, dict):
         return False
@@ -118,23 +122,21 @@ def collect_secrets(evidence: Mapping[str, Any]) -> tuple[str, ...]:
                 if base and base != text:
                     found.append(base)
 
-    device = evidence.get("device") if isinstance(evidence.get("device"), dict) else {}
+    device = _object_mapping(evidence.get("device"))
     for key in _IDENTIFIER_DEVICE_KEYS:
         add(device.get(key))
     add(evidence.get("boot_device"))
     add(evidence.get("logfile"))
     provenance = (
-        evidence.get("provenance") if isinstance(evidence.get("provenance"), dict) else {}
+        _object_mapping(evidence.get("provenance"))
     )
     add(provenance.get("evidence_file"))
     presentation = (
-        evidence.get("device_presentation")
-        if isinstance(evidence.get("device_presentation"), dict)
-        else {}
+        _object_mapping(evidence.get("device_presentation"))
     )
     add(presentation.get("id_value"))
     add(presentation.get("system_path"))
-    nwipe = evidence.get("nwipe") if isinstance(evidence.get("nwipe"), dict) else {}
+    nwipe = _object_mapping(evidence.get("nwipe"))
     argv = nwipe.get("argv_redacted")
     if isinstance(argv, list):
         for item in argv:
