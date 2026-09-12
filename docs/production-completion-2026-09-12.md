@@ -3,9 +3,11 @@
 Status: **hosted qualification in progress after authentication refresh**.
 Author: Codex. Branch: `feat/qemu-three-method-journeys`.
 Starting HEAD: `cd806f403d3fe8c105da5e4f53a5b1c7a93100b3`.
-This is a dirty working-tree result, not a release or a verified ISO.
-The inherited staged and unstaged work remains in place; this continuation
-did not stage, commit, push, merge, publish, or change production.
+The shared checkout and index remain preserved. Qualification commits live
+in a separate clean clone. No merge, release, or production change was made.
+The last completed (failed) hosted attempt used source
+`620039dab010b0f65c274ff5c020bfbca768298e`, build
+`14a359e6-fb3d-48d0-8c45-284a3b844fd6`.
 
 ## Work completed locally
 
@@ -40,7 +42,7 @@ did not stage, commit, push, merge, publish, or change production.
 
 | Check | Result |
 | --- | --- |
-| Full suite, `DISPLAY=:0 python3 -m pytest -ra --junitxml=…` | **2,238 passed, 14 skipped**, 157.93 seconds |
+| Full suite, `DISPLAY=:0 python3 -m pytest -ra --junitxml=…` | **2,260 passed, 17 skipped**, 196.68 seconds |
 | Final QEMU repetition and hosted wiring tests (including the subsequently added repetition regression) | **20 passed** |
 | Focused evidence/QEMU/signing regression batch | **44 passed** |
 | Rendered UI regression batch | **233 passed, 1 skipped** |
@@ -51,14 +53,20 @@ did not stage, commit, push, merge, publish, or change production.
 | Negative boot-safety mutation | Passed in an isolated temporary copy: broken guard failed, restored guard passed |
 | `git diff --check` | Passed |
 
-The full-suite skips are one missing Linux `gi` accessibility runtime, one
-physical-key injection case requiring an isolated X server, and twelve
+The full-suite skips are one missing Linux `gi` accessibility runtime, three
+Linux kiosk fullscreen cases, one physical-key injection case requiring an
+isolated X server, and twelve
 regular-file FAT32 cases requiring dosfstools/mtools. These are unmet local
 platform checks, not proof that the hosted equivalents pass. The ignored
 live-image Python staging was refreshed from source for source-layout tests;
 no ISO was built on this Mac.
 
 Temporary detailed receipts (may expire):
+
+- `/private/tmp/beamo-wipe-production-closeout.log`, SHA-256
+  `eacde0f41012741ec40451abb0bcc41a17ea4eeb3ca76de11b4fa85fa6e4a0b6`.
+- `/private/tmp/beamo-wipe-production-closeout.xml`, SHA-256
+  `57ac965dd6888ccf88d7c2f9f662372ebac6fee7a4b980a9d0edfa9f35dc5daa`.
 
 - `/private/tmp/beamo-wipe-production-final.log`, SHA-256
   `46d1661aaa48a58eb1fc593082ec7b50f2c3115496c03be16e2f86bfb2a0975f`.
@@ -67,20 +75,18 @@ Temporary detailed receipts (may expire):
 - `/private/tmp/beamo-wipe-negative-final.log`, SHA-256
   `aa2d119abb3373e1d70d4f75130e50a59c0e793034b030ba3addf665604f1e87`.
 
-Working-tree snapshot digest, including tracked and nonignored untracked files
+Historical pre-login working-tree snapshot digest, including tracked and nonignored untracked files
 but excluding this report:
 `ea7ffe5a0a9e9cf7ef82ac3b84ecf15e99e3176720befe51d9a3ad8275c7aefb`.
 Computed as SHA-256 of compact UTF-8 JSON containing sorted `[path, SHA256]`
 pairs for regular files from `git ls-files -c -o --exclude-standard -z`.
 This identifies the local work only; it is not a clean release commit.
 
-## Blocking checks and next action
+## Authorization and qualification boundaries
 
-`./scripts/ci-cloud.sh --project beamo-wipe` cannot submit because the configured
-Google account returns **Reauthentication failed; cannot prompt during
-non-interactive execution**. The alternate saved personal account returns
-**PERMISSION_DENIED** for this project. No hosted build ID was obtained for
-these changes.
+The first continuation stopped at expired Google authentication. The user
+refreshed the authorized login, and Cloud Build submissions now work. The
+individual attempts and their measured outcomes are recorded below.
 
 The operator refreshed the authorized login on 2026-09-12. The continuation
 prepared an isolated, source-identified verification snapshot without
@@ -149,7 +155,7 @@ and clean source state. These commits have not yet been pushed.
   executable regressions now run the host verifier against production bundles
   for all three methods, with and without privacy copies, and reject a
   tampered declaration. Safe progress markers and final artifact digests now
-  reach build logs. Full hosted rerun pending.
+  reach build logs. Subsequent reruns are recorded below.
 - `73e039c`, build `3e643a6a-2771-4fa7-9f88-29eb5357e9f7`: cancelled
   immediately after submission to include a newly reproduced cleanup failure.
   Five disposable shell regressions proved that failed loop detachment or
@@ -160,3 +166,29 @@ and clean source state. These commits have not yet been pushed.
 
 Builds are available in Google Cloud Build, project `beamo-wipe`, using the
 IDs above. A successful ISO build alone is not completed wipe qualification.
+
+- `620039dab010b0f65c274ff5c020bfbca768298e`, build
+  `14a359e6-fb3d-48d0-8c45-284a3b844fd6`: **2,341 Python tests passed,
+  15 skipped**, with all pre-QEMU gates and six direct engine checks passing.
+  Both full Everyday journeys passed target readback, report schema/wording/
+  checksums, clean FAT, and unmount checks. The first Three overwrites guest
+  stopped before erasure with repeated disk-screen redraws and no key-release
+  acknowledgement. A bare-X11 native Linux regression reproduced the kiosk
+  using content-sized 800x680 geometry on a 1024x768 display because no window
+  manager honored the fullscreen hint. Explicit display geometry now fixes
+  both startup and wizard windows. The fullscreen stability and real X11
+  key-release/repeat checks pass. The full native Linux Tk/startup batch
+  passed 177 tests; startup/fullscreen checks additionally passed at 800x600
+  and 1600x1000 (5 per display). The disposable ARM Linux container exercised
+  only fake disks and was removed. Full amd64 qualification must be rerun.
+
+The first post-fullscreen local run aborted inside macOS Tk when the new
+Linux-kiosk fullscreen test requested a native macOS fullscreen window. That
+case now runs only on an explicitly isolated Linux X server, where it passed
+at both tested resolutions. The local full suite is rerunning with those
+platform skips explicit. This is not macOS fullscreen acceptance.
+
+Final local suite after the fullscreen correction: **2,260 passed, 17 skipped**,
+196.68 seconds. Ruff, mypy (39 source files), and diff checks pass.
+- `/private/tmp/beamo-wipe-kiosk-closeout.log` SHA-256: `7fabff43eab76945afc4ab5e6c7ac09008f65f6d9ee25333635cdb235391a48f`.
+- `/private/tmp/beamo-wipe-kiosk-closeout.xml` SHA-256: `f179eb02e96133577b218fc2dff3ab733f756e2a435962d8290041158a2f15d9`.

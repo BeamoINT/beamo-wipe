@@ -840,6 +840,12 @@ class TkWizard:
         self.root.configure(bg=BG)
         self.root.minsize(*MIN_SIZE)
         if fullscreen:
+            # The live startx kiosk has no window manager to honor the EWMH
+            # fullscreen hint. Pin geometry too, or content-driven sizing
+            # can feed back into responsive redraws and starve key releases.
+            self.root.geometry(
+                f"{self.root.winfo_screenwidth()}x{self.root.winfo_screenheight()}+0+0"
+            )
             self.root.attributes("-fullscreen", True)
         else:
             self.root.geometry(f"{DEFAULT_SIZE[0]}x{DEFAULT_SIZE[1]}")
@@ -3353,6 +3359,7 @@ def run_tk_startup(build, *, fullscreen: bool = False,
         raise RuntimeError(f"no graphical display for startup stages: {exc}")
     root.title("Beamo Wipe")
     if fullscreen:
+        root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
         root.attributes("-fullscreen", True)
     else:
         root.geometry("640x440")

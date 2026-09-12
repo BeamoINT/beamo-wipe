@@ -82,6 +82,40 @@ def _in_canvas(widget) -> bool:
     return False
 
 
+def test_fullscreen_kiosk_has_fixed_display_geometry_without_window_manager():
+    """The live startx session has no window manager to honor fullscreen hints."""
+    import os
+    import sys
+
+    if sys.platform != "linux" or os.environ.get("BEAMO_ISOLATED_X11_TEST") != "1":
+        pytest.skip("bare X11 fullscreen check requires an isolated X server")
+    _needs_display()
+    wiz = make_demo_wizard()
+    wiz.preview = False
+    wiz.skip_intro()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    assert wiz.screen == Screen.PICK
+    app = TkWizard(wiz, fullscreen=True)
+    try:
+        generation = []
+        app.root.after(1000, lambda: generation.append(app._draw_generation))
+        app.root.after(1500, app.root.quit)
+        app.root.mainloop()
+        assert (app.root.winfo_width(), app.root.winfo_height()) == (
+            app.root.winfo_screenwidth(), app.root.winfo_screenheight(),
+        )
+        assert generation and app._draw_generation == generation[0], "idle picker keeps rebuilding"
+        app.root.focus_force()
+        app._return_held = True
+        app._on_return_release(SimpleNamespace(time=100))
+        app.root.update()
+        assert not app._return_held
+    finally:
+        app._teardown()
+
+
 def _clipping_problems(app) -> list:
     """Labels/entries asking for more space than the layout gave them."""
     app.root.update_idletasks()
@@ -1668,4 +1702,3 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert C.prepare_selected(wiz.selected) in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
-

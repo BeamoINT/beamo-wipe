@@ -176,9 +176,14 @@ def test_complete_synchronously_matches_presenter_protocol():
 
 
 @pytest.mark.parametrize("failed", [False, True])
-def test_real_tk_startup_consumes_worker_completion(monkeypatch, failed):
+@pytest.mark.parametrize("fullscreen", [False, True])
+def test_real_tk_startup_consumes_worker_completion(monkeypatch, failed, fullscreen):
+    import os
+    import sys
     from beamo_wipe.ui import tk_wizard
 
+    if fullscreen and (sys.platform != "linux" or os.environ.get("BEAMO_ISOLATED_X11_TEST") != "1"):
+        pytest.skip("live kiosk fullscreen requires an isolated Linux X server")
     try:
         tk_wizard._ensure_tk_display()
     except RuntimeError:
@@ -203,7 +208,7 @@ def test_real_tk_startup_consumes_worker_completion(monkeypatch, failed):
             raise failure
         return sentinel
 
-    assert tk_wizard.run_tk_startup(build) == (
+    assert tk_wizard.run_tk_startup(build, fullscreen=fullscreen) == (
         ("failed", failure) if failed else ("wizard", sentinel)
     )
 
