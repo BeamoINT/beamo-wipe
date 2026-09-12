@@ -197,7 +197,9 @@ assert_guest_overwrite everyday prng unused
     assert result.returncode != 0
 
 
-def test_qemu_cleanup_retains_backing_file_when_detach_fails(tmp_path):
+@pytest.mark.parametrize("failed_resource", ["target", "report", "boot", "squash", "iso", "none"])
+@pytest.mark.parametrize("original_status", [0, 7])
+def test_qemu_cleanup_fails_closed_and_retains_attached_backing_files(tmp_path, failed_resource, original_status):
     source = (ROOT / "scripts/qemu-verify.sh").read_text()
     block = "cleanup() {" + source.split("cleanup() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
     target = tmp_path / "target.raw"
@@ -210,13 +212,22 @@ NWIPE_BIN="$1/nwipe"
 REPORT_RAW="$1/report.raw"
 ISO="$1/boot.iso"
 REPORT_MOUNTED=0
-SQUASH_MOUNTED=0
-ISO_MOUNTED=0
+SQUASH_MOUNTED=1
+ISO_MOUNTED=1
+SQUASH_MOUNT=squash
+ISO_MOUNT=iso
 CLEANED_UP=0
-BIOS_PID="" UEFI_PID="" REPORT_LOOP="" BOOT_LOOP="" LOOP=/dev/loop999
+BIOS_PID="" UEFI_PID="" REPORT_LOOP=/dev/loop997 BOOT_LOOP=/dev/loop998 LOOP=/dev/loop999
+failed_resource="$2"
 stop_pid() { :; }
-detach_owned_loop() { test "$1" != target; }
-cleanup
+detach_owned_loop() { test "$1" != "$failed_resource"; }
+sudo() { test "$2" != "$failed_resource"; }
+trap cleanup EXIT
+exit "$3"
 '''
-    subprocess.run(["bash", "-c", block, "test", str(tmp_path)], check=True)
-    assert target.read_bytes() == b"attached fixture"
+    result = subprocess.run(["bash", "-c", block, "test", str(tmp_path), failed_resource, str(original_status)], capture_output=True)
+    assert (result.returncode == 0) == (failed_resource == "none" and original_status == 0)
+    if failed_resource == "none":
+        assert result.returncode == original_status
+    if failed_resource == "target":
+        assert target.read_bytes() == b"attached fixture"

@@ -150,6 +150,13 @@ and clean source state. These commits have not yet been pushed.
   for all three methods, with and without privacy copies, and reject a
   tampered declaration. Safe progress markers and final artifact digests now
   reach build logs. Full hosted rerun pending.
+- `73e039c`, build `3e643a6a-2771-4fa7-9f88-29eb5357e9f7`: cancelled
+  immediately after submission to include a newly reproduced cleanup failure.
+  Five disposable shell regressions proved that failed loop detachment or
+  unmount could previously return success. Cleanup now preserves failure and
+  signal status and fails qualification on teardown errors; all 12 failure/
+  success and original-exit-status combinations pass. Attached target image
+  preservation remains verified.
 
 Builds are available in Google Cloud Build, project `beamo-wipe`, using the
 IDs above. A successful ISO build alone is not completed wipe qualification.

@@ -131,6 +131,7 @@ stop_pid() {
 }
 
 cleanup() {
+  local status="${1:-$?}"
   [[ "$CLEANED_UP" == 0 ]] || return 0
   CLEANED_UP=1
   set +e
@@ -162,7 +163,7 @@ cleanup() {
     report_detached=0
   fi
   detach_owned_loop target "$target_loop" "$TARGET_RAW" 0 || target_detached=0
-  detach_owned_loop boot "$boot_loop" "$ISO" 1
+  detach_owned_loop boot "$boot_loop" "$ISO" 1 || status=1
   if [[ "$SQUASH_MOUNTED" == 1 ]]; then
     if sudo umount "$SQUASH_MOUNT"; then
       SQUASH_MOUNTED=0
@@ -185,11 +186,19 @@ cleanup() {
     rm -f -- "$REPORT_RAW" "$RUN_ROOT"/report-*.raw
   fi
   rm -f -- "$RUN_ROOT"/*.qmp
+  if [[ "$report_detached" != 1 || "$target_detached" != 1 ||
+        "$REPORT_MOUNTED" != 0 || "$SQUASH_MOUNTED" != 0 || "$ISO_MOUNTED" != 0 ]]; then
+    status=1
+  fi
+  if [[ "$status" != 0 ]]; then
+    echo "ABORT: QEMU verification or resource cleanup did not complete" >&2
+  fi
+  exit "$status"
 }
 
 on_signal() {
   local code="$1"
-  cleanup
+  cleanup "$code"
   exit "$code"
 }
 
