@@ -257,7 +257,8 @@ EFI_GRUB="$ISO_MOUNT/boot/grub/grub.cfg"
 [[ -f "$EFI_GRUB" ]] || { echo "ISO UEFI menu boot/grub/grub.cfg missing" >&2; exit 2; }
 grep -q "Beamo Wipe: start the erase guide" "$BIOS_LIVE" || {
   echo "ISO BIOS menu lost the branded normal entry" >&2; exit 2; }
-grep -q "Beamo Wipe: troubleshoot startup" "$BIOS_LIVE" || {
+# Syslinux's caret marks the menu hotkey and is not displayed to the owner.
+grep -Eq 'Beamo Wipe: \^?troubleshoot startup' "$BIOS_LIVE" || {
   echo "ISO BIOS menu lost the troubleshooting entry" >&2; exit 2; }
 grep -q "Nothing is erased until you pick a disk" "$BIOS_LIVE" || {
   echo "ISO BIOS menu lost the no-erase statement" >&2; exit 2; }

@@ -14,6 +14,8 @@ in scripts/qemu-verify.sh (cloud/VM only, shellchecked here).
 from __future__ import annotations
 
 import re
+import os
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -160,3 +162,21 @@ def test_built_iso_menu_gate_exists_in_qemu_verify():
     text = (ROOT / "scripts/qemu-verify.sh").read_text(encoding="utf-8")
     assert "live.cfg" in text and "grub.cfg" in text
     assert "Beamo Wipe" in text
+
+
+def test_built_menu_verifier_accepts_syslinux_hotkey_markup(tmp_path):
+    iso = tmp_path / "iso"
+    (iso / "isolinux").mkdir(parents=True)
+    (iso / "boot/grub").mkdir(parents=True)
+    (iso / "isolinux/live.cfg").write_text(_bios_menu())
+    (iso / "boot/grub/grub.cfg").write_text(_grub_menu())
+    source = (ROOT / "scripts/qemu-verify.sh").read_text()
+    gate = 'BIOS_LIVE=' + source.split('BIOS_LIVE=', 1)[1].split('if find "$SQUASH_MOUNT', 1)[0]
+    result = subprocess.run(["bash", "-ceu", gate], capture_output=True, text=True,
+                            env=dict(os.environ, ISO_MOUNT=str(iso)))
+    assert result.returncode == 0, result.stdout + result.stderr
+    (iso / "isolinux/live.cfg").write_text(_bios_menu().split('label live-amd64-failsafe')[0])
+    missing = subprocess.run(["bash", "-ceu", gate], capture_output=True, text=True,
+                             env=dict(os.environ, ISO_MOUNT=str(iso)))
+    assert missing.returncode != 0
+    assert "lost the troubleshooting entry" in missing.stderr
