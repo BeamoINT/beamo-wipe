@@ -151,7 +151,7 @@ def test_plain_console_report_choice_is_optional_rendered_and_paged(
     monkeypatch, capsys, wanted
 ):
     w = make_demo_wizard()
-    w.skip_splash()
+    w.skip_intro()
     answers = iter(
         ["REPORT", *([""] * len(C.REPORT_HELP_SECTIONS)), "YES" if wanted else "NO"]
     )
@@ -205,7 +205,7 @@ def test_curses_help_scrolls_all_media_guidance_at_small_sizes(
     monkeypatch, wanted, size
 ):
     w = make_demo_wizard()
-    w.skip_splash()
+    w.skip_intro()
     keys = [ord("r")] + ([ord(" ")] if wanted else []) + [console.curses.KEY_DOWN] * 100
     terminal = Terminal(w, keys, size)
     monkeypatch.setattr(console.curses, "curs_set", lambda *a: None)

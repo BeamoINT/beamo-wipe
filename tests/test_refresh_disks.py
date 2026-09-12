@@ -38,7 +38,7 @@ def test_refresh_rereads_fake_json_and_reidentifies_boot(change, tmp_path, monke
         nodes[0].update(name="sdy", path="/dev/sdy")
         nodes[0]["children"][0].update(name="sdy1", path="/dev/sdy1")
     source.write_text("invalid JSON" if change == "invalid" else json.dumps(payload))
-    wiz.skip_splash()
+    wiz.skip_intro()
     assert wiz.refresh_disks()
     if change == "invalid":
         assert wiz.screen == Screen.PICK_BLOCKED and not wiz.selectable
@@ -55,7 +55,7 @@ def test_refresh_rereads_fake_json_and_reidentifies_boot(change, tmp_path, monke
 
 def authorized():
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

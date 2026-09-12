@@ -24,6 +24,7 @@ from beamo_wipe.methods import (
 )
 from beamo_wipe.models import WipeRequest, WipeResult
 from beamo_wipe.progress import Observation
+from beamo_wipe.sleep_inhibit import SleepInhibit
 from beamo_wipe.safety import (
     CLEAN_SUBPROCESS_ENV,
     SafetyError,
@@ -612,6 +613,7 @@ class NwipeRunner:
         self._last_sigusr1 = 0.0
         self._sigusr1_armed = False
         self._last_logfile = ""
+        self._sleep_inhibit = SleepInhibit()
 
     def start(self, request: WipeRequest) -> None:
         # Refuse a duplicate before touching the active run's log.
@@ -682,6 +684,8 @@ class NwipeRunner:
             self._last_sigusr1 = 0.0
             self._sigusr1_armed = False
             self._last_logfile = request.logfile
+            if real_engine:
+                self._sleep_inhibit.start()
             popen_kwargs: dict[str, Any] = {
                 "stdin": subprocess.DEVNULL,
                 "stdout": subprocess.DEVNULL,
@@ -880,6 +884,7 @@ class NwipeRunner:
         self._lock_fd = fd
 
     def _release_wipe_lock(self) -> None:
+        self._sleep_inhibit.stop()
         if self._cleanup_failed:
             raise SafetyError("Runner cleanup could not be confirmed.")
         fd = self._lock_fd

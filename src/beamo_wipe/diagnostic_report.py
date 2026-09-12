@@ -7,19 +7,22 @@ import datetime
 import hashlib
 import json
 import math
-import os
-from pathlib import Path
 import platform
 import re
 import subprocess
 import time
 
 from beamo_wipe import __version__, NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION
+from beamo_wipe.build_identity import (
+    BUILD_PATH,
+    load_injected_build,
+    runtime_source_sha256,
+)
 from beamo_wipe.safety import SafetyError
 
 MAX_BYTES = 16 * 1024
 MAX_EVENTS = 32
-BUILD_PATH = Path("/usr/share/beamo-wipe/build-identity.json")
+SCHEMA_VERSION = 2
 CODES = frozenset(
     {
         "recovery_indeterminate",
@@ -77,44 +80,12 @@ def exception_code(exc: Exception) -> str:
     return "unexpected_startup_failure"
 
 
-def runtime_source_sha256() -> str | None:
-    """Hash installed application bytes with the release manifest's framing."""
-    root = Path(__file__).parent
-    digest = hashlib.sha256()
-    total = 0
-    try:
-        paths = sorted(root.rglob("*"))
-        if len(paths) > 512:
-            return None
-        for path in paths:
-            if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
-                continue
-            if path.is_symlink():
-                return None
-            if not path.is_file():
-                continue
-            from beamo_wipe.support_export import _read_at
-
-            fd = os.open(str(path.parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-            try:
-                data = _read_at(fd, path.name, limit=4 * 1024 * 1024)
-            finally:
-                os.close(fd)
-            total += len(data)
-            if total > 16 * 1024 * 1024:
-                return None
-            name = ("src/beamo_wipe/" + path.relative_to(root).as_posix()).encode()
-            sha = hashlib.sha256(data).hexdigest().encode()
-            digest.update(f"{len(name)}:".encode() + name)
-            digest.update(f"{len(sha)}:".encode() + sha)
-        return digest.hexdigest() if total else None
-    except (OSError, SafetyError):
-        return None
-
-
 def application_identity() -> dict:
     # Build metadata contains only immutable source/build digests; never use
     # runtime environment overrides, hostname, uname release, or machine IDs.
+    from beamo_wipe.build_identity import classify_status
+
+    runtime = runtime_source_sha256()
     identity: dict = {
         "name": "Beamo Wipe",
         "version": __version__,
@@ -122,38 +93,20 @@ def application_identity() -> dict:
         "nwipe_pinned_commit": NWIPE_PINNED_COMMIT,
         "build_status": "unavailable",
         "build": {},
-        "runtime_source_sha256": runtime_source_sha256(),
+        "runtime_source_sha256": runtime,
     }
-    try:
-        from beamo_wipe.support_export import _read_at
-
-        fd = os.open(
-            str(BUILD_PATH.parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-        )
-        try:
-            raw = _read_at(fd, BUILD_PATH.name, limit=4096)
-        finally:
-            os.close(fd)
-        build = json.loads(raw)
-        if (
-            set(build) != {"source_commit", "source_sha256", "build_id", "source_dirty"}
-            or not re.fullmatch(r"[0-9a-f]{40}", build["source_commit"])
-            or not re.fullmatch(r"[0-9a-f]{64}", build["source_sha256"])
-            or not re.fullmatch(
-                r"(?:[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}|local)",
-                build["build_id"],
-            )
-            or type(build["source_dirty"]) is not bool
-        ):
-            return identity
-        identity.update(
-            build_status="recorded"
-            if build["source_sha256"] == identity["runtime_source_sha256"]
-            else "source_mismatch",
-            build=build,
-        )
-    except (OSError, SafetyError, ValueError, TypeError, KeyError):
-        pass
+    injected = load_injected_build(BUILD_PATH)
+    if injected is None:
+        return identity
+    identity.update(
+        build_status=classify_status(
+            build_id=injected["build_id"],
+            source_dirty=injected["source_dirty"],
+            source_sha256=injected["source_sha256"],
+            runtime_sha256=runtime,
+        ),
+        build=injected,
+    )
     return identity
 
 
@@ -175,6 +128,7 @@ def create_report(code: str, discovery, *, ui: str, session_started: float) -> b
     clock = {
         "recorded_at_utc": wall,
         "wall_confidence": "unverified" if wall else "unavailable",
+        "wall_provenance": "os_utc" if wall else "unavailable",
         "session_elapsed_seconds": elapsed,
         "elapsed_source": "monotonic",
     }
@@ -192,7 +146,7 @@ def create_report(code: str, discovery, *, ui: str, session_started: float) -> b
     arch = platform.machine()
     system = platform.system()
     payload = {
-        "schema_version": 1,
+        "schema_version": SCHEMA_VERSION,
         "report_type": "startup_diagnostic",
         "title": report_title(code),
         "notice": NOTICE,
@@ -253,7 +207,7 @@ def validate_report(data: bytes) -> dict:
             raise ValueError()
         if (
             type(p["schema_version"]) is not int
-            or p["schema_version"] != 1
+            or p["schema_version"] != SCHEMA_VERSION
             or p["report_type"] != "startup_diagnostic"
             or p["title"] != report_title(p["error_code"])
             or p["notice"] != NOTICE
@@ -303,6 +257,7 @@ def validate_report(data: bytes) -> dict:
         if set(t) != {
             "recorded_at_utc",
             "wall_confidence",
+            "wall_provenance",
             "session_elapsed_seconds",
             "elapsed_source",
         }:
@@ -316,7 +271,9 @@ def validate_report(data: bytes) -> dict:
             datetime.datetime.fromisoformat(wall.replace("Z", "+00:00"))
         if (
             t["wall_confidence"] != ("unverified" if wall else "unavailable")
+            or t["wall_provenance"] != ("os_utc" if wall else "unavailable")
             or t["elapsed_source"] != "monotonic"
+            or t["wall_confidence"] == "verified"
         ):
             raise ValueError()
         elapsed = t["session_elapsed_seconds"]

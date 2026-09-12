@@ -21,7 +21,7 @@ SUMMARIES = {
 
 def _at_last(method=MethodId.EVERYDAY):
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -155,7 +155,7 @@ def test_refresh_invalidates_last_chance_authorization():
 
     base = make_demo_wizard()
     wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5), dry_run=True, rediscover=rediscover)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

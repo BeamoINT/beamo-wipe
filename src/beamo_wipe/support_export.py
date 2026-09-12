@@ -23,7 +23,7 @@ import sys
 import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
+from typing import TypeGuard, Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from beamo_wipe.discover import run_lsblk
 from beamo_wipe.evidence import _verified_evidence_bytes
@@ -65,6 +65,31 @@ BLOCK_PATH_RE = re.compile(
 )
 SAFE_ID_RE = re.compile(r"^[^\x00-\x1f\x7f]{1,128}$")
 SESSION_RE = re.compile(r"^report-[0-9a-f]{24}$")
+REPORT_FOLDER_RE = re.compile(r"^BEAMO-WIPE-REPORTS/report-[0-9a-f]{24}$")
+GENERIC_DESTINATION = "the report USB"
+DESTINATION_MAX = 64
+OWNER_WIPE_FILE = "RESULT.txt"
+OWNER_DIAGNOSTIC_FILE = "diagnostic.json"
+OWNER_FILES = frozenset({OWNER_WIPE_FILE, OWNER_DIAGNOSTIC_FILE})
+LOG_STATUS_LINES = {
+    "complete": "Engine log: complete.",
+    "tail": "Engine log: only a final tail.",
+    "unavailable": "Engine log: unavailable.",
+}
+RECEIPT_KEYS = frozenset(
+    {
+        "ok",
+        "safe_to_remove",
+        "code",
+        "evidence_sha256",
+        "session_name",
+        "log_status",
+        "destination_label",
+        "report_folder",
+        "share_copy",
+        "owner_file",
+    }
+)
 
 
 def _emit_export_marker(marker: str) -> None:
@@ -153,6 +178,154 @@ class ExportReceipt:
     evidence_sha256: str = ""
     session_name: str = ""
     log_status: str = "unavailable"
+    destination_label: str = ""
+    report_folder: str = ""
+    share_copy: bool = False
+    owner_file: str = ""
+
+
+def _is_diagnostic_evidence(data: bytes) -> bool:
+    try:
+        return json.loads(data).get("report_type") == "startup_diagnostic"
+    except (ValueError, TypeError, AttributeError, UnicodeDecodeError):
+        return False
+
+
+def destination_label_for(model: str, size_bytes: int) -> str:
+    """Safe USB identity for owners. Never a mount, device, or relative path."""
+    cleaned = (model or "").strip()
+    unsafe = (
+        not cleaned
+        or "/" in cleaned
+        or "\\" in cleaned
+        or cleaned.startswith(".")
+        or cleaned.lower().startswith("dev/")
+    )
+    if unsafe:
+        name = GENERIC_DESTINATION
+    else:
+        name = cleaned
+        if len(name) > DESTINATION_MAX:
+            name = name[:DESTINATION_MAX].rstrip() + " (truncated)"
+        if not SAFE_ID_RE.fullmatch(name):
+            name = GENERIC_DESTINATION
+    from beamo_wipe.discover import size_gb_label
+
+    if type(size_bytes) is not int or isinstance(size_bytes, bool) or size_bytes <= 0:
+        return name
+    size = size_gb_label(size_bytes)
+    if not size or size == "0":
+        return name
+    return f"{name}, {size} GB"
+
+
+def report_folder_for(session_name: str) -> str:
+    if not SESSION_RE.fullmatch(session_name):
+        return ""
+    return f"{REPORTS_DIR}/{session_name}"
+
+
+def _destination_label_ok(label: str) -> bool:
+    if (
+        not isinstance(label, str)
+        or not label
+        or len(label) > DESTINATION_MAX + 24
+        or "/" in label
+        or "\\" in label
+        or "\n" in label
+        or "\r" in label
+        or label.startswith(".")
+        or label.lower().startswith("dev/")
+        or not SAFE_ID_RE.fullmatch(label)
+    ):
+        return False
+    return True
+
+
+def build_success_receipt(
+    *,
+    evidence_sha256: str,
+    session_name: str,
+    log_status: str,
+    volume: ExportVolume,
+    privacy_reduced: bool,
+    diagnostic: bool,
+) -> ExportReceipt:
+    folder = report_folder_for(session_name)
+    owner_file = OWNER_DIAGNOSTIC_FILE if diagnostic else OWNER_WIPE_FILE
+    share_copy = bool(privacy_reduced) and not diagnostic
+    return ExportReceipt(
+        ok=True,
+        safe_to_remove=True,
+        code="saved_verified_unmounted",
+        evidence_sha256=evidence_sha256,
+        session_name=session_name,
+        log_status=log_status,
+        destination_label=destination_label_for(
+            volume.parent.model, volume.parent.size_bytes
+        ),
+        report_folder=folder,
+        share_copy=share_copy,
+        owner_file=owner_file,
+    )
+
+
+def receipt_is_saved(
+    receipt: object,
+    *,
+    expected_sha256: str,
+    owner_file: str = OWNER_WIPE_FILE,
+    share_copy: bool | None = None,
+) -> TypeGuard[ExportReceipt]:
+    """True only for a structurally valid, verified, unmounted success receipt."""
+    if not isinstance(receipt, ExportReceipt):
+        return False
+    if share_copy is not None and receipt.share_copy is not bool(share_copy):
+        return False
+    return (
+        receipt.ok is True
+        and receipt.safe_to_remove is True
+        and receipt.code == "saved_verified_unmounted"
+        and receipt.evidence_sha256 == expected_sha256
+        and SESSION_RE.fullmatch(receipt.session_name) is not None
+        and receipt.log_status in LOG_STATUS_LINES
+        and receipt.report_folder == report_folder_for(receipt.session_name)
+        and REPORT_FOLDER_RE.fullmatch(receipt.report_folder) is not None
+        and receipt.owner_file == owner_file
+        and receipt.owner_file in OWNER_FILES
+        and type(receipt.share_copy) is bool
+        and not (receipt.share_copy and receipt.owner_file != OWNER_WIPE_FILE)
+        and _destination_label_ok(receipt.destination_label)
+    )
+
+
+def present_export_receipt(receipt: ExportReceipt) -> str:
+    """Owner-facing success copy. Call only after receipt_is_saved()."""
+    log_line = LOG_STATUS_LINES[receipt.log_status]
+    if receipt.owner_file == OWNER_DIAGNOSTIC_FILE:
+        lead = (
+            f"Diagnostic report saved and verified on {receipt.destination_label}. "
+            "The report USB is safe to remove. This is not erase evidence."
+        )
+    else:
+        lead = (
+            f"Report saved and verified on {receipt.destination_label}. "
+            "The report USB is safe to remove."
+        )
+    lines = [
+        lead,
+        f"Folder: {receipt.report_folder}",
+        f"{receipt.owner_file} is the original report.",
+    ]
+    if receipt.share_copy:
+        lines.append(
+            "SHARE.json is a privacy-reduced sharing copy. "
+            "It omits serials, hardware IDs, device paths, and engine logs. "
+            "It is not identity evidence. SHARE.txt is its summary. "
+            "The original report is kept. To share, copy only SHARE.json and SHARE.txt."
+        )
+    lines.append(log_line)
+    return "\n".join(lines)
 
 
 def _strict_text(node: Mapping[str, Any], key: str, *, required: bool = False) -> str:
@@ -409,7 +582,12 @@ def prepare_terminal_evidence(path: Path, target_path: str) -> VerifiedEvidence:
         payload = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SafetyError("The saved wipe evidence is malformed.") from exc
-    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+    from beamo_wipe.evidence import SUPPORTED_SCHEMA_VERSIONS
+
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS
+    ):
         raise SafetyError("The saved wipe evidence has an unsupported schema.")
     outcome = payload.get("outcome")
     if outcome not in TERMINAL_OUTCOMES:
@@ -622,6 +800,7 @@ def _request_dict(
     protected_rdevs: Sequence[int],
     log_data: bytes,
     log_status: str,
+    privacy_reduced: bool = False,
 ) -> dict[str, Any]:
     return {
         "evidence": base64.b64encode(evidence.data).decode("ascii"),
@@ -631,6 +810,7 @@ def _request_dict(
         "protected_rdevs": list(protected_rdevs),
         "log": base64.b64encode(log_data).decode("ascii"),
         "log_status": log_status,
+        "privacy_reduced": bool(privacy_reduced),
     }
 
 
@@ -642,6 +822,7 @@ def export_to_new_usb(
     target_rdev: int = 0,
     boot_rdev: int = 0,
     expected_evidence_sha256: str = "",
+    privacy_reduced: bool = False,
     scan: Callable[[], Mapping[str, Any]] = run_lsblk,
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> ExportReceipt:
@@ -664,8 +845,15 @@ def export_to_new_usb(
     baseline_without_rdev = baseline_fingerprints(
         discovery.disks, required_paths=required_paths
     )
-    return _export_prepared(evidence, baseline_without_rdev, target_rdev=target_rdev,
-                            boot_rdev=boot_rdev, scan=scan, run=run)
+    return _export_prepared(
+        evidence,
+        baseline_without_rdev,
+        target_rdev=target_rdev,
+        boot_rdev=boot_rdev,
+        privacy_reduced=privacy_reduced,
+        scan=scan,
+        run=run,
+    )
 
 
 def capture_diagnostic_baseline(*, scan=run_lsblk) -> tuple[DeviceFingerprint, ...]:
@@ -707,7 +895,7 @@ def export_diagnostic_to_new_usb(*, data: bytes, baseline: Sequence[DeviceFinger
 
 
 def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence[DeviceFingerprint],
-                     *, target_rdev=0, boot_rdev=0, scan=run_lsblk, run=subprocess.run) -> ExportReceipt:
+                     *, target_rdev=0, boot_rdev=0, privacy_reduced=False, scan=run_lsblk, run=subprocess.run) -> ExportReceipt:
     first_payload = scan()
     _emit_export_marker("BEAMO_WIPE_EXPORT_SCAN_ONE")
     try:
@@ -749,6 +937,7 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
             sorted(protected_rdevs),
             log_data,
             log_status,
+            privacy_reduced,
         ),
         separators=(",", ":"),
         sort_keys=True,
@@ -785,19 +974,12 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
         raise SafetyError("The isolated report helper failed. Shut down before removing the USB.")
     try:
         raw = json.loads((proc.stdout or "").strip())
-        required_receipt_keys = {
-            "ok",
-            "safe_to_remove",
-            "code",
-            "evidence_sha256",
-            "session_name",
-            "log_status",
-        }
         if (
             not isinstance(raw, dict)
-            or set(raw) != required_receipt_keys
+            or set(raw) != RECEIPT_KEYS
             or type(raw["ok"]) is not bool
             or type(raw["safe_to_remove"]) is not bool
+            or type(raw["share_copy"]) is not bool
             or any(
                 not isinstance(raw[key], str)
                 for key in (
@@ -805,6 +987,9 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
                     "evidence_sha256",
                     "session_name",
                     "log_status",
+                    "destination_label",
+                    "report_folder",
+                    "owner_file",
                 )
             )
         ):
@@ -813,12 +998,20 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         raise SafetyError("The isolated report helper returned an invalid receipt.") from exc
     if receipt.ok is True:
-        if (
-            not receipt.safe_to_remove
-            or receipt.code != "saved_verified_unmounted"
-            or receipt.evidence_sha256 != evidence.sha256
-            or not SESSION_RE.fullmatch(receipt.session_name)
-            or receipt.log_status != log_status
+        diagnostic = _is_diagnostic_evidence(evidence.data)
+        expected = build_success_receipt(
+            evidence_sha256=evidence.sha256,
+            session_name=receipt.session_name,
+            log_status=log_status,
+            volume=volume,
+            privacy_reduced=privacy_reduced,
+            diagnostic=diagnostic,
+        )
+        if receipt != expected or not receipt_is_saved(
+            receipt,
+            expected_sha256=evidence.sha256,
+            owner_file=expected.owner_file,
+            share_copy=expected.share_copy,
         ):
             raise SafetyError("The exported report success receipt is invalid.")
     elif receipt != ExportReceipt(False, False, "export_failed"):
@@ -877,7 +1070,13 @@ def _read_at(directory_fd: int, name: str, *, limit: int = MAX_REQUEST_BYTES) ->
         os.close(fd)
 
 
-def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str, bytes]:
+def _bundle_files(
+    evidence: bytes,
+    log_data: bytes,
+    log_status: str,
+    *,
+    privacy_reduced: bool = False,
+) -> dict[str, bytes]:
     try:
         diagnostic = json.loads(evidence).get("report_type") == "startup_diagnostic"
     except (ValueError, AttributeError):
@@ -899,24 +1098,75 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
             f"{hashlib.sha256(log_data).hexdigest()}  {log_name}\n".encode("ascii")
         )
     from beamo_wipe.outcomes import present_evidence
+    from beamo_wipe.privacy import (
+        POLICY_VERSION,
+        SHARE_JSON,
+        SHARE_SUMMARY,
+        encode_sharing_copy,
+        make_sharing_copy,
+    )
+    from beamo_wipe.result_summary import build_result_summary, encode_summary
     try:
         payload = json.loads(evidence)
         result_view = present_evidence(payload)
     except (ValueError, UnicodeDecodeError, TypeError):
         payload = {}
         result_view = present_evidence(None)
-    identity = ""
-    presentation = payload.get("device_presentation") if isinstance(payload, dict) else None
-    if isinstance(presentation, dict) and isinstance(presentation.get("announcement"), str):
-        identity = presentation["announcement"] + "\r\n"
-    readme = (
-        f"{result_view.announcement}\r\n"
-        "Beamo Wipe report\r\n"
-        f"{identity}"
-        "result.json records the wipe outcome and disk identifiers.\r\n"
-        f"nwipe log: {log_status}.\r\n"
-        "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
-    ).encode("utf-8")
+    if not diagnostic:
+        owner_summary = encode_summary(
+            build_result_summary(
+                payload, evidence_sha256=evidence_hash, redacted=False
+            )
+        )
+        files["RESULT.txt"] = owner_summary
+        files["RESULT.txt.sha256"] = (
+            f"{hashlib.sha256(owner_summary).hexdigest()}  RESULT.txt\n".encode("ascii")
+        )
+        if privacy_reduced and isinstance(payload, dict):
+            sharing = make_sharing_copy(payload)
+            share_json = encode_sharing_copy(sharing)
+            share_hash = hashlib.sha256(share_json).hexdigest()
+            files[SHARE_JSON] = share_json
+            files[f"{SHARE_JSON}.sha256"] = (
+                f"{share_hash}  {SHARE_JSON}\n".encode("ascii")
+            )
+            share_summary = encode_summary(
+                build_result_summary(
+                    sharing, evidence_sha256=share_hash
+                )
+            )
+            files[SHARE_SUMMARY] = share_summary
+            files[f"{SHARE_SUMMARY}.sha256"] = (
+                f"{hashlib.sha256(share_summary).hexdigest()}  {SHARE_SUMMARY}\n".encode("ascii")
+            )
+    if privacy_reduced and not diagnostic:
+        readme = (
+            f"{result_view.announcement}\r\n"
+            "Beamo Wipe report\r\n"
+            "result.json and RESULT.txt are the original report. They include disk identifiers.\r\n"
+            "SHARE.json and SHARE.txt are a privacy-reduced sharing copy. "
+            "They omit serials, hardware IDs, device paths, and engine logs. "
+            "They are not identity evidence.\r\n"
+            "To share, copy only SHARE.json and SHARE.txt. "
+            "Do not share result.json, RESULT.txt, or engine logs.\r\n"
+            f"nwipe log: {log_status} (original report only).\r\n"
+            "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
+        ).encode("utf-8")
+    else:
+        readme = (
+            f"{result_view.announcement}\r\n"
+            "Beamo Wipe report\r\n"
+            "RESULT.txt is the owner result summary. result.json records the wipe outcome and disk identifiers.\r\n"
+            f"nwipe log: {log_status}.\r\n"
+            "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
+        ).encode("utf-8")
+    if isinstance(payload, dict):
+        for check in payload.get("checks") or ():
+            if not isinstance(check, dict):
+                continue
+            ident, status, summary = (check.get(key) for key in ("id", "status", "summary"))
+            if all(isinstance(value, str) for value in (ident, status, summary)):
+                readme += f"Check {ident}: {status}. {summary}\r\n".encode("utf-8")
     if diagnostic:
         files = {"diagnostic.json": evidence,
                  "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}
@@ -929,6 +1179,10 @@ def _bundle_files(evidence: bytes, log_data: bytes, log_status: str) -> dict[str
         "files": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())},
         "log_status": log_status,
         "schema_version": 1,
+        "result_summary": "RESULT.txt" if "RESULT.txt" in files else "",
+        "share_copy": "SHARE.json" if "SHARE.json" in files else "",
+        "share_summary": "SHARE.txt" if "SHARE.txt" in files else "",
+        "privacy_policy_version": POLICY_VERSION if "SHARE.json" in files else 0,
     }
     files["COMPLETE"] = (
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n"
@@ -943,6 +1197,7 @@ def write_report_bundle(
     log_status: str,
     *,
     session_name: Optional[str] = None,
+    privacy_reduced: bool = False,
 ) -> tuple[str, dict[str, bytes]]:
     """Write one unique, completion-marked bundle using directory-relative FDs."""
     mount_fd = os.open(str(mountpoint), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -979,7 +1234,9 @@ def write_report_bundle(
             os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
             dir_fd=reports_fd,
         )
-        files = _bundle_files(evidence, log_data, log_status)
+        files = _bundle_files(
+            evidence, log_data, log_status, privacy_reduced=privacy_reduced
+        )
         complete = files.pop("COMPLETE")
         for name, data in files.items():
             _write_exclusive(session_fd, name, data)
@@ -1110,6 +1367,7 @@ def _decode_worker_request(
     tuple[int, ...],
     bytes,
     str,
+    bool,
 ]:
     if not raw or len(raw) > MAX_REQUEST_BYTES:
         raise SafetyError("Invalid report request size.")
@@ -1123,6 +1381,7 @@ def _decode_worker_request(
             "protected_rdevs",
             "log",
             "log_status",
+            "privacy_reduced",
         }:
             raise TypeError("unexpected request fields")
         evidence_data = base64.b64decode(payload["evidence"], validate=True)
@@ -1140,6 +1399,9 @@ def _decode_worker_request(
             raise TypeError("invalid protected identities")
         protected_rdevs = tuple(sorted(protected_raw))
         log_status = payload["log_status"]
+        privacy_reduced = payload["privacy_reduced"]
+        if type(privacy_reduced) is not bool:
+            raise TypeError("invalid privacy flag")
     except (
         AttributeError,
         KeyError,
@@ -1172,6 +1434,7 @@ def _decode_worker_request(
         protected_rdevs,
         log_data,
         log_status,
+        privacy_reduced,
     )
 
 
@@ -1204,6 +1467,7 @@ def _persist_and_verify_report(
     log_data: bytes,
     log_status: str,
     volume_fd: int,
+    privacy_reduced: bool = False,
 ) -> ExportReceipt:
     """Run the mounted-media state machine after block identity is pinned."""
     lock_fd = -1
@@ -1235,7 +1499,11 @@ def _persist_and_verify_report(
         _verify_mount(mountpoint, volume, read_only=False)
         _emit_export_marker("BEAMO_WIPE_EXPORT_RW_MOUNTED")
         session_name, files = write_report_bundle(
-            mountpoint, evidence.data, log_data, log_status
+            mountpoint,
+            evidence.data,
+            log_data,
+            log_status,
+            privacy_reduced=privacy_reduced,
         )
         sync_proc = _run_command([SYNC_BIN, "-f", str(mountpoint)])
         if sync_proc.returncode != 0:
@@ -1266,13 +1534,13 @@ def _persist_and_verify_report(
         if _mount_record(mountpoint) is not None:
             raise SafetyError("The report USB is still mounted.")
         _emit_export_marker("BEAMO_WIPE_EXPORT_RO_UNMOUNTED")
-        return ExportReceipt(
-            ok=True,
-            safe_to_remove=True,
-            code="saved_verified_unmounted",
+        return build_success_receipt(
             evidence_sha256=evidence.sha256,
             session_name=session_name,
             log_status=log_status,
+            volume=volume,
+            privacy_reduced=privacy_reduced,
+            diagnostic=_is_diagnostic_evidence(evidence.data),
         )
     finally:
         if mountpoint is not None and mounted:
@@ -1288,7 +1556,7 @@ def _persist_and_verify_report(
 
 def _worker() -> ExportReceipt:
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
-    evidence, expected, baseline, protected, log_data, log_status = _decode_worker_request(raw)
+    evidence, expected, baseline, protected, log_data, log_status, privacy_reduced = _decode_worker_request(raw)
     _emit_export_marker("BEAMO_WIPE_EXPORT_WORKER_DECODED")
     fresh_payload1 = run_lsblk()
     fresh1 = select_export_volume(fresh_payload1, baseline)
@@ -1324,7 +1592,7 @@ def _worker() -> ExportReceipt:
         _assert_partition_parent(volume)
         _emit_export_marker("BEAMO_WIPE_EXPORT_WORKER_OPENED")
         return _persist_and_verify_report(
-            volume, evidence, log_data, log_status, volume_fd
+            volume, evidence, log_data, log_status, volume_fd, privacy_reduced
         )
     finally:
         if volume_fd >= 0:
