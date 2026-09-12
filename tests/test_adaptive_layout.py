@@ -22,6 +22,7 @@ from test_tk_runtime import _clipping_problems, _drive_to, _off_window_problems,
 SIZES = (MIN_SIZE, NETBOOK_SIZE, SUPPORTED_SIZE, DEFAULT_SIZE, LARGE_SIZE)
 
 WALK_SCREENS = (
+    Screen.KEYBOARD,
     Screen.WHAT,
     Screen.OWNER,
     Screen.PICK,
@@ -135,6 +136,11 @@ def test_every_walkable_screen_keeps_actions_and_copy(ui, size):  # noqa: F811
         assert wiz.screen == screen
         shown = _texts(app.root)
         _assert_actions_on_window(app)
+        if screen == Screen.KEYBOARD:
+            assert "QWERTY" in shown
+            assert "AZERTY" in shown
+            assert "QWERTZ" in shown
+            assert C.KEYBOARD_CHECK_LABEL in shown
         if screen == Screen.WHAT:
             assert C.POWER_REMINDER in shown
             assert "copies you need" in shown
@@ -154,7 +160,7 @@ def test_empty_and_blocked_keep_shutdown(ui, size, scenario, screen):  # noqa: F
     wiz, app = ui(scenario=scenario, size=size)
     app.root.minsize(*MIN_SIZE)
     app.root.geometry(f"{size[0]}x{size[1]}+40+40")
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

@@ -206,7 +206,7 @@ def test_duplicate_beamo_wipe_labels_fail_closed():
     # Wizard must show blocked, not select
     spy = SpyRunner()
     wiz = _wizard_for_discovery(result, spy=spy)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -325,7 +325,7 @@ def test_conflicting_env_vs_mount_fails_closed():
     # Wizard spy
     spy = SpyRunner()
     wiz = _wizard_for_discovery(result, spy=spy)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -404,7 +404,7 @@ def test_alias_via_realpath_treated_as_boot(monkeypatch):
     monkeypatch.setattr("os.path.realpath", lambda p, _real=real, boot="/dev/sdb": boot if p == "/dev/disk/by-id/usb-Beamo_123" else _real(p))
     spy = SpyRunner()
     wiz = _wizard_for_discovery(result, spy=spy)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -578,7 +578,7 @@ def _assert_blocked_and_no_nwipe(result, *, spy: SpyRunner | None = None):
 
     spy = spy or SpyRunner()
     wiz = _wizard_for_discovery(result, spy=spy)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -641,7 +641,7 @@ def test_e2e_partitioned_no_partition_selectable_no_nwipe(monkeypatch):
     from beamo_wipe.wizard import Wizard
 
     wiz = Wizard(result, spy, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -686,7 +686,7 @@ def test_e2e_no_nwipe_process_created_on_uncertainty(monkeypatch):
         raise AssertionError("nwipe Popen must not be invoked on uncertain boot")
 
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -737,7 +737,7 @@ def _make_wizard_ready_for_erase(tmp_path, monkeypatch):
     spy = SpyRunner()
     wiz = Wizard(base.discovery, spy, clock=clock, dry_run=False)
     wiz.preview = False  # force real path (rediscover)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

@@ -1297,9 +1297,9 @@ def test_qemu_types_the_token_required_for_same_size_boot_and_target_disks():
     )
 
     assert confirm_spec(target, (target, boot)).token == serial
-    assert 'serial=$QEMU_TARGET_SERIAL' in qemu
+    assert 'serial=$token' in qemu
     assert (
-        'type_token_for_marker "$label" "$qmp_socket" "$QEMU_TARGET_SERIAL" '
+        'type_token_for_marker "$label" "$qmp_socket" "$token" '
         'BEAMO_WIPE_CONFIRM_MATCHED 20'
     ) in qemu
 

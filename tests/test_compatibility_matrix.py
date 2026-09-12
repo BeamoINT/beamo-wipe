@@ -492,7 +492,7 @@ def test_matrix_wizard_no_auto_start_and_countdown(tmp_path, monkeypatch):
     wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.2), clock=clock, dry_run=True)
     assert wiz.screen.value == "splash"
     assert not wiz.erase_enabled
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -517,7 +517,7 @@ def test_matrix_wizard_boot_never_selectable(tmp_path, monkeypatch):
     from beamo_wipe.demo import make_demo_wizard
 
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

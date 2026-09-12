@@ -7,7 +7,9 @@ layout regressions (clipped text, buttons pushed off the window at the
 minimum size) and broken keyboard flows that source inspection cannot see.
 """
 
+import threading
 import time
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -80,6 +82,40 @@ def _in_canvas(widget) -> bool:
     return False
 
 
+def test_fullscreen_kiosk_has_fixed_display_geometry_without_window_manager():
+    """The live startx session has no window manager to honor fullscreen hints."""
+    import os
+    import sys
+
+    if sys.platform != "linux" or os.environ.get("BEAMO_ISOLATED_X11_TEST") != "1":
+        pytest.skip("bare X11 fullscreen check requires an isolated X server")
+    _needs_display()
+    wiz = make_demo_wizard()
+    wiz.preview = False
+    wiz.skip_intro()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    assert wiz.screen == Screen.PICK
+    app = TkWizard(wiz, fullscreen=True)
+    try:
+        generation = []
+        app.root.after(1000, lambda: generation.append(app._draw_generation))
+        app.root.after(1500, app.root.quit)
+        app.root.mainloop()
+        assert (app.root.winfo_width(), app.root.winfo_height()) == (
+            app.root.winfo_screenwidth(), app.root.winfo_screenheight(),
+        )
+        assert generation and app._draw_generation == generation[0], "idle picker keeps rebuilding"
+        app.root.focus_force()
+        app._return_held = True
+        app._on_return_release(SimpleNamespace(time=100))
+        app.root.update()
+        assert not app._return_held
+    finally:
+        app._teardown()
+
+
 def _clipping_problems(app) -> list:
     """Labels/entries asking for more space than the layout gave them."""
     app.root.update_idletasks()
@@ -146,7 +182,10 @@ def _button_named(app, text):
 def _drive_to(wiz, app, screen, size=WINDOW):
     """Walk the real wizard state machine to a screen, then redraw."""
     if wiz.screen == Screen.SPLASH and screen != Screen.SPLASH:
-        wiz.skip_splash()
+        if screen == Screen.KEYBOARD:
+            wiz.skip_splash()
+        else:
+            wiz.skip_intro()
     if screen in (
         Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
         Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED,
@@ -181,7 +220,7 @@ def _drive_to(wiz, app, screen, size=WINDOW):
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 @pytest.mark.parametrize(
     "screen",
-    [Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
+    [Screen.KEYBOARD, Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
      Screen.ADVANCED, Screen.LAST_CHANCE],
 )
 def test_screen_fits_without_clipping(ui, screen, size):
@@ -192,11 +231,228 @@ def test_screen_fits_without_clipping(ui, screen, size):
     assert _off_window_problems(app) == []
 
 
+def _long_identity_app(size):
+    """Real wizard whose disks carry maximum-shape identity (backlog #51)."""
+    from beamo_wipe.demo import DEMO_DURATION_S
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.wizard import Wizard
+    from test_identity_soft_break import long_identity_discovery
+
+    _needs_display()
+    discovery = long_identity_discovery()
+    wiz = Wizard(
+        discovery,
+        DryRunRunner(duration_s=DEMO_DURATION_S),
+        dry_run=True,
+        rediscover=lambda: discovery,
+    )
+    wiz.preview = True
+    app = TkWizard(wiz)
+    app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+    app.root.update_idletasks()
+    app.root.focus_force()
+    return wiz, app
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize(
+    "screen", [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE]
+)
+def _slow_scan_app(size, delay=2.0, fail=False, mark=None):
+    """Tk app whose rediscovery sleeps, proving the loop stays live. (Backlog #52.)"""
+    from beamo_wipe.demo import DEMO_DURATION_S, discovery_for_scenario
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.wizard import Wizard
+
+    _needs_display()
+    calls = []
+
+    def slow():
+        calls.append((threading.get_ident(), time.monotonic()))
+        time.sleep(delay)
+        if fail:
+            raise RuntimeError("scan blew up")
+        if mark is not None:
+            mark.append(len(calls))
+            base = discovery_for_scenario("happy")
+            first = base.selectable[0]
+            altered = replace(first, serial=f"SLOWSCAN{len(calls):02d}")
+            disks = tuple(altered if d.path == first.path else d for d in base.disks)
+            selectable = tuple(
+                altered if d.path == first.path else d for d in base.selectable
+            )
+            return replace(base, disks=disks, selectable=selectable)
+        return discovery_for_scenario("happy")
+
+    discovery = discovery_for_scenario("happy")
+    wiz = Wizard(
+        discovery,
+        DryRunRunner(duration_s=DEMO_DURATION_S),
+        dry_run=True,
+        rediscover=slow,
+    )
+    wiz.preview = True
+    app = TkWizard(wiz)
+    app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+    app.root.update_idletasks()
+    app.root.focus_force()
+    return wiz, app, calls
+
+
+def _await_scan_done(app, timeout=15.0):
+    deadline = time.monotonic() + timeout
+    while app.w.screen == Screen.REFRESHING and time.monotonic() < deadline:
+        app.root.update()
+        time.sleep(0.02)
+    return app.w.screen
+
+
+def _join_scan_workers(app, timeout=15.0):
+    for worker in list(app._refresh_threads.values()):
+        worker.join(timeout=max(0.1, timeout / max(1, len(app._refresh_threads))))
+
+
+def test_refresh_returns_while_scan_runs():
+    """Slow scan: F5 returns fast, checking paints, heartbeats keep firing."""
+    wiz, app, calls = _slow_scan_app(WINDOW)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        beats = []
+
+        def beat():
+            beats.append(time.monotonic())
+            if wiz.screen == Screen.REFRESHING:
+                app.root.after(100, beat)
+
+        app.root.after(100, beat)
+        main_ident = threading.get_ident()
+        start = time.monotonic()
+        app._click_refresh()
+        elapsed = time.monotonic() - start
+        assert elapsed < 0.5, f"UI thread blocked {elapsed:.2f}s by discovery I/O"
+        assert wiz.screen == Screen.REFRESHING
+        assert _await_scan_done(app) == Screen.WHAT
+        assert len(beats) >= 5, f"event loop stalled during scan ({len(beats)} beats)"
+        assert calls and all(ident != main_ident for ident, _ in calls)
+    finally:
+        app._teardown()
+
+
+def test_refresh_failure_blocks_closed():
+    """Exploding scan: fail-closed blocked screen, app stays alive."""
+    from beamo_wipe.copy import REDISCOVER_ERROR
+
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=0.5, fail=True)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        app._click_refresh()
+        assert _await_scan_done(app) == Screen.PICK_BLOCKED
+        assert wiz.error == REDISCOVER_ERROR
+        assert wiz.selectable == ()
+        assert app.root.winfo_exists()
+    finally:
+        app._teardown()
+
+
+def test_duplicate_refresh_runs_single_scan():
+    """Double F5: the repeat is refused; one scan applies, nothing piles up."""
+    marks = []
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=1.0, mark=marks)
+    applied = []
+    real_finish = wiz.finish_refresh
+
+    def counting_finish(seq, outcome):
+        result = real_finish(seq, outcome)
+        applied.append(result)
+        return result
+
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        wiz.finish_refresh = counting_finish
+        app._click_refresh()
+        time.sleep(0.3)
+        app.root.update()
+        app._click_refresh()
+        assert _await_scan_done(app) == Screen.WHAT
+        _join_scan_workers(app)
+        assert marks == [1], marks  # second attempt never started I/O
+        assert applied == [True], applied
+        serials = [d.serial for d in wiz.selectable]
+        assert "SLOWSCAN01" in serials, serials
+        assert wiz.selected is None
+    finally:
+        app._teardown()
+
+
+def test_close_during_scan_drops_silently():
+    """Window close mid-scan: clean teardown, joinable workers, no late draw."""
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=2.0)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        app._click_refresh()
+        assert wiz.screen == Screen.REFRESHING
+        app.root.update()
+        app._teardown()
+        assert app._ui_dead
+        _join_scan_workers(app)
+        for worker in app._refresh_threads.values():
+            assert not worker.is_alive()
+    finally:
+        try:
+            app._teardown()
+        except Exception:
+            pass
+
+
+def test_accessible_refresh_opens_reader(monkeypatch):
+    """F8: async scan, then the screen-reader handoff (Linux gate behavior)."""
+    # Real-platform display check first: patching sys.platform below would
+    # defeat _needs_display and abort a headless macOS process in Tk().
+    _needs_display()
+    monkeypatch.setattr("beamo_wipe.ui.tk_wizard.sys.platform", "linux")
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=0.5)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        start = time.monotonic()
+        app._click_accessible()
+        assert time.monotonic() - start < 0.5
+        deadline = time.monotonic() + 15.0
+        while not app._accessible_requested and time.monotonic() < deadline:
+            app.root.update()
+            time.sleep(0.02)
+        assert app._accessible_requested
+    finally:
+        try:
+            app._teardown()
+        except Exception:
+            pass
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize(
+    "screen", [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE]
+)
+def test_long_identity_never_clips(size, screen):
+    """139-char model + 64-char spaceless serial: no clip, no hidden tail."""
+    wiz, app = _long_identity_app(size)
+    try:
+        _drive_to(wiz, app, screen, size=size)
+        app._show_more = True  # also expose the device-path line on PICK
+        app._draw()
+        app.root.update_idletasks()
+        app.root.update()
+        assert app.w.screen == screen
+        assert _clipping_problems(app) == []
+        assert _off_window_problems(app) == []
+    finally:
+        app._teardown()
+
+
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 def test_status_screens_fit(ui, size):
     for scenario, screen in (("empty", Screen.PICK_EMPTY), ("blocked", Screen.PICK_BLOCKED)):
         wiz, app = ui(scenario=scenario, size=size)
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         wiz.set_owner(True)
         wiz.continue_owner()
@@ -246,6 +502,8 @@ def test_keyboard_only_flow_reaches_working(ui):
         root.update()
 
     key("a")
+    assert wiz.screen == Screen.KEYBOARD
+    key("Return")
     assert wiz.screen == Screen.WHAT
     key("Return")
     assert wiz.screen == Screen.OWNER
@@ -362,7 +620,7 @@ def test_held_enter_does_not_shutdown_pick_empty(ui):
     """Auto-repeat Return from Owner must not power off the empty-disk copy."""
     wiz, app = ui(scenario="empty")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     app._draw()
@@ -432,7 +690,7 @@ def test_held_space_does_not_shutdown_pick_empty(ui):
     """Auto-repeat Space from Owner Continue must not power off the empty-disk copy."""
     wiz, app = ui(scenario="empty")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     app._draw()
@@ -519,7 +777,7 @@ def test_x11_space_release_press_pair_does_not_shutdown_done(ui):
     """A synthetic X11 release/press repeat pair is still one Space hold."""
     wiz, app = ui(scenario="empty")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -850,7 +1108,8 @@ def test_graphical_refresh_restarts_full_authorization(ui, screen):
     wiz.screen = screen
     app._draw()
     app._on_key(SimpleNamespace(keysym="F5", char=""))
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.REFRESHING
+    assert _await_scan_done(app) == Screen.WHAT
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
     assert not wiz.runner.started
     assert not _clipping_problems(app)
@@ -860,7 +1119,7 @@ def test_graphical_refresh_restarts_full_authorization(ui, screen):
 def test_screen_reader_switch_clears_authorization(ui, monkeypatch, fresh_ok):
     wiz, app = ui()
     monkeypatch.setattr("beamo_wipe.ui.tk_wizard.sys.platform", "linux")
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -872,6 +1131,12 @@ def test_screen_reader_switch_clears_authorization(ui, monkeypatch, fresh_ok):
             raise OSError("fake discovery failure")
         wiz._rediscover = fail
     app._click_accessible()
+    # Refresh now scans off the UI thread: the handoff lands once applied.
+    assert wiz.screen == Screen.REFRESHING
+    deadline = time.monotonic() + 15.0
+    while not app._accessible_requested and time.monotonic() < deadline:
+        app.root.update()
+        time.sleep(0.02)
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
     assert app._accessible_requested  # Both successful and blocked refreshes use the reader view.
     assert wiz.screen == (Screen.WHAT if fresh_ok else Screen.PICK_BLOCKED)
@@ -1226,6 +1491,56 @@ def test_timing_text_readable_and_working_controls_stable(ui, size):
         assert app._progress_pct.cget("text") == "82%"
 
 
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_stale_progress_is_marked_old_and_does_not_animate(ui, size):
+    from beamo_wipe.progress import ProgressView
+    from unittest.mock import PropertyMock, patch
+    from beamo_wipe.wizard import Wizard
+
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.WORKING
+    wiz.selected = wiz.selectable[0]
+    view = ProgressView("Writing", 42, 120, stale_for=11, percent_is_old=True)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=view):
+        app._draw()
+        app.root.update_idletasks()
+        assert app._progress_pct.cget("text") == "42% (old)"
+        assert "No new progress update for less than 1 minute." in app._progress_label.cget("text")
+        before = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        for _ in range(10):
+            app._refresh_working()
+        after = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        assert after == before
+
+
+def test_preparing_animates_only_before_the_first_number(ui):
+    from beamo_wipe.progress import ProgressView
+    from unittest.mock import PropertyMock, patch
+    from beamo_wipe.wizard import Wizard
+
+    wiz, app = ui()
+    wiz.screen = Screen.WORKING
+    wiz.selected = wiz.selectable[0]
+    live = ProgressView("Preparing", None, 1)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=live):
+        app._draw()
+        app.root.update_idletasks()
+        before = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        for _ in range(8):
+            app._refresh_working()
+        moved = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        assert moved != before
+    stale = ProgressView("Preparing", None, 21, stale_for=21)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=stale):
+        app._refresh_working()
+        frozen = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        for _ in range(8):
+            app._refresh_working()
+        assert [app._progress_bar.coords(item) for item in app._progress_bar.find_all()] == frozen
+        assert "No new progress update" in app._progress_label.cget("text")
+        assert app._progress_pct.cget("text") == ""
+
+
 def test_stopping_shows_elapsed_without_estimate(ui):
     wiz, app = ui()
     wiz.screen = Screen.STOPPING
@@ -1437,4 +1752,3 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert C.prepare_selected(wiz.selected) in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
-

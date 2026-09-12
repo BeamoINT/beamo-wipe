@@ -45,7 +45,7 @@ def inventory_wizard():
     }
     result = parse_lsblk_json(payload, boot_path="/dev/sdb")
     wiz = Wizard(result, DryRunRunner(), dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

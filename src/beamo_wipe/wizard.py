@@ -22,6 +22,13 @@ from beamo_wipe.copy import (
     confirm_warning,
     erase_now_label,
 )
+from beamo_wipe.keyboard import (
+    APPLY_FAILED,
+    DEFAULT_LAYOUT,
+    UNAVAILABLE,
+    apply_layout,
+    is_allowed,
+)
 from beamo_wipe.methods import DEFAULT_METHOD, METHODS
 from beamo_wipe.models import (
     ConfirmSpec,
@@ -155,6 +162,11 @@ class Wizard:
         self.owner_ok = False
         self.selected: Optional[Disk] = None
         self.confirm_input = ""
+        self.keyboard_layout = DEFAULT_LAYOUT
+        self.typing_check = ""
+        self.keyboard_message = ""
+        self._keyboard_from: Optional[Screen] = None
+        self._apply_keyboard = apply_layout
         self.method = DEFAULT_METHOD
         self.wants_shutdown = False
         self.error: Optional[str] = None
@@ -204,6 +216,7 @@ class Wizard:
         self._report_revision = 0
         self._active_report_claim: Optional[_ReportExportClaim] = None
         self._lock = threading.RLock()
+        self._refresh_seq = 0
         self._start_claim: Optional[_StartClaim] = None
         self._start_abort = threading.Event()
         self._operation_thread: Optional[threading.Thread] = None
@@ -425,6 +438,13 @@ class Wizard:
                 self._progress_timing.clear_estimate()
             if self.wipe_result is not None or self._recovered:
                 remaining = None
+            terminal = (
+                self.wipe_result is not None
+                or self._recovered
+                or self.screen == Screen.STOPPING
+                or bool(getattr(self.runner, "finalizing", False))
+            )
+            stale_for = None if terminal else timing.stale_for
             percent = self.progress
             now = self.now
             previous = self._display_progress
@@ -436,7 +456,16 @@ class Wizard:
                 percent = previous.percent
             else:
                 self._display_progress_at = now
-            view = ProgressView(phase, percent, timing.elapsed, remaining)
+            view = ProgressView(
+                phase,
+                percent,
+                timing.elapsed,
+                remaining,
+                stale_for=stale_for,
+                percent_is_old=bool(
+                    percent is not None and stale_for is not None
+                ),
+            )
             self._display_progress = view
             return view
 
@@ -505,7 +534,7 @@ class Wizard:
             and not self.preview
             and self.now >= self._splash_until
         ):
-            self.screen = Screen.WHAT
+            self.screen = Screen.KEYBOARD
         # Poll under lock to avoid races with cancel_wipe / confirm_erase
         # that both touch _wipe_request / screen / evidence.
         should_finish = None
@@ -534,7 +563,125 @@ class Wizard:
     def skip_splash(self) -> None:
         with self._lock:
             if self.screen == Screen.SPLASH:
+                self.screen = Screen.KEYBOARD
+
+    def skip_intro(self) -> None:
+        """Tests: advance past splash and keyboard. Production walks each screen."""
+        with self._lock:
+            if self.screen == Screen.SPLASH:
+                self.screen = Screen.KEYBOARD
+            if self.screen == Screen.KEYBOARD:
+                self.typing_check = ""
                 self.screen = Screen.WHAT
+
+    def accept_keyboard(self) -> None:
+        with self._lock:
+            if self.screen != Screen.KEYBOARD:
+                return
+            dest = self._keyboard_from or Screen.WHAT
+            if dest in {
+                Screen.WORKING,
+                Screen.CHECKING,
+                Screen.STOPPING,
+                Screen.REFRESHING,
+                Screen.KEYBOARD,
+                Screen.SPLASH,
+            }:
+                dest = Screen.WHAT
+            self._keyboard_from = None
+            self.typing_check = ""
+            self.screen = dest
+
+    @property
+    def can_open_keyboard(self) -> bool:
+        return (
+            self.screen
+            in {
+                Screen.KEYBOARD,
+                Screen.WHAT,
+                Screen.OWNER,
+                Screen.PICK,
+                Screen.PICK_EMPTY,
+                Screen.PICK_BLOCKED,
+                Screen.CONFIRM,
+                Screen.METHOD,
+                Screen.LAST_CHANCE,
+                Screen.ADVANCED,
+                Screen.LIMITS,
+                Screen.REPORT_HELP,
+            }
+            and self._wipe_request is None
+            and not self.wants_shutdown
+            and not self._startup_blocked
+            and not self._diagnostic_busy
+        )
+
+    def open_keyboard(self) -> None:
+        with self._lock:
+            if not self.can_open_keyboard or self.screen == Screen.KEYBOARD:
+                return
+            self._keyboard_from = self.screen
+            self.screen = Screen.KEYBOARD
+            self.typing_check = ""
+            self.keyboard_message = ""
+
+    def set_typing_check(self, text: str) -> None:
+        with self._lock:
+            if self.screen != Screen.KEYBOARD:
+                return
+            raw = text if isinstance(text, str) else ""
+            self.typing_check = "".join(ch for ch in raw[:64] if ch.isprintable())
+
+    def set_keyboard_layout(self, layout_id: str) -> bool:
+        """Apply an allowlisted layout. Failed applies leave the previous layout."""
+        with self._lock:
+            if not self.can_open_keyboard:
+                return False
+            if not is_allowed(layout_id):
+                self.error = UNAVAILABLE
+                self.keyboard_message = UNAVAILABLE
+                return False
+            if layout_id == self.keyboard_layout:
+                self.error = None
+                self.keyboard_message = ""
+                return True
+            if self.screen in {
+                Screen.WORKING,
+                Screen.CHECKING,
+                Screen.STOPPING,
+                Screen.REFRESHING,
+            }:
+                return False
+            applier = self._apply_keyboard
+        result = applier(layout_id)
+        with self._lock:
+            if not result.ok:
+                self.error = result.message or APPLY_FAILED
+                self.keyboard_message = self.error
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("keyboard", "apply_failed", layout_id if is_allowed(layout_id) else "rejected")
+                except Exception:
+                    pass
+                return False
+            self.keyboard_layout = layout_id
+            self.typing_check = ""
+            self.keyboard_message = result.message
+            self.error = None
+            self._invalidate_after_layout_change_locked()
+            return True
+
+    def _invalidate_after_layout_change_locked(self) -> None:
+        self.owner_ok = False
+        self.confirm_input = ""
+        self.selected = None
+        self._erase_until = None
+        self._authorized_operation = None
+        self._keyboard_from = None
+        self.typing_check = ""
+        if self.screen not in {Screen.KEYBOARD, Screen.SPLASH, Screen.WHAT}:
+            self.screen = Screen.WHAT
 
     def reset_for_preview(self) -> None:
         """Start the wizard over. Preview only — never used on a live wipe."""
@@ -556,6 +703,10 @@ class Wizard:
         self.owner_ok = False
         self.selected = None
         self.confirm_input = ""
+        self.keyboard_layout = DEFAULT_LAYOUT
+        self.typing_check = ""
+        self.keyboard_message = ""
+        self._keyboard_from = None
         self.method = DEFAULT_METHOD
         self.wants_shutdown = False
         self.error = None
@@ -742,12 +893,18 @@ class Wizard:
             Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP,
         } and self._wipe_request is None and not self.wants_shutdown and not self._startup_blocked and not self._diagnostic_busy
 
-    def refresh_disks(self) -> bool:
-        # Claim the transition before doing I/O. A simultaneous start either
-        # wins the lock first (refresh refuses) or sees REFRESHING and refuses.
+    def begin_refresh(self) -> Optional[int]:
+        """Claim the checking state; the caller runs I/O elsewhere.
+
+        Runs on the UI thread and returns a sequence number, or None when
+        refresh is not allowed from the current screen. A second attempt
+        while a scan is in flight is refused (None): one scan runs at a
+        time, so results can never pile up or race the UI.
+        """
         with self._lock:
-            if not self.can_refresh:
-                return False
+            if self.screen == Screen.REFRESHING or not self.can_refresh:
+                return None
+            self._refresh_seq += 1
             self.screen = Screen.REFRESHING
             self.discovery = DiscoveryResult(error="Checking disks again.", boot_identified=False)
             self.selected = None
@@ -760,10 +917,34 @@ class Wizard:
             self._report_help_from = None
             self._done_keyboard_armed = False
             self.error = None
+            return self._refresh_seq
+
+    def _run_rediscovery(self):
+        """Discovery I/O only. May run on a worker thread.
+
+        Touches no wizard state and no UI: the injected source (or the live
+        ``discover``) runs its subprocess and parsing here while the event
+        loop stays responsive. May raise; the caller applies fail-closed
+        handling through :meth:`finish_refresh`.
+        """
+        if self._rediscover is None and (self.dry_run or self.preview):
+            raise SafetyError("A fresh fake-device discovery source is required.")
+        return (self._rediscover or discover)()
+
+    def finish_refresh(self, seq: int, outcome) -> bool:
+        """Apply a scan result on the UI thread. Stale results drop.
+
+        Returns True when this sequence owned the in-flight scan and the
+        result (or its fail-closed error) was applied; False when the
+        sequence is unknown or the screen already moved on.
+        """
+        with self._lock:
+            if seq != self._refresh_seq or self.screen != Screen.REFRESHING:
+                return False
         try:
-            if self._rediscover is None and (self.dry_run or self.preview):
-                raise SafetyError("A fresh fake-device discovery source is required.")
-            fresh = (self._rediscover or discover)()
+            if isinstance(outcome, BaseException):
+                raise outcome
+            fresh = outcome
             if not isinstance(fresh, DiscoveryResult):
                 raise SafetyError("Discovery returned an invalid inventory.")
             assert_boot_excluded(fresh)
@@ -779,6 +960,22 @@ class Wizard:
             self.error = fresh.error
             # WHAT -> OWNER -> PICK requires all acknowledgements again.
             self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.WHAT
+        return True
+
+    def refresh_disks(self) -> bool:
+        """Synchronous refresh for sequential callers (consoles, GTK view).
+
+        Same claim/reset/validate/apply contract as the threaded Tk path,
+        with I/O inline. Returns False only when refresh is not allowed.
+        """
+        seq = self.begin_refresh()
+        if seq is None:
+            return False
+        try:
+            outcome = self._run_rediscovery()
+        except BaseException as exc:
+            outcome = exc
+        self.finish_refresh(seq, outcome)
         return True
 
     def _operation_key(self) -> Optional[tuple[Any, ...]]:
@@ -1485,6 +1682,17 @@ class Wizard:
         return True
 
     @property
+    def check_alerts(self) -> tuple[str, ...]:
+        """Concise engine-check warnings. Never a substitute for result_view."""
+        from beamo_wipe.engine_checks import alert_summaries
+
+        if self.preview:
+            return ()
+        with self._lock:
+            evidence = self.evidence if isinstance(self.evidence, dict) else {}
+            return alert_summaries(evidence.get("checks") or ())
+
+    @property
     def evidence_warning(self) -> str:
         with self._lock:
             if not self.evidence_error:
@@ -1988,7 +2196,7 @@ class Wizard:
 
     def open_advanced(self) -> None:
         with self._lock:
-            if self.screen in (Screen.SPLASH, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
+            if self.screen in (Screen.SPLASH, Screen.KEYBOARD, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
                 return
             self._advanced_from = self.screen
             self.screen = Screen.ADVANCED
@@ -2012,6 +2220,20 @@ class Wizard:
                 return
             if self.screen == Screen.DIAGNOSTIC:
                 self.close_diagnostic()
+                return
+            if self.screen == Screen.KEYBOARD:
+                dest = self._keyboard_from
+                self._keyboard_from = None
+                self.typing_check = ""
+                if dest and dest not in {
+                    Screen.KEYBOARD,
+                    Screen.SPLASH,
+                    Screen.WORKING,
+                    Screen.CHECKING,
+                    Screen.STOPPING,
+                    Screen.REFRESHING,
+                }:
+                    self.screen = dest
                 return
             mapping = {
                 Screen.OWNER: Screen.WHAT,
