@@ -51,6 +51,32 @@ def _app(wizard, focus):
     return app
 
 
+def _live_button(command, *, enabled=True):
+    """A real _Button with only its canvas surface stubbed.
+
+    Exercises the production _press/_release/_key methods headlessly: focus
+    assignment, enabled gating, and inside/outside release geometry.
+    """
+    button = _Button.__new__(_Button)
+    button._command = command
+    button._enabled = enabled
+    button._variant = "secondary"
+    button._pressed = False
+    button._held = False
+    button._hovering = False
+    button._focused = False
+    button._bw = 160
+    button._bh = 40
+    button._draw = lambda: None
+    button.focus_set = Mock()
+    return button
+
+
+def _click(button, x=10, y=10):
+    button._press()
+    button._release(SimpleNamespace(x=x, y=y))
+
+
 @pytest.mark.parametrize("key", ["Return", "KP_Enter"])
 def test_enter_on_focused_back_never_erases(key):
     wizard = _last_chance()
@@ -106,6 +132,53 @@ def test_enter_on_focused_back_does_not_advance_method():
     app._on_return(SimpleNamespace(time=100))
     assert wizard.screen == Screen.CONFIRM
     assert wizard._erase_until is None
+
+
+def test_click_disabled_erase_takes_no_focus_and_erases_nothing():
+    erase = Mock()
+    button = _live_button(erase, enabled=False)
+    _click(button)
+    button.focus_set.assert_not_called()
+    erase.assert_not_called()
+
+
+def test_release_outside_erase_cancels_the_click():
+    erase = Mock()
+    button = _live_button(erase, enabled=True)
+    button._press()
+    button._release(SimpleNamespace(x=500, y=500))
+    erase.assert_not_called()
+
+
+def test_click_back_goes_back_without_erasing():
+    wizard = _last_chance()
+    erase = Mock()
+    back = _live_button(wizard.back, enabled=True)
+    _click(back)
+    assert wizard.screen == Screen.METHOD
+    erase.assert_not_called()
+
+
+def test_space_on_focused_erase_activates_presses_not_repeats():
+    erase = Mock()
+    button = _live_button(erase, enabled=True)
+    app = Mock()
+    app._claim_space_press.return_value = True
+    button.winfo_toplevel = lambda: SimpleNamespace(_tk_wizard=app)
+    button._key()
+    button._key()
+    assert erase.call_count == 2
+    app._claim_space_press.return_value = False
+    button._key()
+    assert erase.call_count == 2
+
+
+def test_space_on_disabled_erase_does_nothing():
+    erase = Mock()
+    button = _live_button(erase, enabled=False)
+    button.winfo_toplevel = lambda: SimpleNamespace(_tk_wizard=None)
+    button._key()
+    erase.assert_not_called()
 
 
 def test_focused_erase_requires_countdown_and_new_keypress():

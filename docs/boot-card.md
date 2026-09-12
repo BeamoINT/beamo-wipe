@@ -45,6 +45,10 @@ show this USB; many will not.
 
 ## After it boots
 
+When the Beamo Wipe menu appears, pick **Beamo Wipe: start the erase guide**
+(or **troubleshoot startup** if the PC does not start normally). Opening the
+guide erases nothing by itself.
+
 1. Read the first screen. This is nwipe with a guide on top.
 2. Check the owner box.
 3. Pick the disk by **size and serial**. The Beamo USB is marked and

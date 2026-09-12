@@ -23,7 +23,7 @@ import sys
 import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
+from typing import TypeGuard, Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from beamo_wipe.discover import run_lsblk
 from beamo_wipe.evidence import _verified_evidence_bytes
@@ -276,7 +276,7 @@ def receipt_is_saved(
     expected_sha256: str,
     owner_file: str = OWNER_WIPE_FILE,
     share_copy: bool | None = None,
-) -> bool:
+) -> TypeGuard[ExportReceipt]:
     """True only for a structurally valid, verified, unmounted success receipt."""
     if not isinstance(receipt, ExportReceipt):
         return False

@@ -710,3 +710,130 @@ def run_accessible(wizard: Wizard, fullscreen: bool = False) -> int:
             except subprocess.TimeoutExpired:
                 reader.kill()
                 reader.wait(timeout=5)
+
+
+def _ensure_gtk_display() -> None:
+    """Raise RuntimeError when no display is reachable for the splash.
+
+    Same fail-safe idea as the Tk probe: a child process attempts the
+    display connection, so a headless host becomes a catchable error and
+    app.py keeps its existing graphical-failure path.
+    """
+    try:
+        probe = subprocess.run(
+            [sys.executable, "-c",
+             "from gi.repository import Gtk as _G; "
+             "_w = _G.Window(); _w.destroy()"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise RuntimeError("no accessible display for startup stages")
+    if probe.returncode != 0:
+        raise RuntimeError("no accessible display for startup stages")
+
+
+def run_accessible_startup(build, *, fullscreen: bool = False,
+                           stall_after_s: float | None = None) -> tuple:
+    """Show startup stages in the screen-reader view while ``build()`` runs.
+
+    Same worker discipline and return protocol as ``run_tk_startup``:
+    ("wizard", wizard), ("failed", exc), or ("abandoned", None) on window
+    close or Escape. Stage rows are plain labels; the status line takes
+    keyboard focus and is selectable so a screen reader announces it.
+    Raises RuntimeError (never aborts) when no display is reachable.
+    """
+    _ensure_gtk_display()
+    from beamo_wipe.startup_stages import STALL_AFTER_S, StartupRun
+
+    run = StartupRun(
+        build,
+        stall_after_s=STALL_AFTER_S if stall_after_s is None else stall_after_s,
+    )
+    outcome: list = []
+    try:
+        window = Gtk.Window(title="Beamo Wipe — starting")
+    except Exception as exc:
+        raise RuntimeError(f"no accessible display for startup stages: {exc}")
+    window.set_name("beamo-accessible")
+    window.set_default_size(640, 420)
+    if fullscreen:
+        window.fullscreen()
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    box.set_border_width(24)
+    window.add(box)
+    rows = []
+    for _i in range(3):
+        status = Gtk.Label()
+        title = Gtk.Label()
+        title.get_style_context().add_class("screen-heading")
+        hint = Gtk.Label()
+        hint.set_line_wrap(True)
+        hint.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        box.pack_start(status, False, False, 0)
+        box.pack_start(title, False, False, 0)
+        box.pack_start(hint, False, False, 6)
+        rows.append((status, title, hint))
+    stall = Gtk.Label()
+    stall.set_line_wrap(True)
+    box.pack_start(stall, False, False, 6)
+    status_line = Gtk.Label(label="")
+    status_line.set_can_focus(True)
+    status_line.set_selectable(True)
+    box.pack_start(status_line, False, False, 6)
+
+    _STATUS_WORDS = {"pending": "Waiting", "active": "Working…", "done": "Done"}
+
+    def render() -> None:
+        snap = run.drain()
+        for (status, title, hint), row in zip(rows, snap):
+            status.set_text(_STATUS_WORDS[row["state"]])
+            title.set_text(row["title"])
+            hint.set_text(row["hint"])
+        note = run.stalled_note()
+        stall.set_text(note or "")
+        active = [row for row in snap if row["state"] == "active"]
+        if active:
+            status_line.set_text(f"{active[0]['title']} — working.")
+
+    def finish(result) -> bool:
+        outcome.append(result)
+        window.destroy()
+        if Gtk.main_level():
+            Gtk.main_quit()
+        return False
+
+    def close(*_args):
+        if not outcome:
+            outcome.append(("abandoned", None))
+        window.destroy()
+        if Gtk.main_level():
+            Gtk.main_quit()
+        return False
+
+    def poll() -> bool:
+        if outcome:
+            return False
+        render()
+        result = run.poll()
+        if result is None:
+            return True
+        # run.poll() applied the final report; announce it before closing.
+        render()
+        return finish(result)
+
+    window.connect("delete-event", close)
+    window.connect("key-press-event", lambda _w, event: close()
+                   if event.keyval in (Gdk.KEY_Escape,) else None)
+    window.show_all()
+    status_line.grab_focus()
+    render()
+    run.start()
+    GLib.timeout_add(100, poll)
+    Gtk.main()
+    if outcome:
+        return outcome[0]
+    return ("abandoned", None)

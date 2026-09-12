@@ -7,7 +7,9 @@ layout regressions (clipped text, buttons pushed off the window at the
 minimum size) and broken keyboard flows that source inspection cannot see.
 """
 
+import threading
 import time
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -193,6 +195,223 @@ def test_screen_fits_without_clipping(ui, screen, size):
     assert app.w.screen == screen
     assert _clipping_problems(app) == []
     assert _off_window_problems(app) == []
+
+
+def _long_identity_app(size):
+    """Real wizard whose disks carry maximum-shape identity (backlog #51)."""
+    from beamo_wipe.demo import DEMO_DURATION_S
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.wizard import Wizard
+    from test_identity_soft_break import long_identity_discovery
+
+    _needs_display()
+    discovery = long_identity_discovery()
+    wiz = Wizard(
+        discovery,
+        DryRunRunner(duration_s=DEMO_DURATION_S),
+        dry_run=True,
+        rediscover=lambda: discovery,
+    )
+    wiz.preview = True
+    app = TkWizard(wiz)
+    app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+    app.root.update_idletasks()
+    app.root.focus_force()
+    return wiz, app
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize(
+    "screen", [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE]
+)
+def _slow_scan_app(size, delay=2.0, fail=False, mark=None):
+    """Tk app whose rediscovery sleeps, proving the loop stays live. (Backlog #52.)"""
+    from beamo_wipe.demo import DEMO_DURATION_S, discovery_for_scenario
+    from beamo_wipe.nwipe_runner import DryRunRunner
+    from beamo_wipe.wizard import Wizard
+
+    _needs_display()
+    calls = []
+
+    def slow():
+        calls.append((threading.get_ident(), time.monotonic()))
+        time.sleep(delay)
+        if fail:
+            raise RuntimeError("scan blew up")
+        if mark is not None:
+            mark.append(len(calls))
+            base = discovery_for_scenario("happy")
+            first = base.selectable[0]
+            altered = replace(first, serial=f"SLOWSCAN{len(calls):02d}")
+            disks = tuple(altered if d.path == first.path else d for d in base.disks)
+            selectable = tuple(
+                altered if d.path == first.path else d for d in base.selectable
+            )
+            return replace(base, disks=disks, selectable=selectable)
+        return discovery_for_scenario("happy")
+
+    discovery = discovery_for_scenario("happy")
+    wiz = Wizard(
+        discovery,
+        DryRunRunner(duration_s=DEMO_DURATION_S),
+        dry_run=True,
+        rediscover=slow,
+    )
+    wiz.preview = True
+    app = TkWizard(wiz)
+    app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+    app.root.update_idletasks()
+    app.root.focus_force()
+    return wiz, app, calls
+
+
+def _await_scan_done(app, timeout=15.0):
+    deadline = time.monotonic() + timeout
+    while app.w.screen == Screen.REFRESHING and time.monotonic() < deadline:
+        app.root.update()
+        time.sleep(0.02)
+    return app.w.screen
+
+
+def _join_scan_workers(app, timeout=15.0):
+    for worker in list(app._refresh_threads.values()):
+        worker.join(timeout=max(0.1, timeout / max(1, len(app._refresh_threads))))
+
+
+def test_refresh_returns_while_scan_runs():
+    """Slow scan: F5 returns fast, checking paints, heartbeats keep firing."""
+    wiz, app, calls = _slow_scan_app(WINDOW)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        beats = []
+
+        def beat():
+            beats.append(time.monotonic())
+            if wiz.screen == Screen.REFRESHING:
+                app.root.after(100, beat)
+
+        app.root.after(100, beat)
+        main_ident = threading.get_ident()
+        start = time.monotonic()
+        app._click_refresh()
+        elapsed = time.monotonic() - start
+        assert elapsed < 0.5, f"UI thread blocked {elapsed:.2f}s by discovery I/O"
+        assert wiz.screen == Screen.REFRESHING
+        assert _await_scan_done(app) == Screen.WHAT
+        assert len(beats) >= 5, f"event loop stalled during scan ({len(beats)} beats)"
+        assert calls and all(ident != main_ident for ident, _ in calls)
+    finally:
+        app._teardown()
+
+
+def test_refresh_failure_blocks_closed():
+    """Exploding scan: fail-closed blocked screen, app stays alive."""
+    from beamo_wipe.copy import REDISCOVER_ERROR
+
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=0.5, fail=True)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        app._click_refresh()
+        assert _await_scan_done(app) == Screen.PICK_BLOCKED
+        assert wiz.error == REDISCOVER_ERROR
+        assert wiz.selectable == ()
+        assert app.root.winfo_exists()
+    finally:
+        app._teardown()
+
+
+def test_duplicate_refresh_runs_single_scan():
+    """Double F5: the repeat is refused; one scan applies, nothing piles up."""
+    marks = []
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=1.0, mark=marks)
+    applied = []
+    real_finish = wiz.finish_refresh
+
+    def counting_finish(seq, outcome):
+        result = real_finish(seq, outcome)
+        applied.append(result)
+        return result
+
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        wiz.finish_refresh = counting_finish
+        app._click_refresh()
+        time.sleep(0.3)
+        app.root.update()
+        app._click_refresh()
+        assert _await_scan_done(app) == Screen.WHAT
+        _join_scan_workers(app)
+        assert marks == [1], marks  # second attempt never started I/O
+        assert applied == [True], applied
+        serials = [d.serial for d in wiz.selectable]
+        assert "SLOWSCAN01" in serials, serials
+        assert wiz.selected is None
+    finally:
+        app._teardown()
+
+
+def test_close_during_scan_drops_silently():
+    """Window close mid-scan: clean teardown, joinable workers, no late draw."""
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=2.0)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        app._click_refresh()
+        assert wiz.screen == Screen.REFRESHING
+        app.root.update()
+        app._teardown()
+        assert app._ui_dead
+        _join_scan_workers(app)
+        for worker in app._refresh_threads.values():
+            assert not worker.is_alive()
+    finally:
+        try:
+            app._teardown()
+        except Exception:
+            pass
+
+
+def test_accessible_refresh_opens_reader(monkeypatch):
+    """F8: async scan, then the screen-reader handoff (Linux gate behavior)."""
+    # Real-platform display check first: patching sys.platform below would
+    # defeat _needs_display and abort a headless macOS process in Tk().
+    _needs_display()
+    monkeypatch.setattr("beamo_wipe.ui.tk_wizard.sys.platform", "linux")
+    wiz, app, calls = _slow_scan_app(WINDOW, delay=0.5)
+    try:
+        _drive_to(wiz, app, Screen.PICK)
+        start = time.monotonic()
+        app._click_accessible()
+        assert time.monotonic() - start < 0.5
+        deadline = time.monotonic() + 15.0
+        while not app._accessible_requested and time.monotonic() < deadline:
+            app.root.update()
+            time.sleep(0.02)
+        assert app._accessible_requested
+    finally:
+        try:
+            app._teardown()
+        except Exception:
+            pass
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize(
+    "screen", [Screen.PICK, Screen.CONFIRM, Screen.LAST_CHANCE]
+)
+def test_long_identity_never_clips(size, screen):
+    """139-char model + 64-char spaceless serial: no clip, no hidden tail."""
+    wiz, app = _long_identity_app(size)
+    try:
+        _drive_to(wiz, app, screen, size=size)
+        app._show_more = True  # also expose the device-path line on PICK
+        app._draw()
+        app.root.update_idletasks()
+        app.root.update()
+        assert app.w.screen == screen
+        assert _clipping_problems(app) == []
+        assert _off_window_problems(app) == []
+    finally:
+        app._teardown()
 
 
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
@@ -855,7 +1074,8 @@ def test_graphical_refresh_restarts_full_authorization(ui, screen):
     wiz.screen = screen
     app._draw()
     app._on_key(SimpleNamespace(keysym="F5", char=""))
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.REFRESHING
+    assert _await_scan_done(app) == Screen.WHAT
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
     assert not wiz.runner.started
     assert not _clipping_problems(app)
@@ -877,6 +1097,12 @@ def test_screen_reader_switch_clears_authorization(ui, monkeypatch, fresh_ok):
             raise OSError("fake discovery failure")
         wiz._rediscover = fail
     app._click_accessible()
+    # Refresh now scans off the UI thread: the handoff lands once applied.
+    assert wiz.screen == Screen.REFRESHING
+    deadline = time.monotonic() + 15.0
+    while not app._accessible_requested and time.monotonic() < deadline:
+        app.root.update()
+        time.sleep(0.02)
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
     assert app._accessible_requested  # Both successful and blocked refreshes use the reader view.
     assert wiz.screen == (Screen.WHAT if fresh_ok else Screen.PICK_BLOCKED)

@@ -216,6 +216,7 @@ class Wizard:
         self._report_revision = 0
         self._active_report_claim: Optional[_ReportExportClaim] = None
         self._lock = threading.RLock()
+        self._refresh_seq = 0
         self._start_claim: Optional[_StartClaim] = None
         self._start_abort = threading.Event()
         self._operation_thread: Optional[threading.Thread] = None
@@ -876,12 +877,18 @@ class Wizard:
             Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP,
         } and self._wipe_request is None and not self.wants_shutdown and not self._startup_blocked and not self._diagnostic_busy
 
-    def refresh_disks(self) -> bool:
-        # Claim the transition before doing I/O. A simultaneous start either
-        # wins the lock first (refresh refuses) or sees REFRESHING and refuses.
+    def begin_refresh(self) -> Optional[int]:
+        """Claim the checking state; the caller runs I/O elsewhere.
+
+        Runs on the UI thread and returns a sequence number, or None when
+        refresh is not allowed from the current screen. A second attempt
+        while a scan is in flight is refused (None): one scan runs at a
+        time, so results can never pile up or race the UI.
+        """
         with self._lock:
-            if not self.can_refresh:
-                return False
+            if self.screen == Screen.REFRESHING or not self.can_refresh:
+                return None
+            self._refresh_seq += 1
             self.screen = Screen.REFRESHING
             self.discovery = DiscoveryResult(error="Checking disks again.", boot_identified=False)
             self.selected = None
@@ -894,10 +901,34 @@ class Wizard:
             self._report_help_from = None
             self._done_keyboard_armed = False
             self.error = None
+            return self._refresh_seq
+
+    def _run_rediscovery(self):
+        """Discovery I/O only. May run on a worker thread.
+
+        Touches no wizard state and no UI: the injected source (or the live
+        ``discover``) runs its subprocess and parsing here while the event
+        loop stays responsive. May raise; the caller applies fail-closed
+        handling through :meth:`finish_refresh`.
+        """
+        if self._rediscover is None and (self.dry_run or self.preview):
+            raise SafetyError("A fresh fake-device discovery source is required.")
+        return (self._rediscover or discover)()
+
+    def finish_refresh(self, seq: int, outcome) -> bool:
+        """Apply a scan result on the UI thread. Stale results drop.
+
+        Returns True when this sequence owned the in-flight scan and the
+        result (or its fail-closed error) was applied; False when the
+        sequence is unknown or the screen already moved on.
+        """
+        with self._lock:
+            if seq != self._refresh_seq or self.screen != Screen.REFRESHING:
+                return False
         try:
-            if self._rediscover is None and (self.dry_run or self.preview):
-                raise SafetyError("A fresh fake-device discovery source is required.")
-            fresh = (self._rediscover or discover)()
+            if isinstance(outcome, BaseException):
+                raise outcome
+            fresh = outcome
             if not isinstance(fresh, DiscoveryResult):
                 raise SafetyError("Discovery returned an invalid inventory.")
             assert_boot_excluded(fresh)
@@ -913,6 +944,22 @@ class Wizard:
             self.error = fresh.error
             # WHAT -> OWNER -> PICK requires all acknowledgements again.
             self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.WHAT
+        return True
+
+    def refresh_disks(self) -> bool:
+        """Synchronous refresh for sequential callers (consoles, GTK view).
+
+        Same claim/reset/validate/apply contract as the threaded Tk path,
+        with I/O inline. Returns False only when refresh is not allowed.
+        """
+        seq = self.begin_refresh()
+        if seq is None:
+            return False
+        try:
+            outcome = self._run_rediscovery()
+        except BaseException as exc:
+            outcome = exc
+        self.finish_refresh(seq, outcome)
         return True
 
     def _operation_key(self) -> Optional[tuple[Any, ...]]:

@@ -18,6 +18,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / "helper" / "index.html"
+BOOT_CARD = ROOT / "docs" / "boot-card.md"
 START_HERE = ROOT / "packaging/live/config/includes.binary/START-HERE.html"
 DESKTOP = ROOT / "desktop/web/index.html"
 BUILD_ISO = ROOT / "scripts" / "build-iso.sh"
@@ -151,6 +152,19 @@ def test_oem_variation_and_safe_fallbacks_are_documented():
     assert "another direct USB port" in text or "another USB port" in text
     assert "manufacturer" in text.lower()
     assert "legacy BIOS" in text
+
+
+def test_boot_card_vendor_keys_match_helper():
+    import re
+
+    card = BOOT_CARD.read_text(encoding="utf-8")
+    html = _html()
+    rows = re.findall(r"^\| ([A-Za-z]+) \| (.+) \|$", card, flags=re.MULTILINE)
+    assert len(rows) >= 7, "boot-card vendor table shrank unexpectedly"
+    for vendor, keys in rows:
+        assert vendor in html, f"helper page lost vendor {vendor}"
+        for key in re.findall(r"F1[012]|Esc", keys):
+            assert key in html, f"helper page lost key {key} for {vendor}"
 
 
 def test_keyboard_and_small_display_structure():

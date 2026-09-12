@@ -1,0 +1,14 @@
+label live-@FLAVOUR@
+	menu label ^Beamo Wipe: start the erase guide
+	menu default
+	menu help Opens the Beamo Wipe guide. Nothing is erased until you pick a disk and confirm it.
+	linux @LINUX@
+	initrd @INITRD@
+	append @APPEND_LIVE@
+
+label live-@FLAVOUR@-failsafe
+	menu label Beamo Wipe: ^troubleshoot startup
+	menu help Same guide with safe video settings. Nothing is erased until you pick a disk and confirm it.
+	linux @LINUX@
+	initrd @INITRD@
+	append @APPEND_LIVE_FAILSAFE@
