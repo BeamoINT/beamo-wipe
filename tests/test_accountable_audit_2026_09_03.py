@@ -41,6 +41,7 @@ from beamo_wipe.safety import (
     assert_disk_identity,
     truncate_log_file,
 )
+from beamo_wipe.startup_stages import complete_synchronously
 from beamo_wipe.wizard import Wizard, make_demo_wizard
 
 
@@ -514,7 +515,10 @@ def test_live_tk_failure_returns_to_supervisor_before_console(monkeypatch):
     console_calls = []
     monkeypatch.setattr(app, "running_on_live_usb", lambda: False)
     monkeypatch.setattr(app.signal, "signal", lambda *_a: None)
-    monkeypatch.setattr(app, "_build_wizard", lambda _args: fake)
+    monkeypatch.setattr(app, "_build_wizard", lambda *_a, **_k: fake)
+    monkeypatch.setattr(
+        "beamo_wipe.ui.tk_wizard.run_tk_startup", complete_synchronously
+    )
     monkeypatch.setattr(
         "beamo_wipe.ui.tk_wizard.run_tk",
         lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("no display")),
@@ -623,7 +627,8 @@ def test_qemu_gate_requires_rendered_kiosk_screen_and_media_readback():
     assert 'BEAMO_WIPE_SCREEN_WHAT "$BOOT_WAIT_SECONDS"' in qemu
     assert "never rendered the shipped Tk WHAT screen" in qemu
     assert "chunk = b\"\\xa5\"" in qemu
-    assert 'cmp -n 268435456 "$TARGET_RAW" /dev/zero' in qemu
+    assert 'cmp -n "$HOST_METHOD_BYTES" "$raw" /dev/zero' in qemu
+    assert "HOST_METHOD_BYTES=67108864" in qemu
 
 
 def test_build_omits_bytecode_and_enforces_wrapper_version():
