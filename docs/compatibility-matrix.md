@@ -58,6 +58,8 @@ It does **not** weaken safety gates. Every *Fail Closed* row lists no disks and 
 
 Local `python3 -m pytest` is the fast fake-device gate; `tk_runtime` clipped-text checks require Xvfb 72 DPI and are run on the hosted gate. Tk tests scale with DPI — `DISPLAY=:99` @72 DPI or `xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"`; VNC `DISPLAY=:1` @96 DPI is not the gate.
 
+Environments map to evidence tiers defined in [`docs/evidence-tiers.md`](evidence-tiers.md): local fake-device is Tier 1 (never boot/wipe/hardware proof), Cloud Build ISO + isolated QEMU is Tier 2 (never physical-hardware proof), named lab machines are Tier 3. Section 4–9 rows marked *Supported* rest on Tier 1 unless §4 of that page links a dated Tier 2/3 receipt for the pinned build; unlinked combinations are explicitly `UNVERIFIED` there.
+
 ---
 
 ## 3. Image identity
@@ -122,9 +124,9 @@ Fail-closed rows **must** expose `selectable == ()` and set `error` containing "
 | **ST-02** | Single SATA HDD 500 GB + boot USB | `tran sata, rota true` → `HDD` | `demo_lsblk.json` `sda` WDC 1 TB HDD | `sda` HDD 1000 GB + `nvme0n1` + `sdd` | As expected | **Supported** | No | `discover(payload=demo_lsblk.json, boot_path=/dev/sdb)` |
 | **ST-03** | Two NVMe same size 256 GB (duplicate size) | Both `tran nvme` | `lsblk_same_size.json` (Samsung 970 + 980 both 256 GB) | Both NVMe listed, same `size_gb_label 256` → same-size hint, confirm token = last 4 of serial | Tokens `1111` vs `2222` (see `demo_lsblk.json` vs same_size) | **Supported** | Requires user to use **serial suffix**; UI shows `SAME_SIZE_HINT` | `tests/test_confirm_token.py::test_duplicate_size_uses_serial_suffix` |
 | **ST-04** | Four-disk mixed: NVMe 256 GB + SATA HDD 1 TB + SATA SSD 256 GB + boot USB | Mixed buses, sata bridge hidden labels | `demo_lsblk.json` (`sdb` boot, `nvme0n1` 256, `sda` 1000, `sdd` 256 MX500) | All non-boot listed, bus mapping sata→SATA, nvme→NVMe, sata ssd rota false→SSD | As expected; `sdd` kind SSD via rota false | **Supported** | SSD footer shows controller caveat | `discovery_for_scenario("happy")` |
-| **ST-05** | Missing serial/model (null) → fallback to label | `model null, serial null` → `display_name` = label | Tested `test_missing_model_falls_back_to_label` (sda model None, child label WINDOWS) | Display name WINDOWS | As expected | **Supported (degraded display)** | Serial absent → token uses device name, not serial | `payload model None + child label WINDOWS` |
-| **ST-06** | Empty serial vs peer serial equal to device name | `sda` serial "" vs `sdb` serial "sda" | `test_empty_serial_does_not_share_token_with_peer_serial` | Tokens disambiguated, device name used | As expected | **Supported** | Token is `sda`/`sdb` when serial unsafe | Direct `Disk` objects |
-| **ST-07** | Colliding serial suffix (`AAAA1234` vs `BBBB1234`) | Same `size_gb_label 500`, suffix `1234` collision | `test_same_size_colliding_serial_suffix_uses_device_name` | Tokens become `sda`/`sdb` not `1234` | As expected | **Supported (degraded token)** | Same-size hint still shown | Two disks `sda`/`sdb` both `1234` |
+| **ST-05** | Missing serial/model (null) → fallback to label | `model null, serial null` → `display_name` = label | Tested `test_missing_model_falls_back_to_label` (sda model None, child label WINDOWS) | Display name WINDOWS | As expected | **Supported (degraded display)** | Unique size still confirms with the size label; kernel names are not identity | `payload model None + child label WINDOWS` |
+| **ST-06** | Empty serial vs peer serial equal to a kernel name | `sda` serial "" vs `sdb` serial "sda" | `test_empty_serial_does_not_share_token_with_peer_serial` | Confirm refused; shut down and disconnect extra drives | As expected | **Fail closed** | Kernel names are never confirm tokens | Direct `Disk` objects |
+| **ST-07** | Colliding serial suffix (`AAAA1234` vs `BBBB1234`) | Same `size_gb_label 500`, suffix `1234` collision | `test_same_size_colliding_serial_suffix_uses_device_name` | Tokens are unique full serials, never `sda`/`sdc` | As expected | **Supported** | Same-size hint still shown | Two disks `sda`/`sdc` suffix `1234` |
 | **ST-08** | Unsafe serial (`../sda`) | Must not become token | `test_unsafe_serial_is_not_used_as_confirm_token` | Tokens `sda`/`sdb` filtered via `SAFE_TOKEN_RE` | As expected | **Supported** | Rejected `../` | `serial="../sda"` |
 | **ST-09** | eMMC `mmcblk0` + `mmcblk0boot0/1/rpmb` (4 MiB each) | `mmcblk0` disk, boot partitions type disk siblings | `test_mmcblk_boot_and_rpmb_are_hidden` | Only `mmcblk0` selectable; boot0/boot1/rpmb hidden via `HIDDEN_NAME_RE` | As expected | **Supported (with hidden)** | `mmcblk0boot0` not shown as "4 GB" target | Payload mmcblk0* |
 | **ST-10** | Virtio `vda` 11 GB + optical `sr0` | `tran virtio` → bus `other`, kind HDD (rota true) | `lsblk_vm_iso.json` (`vda` virtio, `sr0` rom) | `vda` selectable, `sr0` marked boot, `loop0` hidden | As expected | **Supported** | QEMU path | `discover(..., boot_path=/dev/sr0)` |
@@ -140,7 +142,7 @@ Fail-closed rows **must** expose `selectable == ()` and set `error` containing "
 New fixtures added in this matrix release (under `tests/fixtures/`):
 
 - `lsblk_missing_metadata.json` — one NVMe with `model null`/`serial ""`/`wwn ""` + SATA with label `WINDOWS`, boot USB intact; exercises ST-05/08.
-- `lsblk_duplicate_metadata.json` — two SATA 500 GB disks `sda`/`sdb` both `size 500107862016`, serials `AAAA1234`/`BBBB1234` (suffix collision) + boot USB; exercises ST-07 and token fallback.
+- `lsblk_duplicate_metadata.json` — two SATA 500 GB disks `sda`/`sdc` both `size 500107862016`, serials `AAAA1234`/`BBBB1234` (suffix collision) + boot USB; exercises ST-07 unique full-serial tokens.
 - `lsblk_unusual_controllers.json` — `mmcblk0` 32 GB, `mmcblk0boot0` 4 MB, `ram0` 64 MB, `zram0` 256 MB, `sr0` rom, `loop0`, `nbd0` 10 GB, `sda` iscsi, `sdb` boot usb, `sdc` sas, `nvme0n1`; exercises HIDDEN_* and REMOTE_BUS_TOKENS.
 - `lsblk_multi_mixed.json` — boot USB + 4 targets: `nvme0n1` 256 NVMe, `nvme1n1` 256 NVMe (same size pair), `sda` 1 TB HDD, `sdd` 512 GB SATA SSD (rota false) + `sdc` 16 GB usb stick extra (to test hub scenario); exercises ST-04 and same-size conflict.
 - `lsblk_sata_bridge.json` — boot USB behind SATA bridge (`tran sata` for usb stick) + leftover usb with BEAMO_WIPE label, tests BM-05/06 path.
@@ -195,7 +197,7 @@ Each gate is pinned by a `SafetyError` + test spy that asserts `NwipeRunner` is 
 | Gate | Rule | Spy / test | Result |
 | --- | --- | --- | --- |
 | Owner ack | Checkbox must be checked (`owner_ok` → `assert_ready_to_wipe` raises "Owner checkbox") | `test_owner_and_token_required_before_wipe`, wizard `accept_what`/`continue_owner` | **Supported** |
-| Type-to-confirm | Token from `confirm_spec` (size label OR last4 serial OR full serial OR device name via `SAFE_TOKEN_RE`), case-insensitive | `test_unique_size_uses_gb_label`, `test_duplicate_size_uses_serial_suffix`, `test_same_size_colliding...`, `test_unsafe_serial...`, `test_empty_serial...` | **Supported** |
+| Type-to-confirm | Token from `confirm_spec` (size label OR last4 serial OR full serial OR unique hardware ID via `SAFE_TOKEN_RE`), case-insensitive. Kernel names are never tokens; insufficient certainty fails closed. | `test_unique_size_uses_gb_label`, `test_duplicate_size_uses_serial_suffix`, `test_identity.py`, `test_unsafe_serial...`, `test_empty_serial...` | **Supported / fail closed** |
 | 5 s delay | `wipe.confirm_erase` checks `erase_enabled == countdown_left<=0`; `tick` counts `COUNTDOWN_S 5.0` | `test_happy_path_dry_run` (5 s then confirm), `test_held_enter_does_not_erase_when...` | **Supported** |
 | No auto-start | `Wizard.screen == SPLASH` and `not preview` only advances via `tick` after 3 s *or* explicit `skip_splash`/`any key`; `test_no_autostart_wipe` asserts `runner.started False` | `test_no_autostart_wipe`, `test_splash_times_out`, `test_preview_splash_does_not_auto_advance` | **Supported** |
 | Boot exclusion | `assert_boot_excluded` raises if `boot_identified False` or `boot in selectable`; `selectable_disks` returns `()` when `boot_identified False`; `Wizard.select_disk` ignores boot path | `test_boot_never_selectable`, `test_unidentified_boot_raises`, `test_select_disk_refuses_boot_alias` | **Supported** |
@@ -222,7 +224,7 @@ Preview/dry-run cannot exec real `NwipeRunner`: `test_confirm_erase_refuses_real
 ### Degraded (works but with limits)
 
 - **SSDs:** Overwrite via `prng`/`dodshort`/`zero` is **not a formal certificate**; controller wear-leveling may retain data (SSD footer on pick screen, `docs/storage-and-controller-limits.md` §3, evidence `warnings[]`). Customers needing certified SSD erasure must use vendor secure-erase tool per model or physical destruction per `docs/storage-and-controller-limits.md` §5.
-- **Missing/duplicate metadata:** Falls back to label → `Unknown model`, then token falls back to device name (`sda`); same-size disks force serial inspection — degraded but still safe.
+- **Missing/duplicate metadata:** Falls back to label → `Unknown model`. Same-size disks without a unique serial or hardware ID fail closed: shut down and disconnect extra drives. Kernel names are never identity.
 - **eMMC/mmcblk:** `mmcblk0boot0/1/rpmb` (4 MiB) are hidden — correct (they are not wipe targets) the ordinary `mmcblk0` user-data device remains eligible when all disk safety checks pass. Only firmware-area nodes alone yield `PICK_EMPTY`.
 - **USB hubs / keyboard hubs:** May hide the stick from firmware boot menu; degraded boot findability (try direct port, disable Fast Boot per `docs/boot-card.md`).
 - **800×600 and HiDPI:** Render but need scroll / exhibit clipping at non-gate DPI; not automated at those DPIs.
@@ -333,7 +335,7 @@ BEAMO_WIPE_VERSION=0.2.7 ./scripts/qemu-verify.sh
 
 ## 13. Evidence & logs (this checkout)
 
-- `python3 -m pytest -k "not tk_runtime"` — **218 passed, 0 failed** on `Darwin arm64` with `BEAMO_WIPE_DRY_RUN=1` (this matrix changeset). Hosted gate re-runs the same under `xvfb-run 72 DPI` on `x86_64`.
+- `python3 -m pytest -k "not tk_runtime"` — **218 passed, 0 failed** on `Darwin arm64` with `BEAMO_WIPE_DRY_RUN=1` (historical snapshot from the 0.1.1 matrix release, kept for provenance; for current counts see the hosted gate per `docs/ci.md`). Hosted gate re-runs the same under `xvfb-run 72 DPI` on `x86_64`.
 - Tk clipped-text / off-window probes: 14 layout tests + 12 keyboard/scroll tests. On this Mac, Tk `Aborted` in headless `DISPLAY=:1` @96 DPI is pre-existing and not the gate; hosted gate uses `DISPLAY=:99` @72 DPI.
 - `BEAMO_WIPE_NO_OPEN=1 ./preview --web` → `web-preview/index.html` (gallery) and `BEAMO_WIPE_DEMO=1 ./preview --console </dev/null` both exit 0; no real disks enumerated.
 - No `nwipe` subprocess was spawned in any fake-device test — spy: `NwipeRunner.start` raises `SafetyError("Refusing to exec nwipe in preview or dry-run.")`; `DryRunRunner` fakes `WipeResult`; `subprocess.Popen` spy in `test_popen_inherits_wipe_lock_fd` asserts `pass_fds`, `cwd="/"`, `shell False`, `start_new_session True`.

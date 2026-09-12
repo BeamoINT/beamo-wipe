@@ -8,7 +8,6 @@ import errno
 import json
 import math
 import os
-import re
 import stat
 import subprocess
 import threading
@@ -17,7 +16,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
-from beamo_wipe.copy import REDISCOVER_ERROR, confirm_warning, erase_now_label
+from beamo_wipe.copy import (
+    AUTHORIZATION_STALE,
+    REDISCOVER_ERROR,
+    confirm_warning,
+    erase_now_label,
+)
+from beamo_wipe.keyboard import (
+    APPLY_FAILED,
+    DEFAULT_LAYOUT,
+    UNAVAILABLE,
+    apply_layout,
+    is_allowed,
+)
 from beamo_wipe.methods import DEFAULT_METHOD, METHODS
 from beamo_wipe.models import (
     ConfirmSpec,
@@ -35,6 +46,7 @@ from beamo_wipe.safety import (
     assert_disk_identity,
     assert_ready_to_wipe,
     confirm_spec,
+    disk_identity,
     listed_disks as safety_listed_disks,
     selectable_disks,
     token_matches,
@@ -98,6 +110,7 @@ class _ReportExportClaim:
     target_path: str
     target_rdev: int
     boot_rdev: int
+    privacy_reduced: bool = False
 
 
 def format_progress_percent(pct: float) -> str:
@@ -138,6 +151,7 @@ class Wizard:
         self.preview = False
         self.screen = Screen.SPLASH
         self.report_wanted = False
+        self.report_share_redacted = False
         self._intent_store = None
         self.report_recovery_warning = ""
         self._shutdown_from: Optional[Screen] = None
@@ -148,12 +162,18 @@ class Wizard:
         self.owner_ok = False
         self.selected: Optional[Disk] = None
         self.confirm_input = ""
+        self.keyboard_layout = DEFAULT_LAYOUT
+        self.typing_check = ""
+        self.keyboard_message = ""
+        self._keyboard_from: Optional[Screen] = None
+        self._apply_keyboard = apply_layout
         self.method = DEFAULT_METHOD
         self.wants_shutdown = False
         self.error: Optional[str] = None
         self.wipe_result: Optional[WipeResult] = None
         self._splash_until = self._clock() + SPLASH_S
         self._erase_until: Optional[float] = None
+        self._authorized_operation: Optional[tuple[Any, ...]] = None
         self._wipe_request: Optional[WipeRequest] = None
         # Set when cancel_wipe starts (under _lock, before runner.cancel())
         # so a concurrent tick() drops the post-cancel poll result instead
@@ -167,6 +187,7 @@ class Wizard:
         self._evidence_start_mono: Optional[float] = None
         self._evidence_end_mono: Optional[float] = None
         self._evidence_end_wall = ""
+        self._evidence_wall_provenance = "unavailable"
         self._progress_timing = ProgressTiming(self._clock, time.time)
         self._display_progress: Optional[ProgressView] = None
         self._display_progress_at = 0.0
@@ -195,6 +216,7 @@ class Wizard:
         self._report_revision = 0
         self._active_report_claim: Optional[_ReportExportClaim] = None
         self._lock = threading.RLock()
+        self._refresh_seq = 0
         self._start_claim: Optional[_StartClaim] = None
         self._start_abort = threading.Event()
         self._operation_thread: Optional[threading.Thread] = None
@@ -221,6 +243,7 @@ class Wizard:
         self.owner_ok = False
         self.confirm_input = ""
         self._erase_until = None
+        self._authorized_operation = None
         self._wipe_request = None
         self.screen = Screen.PICK_BLOCKED
         self.startup_error_code = "recovery_indeterminate"
@@ -259,7 +282,8 @@ class Wizard:
                 inputs = dict(
                     disk=target, discovery=discovery, method=self.method,
                     request=None, result=None, started_at_wall=None, ended_at_wall=None,
-                    started_mono=None, ended_mono=None, argv=[], log_text="", interrupted=True)
+                    started_mono=None, ended_mono=None, argv=[], log_text="", interrupted=True,
+                    wall_provenance="unavailable")
                 self._evidence_write_seq += 1
                 self._pending_evidence = (copy.deepcopy(inputs), self._evidence_context(),
                                           self.wipe_result, self._result_evidence_key(self.wipe_result))
@@ -301,16 +325,11 @@ class Wizard:
         The boot USB is shown so the owner can see it was found; it stays
         non-selectable (selectable_disks never includes it).
         """
-        from beamo_wipe.copy import NO_CODE
-
         boot = self.discovery.boot
         if boot is None:
             return ""
-        serial = boot.serial or NO_CODE
-        return (
-            f"Boot device (not erasable): {boot.display_name} "
-            f"{boot.size_phrase} {boot.path} {serial}"
-        )
+        view = self.disk_view(boot)
+        return f"Beamo USB (not erasable): {view.compact_line}"
 
     @property
     def selectable(self):
@@ -326,19 +345,16 @@ class Wizard:
         # Never display inventory when boot identity failed closed.
         if not self.discovery.boot_identified or self.discovery.error or self.discovery.boot is None:
             return ()
-        boot_markers = tuple(
-            f" | {path} | "
-            for path in dict.fromkeys(
-                (self.discovery.boot.path, os.path.realpath(self.discovery.boot.path))
-            )
-            if path
-        )
-
-        def _not_boot(device) -> bool:
-            return not any(marker in device.identity for marker in boot_markers)
-
+        boot_paths = {
+            self.discovery.boot.path,
+            os.path.realpath(self.discovery.boot.path),
+        }
         if self.discovery.excluded:
-            return tuple(device for device in self.discovery.excluded if _not_boot(device))
+            return tuple(
+                device
+                for device in self.discovery.excluded
+                if not device.path or device.path not in boot_paths
+            )
         from beamo_wipe.inventory import excluded_device
         eligible = {d.path for d in self.selectable}
         boot_paths = {self.discovery.boot.path, os.path.realpath(self.discovery.boot.path)}
@@ -348,11 +364,22 @@ class Wizard:
             if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
         )
 
+    def disk_view(self, disk: Optional[Disk] = None):
+        from beamo_wipe.identity import present_disk
+
+        target = disk if disk is not None else self.selected
+        if target is None:
+            raise SafetyError("No disk is selected.")
+        return present_disk(target, self.listed_disks)
+
     @property
     def confirm(self) -> Optional[ConfirmSpec]:
         if self.selected is None:
             return None
-        return confirm_spec(self.selected, self.listed_disks)
+        try:
+            return confirm_spec(self.selected, self.listed_disks)
+        except SafetyError:
+            return None
 
     @property
     def token_ok(self) -> bool:
@@ -411,6 +438,13 @@ class Wizard:
                 self._progress_timing.clear_estimate()
             if self.wipe_result is not None or self._recovered:
                 remaining = None
+            terminal = (
+                self.wipe_result is not None
+                or self._recovered
+                or self.screen == Screen.STOPPING
+                or bool(getattr(self.runner, "finalizing", False))
+            )
+            stale_for = None if terminal else timing.stale_for
             percent = self.progress
             now = self.now
             previous = self._display_progress
@@ -422,9 +456,36 @@ class Wizard:
                 percent = previous.percent
             else:
                 self._display_progress_at = now
-            view = ProgressView(phase, percent, timing.elapsed, remaining)
+            view = ProgressView(
+                phase,
+                percent,
+                timing.elapsed,
+                remaining,
+                stale_for=stale_for,
+                percent_is_old=bool(
+                    percent is not None and stale_for is not None
+                ),
+            )
             self._display_progress = view
             return view
+
+    def _capture_wall(self) -> tuple[str, str]:
+        """Return (stamp, provenance). Format never implies a trusted clock."""
+        from beamo_wipe.evidence import _iso_now_wall, valid_wall
+
+        try:
+            if self._wall_clock is not None:
+                raw = self._wall_clock()
+                provenance = "injected"
+            else:
+                raw = _iso_now_wall()
+                provenance = "os_utc"
+        except Exception:
+            return "", "unavailable"
+        stamp = valid_wall(raw)
+        if not stamp:
+            return "", "unavailable"
+        return stamp, provenance
 
     @property
     def elapsed_text(self) -> str:
@@ -473,7 +534,7 @@ class Wizard:
             and not self.preview
             and self.now >= self._splash_until
         ):
-            self.screen = Screen.WHAT
+            self.screen = Screen.KEYBOARD
         # Poll under lock to avoid races with cancel_wipe / confirm_erase
         # that both touch _wipe_request / screen / evidence.
         should_finish = None
@@ -502,7 +563,125 @@ class Wizard:
     def skip_splash(self) -> None:
         with self._lock:
             if self.screen == Screen.SPLASH:
+                self.screen = Screen.KEYBOARD
+
+    def skip_intro(self) -> None:
+        """Tests: advance past splash and keyboard. Production walks each screen."""
+        with self._lock:
+            if self.screen == Screen.SPLASH:
+                self.screen = Screen.KEYBOARD
+            if self.screen == Screen.KEYBOARD:
+                self.typing_check = ""
                 self.screen = Screen.WHAT
+
+    def accept_keyboard(self) -> None:
+        with self._lock:
+            if self.screen != Screen.KEYBOARD:
+                return
+            dest = self._keyboard_from or Screen.WHAT
+            if dest in {
+                Screen.WORKING,
+                Screen.CHECKING,
+                Screen.STOPPING,
+                Screen.REFRESHING,
+                Screen.KEYBOARD,
+                Screen.SPLASH,
+            }:
+                dest = Screen.WHAT
+            self._keyboard_from = None
+            self.typing_check = ""
+            self.screen = dest
+
+    @property
+    def can_open_keyboard(self) -> bool:
+        return (
+            self.screen
+            in {
+                Screen.KEYBOARD,
+                Screen.WHAT,
+                Screen.OWNER,
+                Screen.PICK,
+                Screen.PICK_EMPTY,
+                Screen.PICK_BLOCKED,
+                Screen.CONFIRM,
+                Screen.METHOD,
+                Screen.LAST_CHANCE,
+                Screen.ADVANCED,
+                Screen.LIMITS,
+                Screen.REPORT_HELP,
+            }
+            and self._wipe_request is None
+            and not self.wants_shutdown
+            and not self._startup_blocked
+            and not self._diagnostic_busy
+        )
+
+    def open_keyboard(self) -> None:
+        with self._lock:
+            if not self.can_open_keyboard or self.screen == Screen.KEYBOARD:
+                return
+            self._keyboard_from = self.screen
+            self.screen = Screen.KEYBOARD
+            self.typing_check = ""
+            self.keyboard_message = ""
+
+    def set_typing_check(self, text: str) -> None:
+        with self._lock:
+            if self.screen != Screen.KEYBOARD:
+                return
+            raw = text if isinstance(text, str) else ""
+            self.typing_check = "".join(ch for ch in raw[:64] if ch.isprintable())
+
+    def set_keyboard_layout(self, layout_id: str) -> bool:
+        """Apply an allowlisted layout. Failed applies leave the previous layout."""
+        with self._lock:
+            if not self.can_open_keyboard:
+                return False
+            if not is_allowed(layout_id):
+                self.error = UNAVAILABLE
+                self.keyboard_message = UNAVAILABLE
+                return False
+            if layout_id == self.keyboard_layout:
+                self.error = None
+                self.keyboard_message = ""
+                return True
+            if self.screen in {
+                Screen.WORKING,
+                Screen.CHECKING,
+                Screen.STOPPING,
+                Screen.REFRESHING,
+            }:
+                return False
+            applier = self._apply_keyboard
+        result = applier(layout_id)
+        with self._lock:
+            if not result.ok:
+                self.error = result.message or APPLY_FAILED
+                self.keyboard_message = self.error
+                try:
+                    from beamo_wipe.diagnostics import log_diag
+
+                    log_diag("keyboard", "apply_failed", layout_id if is_allowed(layout_id) else "rejected")
+                except Exception:
+                    pass
+                return False
+            self.keyboard_layout = layout_id
+            self.typing_check = ""
+            self.keyboard_message = result.message
+            self.error = None
+            self._invalidate_after_layout_change_locked()
+            return True
+
+    def _invalidate_after_layout_change_locked(self) -> None:
+        self.owner_ok = False
+        self.confirm_input = ""
+        self.selected = None
+        self._erase_until = None
+        self._authorized_operation = None
+        self._keyboard_from = None
+        self.typing_check = ""
+        if self.screen not in {Screen.KEYBOARD, Screen.SPLASH, Screen.WHAT}:
+            self.screen = Screen.WHAT
 
     def reset_for_preview(self) -> None:
         """Start the wizard over. Preview only — never used on a live wipe."""
@@ -515,6 +694,7 @@ class Wizard:
         self.runner = DryRunRunner(duration_s=duration, fail=fail)
         self.screen = Screen.SPLASH
         self.report_wanted = False
+        self.report_share_redacted = False
         self._shutdown_from = None
         self.shutdown_generation += 1
         self._saved_report_claim = None
@@ -523,12 +703,17 @@ class Wizard:
         self.owner_ok = False
         self.selected = None
         self.confirm_input = ""
+        self.keyboard_layout = DEFAULT_LAYOUT
+        self.typing_check = ""
+        self.keyboard_message = ""
+        self._keyboard_from = None
         self.method = DEFAULT_METHOD
         self.wants_shutdown = False
         self.error = None
         self.wipe_result = None
         self._splash_until = self.now + SPLASH_S
         self._erase_until = None
+        self._authorized_operation = None
         self._wipe_request = None
         self._cancel_requested = False
         self._advanced_from = None
@@ -708,12 +893,18 @@ class Wizard:
             Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP,
         } and self._wipe_request is None and not self.wants_shutdown and not self._startup_blocked and not self._diagnostic_busy
 
-    def refresh_disks(self) -> bool:
-        # Claim the transition before doing I/O. A simultaneous start either
-        # wins the lock first (refresh refuses) or sees REFRESHING and refuses.
+    def begin_refresh(self) -> Optional[int]:
+        """Claim the checking state; the caller runs I/O elsewhere.
+
+        Runs on the UI thread and returns a sequence number, or None when
+        refresh is not allowed from the current screen. A second attempt
+        while a scan is in flight is refused (None): one scan runs at a
+        time, so results can never pile up or race the UI.
+        """
         with self._lock:
-            if not self.can_refresh:
-                return False
+            if self.screen == Screen.REFRESHING or not self.can_refresh:
+                return None
+            self._refresh_seq += 1
             self.screen = Screen.REFRESHING
             self.discovery = DiscoveryResult(error="Checking disks again.", boot_identified=False)
             self.selected = None
@@ -721,14 +912,39 @@ class Wizard:
             self.confirm_input = ""
             self.method = DEFAULT_METHOD
             self._erase_until = None
+            self._authorized_operation = None
             self._advanced_from = None
             self._report_help_from = None
             self._done_keyboard_armed = False
             self.error = None
+            return self._refresh_seq
+
+    def _run_rediscovery(self):
+        """Discovery I/O only. May run on a worker thread.
+
+        Touches no wizard state and no UI: the injected source (or the live
+        ``discover``) runs its subprocess and parsing here while the event
+        loop stays responsive. May raise; the caller applies fail-closed
+        handling through :meth:`finish_refresh`.
+        """
+        if self._rediscover is None and (self.dry_run or self.preview):
+            raise SafetyError("A fresh fake-device discovery source is required.")
+        return (self._rediscover or discover)()
+
+    def finish_refresh(self, seq: int, outcome) -> bool:
+        """Apply a scan result on the UI thread. Stale results drop.
+
+        Returns True when this sequence owned the in-flight scan and the
+        result (or its fail-closed error) was applied; False when the
+        sequence is unknown or the screen already moved on.
+        """
+        with self._lock:
+            if seq != self._refresh_seq or self.screen != Screen.REFRESHING:
+                return False
         try:
-            if self._rediscover is None and (self.dry_run or self.preview):
-                raise SafetyError("A fresh fake-device discovery source is required.")
-            fresh = (self._rediscover or discover)()
+            if isinstance(outcome, BaseException):
+                raise outcome
+            fresh = outcome
             if not isinstance(fresh, DiscoveryResult):
                 raise SafetyError("Discovery returned an invalid inventory.")
             assert_boot_excluded(fresh)
@@ -746,6 +962,54 @@ class Wizard:
             self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.WHAT
         return True
 
+    def refresh_disks(self) -> bool:
+        """Synchronous refresh for sequential callers (consoles, GTK view).
+
+        Same claim/reset/validate/apply contract as the threaded Tk path,
+        with I/O inline. Returns False only when refresh is not allowed.
+        """
+        seq = self.begin_refresh()
+        if seq is None:
+            return False
+        try:
+            outcome = self._run_rediscovery()
+        except BaseException as exc:
+            outcome = exc
+        self.finish_refresh(seq, outcome)
+        return True
+
+    def _operation_key(self) -> Optional[tuple[Any, ...]]:
+        disk = self.selected
+        if disk is None or self.method not in METHODS:
+            return None
+        spec = METHODS[self.method]
+        boot = self.discovery.boot
+        return (
+            disk_identity(disk),
+            self.method,
+            spec.nwipe_method,
+            spec.rounds,
+            spec.verify,
+            spec.noblank,
+            os.path.realpath(boot.path) if boot is not None else "",
+            tuple(sorted(os.path.realpath(item.path) for item in self.selectable)),
+            bool(self.discovery.boot_identified),
+            self.discovery.error or "",
+        )
+
+    def _clear_authorization_locked(self) -> None:
+        self.confirm_input = ""
+        self._erase_until = None
+        self._authorized_operation = None
+
+    def _authorization_matches(self) -> bool:
+        key = self._operation_key()
+        return (
+            key is not None
+            and self._authorized_operation is not None
+            and key == self._authorized_operation
+        )
+
     def select_disk(self, path: str) -> None:
         with self._lock:
             if self.screen != Screen.PICK:
@@ -756,7 +1020,10 @@ class Wizard:
                 return
             for disk in self.selectable:
                 if os.path.realpath(disk.path) == want:
+                    if self.selected is None or os.path.realpath(self.selected.path) != want:
+                        self._clear_authorization_locked()
                     self.selected = disk
+                    self.error = None
                     return
 
     def move_selection(self, delta: int) -> None:
@@ -785,7 +1052,14 @@ class Wizard:
             if self.discovery.boot is not None:
                 if want == os.path.realpath(self.discovery.boot.path):
                     return
+            from beamo_wipe.identity import AMBIGUOUS_IDENTITY, identity_confirmable
+
+            if not identity_confirmable(self.selected, self.listed_disks):
+                self.error = AMBIGUOUS_IDENTITY
+                return
+            self.error = None
             self.confirm_input = ""
+            self._authorized_operation = None
             self.screen = Screen.CONFIRM
 
     def set_confirm_input(self, text: str) -> None:
@@ -806,12 +1080,22 @@ class Wizard:
                 return
             if method not in METHODS:
                 return
+            if method != self.method and self._authorized_operation is not None:
+                self._clear_authorization_locked()
             self.method = method
 
     def continue_method(self) -> None:
         with self._lock:
             if self.screen != Screen.METHOD:
                 return
+            if not self.token_ok or self.selected is None:
+                self.screen = Screen.CONFIRM
+                return
+            key = self._operation_key()
+            if key is None:
+                self.screen = Screen.CONFIRM
+                return
+            self._authorized_operation = key
             self.screen = Screen.LAST_CHANCE
             self._erase_until = self.now + COUNTDOWN_S
 
@@ -829,6 +1113,13 @@ class Wizard:
             if self.wants_shutdown or self.screen != Screen.LAST_CHANCE:
                 return None
             if not self.erase_enabled or self.selected is None:
+                return None
+            if self._authorized_operation is None:
+                self._authorized_operation = self._operation_key()
+            if not self._authorization_matches():
+                self._clear_authorization_locked()
+                self.error = AUTHORIZATION_STALE
+                self.screen = Screen.CONFIRM if self.selected is not None else Screen.PICK
                 return None
             if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
                 self.error = "Preview and dry-run cannot exec nwipe."
@@ -967,13 +1258,9 @@ class Wizard:
                 self._evidence_flag_hint = {}
                 self.screen = Screen.WORKING
                 # Record evidence start (wall + monotonic) + redacted argv for later completion
-                try:
-                    from beamo_wipe.evidence import _iso_now_wall
-
-                    wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
-                except Exception:
-                    wall = ""
+                wall, provenance = self._capture_wall()
                 self._evidence_start_wall = wall
+                self._evidence_wall_provenance = provenance
                 self._evidence_start_mono = self.now
                 self._evidence_end_mono = None
                 self._progress_timing = ProgressTiming(self._clock, time.time)
@@ -1015,11 +1302,10 @@ class Wizard:
             if self.screen == Screen.DONE and self.wipe_result is not None:
                 return
             self._evidence_end_mono = self.now
-            try:
-                from beamo_wipe.evidence import _iso_now_wall
-                self._evidence_end_wall = self._wall_clock() if self._wall_clock else _iso_now_wall()
-            except Exception:
-                self._evidence_end_wall = ""
+            end_wall, end_provenance = self._capture_wall()
+            self._evidence_end_wall = end_wall
+            if self._evidence_wall_provenance == "unavailable":
+                self._evidence_wall_provenance = end_provenance
             self._progress_timing.finish(self._evidence_end_mono)
             if self._progress_timing.invalid_clock:
                 self._evidence_end_mono = None
@@ -1193,21 +1479,12 @@ class Wizard:
                     pass
                 log_text = ""
 
-            # Wall clocks
-            try:
-                from beamo_wipe.evidence import _iso_now_wall
-
-                end_wall = self._wall_clock() if self._wall_clock else _iso_now_wall()  # type: ignore[misc]
-            except Exception as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("wizard", "wall_clock_failed", type(exc).__name__)
-                except Exception:
-                    pass
-                end_wall = ""
             if result is not None:
                 end_wall = self._evidence_end_wall
+            else:
+                end_wall, end_provenance = self._capture_wall()
+                if self._evidence_wall_provenance == "unavailable":
+                    self._evidence_wall_provenance = end_provenance
             start_wall = self._evidence_start_wall or ""
             start_mono = self._evidence_start_mono
             end_mono = self._evidence_end_mono if result is not None else None
@@ -1240,6 +1517,7 @@ class Wizard:
                 started_at_wall=start_wall, ended_at_wall=end_wall if result is not None else "",
                 started_mono=start_mono, ended_mono=end_mono, argv=copy.deepcopy(argv),
                 log_text=log_text or "", interrupted=interrupted, cancelled=cancelled,
+                wall_provenance=self._evidence_wall_provenance,
             )
             with self._lock:
                 if write_seq != self._evidence_write_seq:
@@ -1404,6 +1682,17 @@ class Wizard:
         return True
 
     @property
+    def check_alerts(self) -> tuple[str, ...]:
+        """Concise engine-check warnings. Never a substitute for result_view."""
+        from beamo_wipe.engine_checks import alert_summaries
+
+        if self.preview:
+            return ()
+        with self._lock:
+            evidence = self.evidence if isinstance(self.evidence, dict) else {}
+            return alert_summaries(evidence.get("checks") or ())
+
+    @property
     def evidence_warning(self) -> str:
         with self._lock:
             if not self.evidence_error:
@@ -1511,6 +1800,7 @@ class Wizard:
             result = self.wipe_result
             assert result is not None
             discovery_snapshot = copy.deepcopy(self.discovery)
+            privacy_reduced = bool(self.report_share_redacted)
             assert self.evidence is not None
             expected_payload = dict(self.evidence)
             expected_provenance = dict(expected_payload.get("provenance", {}))
@@ -1556,6 +1846,7 @@ class Wizard:
             target_path=target,
             target_rdev=target_rdev,
             boot_rdev=boot_rdev,
+            privacy_reduced=privacy_reduced,
         )
         with self._lock:
             current_target = (
@@ -1617,25 +1908,23 @@ class Wizard:
                 target_rdev=claim.target_rdev,
                 boot_rdev=claim.boot_rdev,
                 expected_evidence_sha256=claim.evidence_sha256,
+                privacy_reduced=claim.privacy_reduced,
             )
-            ok = getattr(receipt, "ok", None) is True
-            safe = getattr(receipt, "safe_to_remove", None) is True
-            code = getattr(receipt, "code", None)
-            receipt_hash = getattr(receipt, "evidence_sha256", None)
-            session = str(getattr(receipt, "session_name", "") or "")
-            if (
-                ok
-                and safe
-                and code == "saved_verified_unmounted"
-                and receipt_hash == claim.evidence_sha256
-                and getattr(receipt, "log_status", None) in {"complete", "tail", "unavailable"}
-                and re.fullmatch(r"report-[0-9a-f]{24}", session) is not None
+            from beamo_wipe.support_export import (
+                OWNER_WIPE_FILE,
+                present_export_receipt,
+                receipt_is_saved,
+            )
+
+            if receipt_is_saved(
+                receipt,
+                expected_sha256=claim.evidence_sha256,
+                owner_file=OWNER_WIPE_FILE,
+                share_copy=claim.privacy_reduced,
             ):
                 final_status = "saved"
-                final_session = session
-                final_message = (
-                    "Report saved and verified. The report USB is safe to remove."
-                )
+                final_session = receipt.session_name
+                final_message = present_export_receipt(receipt)
             else:
                 final_message = (
                     "The report was not saved and verified. "
@@ -1784,10 +2073,18 @@ class Wizard:
                     data = create_report(code, self.discovery, ui=self.diagnostic_ui, session_started=self._session_started)
                     receipt = export.export_diagnostic_to_new_usb(data=data, baseline=baseline)
                     import hashlib
-                    if (receipt.ok is not True or receipt.safe_to_remove is not True
-                            or receipt.code != "saved_verified_unmounted"
-                            or receipt.evidence_sha256 != hashlib.sha256(data).hexdigest()
-                            or re.fullmatch(r"report-[0-9a-f]{24}", receipt.session_name) is None):
+                    from beamo_wipe.support_export import (
+                        OWNER_DIAGNOSTIC_FILE,
+                        present_export_receipt,
+                        receipt_is_saved,
+                    )
+
+                    if not receipt_is_saved(
+                        receipt,
+                        expected_sha256=hashlib.sha256(data).hexdigest(),
+                        owner_file=OWNER_DIAGNOSTIC_FILE,
+                        share_copy=False,
+                    ):
                         raise SafetyError("Diagnostic report was not saved and verified. Shut down before removing the USB.")
                     with self._lock:
                         if context != self._diagnostic_context():
@@ -1795,7 +2092,7 @@ class Wizard:
                                 "Startup status changed. Save a new diagnostic report before shutting down."
                             )
                         self._saved_diagnostic_context = context
-                        self.diagnostic_message = "Diagnostic report saved and verified. Report USB is safe to remove. This is not erase evidence."
+                        self.diagnostic_message = present_export_receipt(receipt)
                         self._diagnostic_baseline = ()
             except SafetyError as exc:
                 with self._lock:
@@ -1858,6 +2155,11 @@ class Wizard:
                 self._report_help_from = self.screen
                 self.screen = Screen.REPORT_HELP
 
+    def set_report_share_redacted(self, wanted: bool) -> None:
+        with self._lock:
+            if self.screen == Screen.REPORT_HELP and type(wanted) is bool:
+                self.report_share_redacted = wanted
+
     def set_report_wanted(self, wanted: bool) -> None:
         with self._lock:
             if self.screen == Screen.REPORT_HELP and type(wanted) is bool:
@@ -1894,7 +2196,7 @@ class Wizard:
 
     def open_advanced(self) -> None:
         with self._lock:
-            if self.screen in (Screen.SPLASH, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
+            if self.screen in (Screen.SPLASH, Screen.KEYBOARD, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
                 return
             self._advanced_from = self.screen
             self.screen = Screen.ADVANCED
@@ -1919,6 +2221,20 @@ class Wizard:
             if self.screen == Screen.DIAGNOSTIC:
                 self.close_diagnostic()
                 return
+            if self.screen == Screen.KEYBOARD:
+                dest = self._keyboard_from
+                self._keyboard_from = None
+                self.typing_check = ""
+                if dest and dest not in {
+                    Screen.KEYBOARD,
+                    Screen.SPLASH,
+                    Screen.WORKING,
+                    Screen.CHECKING,
+                    Screen.STOPPING,
+                    Screen.REFRESHING,
+                }:
+                    self.screen = dest
+                return
             mapping = {
                 Screen.OWNER: Screen.WHAT,
                 Screen.PICK: Screen.OWNER,
@@ -1936,6 +2252,13 @@ class Wizard:
                     self._erase_until = None
                 self.error = None
 
+    def prepare_text(self) -> str:
+        from beamo_wipe.copy import prepare_selected
+
+        if self.selected is None:
+            return ""
+        return prepare_selected(self.selected)
+
     def warning_text(self) -> str:
         if self.selected is None:
             return ""
@@ -1944,6 +2267,10 @@ class Wizard:
     @property
     def method_summary(self) -> str:
         return METHODS[self.method].summary
+
+    @property
+    def operation_summary(self) -> str:
+        return METHODS[self.method].operation_summary
 
     @property
     def method_result(self) -> str:

@@ -29,7 +29,7 @@ def test_full_device_identity_wraps_in_rows_and_summaries(ui, size):  # noqa: F8
         app.root.update()
     for container in (row, summary):
         labels = [w for w in descendants(container) if w.winfo_class() == 'Label'
-                  and w.cget('text') in (disk.display_name, disk.serial)]
+                  and str(w.cget('text')).replace('\n', '') in (disk.display_name, disk.serial)]
         assert len(labels) == 2
         for label in labels:
             assert label.winfo_ismapped()
@@ -109,11 +109,13 @@ def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: 
     app._draw()
     app.root.update()
     assert not app._show_more
-    labels = [w for w in descendants(app.root) if w.winfo_class() == 'Label'
-              and w.cget('text') == wiz.selected.path]
-    assert len(labels) == 1
-    assert labels[0].winfo_ismapped()
-    assert labels[0].winfo_reqwidth() <= labels[0].winfo_width() + 2
+    view = wiz.disk_view(wiz.selected)
+    texts = [w.cget('text') for w in descendants(app.root) if w.winfo_class() == 'Label']
+    assert view.title in texts
+    assert view.id_value in texts
+    assert any(view.connection in (text or '') for text in texts)
+    assert wiz.selected.path not in texts
+    assert view.system_path == wiz.selected.path
 
 
 def test_countdown_ready_still_explains_nothing_started(ui):  # noqa: F811

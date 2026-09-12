@@ -1,0 +1,45 @@
+{
+   "blockdevices": [
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "type": "part",
+               "label": "BEAMO_WIPE",
+               "size": 15500000000
+            }
+         ]
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "Bridge Disk A",
+         "serial": "",
+         "wwn": "0x5000cca264a00001"
+      },
+      {
+         "name": "sdc",
+         "path": "/dev/sdc",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Bridge Disk B",
+         "serial": "",
+         "wwn": "0x5000cca264a00002"
+      }
+   ]
+}

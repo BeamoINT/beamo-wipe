@@ -118,7 +118,7 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     app = ui()
     wizard = app.w
-    wizard.skip_splash()
+    wizard.skip_intro()
     app.render()
     app.actions["Continue"].clicked()
     check = next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton))
@@ -171,14 +171,15 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
 
 def test_excluded_devices_are_read_only_and_no_selection(ui):
     wizard = make_demo_wizard(scenario="empty")
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()
     app = ui(wizard)
     assert wizard.screen == Screen.PICK_EMPTY
     assert "not erasable" in text(app).lower()
-    assert wizard.discovery.boot.path in text(app)
+    assert wizard.discovery.boot.display_name in text(app)
+    assert wizard.discovery.boot.path not in text(app)
     assert "Other detected devices" in text(app)
     readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
     assert readers and all(not w.get_editable() for w in readers)
@@ -190,7 +191,7 @@ def test_last_chance_enter_without_erase_focus_never_erases(ui):
     from types import SimpleNamespace
 
     wizard = make_demo_wizard()
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()
@@ -228,7 +229,7 @@ def test_escape_cancels_working_erase(ui):
     from types import SimpleNamespace
 
     wizard = make_demo_wizard()
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()
@@ -336,7 +337,7 @@ def test_accessible_window_shrinks_after_default_is_mapped(ui, monkeypatch):
 @pytest.mark.parametrize("screen", list(Screen))
 def test_every_accessible_screen_keeps_actions_inside_800x600(ui, screen):
     wizard = make_demo_wizard()
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()
@@ -384,8 +385,9 @@ def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
     wizard.screen = screen
     app = ui(wizard)
     assert wizard.selected.serial in text(app)
-    assert wizard.selected.path in text(app)
+    assert wizard.selected.path not in text(app)
     assert "You cannot get" in text(app)
+    assert wizard.prepare_text() in text(app)
     assert (C.TITLE_CONFIRM if screen == Screen.CONFIRM else C.TITLE_LAST) in text(app)
     arrival = app.window.get_focus()
     warning = wizard.warning_text() if screen == Screen.CONFIRM else wizard.erase_label()
@@ -528,7 +530,7 @@ sys.exit(entry['main']())
         # An overridden accessible name alone is insufficient: Orca reads the
         # label's text interface instead. Exercise the actual speech output.
         app.w = wizard = make_demo_wizard()
-        wizard.skip_splash()
+        wizard.skip_intro()
         wizard.accept_what()
         wizard.set_owner(True)
         wizard.continue_owner()
@@ -618,7 +620,7 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     from beamo_wipe import copy as C
 
     w = make_demo_wizard()
-    w.skip_splash()
+    w.skip_intro()
     app = ui(w)
     app.actions[C.REPORT_HELP_TITLE].clicked()
     drain()
@@ -673,6 +675,30 @@ def test_accessible_unsaved_report_close_escape_and_stale_actions(ui, origin):
     assert not w.wants_shutdown
     app.actions[C.SHUTDOWN_DISCARD].clicked()
     assert w.wants_shutdown and app.closed
+
+
+def test_accessible_finished_announces_receipt_location(ui, tmp_path):
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+
+    w = _done_wizard(
+        lambda **kw: _success_receipt(
+            **kw,
+            log_status="complete",
+            destination_label="SanDisk Ultra, 16 GB",
+        ),
+        tmp_path,
+    )
+    w.screen = Screen.REPORT_HELP
+    w.set_report_share_redacted(True)
+    w.screen = Screen.DONE
+    w.save_report_to_usb()
+    app = ui(w)
+    shown = text(app)
+    assert "SanDisk Ultra, 16 GB" in shown
+    assert "Folder: BEAMO-WIPE-REPORTS/" in shown
+    assert "RESULT.txt is the original report." in shown
+    assert "SHARE.json is a privacy-reduced sharing copy" in shown
+    assert "Engine log: complete." in shown
 
 
 @pytest.mark.parametrize("wanted,saved", [(False, False), (True, True), (True, False)])
@@ -747,7 +773,7 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
     w.runner._clock = lambda: 0
-    w.skip_splash()
+    w.skip_intro()
     w.accept_what()
     w.set_owner(True)
     w.continue_owner()

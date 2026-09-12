@@ -43,11 +43,14 @@ def excluded_device(
         reasons.append("unsupported device")
     if not reasons:
         reasons.append("eligibility could not be confirmed")
+    from beamo_wipe.identity import present_disk
+
+    view = present_disk(disk)
     identity = (
-        f"{disk.display_name} | {disk.size_phrase} | {disk.path} | "
-        f"Serial: {disk.serial or 'unavailable'}"
+        f"{view.title} | {view.capacity} | {view.connection} | "
+        f"{view.id_label}: {view.id_value}"
     )
-    return ExcludedDevice(identity, tuple(reasons))
+    return ExcludedDevice(identity, tuple(reasons), path=disk.path)
 
 
 def full_text(devices: tuple[ExcludedDevice, ...]) -> str:

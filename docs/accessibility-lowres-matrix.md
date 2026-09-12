@@ -12,6 +12,13 @@ live-session shutdown or power loss unless it has been exported.
 > Date: 2026-09-02
 > Author: Accountable senior engineer (this checkout)
 > Status: Published from fake-device evidence + Xvfb 72 DPI + browser inspection. No real disks wiped. ISO/QEMU only on isolated x86_64 with disposable qcow2.
+>
+> Re-confirmed 2026-09-11 at wrapper 0.2.7 (same nwipe pin): every cited
+> suite passes locally except two pre-existing environmental failures
+> (headless Chrome emits no output in the sandbox; the sandbox blocks
+> `AF_UNIX` bind). Xvfb 72 DPI remains the hosted layout gate. Scope is
+> unchanged: Tier 1 fixture evidence only (see `docs/evidence-tiers.md`);
+> this note adds no Tier 2/3 claim.
 
 This matrix proves keyboard-only operation, visible focus, contrast, wrapping, warning comprehension, error recovery, progress, and color-independent meaning on the low-resolution and older displays that retiring machines actually have. It does not weaken safety gates. Every destructive path still requires ownership checkbox, type-to-confirm, 5 s countdown, no auto-start, boot exclusion, pinned nwipe.
 
@@ -62,16 +69,16 @@ One palette is shared by Tk, gallery, helper and pinned by `tests/test_ui_system
 `Tab` = logical Tab order (wraps, no trap).
 `Visible focus` = focus ring color `FOCUS #1A3FA0` on `BORDER_STRONG` or `PRIMARY` halo.
 `Low 1024` = `test_screen_fits_without_clipping[WINDOW|MIN_WINDOW]` → `[]`.
-`800×600` = degraded (needs vertical scroll) — documented below, verified not to bypass safety.
+`800×600` = compact supported layout — body may scroll; footer actions stay on-screen.
 `Warning` = panel text always `wraplength=WRAP-110` so it never truncates before the window edge.
 `Recovery` = Esc/Back path from this screen.
 
 | # | Screen | Default focus (safe) | Tab order | Visible focus | Keyboard (no mouse) | No trap | 1024×740 fit | 800×600 | Warning / status | Recovery (Esc/Back) | Color-independent meaning |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 0 | **SPLASH** | `Continue` hero pill (primary) | Hero only | FOCUS ring on pill | Any key / Enter / Esc → What | No trap (single focusable) | pass | degraded (centered, hero still visible) | None — tagline wraps `620` | `skip_splash()` via any key | Centered mark + text, not color |
-| 1 | **WHAT** | `I understand` (primary right) | `Shut down` (secondary left) → `I understand` → wrap | Both buttons FOCUS ring | `Enter` → Owner; `Esc` → no-op; `Show more` via click only (info panel, not gate) | Tab cycles 2 buttons, `Esc` ignored | pass | degraded (bullets wrap `WRAP-120`, panel `WRAP-110`) | Info panel `Secure Boot hint + nwipe line` with info badge | `Back` not needed (first step) | Bullet amber dots + text, info badge |
+| 1 | **WHAT** | `I understand` (primary right) | `Shut down` (secondary left) → `I understand` → wrap | Both buttons FOCUS ring | `Enter` → Owner; `Esc` → no-op; `Show more` ghost button: Tab/Enter/Space toggles the info panel (not a gate), focus kept on toggle | Tab cycles buttons incl. `Show more`, `Esc` ignored | pass | degraded (bullets wrap `WRAP-120`, panel `WRAP-110`) | Info panel `Secure Boot hint + nwipe line` with info badge | `Back` not needed (first step) | Bullet amber dots + text, info badge |
 | 2 | **OWNER** | Owner checkbox card (takefocus=1, ring) | Card → `Back` → `Continue` → wrap | Card `ring=True` → `FOCUS` outer when focused; checked halo `PRIMARY_TINT` | `Space` toggles card; `Enter` only when `owner_ok`; `Esc` → What | Tab cycles 3, card Space does not trap; held Space guard `arm_done_keyboard` | pass | pass (card `WRAP-140`) | Checkbox unchecked `BORDER_STRONG`, checked `PRIMARY` + halo | `Esc`/`Back` → What | Checked icon + halo + text, not color alone |
-| 3 | **PICK** | `Back` when no selection; `Continue` when disk selected | `Back` ↔ `Continue` (2 Buttons) | Both Buttons FOCUS ring; disk rows are not focusable — Up/Down moves selection via root binding | `Up/Down` selects first/last edge or steps; click also; `Enter` only when selectable chosen; boot rows `is_boot` not selectable | Tab 2-cycle, Up/Down never traps (root `<Key>`); pick list overflow scrolls selected into view, scroll position preserved across rebuilds | pass | degraded (list overflows, `_Scrollbar` + `yview` keeps selection visible; footer stays via `pack fill=X side=BOTTOM` last-packed) | `SAME_SIZE_HINT` warn panel when same size, `SSD_FOOTER` info panel when NVMe/SSD selected | `Esc`/`Back` → Owner | Boot row has `⦻` no-entry icon + `DANGER` pill banner; selectable rows have radio; SSD panel has info badge |
+| 3 | **PICK** | `Back` when no selection; `Continue` when disk selected | `Back` ↔ `Continue` (2 Buttons) | Both Buttons FOCUS ring; disk rows are not focusable — Up/Down moves selection via root binding | `Up/Down` selects first/last edge or steps; click also; `Enter` only when selectable chosen; boot rows `is_boot` not selectable | Tab 2-cycle, Up/Down never traps (root `<Key>`); pick list overflow scrolls selected into view, scroll position preserved across rebuilds | pass | degraded (list overflows, `_Scrollbar` + `yview` keeps selection visible; footer stays via `pack fill=X side=BOTTOM` last-packed) | `SAME_SIZE_HINT` warn panel when same size, `SSD_FOOTER` info panel when NVMe/SSD selected | `Esc`/`Back` → Owner | Boot row has `⦻` no-entry icon + `DANGER` pill banner; selectable rows have radio; SSD panel has info badge; long identity (139-char model, 64-char spaceless serial) wraps, never clips — Tk soft-breaks to measured pixels, gallery/console/GTK break at character level |
 | 3e | **PICK_EMPTY** | `Shut down` (primary) | `Back` → `Shut down` | Both ring | `Enter`/`Space` on Done gated by `arm_done_keyboard` (ignored until release) | Held Enter/Space must not shutdown before key up (`_return_held`/`_space_held`) | pass | pass (centered `_icon_badge`) | `EMPTY_DISKS` centered, `info` halo | `Esc`/`Back` → Owner; `Enter` → shutdown only after armed | `info` halo badge + muted text |
 | 3b | **PICK_BLOCKED** | `Shut down` (primary) | `Back` → `Shut down` | Both ring | Same gated shutdown as empty | Same held-key guard | pass | pass | `IDENTIFY_ERROR` warn halo | `Esc`/`Back` → Owner | `warn` halo triangle |
 | 4 | **CONFIRM** | Entry ( `_confirm_var` ), shell `ring=True` | `Entry` → `Back` → `Continue` (when enabled) | Entry shell ring via `set_focused(True)` → `FOCUS`; pill match icon updates | Type token; `Enter` only when `token_ok`; mismatch blocks | Tab 3-cycle; `Continue` `takefocus=0` while disabled so Tab skips disabled primary (focus stays on Entry/Back, not lost) | pass | pass (entry `fill=X`, match pill `PILL` hugged via `fit_now`) | Warning `confirm_warning()` warn panel (`WARN_BG`) + match pill: waiting `MUTED` + open circle vs ok `OK_TINT` + green check | `Esc`/`Back` → Pick (clears not token) | Match state: waiting open circle + text vs ok green pill + check icon |
@@ -94,8 +101,8 @@ One palette is shared by Tk, gallery, helper and pinned by `tests/test_ui_system
 | **DISP-02** | **1280×820** (default) | 72 DPI | 13" laptop | Same with breathing room | `test_screen_fits_without_clipping[WINDOW]` | **Supported** |
 | **DISP-03** | **1366×768** | 72 DPI | Common 720p laptop | Width >1024 so `CONTENT_W 940` fits via `fill=X`; inferred from bounds | Manual `./preview` resize check + `CONTENT_W 940` ≤ 1366 | **Supported** |
 | **DISP-04** | **1920×1080** | 72 DPI | External FHD | Centered `CONTENT_W 940`, `center_zone` vertical centering, no stretch | Gallery `max-width:940`, Tk `CONTENT_W` | **Supported** |
-| **DISP-05** | **800×600** | 72 DPI | Very old 4:3 / VM fallback `vga=788` | **Degraded:** content renders but requires vertical scroll or pick-list scroll; primary stays reachable via Tab, safety gates intact, no bypass | `test_small_window_never_bypasses_safety` (logic-level) + `test_pick_list_scrolls_selected_card_into_view[MIN_WINDOW]` overflow path | **Degraded (safe)** |
-| **DISP-06** | **1024×600** | 72 DPI | Netbook (e.g. 10" 1024×600) | **Degraded:** height 600 < 740, vertical centering compresses but footer still packed last (`side=BOTTOM` packing order guarantees action buttons are last clipped) | Pack order comment in `_build_chrome` + footer shell test | **Degraded (safe)** |
+| **DISP-05** | **800×600** | 72 DPI | Very old 4:3 / VM fallback `vga=788` | Compact layout: narrower wrap, stacked Last chance, body may scroll; identity, warnings, and footer actions stay reachable | `tests/test_adaptive_layout.py` at `MIN_SIZE (800, 600)` | **Supported** |
+| **DISP-06** | **1024×600** | 72 DPI | Netbook (e.g. 10" 1024×600) | Short layout: compact type and stacked review; footer packed last; body may scroll | `tests/test_adaptive_layout.py` at `NETBOOK_SIZE (1024, 600)` | **Supported** |
 | **DISP-07** | **HiDPI 200% (2560×1440 @2×)** | 144 DPI logical | Modern laptop | Without pinning would clip at `WRAP`; pinned `tk scaling 1.0` keeps layout identical to 72 DPI | `test_tk_scaling_is_pinned_to_one` (structural) + `Wraplength` checks | **Supported via pinning** |
 | **DISP-08** | **800×600 @ 96 DPI VNC** | 96 DPI (`DISPLAY=:1`) | VNC desktop | **Not the gate** — VNC 96 DPI would enlarge ~33% vs live USB and clip. Gate uses `DISPLAY=:99` 72 DPI. | `docs/ci.md` gate definition | **Not claimed** |
 | **DISP-09** | **Browser 360×640** | CSS px | Phone-preview of gallery/helper | Cards stack, `disklist` `overflow-y:auto` with 12px thumb, `wraplength` not needed; `kbd` caps still 12px bold | `test_browser_cards_have_tabindex_and_focus_visible` + manual resize | **Supported (degraded width)** |
@@ -173,7 +180,7 @@ No shortcut bypasses ownership or token. `confirm_erase` re-discovers and calls 
 | State | Keyboard on gallery | Focus visible | Low width 360px | Warning text |
 |---|---|---|---|---|
 | Splash | `#herogo` button Enter | `button.btn:focus-visible` | Wordmark wraps, hero `min-width 240` still inside | Tagline muted |
-| What | `Show more` `linkbtn` Tab, scenic buttons | `linkbtn:focus-visible` | Bullets `20px` wrap | `panel info` |
+| What | `Show more` `linkbtn` Tab, `aria-expanded` announces collapsed/expanded state, scenic buttons | `linkbtn:focus-visible` | Bullets `20px` wrap | `panel info` |
 | Owner | `#own` `tabindex=0 role=checkbox` Space toggle | `.ownercard:focus-visible` | Card stacks | `HINT_OWNER` |
 | Pick | `.card.pickable tabindex=0 role=button` Space/Enter | `.card.pickable:focus-visible halo` | `disklist` scrolls | Same-size warn panel |
 | Confirm | `#tok` Entry auto-focus | `.entryshell:focus-within` | Entry `26px` fits | `panel warn` + match pill |

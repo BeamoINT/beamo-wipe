@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -366,6 +367,9 @@ def test_preview_env_does_not_mask_a_live_usb(monkeypatch):
     """BEAMO_WIPE_DRY_RUN=1 on the kiosk must not produce a fake Finished."""
     from beamo_wipe.safety import running_on_live_usb
 
+    # Isolate the live-vs-preview logic from the developer workstation:
+    # running_on_live_usb short-circuits to False off Linux by design.
+    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
     monkeypatch.setattr(
         "beamo_wipe.discover.read_cmdline", lambda: "boot=live components"
@@ -469,10 +473,10 @@ def test_unsafe_serial_is_not_used_as_confirm_token():
         bus="SATA",
         label="",
     )
-    spec = confirm_spec(dirty, [dirty, other])
-    assert "/" not in spec.token
-    assert ".." not in spec.token
-    assert spec.token in {"sda", "sdb"}
+    from beamo_wipe.safety import SafetyError
+
+    with pytest.raises(SafetyError, match="too similar"):
+        confirm_spec(dirty, [dirty, other])
 
 
 def test_listed_disks_omit_non_selectable_non_boot():

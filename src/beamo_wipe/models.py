@@ -15,6 +15,15 @@ class DiskKind(str, Enum):
     UNKNOWN = "Unknown"
 
 
+CONTENTS_WINDOWS = "windows"
+CONTENTS_SYSTEM = "system"
+CONTENTS_DATA = "data"
+CONTENTS_UNKNOWN = "unknown"
+CONTENTS_VALUES = frozenset(
+    {CONTENTS_WINDOWS, CONTENTS_SYSTEM, CONTENTS_DATA, CONTENTS_UNKNOWN}
+)
+
+
 class MethodId(str, Enum):
     EVERYDAY = "everyday"
     EXTRA = "extra"
@@ -23,6 +32,7 @@ class MethodId(str, Enum):
 
 class Screen(str, Enum):
     SPLASH = "splash"
+    KEYBOARD = "keyboard"
     WHAT = "what"
     OWNER = "owner"
     PICK = "pick"
@@ -64,10 +74,13 @@ class Disk:
     # metadata; discovery always sets this to the exact cleaned lsblk MODEL,
     # including an empty string when MODEL is absent.
     raw_model: Optional[str] = None
+    # Proven from lsblk partitions only: windows, system, data, or unknown.
+    contents: str = CONTENTS_UNKNOWN
 
     @property
     def display_name(self) -> str:
-        return self.model or self.label or self.name
+        # Kernel names are not stable identity. Unknown stays unknown.
+        return (self.model or "").strip() or (self.label or "").strip() or "Unknown model"
 
     @property
     def size_phrase(self) -> str:
@@ -124,6 +137,7 @@ class DiscoveryResult:
 class ExcludedDevice:
     identity: str
     reasons: Tuple[str, ...]
+    path: str = ""
 
     @property
     def explanation(self) -> str:
