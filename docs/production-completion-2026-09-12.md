@@ -1,6 +1,6 @@
 # Production completion handoff — 2026-09-12
 
-Status: **local verification passed; hosted production verification blocked**.
+Status: **hosted qualification in progress after authentication refresh**.
 Author: Codex. Branch: `feat/qemu-three-method-journeys`.
 Starting HEAD: `cd806f403d3fe8c105da5e4f53a5b1c7a93100b3`.
 This is a dirty working-tree result, not a release or a verified ISO.
@@ -82,10 +82,10 @@ non-interactive execution**. The alternate saved personal account returns
 **PERMISSION_DENIED** for this project. No hosted build ID was obtained for
 these changes.
 
-The operator must refresh the authorized login with `gcloud auth login`.
-Then prepare an isolated, source-identified verification snapshot without
-disturbing the shared index, run the complete secret-free Cloud Build gate,
-and investigate any amd64 ISO, accessibility, filesystem, nwipe, or QEMU
+The operator refreshed the authorized login on 2026-09-12. The continuation
+prepared an isolated, source-identified verification snapshot without
+disturbing the shared index. Continue the complete secret-free Cloud Build
+gate and investigate any amd64 ISO, accessibility, filesystem, nwipe, or QEMU
 failure until it passes. Record the exact source, build ID, image hashes,
 all repeated journeys, report readbacks, and cleanup. Verification-only
 Cloud Build artifacts are ephemeral; stdout and local worker diagnostics do
@@ -97,3 +97,59 @@ authorized release-key enrollment/custody setup: `packaging/release-keys/keys.js
 currently contains no production key. Signing tests use disposable keys.
 No Windows 10/11, physical hardware, real-disk erasure, or new production
 release acceptance is claimed by this local handoff.
+
+## Hosted continuation after login refresh
+
+The shared checkout/index remains preserved. Verification commits live in
+`/private/tmp/beamo-wipe-qualification-9lrqf315`, with the canonical origin URL
+and clean source state. These commits have not yet been pushed.
+
+- `b3d6fb95c54e84d6aea7e64982304546122ec21f`, build
+  `abbfbd29-0d5c-4c0e-8504-92e69dadf64a`: lint, preview and desktop gates
+  passed; Linux Python gate reported 2,310 passed, 15 skipped and 10 failures.
+  Report-help controls exceeded Linux display width and a helper test assumed
+  preexisting generated ISO staging. Fixed wrapping/minimum reader width in
+  Tk and GTK; the helper test now executes the real staging copy commands in
+  disposable directories. Focused local rendered checks: 78 passed; corrected
+  helper staging test: 1 passed.
+- `456f716`, build `6608d97a-cd2f-4b22-8808-7607d8b542dc`: **2,320 Python
+  tests passed, 15 skipped**, with lint, preview, native Linux launcher,
+  Windows cross-compilation, launcher fuzzing, negative safety, and ISO gates
+  passing. ISO size 563,085,312 bytes; SHA-256
+  `4a21a4803f3e70e3fd5ffa9630228cf859e106c1af50134dac862e06a3f8131f`.
+  QEMU inspection stopped before erasure on a verifier false negative:
+  Syslinux's `^troubleshoot` hotkey markup did not match the plain-text grep.
+  Reproduced using the actual shell gate and menu fixture, then corrected;
+  the regression also proves a missing troubleshooting entry still fails.
+- `bf16a0a`, build `33b9e211-bde1-4367-ae2b-199a7c7a893b`: **2,321 Python
+  tests passed, 15 skipped**; all preceding gates and ISO construction passed.
+  The image menu, package/permission, crash-cleanup and fake-disk safety checks
+  passed. All three pinned nwipe methods passed twice on isolated loops.
+  The first BIOS guest timed out before the keyboard screen. Investigation
+  found that the inherited template used `MENU HELP`, which changes a boot
+  entry into a help-file action; it now uses `TEXT HELP` / `ENDTEXT` for inline
+  documentation, with an image-level guard and regression. See
+  [Syslinux menu documentation](https://kernel.googlesource.com/pub/scm/boot/syslinux/syslinux/+/ae853e99a7aed22cb28b387e1e3cb32dbf1ab8fa/doc/menu.txt).
+  Safe startup marker coverage was also expanded; raw serial data remains
+  private. These fixes passed 56 focused tests, ShellCheck, and Ruff.
+- `b717379`, build `569fe476-922a-470d-9cdf-ac93e374bbea`: full gate submitted
+  with publication disabled. **2,322 Python tests passed, 15 skipped** and all
+  pre-QEMU gates passed. The image checks and six direct engine checks passed.
+  BIOS then reached kiosk startup but stalled in the new Tk startup screen:
+  its completion callback was defined but never scheduled. Two bounded real
+  Tk regressions reproduced both successful and failed workers being ignored.
+  Scheduling the callback fixed both; 97 startup/refresh tests and 112 evidence,
+  QEMU-diagnostic and report-workflow tests passed, with lint/type/shell checks.
+- `07e9fd3`, build `bdee61c6-658b-41d7-80f6-7c5f21c23ee0`: **2,324 Python
+  tests passed, 15 skipped**, all pre-QEMU gates passed, and all six direct
+  engine checks passed. BIOS completed the Everyday wizard, whole-target
+  overwrite readback, and report export/readback/unmount. Host verification
+  then rejected the newer completion schema introduced by the inherited
+  owner-summary/privacy work. Updated the strict schema and declarations;
+  executable regressions now run the host verifier against production bundles
+  for all three methods, with and without privacy copies, and reject a
+  tampered declaration. Safe progress markers and final artifact digests now
+  reach build logs. Full hosted rerun pending.
+
+Builds are available in Google Cloud Build, project `beamo-wipe`, using the
+IDs above. A successful ISO build alone is not completed wipe qualification.

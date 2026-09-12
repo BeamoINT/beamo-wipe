@@ -15,6 +15,46 @@ from beamo_wipe import release_manifest as rm
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.parametrize("method_id", ["everyday", "extra", "quick_zero"])
+@pytest.mark.parametrize("privacy_reduced", [False, True])
+def test_qemu_report_verifier_accepts_production_bundles(tmp_path, method_id, privacy_reduced):
+    from beamo_wipe.methods import METHODS
+    from beamo_wipe.models import MethodId
+    from beamo_wipe.support_export import _bundle_files
+    from test_result_presentations import case_evidence
+
+    method = MethodId(method_id)
+    spec = METHODS[method]
+    _, evidence, log = case_evidence(("completed", method, 0, "{name} | Erased |", False, False))
+    evidence.update(source_commit="a" * 40, build_id="fixture")
+    evidence["nwipe"]["argv_redacted"] = [
+        f"--method={spec.nwipe_method}", f"--verify={spec.verify}",
+        "--rounds=1", "--noblank", "--quiet", "--autonuke",
+    ]
+    files = _bundle_files(json.dumps(evidence).encode(), log.encode(), "complete", privacy_reduced=privacy_reduced)
+    session = tmp_path / "BEAMO-WIPE-REPORTS" / ("report-" + "a" * 24)
+    session.mkdir(parents=True)
+    for name, content in files.items():
+        (session / name).write_bytes(content)
+    source = (ROOT / "scripts/qemu-verify.sh").read_text()
+    block = source.split("verify_guest_report() {", 1)[1].split("<<'PY'\n", 1)[1].split("\nPY", 1)[0]
+
+    def verify():
+        return subprocess.run(
+            [sys.executable, "-", str(tmp_path), evidence["outcome"], method_id,
+             spec.nwipe_method, spec.title, "fixture", "a" * 40],
+            input=block, text=True, capture_output=True,
+        )
+
+    result = verify()
+    assert result.returncode == 0, result.stderr
+    complete = json.loads(files["COMPLETE"])
+    complete["result_summary"] = "missing.txt"
+    (session / "COMPLETE").write_text(json.dumps(complete))
+    result = verify()
+    assert result.returncode != 0 and "summary declaration" in result.stderr
+
+
 @pytest.fixture
 def build_provenance(tmp_path, monkeypatch):
     (tmp_path / "pyproject.toml").write_text(f'[project]\nversion="{__version__}"\n')

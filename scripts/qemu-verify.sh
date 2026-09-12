@@ -1207,6 +1207,10 @@ expected_complete_keys = {
     "manifest_scope",
     "safe_to_remove",
     "schema_version",
+    "result_summary",
+    "share_copy",
+    "share_summary",
+    "privacy_policy_version",
 }
 if set(complete) != expected_complete_keys:
     raise SystemExit("unexpected report completion schema")
@@ -1218,6 +1222,17 @@ if (
     or complete["log_status"] not in {"complete", "tail", "unavailable"}
 ):
     raise SystemExit("invalid report completion marker")
+if complete["result_summary"] != "RESULT.txt" or "RESULT.txt" not in actual:
+    raise SystemExit("invalid result summary declaration")
+sharing = "SHARE.json" in actual
+if (
+    complete["share_copy"] != ("SHARE.json" if sharing else "")
+    or complete["share_summary"] != ("SHARE.txt" if sharing else "")
+    or ("SHARE.txt" in actual) != sharing
+    or type(complete["privacy_policy_version"]) is not int
+    or complete["privacy_policy_version"] != (1 if sharing else 0)
+):
+    raise SystemExit("invalid privacy summary declaration")
 manifest = complete.get("files")
 if not isinstance(manifest, dict) or set(actual) != set(manifest) | {"COMPLETE"}:
     raise SystemExit("completion manifest does not match report files")
