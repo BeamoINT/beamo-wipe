@@ -135,6 +135,14 @@ def finalize(root: Path) -> None:
     (dist / "SHA256SUMS").write_text(
         f"{rm.sha256_file(iso)}  {iso.name}\n{rm.sha256_file(dest)}  {dest.name}\n"
     )
+    print("Final verified evidence: " + json.dumps({
+        "source_commit": manifest["source"]["commit"],
+        "build_id": manifest["build"]["release_build_id"],
+        "iso_sha256": rm.sha256_file(iso),
+        "manifest_sha256": rm.sha256_file(dest),
+        "gate_count": len(receipts),
+        "packages_sha256": rm.sha256_file(dist / "evidence/packages.json"),
+    }, sort_keys=True), flush=True)
 
 
 def main() -> int:

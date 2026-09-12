@@ -3432,6 +3432,7 @@ def run_tk_startup(build, *, fullscreen: bool = False,
     root.bind("<Escape>", lambda _event: close())
     render()
     run.start()
+    root.after(100, poll)
     root.mainloop()
     if outcome:
         return outcome[0]

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Startup stages (#53): truthful progress before the wizard opens.
 
-All disks and processes are fake. The Tk splash and GTK stage window need
-a real display, so they are not exercised here; this file pins the shared
+All disks and processes are fake. Bounded real Tk event-loop regressions run
+when a display is available. This file also pins the shared
 model every surface builds on — stage order, worker discipline, the
 discover hook, serial evidence, and the console sequencing — plus the
 plain-language copy contract: stages describe work in progress and never
@@ -15,6 +15,7 @@ import json
 import threading
 from argparse import Namespace
 from pathlib import Path
+import pytest
 
 from beamo_wipe import copy as C
 from beamo_wipe.models import Screen
@@ -172,6 +173,39 @@ def test_complete_synchronously_matches_presenter_protocol():
     failure = RuntimeError("nope")
     kind, payload = complete_synchronously(lambda report: (_ for _ in ()).throw(failure))
     assert kind == "failed" and payload is failure
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_real_tk_startup_consumes_worker_completion(monkeypatch, failed):
+    from beamo_wipe.ui import tk_wizard
+
+    try:
+        tk_wizard._ensure_tk_display()
+    except RuntimeError:
+        pytest.skip("Tk display unavailable")
+    real_tk = tk_wizard.tk.Tk
+
+    def bounded_root():
+        root = real_tk()
+        # Missing event-loop polling must fail instead of hanging the suite.
+        root.after(3000, root.destroy)
+        return root
+
+    monkeypatch.setattr(tk_wizard, "_ensure_tk_display", lambda: None)
+    monkeypatch.setattr(tk_wizard.tk, "Tk", bounded_root)
+    failure = OSError("fixture discovery failure")
+    sentinel = object()
+
+    def build(report):
+        report(STAGE_BOOT_USB)
+        report(STAGE_FINDING)
+        if failed:
+            raise failure
+        return sentinel
+
+    assert tk_wizard.run_tk_startup(build) == (
+        ("failed", failure) if failed else ("wizard", sentinel)
+    )
 
 
 def test_startup_copy_never_claims_a_passed_check():

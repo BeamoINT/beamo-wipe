@@ -898,6 +898,7 @@ wait_for_marker() {
   pid="$(guest_pid "$label")"
   for _attempt in $(seq 1 "$limit"); do
     if [[ "$(marker_count "$label" "$marker")" -gt 0 ]]; then
+      printf 'QEMU %s reached marker %s\n' "$label" "$marker" >&2
       return 0
     fi
     if ! kill -0 "$pid" 2>/dev/null; then
@@ -911,6 +912,7 @@ wait_for_marker() {
   # The marker can arrive during the final bounded sleep. Recheck before
   # diagnosing a timeout so the gate cannot report success evidence as absent.
   if [[ "$(marker_count "$label" "$marker")" -gt 0 ]]; then
+    printf 'QEMU %s reached marker %s\n' "$label" "$marker" >&2
     return 0
   fi
   report_marker_summary "$label"
@@ -923,6 +925,7 @@ wait_for_new_marker() {
   pid="$(guest_pid "$label")"
   for _attempt in $(seq 1 "$limit"); do
     if [[ "$(marker_count "$label" "$marker")" -gt "$prior" ]]; then
+      printf 'QEMU %s reached new marker %s\n' "$label" "$marker" >&2
       return 0
     fi
     if ! kill -0 "$pid" 2>/dev/null; then
@@ -934,6 +937,7 @@ wait_for_new_marker() {
     sleep 1
   done
   if [[ "$(marker_count "$label" "$marker")" -gt "$prior" ]]; then
+    printf 'QEMU %s reached new marker %s\n' "$label" "$marker" >&2
     return 0
   fi
   report_marker_summary "$label"
