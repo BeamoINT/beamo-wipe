@@ -131,6 +131,16 @@ an erase completed. If temporary evidence was lost, the result is indeterminate.
 Save available evidence and contact support. Do not resume from a percentage or
 automatically retry an erase.
 
+`No new progress update for …` and an **old** last percentage mean the engine
+has not published a new number recently. That is not a confirmed failure,
+cancellation, or process death. Preparing can stay quiet for about 20 seconds
+while nwipe finishes its startup bench. Leave the USB in. Do not unplug the
+disk or turn the PC off. Do not tell the customer to kill nwipe or restart
+because the numbers paused. If the message stays for many minutes and the
+result screen never appears, wait for Finished/Stopped if possible, save the
+report, and contact support with that report. Liveness still comes from
+process status, not from progress lines.
+
 ### 4.g nwipe errors — structured outcomes and safe next steps
 
 `nwipe_runner.py` interprets process termination and target-specific log evidence.

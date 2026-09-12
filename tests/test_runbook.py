@@ -159,3 +159,11 @@ def test_startup_reports_are_separate_and_minimal():
     text = _lower("docs/runbook.md")
     assert "diagnostic.json" in text and "not erase evidence" in text
     assert "do not apply to startup diagnostics" in text
+
+
+def test_runbook_stale_progress_is_not_a_kill_instruction():
+    text = _lower("docs/runbook.md")
+    assert "no new progress update" in text
+    assert "do not tell the customer to kill nwipe" in text
+    assert "liveness still comes from" in text and "process status" in text
+    assert "preparing can stay quiet" in text

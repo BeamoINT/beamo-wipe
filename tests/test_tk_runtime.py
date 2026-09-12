@@ -1491,6 +1491,56 @@ def test_timing_text_readable_and_working_controls_stable(ui, size):
         assert app._progress_pct.cget("text") == "82%"
 
 
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_stale_progress_is_marked_old_and_does_not_animate(ui, size):
+    from beamo_wipe.progress import ProgressView
+    from unittest.mock import PropertyMock, patch
+    from beamo_wipe.wizard import Wizard
+
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.WORKING
+    wiz.selected = wiz.selectable[0]
+    view = ProgressView("Writing", 42, 120, stale_for=11, percent_is_old=True)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=view):
+        app._draw()
+        app.root.update_idletasks()
+        assert app._progress_pct.cget("text") == "42% (old)"
+        assert "No new progress update for less than 1 minute." in app._progress_label.cget("text")
+        before = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        for _ in range(10):
+            app._refresh_working()
+        after = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        assert after == before
+
+
+def test_preparing_animates_only_before_the_first_number(ui):
+    from beamo_wipe.progress import ProgressView
+    from unittest.mock import PropertyMock, patch
+    from beamo_wipe.wizard import Wizard
+
+    wiz, app = ui()
+    wiz.screen = Screen.WORKING
+    wiz.selected = wiz.selectable[0]
+    live = ProgressView("Preparing", None, 1)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=live):
+        app._draw()
+        app.root.update_idletasks()
+        before = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        for _ in range(8):
+            app._refresh_working()
+        moved = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        assert moved != before
+    stale = ProgressView("Preparing", None, 21, stale_for=21)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=stale):
+        app._refresh_working()
+        frozen = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
+        for _ in range(8):
+            app._refresh_working()
+        assert [app._progress_bar.coords(item) for item in app._progress_bar.find_all()] == frozen
+        assert "No new progress update" in app._progress_label.cget("text")
+        assert app._progress_pct.cget("text") == ""
+
+
 def test_stopping_shows_elapsed_without_estimate(ui):
     wiz, app = ui()
     wiz.screen = Screen.STOPPING
