@@ -255,6 +255,9 @@ BIOS_LIVE="$ISO_MOUNT/isolinux/live.cfg"
 EFI_GRUB="$ISO_MOUNT/boot/grub/grub.cfg"
 [[ -f "$BIOS_LIVE" ]] || { echo "ISO BIOS menu isolinux/live.cfg missing" >&2; exit 2; }
 [[ -f "$EFI_GRUB" ]] || { echo "ISO UEFI menu boot/grub/grub.cfg missing" >&2; exit 2; }
+if grep -Eiq '^[[:space:]]*menu[[:space:]]+help[[:space:]]' "$BIOS_LIVE"; then
+  echo "ISO BIOS boot entry was replaced with a help-file action" >&2; exit 2
+fi
 grep -q "Beamo Wipe: start the erase guide" "$BIOS_LIVE" || {
   echo "ISO BIOS menu lost the branded normal entry" >&2; exit 2; }
 # Syslinux's caret marks the menu hotkey and is not displayed to the owner.
@@ -768,6 +771,14 @@ report_marker_summary() {
   local label="$1" marker count
   for marker in \
     BEAMO_WIPE_KIOSK_READY \
+    BEAMO_WIPE_STAGE_STARTING \
+    BEAMO_WIPE_STAGE_BOOT_USB \
+    BEAMO_WIPE_STAGE_FINDING \
+    BEAMO_WIPE_STAGE_DONE \
+    BEAMO_WIPE_STAGE_FAILED \
+    BEAMO_WIPE_STAGE_STALLED \
+    BEAMO_WIPE_SCREEN_SPLASH \
+    BEAMO_WIPE_SCREEN_KEYBOARD \
     BEAMO_WIPE_SCREEN_WHAT \
     BEAMO_WIPE_SCREEN_OWNER \
     BEAMO_WIPE_OWNER_CHECKED \

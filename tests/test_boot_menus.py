@@ -96,9 +96,22 @@ def test_bios_menu_keeps_default_and_recovery_entry():
 
 def test_bios_menu_states_booting_erases_nothing():
     menu = _bios_menu()
-    helps = re.findall(r"(?m)^\tmenu help (.+)$", menu)
+    helps = re.findall(r"(?m)^\ttext help\n(.+)\n\tendtext$", menu)
     assert len(helps) == 2, helps
     assert all("Nothing is erased" in line for line in helps), helps
+
+
+def test_bios_boot_entries_use_inline_help_not_help_file_actions():
+    # MENU HELP changes the entry into a help-file action. TEXT HELP adds
+    # inline documentation while preserving the Linux boot action.
+    # https://kernel.googlesource.com/pub/scm/boot/syslinux/syslinux/+/master/doc/menu.txt
+    menu = _bios_menu()
+    assert not re.search(r"(?im)^\s*menu\s+help\b", menu)
+    for stanza in re.split(r"(?m)^label ", menu)[1:]:
+        assert stanza.count("\ttext help\n") == 1
+        assert stanza.count("\tendtext\n") == 1
+        assert "\tlinux /live/vmlinuz\n" in stanza
+        assert "\tinitrd /live/initrd.img\n" in stanza
 
 
 def test_bios_menu_has_unique_hotkeys_and_no_placeholders_left():
