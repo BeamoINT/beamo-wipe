@@ -282,3 +282,31 @@ def test_console_long_identity_and_shutdown_stay_in_viewport(monkeypatch):
     assert "keep session open" in footer.lower()
     assert max(term.frames[-1]) < 24
     assert all(len(line) < 80 for line in term.frames[-1].values())
+
+
+@pytest.mark.parametrize('size', [(800, 600), (1024, 600), (1024, 740), (1280, 820)])
+def test_result_checks_keep_details_visible_and_warnings_scrollable(ui, size):  # noqa: F811
+    wiz, _, _ = case_evidence(CASES[0])
+    assert len(wiz.check_alerts) == 2
+    _, app = ui(size=size)
+    app.w = wiz
+    app.root.minsize(*MIN_SIZE)
+    app.root.geometry(f'{size[0]}x{size[1]}+40+40')
+    app._draw()
+    shown = _mapped_text(app)
+    for warning in wiz.check_alerts:
+        assert warning in shown
+    canvas = app._body_canvas
+    assert canvas is not None
+    details = _button_named(app, C.BTN_MORE)
+    assert details.winfo_rooty() >= canvas.winfo_rooty()
+    assert details.winfo_rooty() + details.winfo_height() <= canvas.winfo_rooty() + canvas.winfo_height()
+    if canvas.yview()[1] < 1.0:
+        before = canvas.yview()[0]
+        app.root.event_generate('<Next>')
+        app.root.update()
+        assert canvas.yview()[0] > before
+    for label in (C.BTN_SAVE_REPORT, C.BTN_SHUTDOWN):
+        button = _button_named(app, label)
+        assert button.winfo_rooty() >= app._footer.winfo_rooty()
+        assert button.winfo_rooty() + button.winfo_height() <= app.root.winfo_rooty() + size[1]

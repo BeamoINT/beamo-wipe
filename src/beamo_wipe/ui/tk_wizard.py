@@ -1155,7 +1155,7 @@ class TkWizard:
     def _prepare_body_host(self) -> None:
         self._body_inner = None
         self._body_canvas = None
-        if self._body is None or not (self.lay.short or self.w.screen == Screen.LAST_CHANCE):
+        if self._body is None or not (self.lay.short or self.w.screen in {Screen.LAST_CHANCE, Screen.DONE}):
             return
         if self.w.screen in {
             Screen.PICK,
@@ -2827,13 +2827,14 @@ class TkWizard:
         result = self.w.result_view
         title = "Finished" if result.success else "Erase result"
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
-        icon = (_icon_status(col, True, 96) if result.icon == "check"
-                else _icon_badge(col, result.icon, 96))
+        badge_size = 64 if self.lay.short else 96
+        icon = (_icon_status(col, True, badge_size) if result.icon == "check"
+                else _icon_badge(col, result.icon, badge_size))
         icon.configure(bg=BG)
         icon.pack()
         heading = self._h(col, title)
         heading.configure(anchor="center", justify=tk.CENTER)
-        heading.pack(fill=tk.X, pady=(22, 8))
+        heading.pack(fill=tk.X, pady=(8, 4) if self.lay.short else (22, 8))
         msg = result.message
         # The badge carries the state color; the message stays readable ink.
         self._p(
@@ -2841,6 +2842,13 @@ class TkWizard:
         ).pack(fill=tk.X)
         self._p(col, self.w.elapsed_text, fg=MUTED, font=self.font_s,
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(4, 0))
+        # Keep identity and its disclosure ahead of variable-length warnings.
+        # The remaining report details can scroll; footer actions stay fixed.
+        if self.w.selected is not None:
+            self._disk_summary(col, self.w.selected).pack(
+                fill=tk.X, pady=(8 if self.lay.short else 24, 0)
+            )
+            self._more_link(col)
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
         self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
         for alert in self.w.check_alerts:
@@ -2866,9 +2874,6 @@ class TkWizard:
                 anchor="center",
                 fg=(DANGER if report.status == "error" else INK),
             ).pack(fill=tk.X, pady=(12, 0))
-        if self.w.selected is not None:
-            self._disk_summary(col, self.w.selected).pack(fill=tk.X, pady=(24, 0))
-            self._more_link(col)
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         row = self._footer_shell(C.HINT_DEFAULT if self.w.preview else C.HINT_DONE)
         if self.w.preview:
