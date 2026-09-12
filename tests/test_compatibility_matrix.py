@@ -492,7 +492,7 @@ def test_matrix_wizard_no_auto_start_and_countdown(tmp_path, monkeypatch):
     wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.2), clock=clock, dry_run=True)
     assert wiz.screen.value == "splash"
     assert not wiz.erase_enabled
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -517,7 +517,7 @@ def test_matrix_wizard_boot_never_selectable(tmp_path, monkeypatch):
     from beamo_wipe.demo import make_demo_wizard
 
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -559,17 +559,18 @@ def test_matrix_logs_not_on_target_rejected(tmp_path):
 
 
 def test_matrix_tk_minsize_and_content_width():
-    """DISP-01/02: minsize 1024x740 and CONTENT_W 940 are the design contract."""
+    """DISP-01/05: minsize 800x600; CONTENT_W 940 remains the default column cap."""
     from beamo_wipe.ui import tk_wizard as tkui
+    from beamo_wipe.ui.layout import MIN_SIZE
 
     assert tkui.CONTENT_W == 940
     assert tkui.WRAP == 940 - 72
-    # minsize enforced in TkWizard.__init__ (checked via inspection in other tests)
     import inspect
 
     src = inspect.getsource(tkui.TkWizard.__init__)
     assert "minsize" in src
-    assert "1024" in src and "740" in src
+    assert "MIN_SIZE" in src
+    assert MIN_SIZE == (800, 600)
 
 
 def test_matrix_gallery_and_helper_share_tokens():

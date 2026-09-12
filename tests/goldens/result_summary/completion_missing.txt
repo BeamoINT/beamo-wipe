@@ -14,6 +14,8 @@ Verification: unavailable
 Warnings:
 - SSD limits: Overwriting reaches only storage the device exposes. It cannot guarantee coverage of inaccessible, remapped, over-provisioned (spare), or controller-managed flash areas. Additional overwrite passes do not fix these limitations.
 - Two disks share the same size; verify the serial suffix.
+- The hidden-storage check was not available. That is not a pass.
+- Disk error counts were not available. That is not a pass.
 Limitations: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
 Application: Beamo Wipe 0.2.7
 Wrapper commit: unavailable

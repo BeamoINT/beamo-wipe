@@ -59,7 +59,7 @@ def test_blocked_error_keeps_support_detail_out_of_owner_ui(monkeypatch, tmp_pat
     from beamo_wipe.wizard import Wizard
 
     wiz = Wizard(blocked, base.runner, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -74,7 +74,7 @@ def test_blocked_error_keeps_support_detail_out_of_owner_ui(monkeypatch, tmp_pat
 
 def test_empty_shows_boot_read_only_and_never_selectable():
     wiz = make_demo_wizard(scenario="empty")
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -130,7 +130,7 @@ def test_cancel_keeps_interrupted_evidence(monkeypatch, tmp_path):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz = make_demo_wizard(scenario="happy")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

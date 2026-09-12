@@ -251,7 +251,7 @@ def test_concurrent_rediscover_and_cancel_not_lost(tmp_path, monkeypatch):
     from beamo_wipe.wizard import Wizard
 
     wiz_conc = Wizard(wiz.discovery, DryRunRunner(duration_s=0.4, clock=clock), clock=clock, dry_run=True)
-    wiz_conc.skip_splash()
+    wiz_conc.skip_intro()
     wiz_conc.accept_what()
     wiz_conc.set_owner(True)
     wiz_conc.continue_owner()

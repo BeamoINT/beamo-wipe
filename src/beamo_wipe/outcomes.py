@@ -27,6 +27,10 @@ SUPPORT = (
     "Files may still be on the disk. Save the report if available and contact support. "
     "Shut down before disconnecting."
 )
+AFTERCARE_SUCCESS = (
+    "Only this validated selected disk was processed. Other disks were not. "
+    "Putting an operating system back on is a separate task."
+)
 VIEWS = {
     "start_failed": ResultView(
         "start_failed",
@@ -38,7 +42,8 @@ VIEWS = {
     "verified": ResultView(
         "verified",
         "Erase completed; verification passed",
-        "Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed.",
+        "Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. "
+        + AFTERCARE_SUCCESS,
         "ok",
         "check",
         True,
@@ -46,7 +51,8 @@ VIEWS = {
     "unverified": ResultView(
         "unverified",
         "Erase completed; verification was not performed",
-        "The erase was not checked by a read-back pass. Save the report if needed.",
+        "The erase was not checked by a read-back pass. Save the report if needed. "
+        + AFTERCARE_SUCCESS,
         "warn",
         "warn",
         True,
@@ -130,11 +136,21 @@ def present_evidence(evidence: object) -> ResultView:
         from beamo_wipe.models import MethodId
 
         from beamo_wipe.evidence import SUPPORTED_SCHEMA_VERSIONS
+        from beamo_wipe.privacy import is_sharing_copy
 
         if (
             type(evidence.get("schema_version")) is not int
             or evidence["schema_version"] not in SUPPORTED_SCHEMA_VERSIONS
         ):
+            return unknown
+        if is_sharing_copy(evidence):
+            presentation = evidence.get("presentation")
+            if (
+                isinstance(presentation, dict)
+                and presentation.get("code") in VIEWS
+                and VIEWS[presentation["code"]].message == presentation.get("message")
+            ):
+                return VIEWS[presentation["code"]]
             return unknown
         device = evidence["device"]
         if (

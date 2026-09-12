@@ -1,0 +1,8 @@
+[2026/07/15 12:00:00] warning: HIDDEN SECTORS INDETERMINATE! on /dev/sda, Some USB adapters & memory sticks don't support ATA pass through
+[2026/07/15 12:00:01]    info: Program options are set as follows
+******************************** Error Summary *********************************
+!   Device | Pass Errors | Verifications Errors | Fdatasync I\O Errors
+--------------------------------------------------------------------------------
+  sda |           0 |                    0 |                    0
+********************************************************************************
+      sda | Erased |  120MB/s | 01:25:04 | FAKE/USB

@@ -23,7 +23,7 @@ import sys
 import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
+from typing import TypeGuard, Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from beamo_wipe.discover import run_lsblk
 from beamo_wipe.evidence import _verified_evidence_bytes
@@ -276,7 +276,7 @@ def receipt_is_saved(
     expected_sha256: str,
     owner_file: str = OWNER_WIPE_FILE,
     share_copy: bool | None = None,
-) -> bool:
+) -> TypeGuard[ExportReceipt]:
     """True only for a structurally valid, verified, unmounted success receipt."""
     if not isinstance(receipt, ExportReceipt):
         return False
@@ -319,7 +319,10 @@ def present_export_receipt(receipt: ExportReceipt) -> str:
     ]
     if receipt.share_copy:
         lines.append(
-            "SHARE.txt is a sharing copy without serials or hardware IDs."
+            "SHARE.json is a privacy-reduced sharing copy. "
+            "It omits serials, hardware IDs, device paths, and engine logs. "
+            "It is not identity evidence. SHARE.txt is its summary. "
+            "The original report is kept. To share, copy only SHARE.json and SHARE.txt."
         )
     lines.append(log_line)
     return "\n".join(lines)
@@ -1095,6 +1098,13 @@ def _bundle_files(
             f"{hashlib.sha256(log_data).hexdigest()}  {log_name}\n".encode("ascii")
         )
     from beamo_wipe.outcomes import present_evidence
+    from beamo_wipe.privacy import (
+        POLICY_VERSION,
+        SHARE_JSON,
+        SHARE_SUMMARY,
+        encode_sharing_copy,
+        make_sharing_copy,
+    )
     from beamo_wipe.result_summary import build_result_summary, encode_summary
     try:
         payload = json.loads(evidence)
@@ -1102,10 +1112,6 @@ def _bundle_files(
     except (ValueError, UnicodeDecodeError, TypeError):
         payload = {}
         result_view = present_evidence(None)
-    identity = ""
-    presentation = payload.get("device_presentation") if isinstance(payload, dict) else None
-    if isinstance(presentation, dict) and isinstance(presentation.get("announcement"), str):
-        identity = presentation["announcement"] + "\r\n"
     if not diagnostic:
         owner_summary = encode_summary(
             build_result_summary(
@@ -1116,24 +1122,51 @@ def _bundle_files(
         files["RESULT.txt.sha256"] = (
             f"{hashlib.sha256(owner_summary).hexdigest()}  RESULT.txt\n".encode("ascii")
         )
-        if privacy_reduced:
+        if privacy_reduced and isinstance(payload, dict):
+            sharing = make_sharing_copy(payload)
+            share_json = encode_sharing_copy(sharing)
+            share_hash = hashlib.sha256(share_json).hexdigest()
+            files[SHARE_JSON] = share_json
+            files[f"{SHARE_JSON}.sha256"] = (
+                f"{share_hash}  {SHARE_JSON}\n".encode("ascii")
+            )
             share_summary = encode_summary(
                 build_result_summary(
-                    payload, evidence_sha256=evidence_hash, redacted=True
+                    sharing, evidence_sha256=share_hash
                 )
             )
-            files["SHARE.txt"] = share_summary
-            files["SHARE.txt.sha256"] = (
-                f"{hashlib.sha256(share_summary).hexdigest()}  SHARE.txt\n".encode("ascii")
+            files[SHARE_SUMMARY] = share_summary
+            files[f"{SHARE_SUMMARY}.sha256"] = (
+                f"{hashlib.sha256(share_summary).hexdigest()}  {SHARE_SUMMARY}\n".encode("ascii")
             )
-    readme = (
-        f"{result_view.announcement}\r\n"
-        "Beamo Wipe report\r\n"
-        f"{identity}"
-        "RESULT.txt is the owner result summary. result.json records the wipe outcome and disk identifiers.\r\n"
-        f"nwipe log: {log_status}.\r\n"
-        "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
-    ).encode("utf-8")
+    if privacy_reduced and not diagnostic:
+        readme = (
+            f"{result_view.announcement}\r\n"
+            "Beamo Wipe report\r\n"
+            "result.json and RESULT.txt are the original report. They include disk identifiers.\r\n"
+            "SHARE.json and SHARE.txt are a privacy-reduced sharing copy. "
+            "They omit serials, hardware IDs, device paths, and engine logs. "
+            "They are not identity evidence.\r\n"
+            "To share, copy only SHARE.json and SHARE.txt. "
+            "Do not share result.json, RESULT.txt, or engine logs.\r\n"
+            f"nwipe log: {log_status} (original report only).\r\n"
+            "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
+        ).encode("utf-8")
+    else:
+        readme = (
+            f"{result_view.announcement}\r\n"
+            "Beamo Wipe report\r\n"
+            "RESULT.txt is the owner result summary. result.json records the wipe outcome and disk identifiers.\r\n"
+            f"nwipe log: {log_status}.\r\n"
+            "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
+        ).encode("utf-8")
+    if isinstance(payload, dict):
+        for check in payload.get("checks") or ():
+            if not isinstance(check, dict):
+                continue
+            ident, status, summary = (check.get(key) for key in ("id", "status", "summary"))
+            if all(isinstance(value, str) for value in (ident, status, summary)):
+                readme += f"Check {ident}: {status}. {summary}\r\n".encode("utf-8")
     if diagnostic:
         files = {"diagnostic.json": evidence,
                  "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}
@@ -1147,7 +1180,9 @@ def _bundle_files(
         "log_status": log_status,
         "schema_version": 1,
         "result_summary": "RESULT.txt" if "RESULT.txt" in files else "",
+        "share_copy": "SHARE.json" if "SHARE.json" in files else "",
         "share_summary": "SHARE.txt" if "SHARE.txt" in files else "",
+        "privacy_policy_version": POLICY_VERSION if "SHARE.json" in files else 0,
     }
     files["COMPLETE"] = (
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n"
