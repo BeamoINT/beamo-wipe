@@ -376,10 +376,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(C.KEYBOARD_LIMITS)
             print(CONSOLE_DEAD_KEYS)
             for i, layout_id in enumerate(LAYOUT_ORDER, 1):
-                spec = LAYOUTS[layout_id]
+                layout_spec = LAYOUTS[layout_id]
                 mark = ">" if wizard.keyboard_layout == layout_id else " "
-                print(f"{mark} {i} {spec.title}")
-                print(spec.note)
+                print(f"{mark} {i} {layout_spec.title}")
+                print(layout_spec.note)
             if wizard.keyboard_message:
                 print(wizard.keyboard_message)
             elif wizard.error:
@@ -387,9 +387,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(C.KEYBOARD_CHECK_LABEL)
             typed = input("> ")
             key = typed.strip()
-            mapping = {"1": "us", "2": "fr", "3": "de"}
-            if key in mapping:
-                wizard.set_keyboard_layout(mapping[key])
+            keyboard_mapping = {"1": "us", "2": "fr", "3": "de"}
+            if key in keyboard_mapping:
+                wizard.set_keyboard_layout(keyboard_mapping[key])
             elif key.upper() == "K":
                 pass
             elif key == "":
@@ -452,11 +452,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.CONFIRM:
             disk = wizard.selected
-            spec = wizard.confirm
+            confirm_spec = wizard.confirm
             if disk:
                 _print_view(wizard.disk_view(disk))
             print(textwrap.fill(wizard.warning_text(), 76, break_long_words=True, break_on_hyphens=False))
-            print(spec.prompt if spec else "")
+            print(confirm_spec.prompt if confirm_spec else "")
             typed = _answer(wizard, "> ")
             wizard.set_confirm_input(typed)
             if wizard.token_ok:
@@ -573,6 +573,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     wizard.reset_for_preview()
             else:
                 print(wizard.result_view.next_step)
+                for alert in wizard.check_alerts:
+                    print(alert)
                 print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
                 if report.can_retry_evidence:
                     prompt = "Type RETRY to save evidence again, or SHUTDOWN: "
@@ -667,9 +669,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, CONSOLE_DEAD_KEYS, w, y_max) + 1
             lines = []
             for i, layout_id in enumerate(LAYOUT_ORDER, 1):
-                spec = LAYOUTS[layout_id]
+                layout_spec = LAYOUTS[layout_id]
                 star = ">" if wizard.keyboard_layout == layout_id else " "
-                lines.extend(_lines(f"{star} {i} {spec.title}: {spec.note}", w))
+                lines.extend(_lines(f"{star} {i} {layout_spec.title}: {layout_spec.note}", w))
                 lines.append("")
             if wizard.keyboard_message:
                 lines.extend(_lines(wizard.keyboard_message, w))
@@ -741,9 +743,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             view = wizard.disk_view(wizard.selected)
             y = _wrap_view(stdscr, y, view, w, y_max)
             rest = _lines(wizard.warning_text(), w)
-            spec = wizard.confirm
-            if spec:
-                rest.extend(_lines(spec.prompt, w))
+            confirm_spec = wizard.confirm
+            if confirm_spec:
+                rest.extend(_lines(confirm_spec.prompt, w))
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
             _paint_footer(stdscr, footer)
             _curses_opt("echo")
@@ -858,6 +860,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
             content = wizard.elapsed_text + "\n" + wizard.result_view.next_step
+            if wizard.check_alerts:
+                content += "\n" + "\n".join(wizard.check_alerts)
             if not wizard.preview:
                 content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             if report.evidence_error:
@@ -1034,9 +1038,9 @@ def _handle(wizard: Wizard, ch: int) -> None:
         wizard.open_keyboard()
         return
     if wizard.screen == Screen.KEYBOARD:
-        mapping = {ord("1"): "us", ord("2"): "fr", ord("3"): "de"}
-        if ch in mapping:
-            wizard.set_keyboard_layout(mapping[ch])
+        keyboard_mapping = {ord("1"): "us", ord("2"): "fr", ord("3"): "de"}
+        if ch in keyboard_mapping:
+            wizard.set_keyboard_layout(keyboard_mapping[ch])
             return
         if ch in (curses.KEY_ENTER, 10, 13):
             wizard.accept_keyboard()

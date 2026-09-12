@@ -23,6 +23,15 @@ _PHASES = {
     "syncing": "Syncing",
     "retrying": "Retrying",
 }
+# Measured nwipe 0.42: the runner requests SIGUSR1 every 2.0s after the
+# handler exists. Five missed pulses mark telemetry stale, matching the
+# existing estimate-history expiry. The PRNG auto-bench is 8×1.0s before
+# that handler is armed, so the first percentage can legitimately wait
+# ~10s plus one pulse; twenty seconds is ten missed pulses after bench.
+ENGINE_PROGRESS_INTERVAL_S = 2.0
+STALE_PROGRESS_S = 10.0
+FIRST_UPDATE_GRACE_S = 20.0
+QUIET_PHASES = frozenset({"Preparing", "Syncing", "Retrying"})
 
 
 @dataclass(frozen=True)
@@ -103,29 +112,55 @@ def estimate(seconds: float) -> str:
     return "about " + duration(math.ceil(seconds / unit) * unit)
 
 
+def silence_text(stale_for: float | None) -> str:
+    if stale_for is None:
+        return ""
+    return f"No new progress update for {duration(stale_for)}."
+
+
 @dataclass(frozen=True)
 class ProgressView:
     phase: str
     percent: float | None
     elapsed: float | None
     remaining: float | None = None
+    stale_for: float | None = None
+    percent_is_old: bool = False
+
+    @property
+    def known_quiet(self) -> bool:
+        return self.stale_for is None and self.phase in QUIET_PHASES
+
+    @property
+    def animate(self) -> bool:
+        """True only while waiting for the first number during a known quiet start."""
+        return (
+            self.percent is None
+            and self.stale_for is None
+            and not self.percent_is_old
+            and self.phase == "Preparing"
+        )
 
     @property
     def timing_text(self) -> str:
         text = f"{self.phase} · Elapsed: {duration(self.elapsed)}"
         if self.remaining is not None:
             text += f"\nEstimated time remaining: {estimate(self.remaining)}"
+        wait = silence_text(self.stale_for)
+        if wait:
+            text += f"\n{wait}"
         return text
 
     @property
     def status_text(self) -> str:
         from beamo_wipe.wizard import format_progress_percent
 
-        pct = (
-            "Progress not reported"
-            if self.percent is None
-            else format_progress_percent(self.percent)
-        )
+        if self.percent is None:
+            pct = "Progress not reported"
+        elif self.percent_is_old:
+            pct = f"Last reported: {format_progress_percent(self.percent)} (old)"
+        else:
+            pct = format_progress_percent(self.percent)
         return f"{pct}. {self.timing_text}"
 
 
@@ -195,6 +230,8 @@ class ProgressTiming:
                 0.0, (self.ended if self.ended is not None else now) - self.started
             )
         if observation is None:
+            # Incomplete/malformed polls are not accepted updates. Keep the
+            # last accepted monotonic time; only age can mark telemetry stale.
             self.clear_estimate()
         if observation is not None and observation != self.last:
             previous = self.last
@@ -228,7 +265,7 @@ class ProgressTiming:
                 if self.samples and not 1 <= now - self.samples[-1][0] <= 10:
                     self.clear_estimate()
                 self.samples.append((now, observation.percent))
-        if self.samples and now - self.samples[-1][0] > 10:
+        if self.samples and now - self.samples[-1][0] > STALE_PROGRESS_S:
             self.clear_estimate()
         remaining = None
         obs = self.last
@@ -260,9 +297,21 @@ class ProgressTiming:
                 )
                 if 2 / 3 <= obs.engine_eta / projected <= 1.5:
                     remaining = max(projected, obs.engine_eta)
-        phase = self.phase
-        if self.last_seen is not None and (
-            observation is None or now - self.last_seen > 10
-        ):
-            phase += " (last reported)"
-        return ProgressView(phase, None, elapsed, remaining)
+        stale_for = None
+        percent_is_old = False
+        if self.invalid_clock:
+            stale_for = None
+        elif self.last_seen is None:
+            if (
+                self.started is not None
+                and elapsed is not None
+                and elapsed >= FIRST_UPDATE_GRACE_S
+            ):
+                stale_for = elapsed
+        elif now - self.last_seen > STALE_PROGRESS_S:
+            stale_for = now - self.last_seen
+            percent_is_old = True
+        return ProgressView(
+            self.phase, None, elapsed, remaining,
+            stale_for=stale_for, percent_is_old=percent_is_old,
+        )
