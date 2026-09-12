@@ -134,15 +134,45 @@
     li { margin: 10px 0; }
     .small { color: var(--muted); font-size: 16px; }
     a { color: var(--primary); overflow-wrap: anywhere; }
-    a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+    a:focus-visible, .skip:focus-visible {
+      outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px;
+    }
+    .skip {
+      position: absolute;
+      left: -9999px;
+      top: 8px;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 8px 12px;
+      z-index: 2;
+    }
+    .skip:focus { left: 8px; }
+    caption {
+      text-align: left;
+      font-size: 16px;
+      color: var(--muted);
+      padding: 0 0 10px;
+    }
+    .warn {
+      background: var(--danger-tint);
+      border: 1px solid var(--danger-border);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 0 0 14px;
+    }
+    .warn h2 { color: var(--danger); }
     @media (max-width: 600px) {
       header .inner { flex-wrap: wrap; padding: 16px 20px; gap: 8px; }
       main { padding: 24px 20px 48px; }
+      body { font-size: 18px; }
+      h2 { font-size: 22px; }
       th, td { padding: 12px 8px; font-size: 16px; }
+      table { display: block; overflow-x: auto; }
     }
   </style>
 </head>
 <body>
+  <a class="skip" href="#main">Skip to instructions</a>
   <header>
     <div class="inner">
       <div class="brandrow">
@@ -152,7 +182,7 @@
       <p class="tagline">Boot helper. Not a wipe program.</p>
     </div>
   </header>
-  <main>
+  <main id="main">
     <p class="banner">
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B3261E" stroke="#B3261E" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
       <span>This page does not erase anything. Restart the computer and press the key for your PC.</span>
@@ -165,10 +195,12 @@
     </div>
 
     <div class="card">
-      <h2>Press this key as the computer starts</h2>
+      <h2>Typical keys as the computer starts</h2>
+      <p>These are common manufacturer keys. They are not the same on every PC. Check the sticker, the startup screen, or the manufacturer’s instructions if a key below does nothing.</p>
       <table>
+        <caption>Examples only. Your PC may use a different key.</caption>
         <thead>
-          <tr><th scope="col">PC</th><th scope="col">Key</th></tr>
+          <tr><th scope="col">PC</th><th scope="col">Typical key</th></tr>
         </thead>
         <tbody>
           <tr><td>Dell</td><td class="key"><span class="kbd">F12</span></td></tr>
@@ -183,13 +215,43 @@
       </table>
     </div>
 
-    <div class="card">
-      <h2>If the key does not work on Windows 10 or 11</h2>
+    <div class="card warn" id="bitlocker">
+      <h2>If you might use this Windows installation again</h2>
+      <p>Confirm you can reach the BitLocker recovery key for this PC <strong>before</strong> you change firmware, boot order, Secure Boot, or TPM settings. Those changes can make Windows ask for the 48-digit recovery key the next time it starts.</p>
+      <p>Microsoft Support cannot retrieve, provide, or recreate a lost key. The key might be saved with a Microsoft account on another device, held by work or school IT, printed, or stored on a USB you saved when encryption was turned on.</p>
+      <p>This helper does not turn BitLocker off, extract keys, or recommend changing Secure Boot. If you still need this Windows later and you cannot find the key, do not change firmware. Use the Windows steps below, another USB port, or the manufacturer’s startup instructions instead.</p>
+    </div>
+
+    <div class="card" id="windows-11">
+      <h2>Windows 11: start this USB from Settings</h2>
+      <p>These steps use Windows Recovery Environment. <strong>Use a device</strong> is offered on UEFI PCs. It may be missing on legacy BIOS.</p>
       <ol>
-        <li>Windows 11: Settings → System → Recovery. Windows 10: Settings → Update &amp; Security → Recovery.</li>
-        <li>Advanced startup, then Restart now</li>
-        <li>Use a device, then pick this USB</li>
+        <li>Keep this USB in a port on the computer, not a keyboard hub if you can avoid it.</li>
+        <li>Settings → System → Recovery</li>
+        <li>Under Advanced startup, choose Restart now</li>
+        <li>Choose an option → Use a device → this USB, if it is listed</li>
       </ol>
+    </div>
+
+    <div class="card" id="windows-10">
+      <h2>Windows 10: start this USB from Settings</h2>
+      <p>These steps use Windows Recovery Environment. <strong>Use a device</strong> is offered on UEFI PCs. It may be missing on legacy BIOS.</p>
+      <ol>
+        <li>Keep this USB in a port on the computer, not a keyboard hub if you can avoid it.</li>
+        <li>Settings → Update &amp; Security → Recovery</li>
+        <li>Under Advanced startup, choose Restart now</li>
+        <li>Choose an option → Use a device → this USB, if it is listed</li>
+      </ol>
+    </div>
+
+    <div class="card" id="fallbacks">
+      <h2>If Settings is not available</h2>
+      <ul>
+        <li>On the sign-in screen or the Power menu, hold <span class="kbd">Shift</span> while you choose Restart. Then use Choose an option → Use a device, if it is listed.</li>
+        <li>Some PCs have a manufacturer recovery button or key combination. That varies. Read the computer’s instructions.</li>
+        <li>Restart and try the typical boot-menu key for your PC. If the USB is missing, try another direct USB port.</li>
+      </ul>
+      <p>Do not treat firmware, boot-order, or Secure Boot changes as the next automatic step. If you might return to this Windows installation, confirm the BitLocker recovery key first.</p>
     </div>
 
     <div class="card">
@@ -200,9 +262,12 @@
 
     <div class="card">
       <h2>What this USB does</h2>
-      <p>You pick a disk. Everything on it is erased. You cannot get the files back.</p>
+      <p>Check that you have the copies you need. You will pick a disk. Everything on that disk will be erased. You cannot get the files back.</p>
+      <p>If that disk holds an operating system, erasing it also removes Windows or Linux, applications, files, and recovery partitions on that disk. Only the disk you confirm is erased. Other disks are not. Putting an operating system back on is a separate task.</p>
+      <p>If this computer has a battery, plug it into wall power before you erase. A power cut stops the erase. The screen may go dark; press a key or move the mouse to bring it back. That is the display, not sleep.</p>
       <p>For 64-bit Intel/AMD Windows or Linux PCs that start from USB. <strong>Not Apple Silicon Macs. Not Chromebooks.</strong> Some Intel Macs may show this USB; many will not.</p>
       <p class="small">Source: <a href="https://github.com/BeamoINT/beamo-wipe">github.com/BeamoINT/beamo-wipe</a></p>
+      <p class="small">Windows Recovery Environment, BitLocker recovery, and recovery-key locations follow Microsoft documentation. The steps above stay on this USB if you have no network. Optional references: <a href="https://support.microsoft.com/en-us/windows/experience/backup-recovery/windows-recovery-environment">Windows Recovery Environment</a>, <a href="https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-recovery-environment--windows-re--technical-reference?view=windows-11">WinRE technical reference</a>, <a href="https://learn.microsoft.com/en-us/windows/security/operating-system-security/data-protection/bitlocker/recovery-overview">BitLocker recovery overview</a>, <a href="https://support.microsoft.com/en-us/windows/security/encryption/find-your-bitlocker-recovery-key">Find your BitLocker recovery key</a>.</p>
     </div>
   </main>
 </body>

@@ -4,7 +4,15 @@ import pytest
 
 from beamo_wipe.models import Screen, WipeResult
 from beamo_wipe.nwipe_runner import NwipeRunner
-from beamo_wipe.progress import ProgressTiming, ProgressView, duration, observe
+from beamo_wipe.progress import (
+    ENGINE_PROGRESS_INTERVAL_S,
+    FIRST_UPDATE_GRACE_S,
+    ProgressTiming,
+    ProgressView,
+    STALE_PROGRESS_S,
+    duration,
+    observe,
+)
 
 
 class Clock:
@@ -46,6 +54,14 @@ def stable(step=5, delta=1):
         if n < 5:
             clock.advance(step)
     return clock, timing, view
+
+
+def bind_wizard_timing(wizard, clock):
+    """Keep ProgressTiming on the injected clock after confirm_erase."""
+    wizard._clock = clock
+    wizard._progress_timing.clock = clock
+    wizard._progress_timing.wall_clock = lambda: clock.wall
+    wizard._progress_timing.last_clock = (clock(), clock.wall)
 
 
 @pytest.mark.parametrize(
@@ -114,8 +130,12 @@ def test_duplicate_polls_and_duplicate_percent_do_not_renew_rate_or_freshness():
     for _ in range(10):
         assert timing.view(last, True).remaining == view.remaining
     clock.advance(11)
-    assert timing.view(last, True).remaining is None
-    assert "last reported" in timing.view(last, True).phase
+    stalled = timing.view(last, True)
+    assert stalled.remaining is None
+    assert stalled.stale_for == pytest.approx(11)
+    assert stalled.percent_is_old
+    assert "No new progress update for less than 1 minute." in stalled.timing_text
+    assert "last reported" not in stalled.phase
     # A fresh log timestamp with unchanged percent still cannot establish speed.
     for n in range(8):
         clock.advance(5)
@@ -255,8 +275,7 @@ def test_wizard_views_stop_finalize_and_freeze_evidence_time(monkeypatch, tmp_pa
     w.runner.duration_s = 1000
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     _drive_to_working(w, clock)
-    w._progress_timing.wall_clock = lambda: clock.wall
-    w._progress_timing.last_clock = clock(), clock.wall
+    bind_wizard_timing(w, clock)
     w.runner.progress_observation = sample(42, phase="verifying")
     assert w.progress_view.phase == "Verifying"
     assert w.progress_view.remaining is None
@@ -561,3 +580,241 @@ def test_more_precise_record_cannot_reinterpret_old_coarse_samples():
         assert view.remaining is None
         clock.advance(5)
     assert timing.view(sample(16, eta=420), True).remaining is None
+
+
+def test_thresholds_follow_measured_sigusr1_cadence():
+    assert ENGINE_PROGRESS_INTERVAL_S == 2.0
+    assert STALE_PROGRESS_S == 5 * ENGINE_PROGRESS_INTERVAL_S
+    assert FIRST_UPDATE_GRACE_S == 10 * ENGINE_PROGRESS_INTERVAL_S
+
+
+def test_quiet_progress_module_does_not_stop_the_engine():
+    import inspect
+    from beamo_wipe import progress
+
+    src = inspect.getsource(progress)
+    assert "SIGTERM" not in src
+    assert "SIGKILL" not in src
+    assert "os.kill" not in src
+    assert ".cancel(" not in src
+
+
+def test_no_first_update_stays_quiet_then_marks_unavailable():
+    clock = Clock()
+    timing = ProgressTiming(clock, lambda: clock.wall)
+    timing.start(0)
+    early = timing.view(None, False)
+    assert early.phase == "Preparing"
+    assert early.stale_for is None
+    assert early.animate
+    assert early.known_quiet
+    assert "No new progress update" not in early.status_text
+    clock.advance(FIRST_UPDATE_GRACE_S - 1)
+    still_quiet = timing.view(None, False)
+    assert still_quiet.stale_for is None
+    assert still_quiet.animate
+    assert still_quiet.known_quiet
+    clock.advance(2)
+    late = timing.view(None, False)
+    assert late.phase == "Preparing"
+    assert late.stale_for == pytest.approx(FIRST_UPDATE_GRACE_S + 1)
+    assert not late.animate
+    assert not late.known_quiet
+    assert late.percent_is_old is False
+    assert "No new progress update for less than 1 minute." in late.status_text
+    assert late.stale_for > STALE_PROGRESS_S
+
+
+def test_long_silence_marks_last_value_old_without_failing():
+    clock, timing, _ = stable()
+    clock.advance(11)
+    view = timing.view(timing.last, True)
+    assert view.percent_is_old
+    assert view.stale_for == pytest.approx(11)
+    assert view.phase == "Writing"
+    assert "No new progress update" in view.status_text
+
+
+def test_resumed_output_clears_stale_mark():
+    clock, timing, _ = stable()
+    clock.advance(11)
+    assert timing.view(timing.last, True).percent_is_old
+    clock.advance(2)
+    fresh = timing.view(sample(16, eta=420), True)
+    assert fresh.stale_for is None
+    assert fresh.percent_is_old is False
+    assert "No new progress update" not in fresh.status_text
+    assert fresh.phase == "Writing"
+
+
+def test_parser_errors_do_not_immediately_mark_stale_or_fail():
+    clock, timing, before = stable()
+    assert before.stale_for is None
+    truncated = observe(line(16)[:-1], "/dev/fake")
+    assert truncated is None
+    view = timing.view(None, True)
+    assert view.phase == "Writing"
+    assert view.stale_for is None
+    assert view.percent_is_old is False
+    assert view.remaining is None
+    clock.advance(11)
+    late = timing.view(None, True)
+    assert late.percent_is_old
+    assert late.stale_for == pytest.approx(11)
+    assert late.phase == "Writing"
+
+
+def test_phase_transition_is_not_stale_and_keeps_process_running(tmp_path, monkeypatch):
+    from beamo_wipe.demo import make_demo_wizard
+    from test_wizard_flow import _drive_to_working
+
+    clock = Clock()
+    clock.add = clock.advance
+    w = make_demo_wizard()
+    w.preview = False
+    w._clock = clock
+    w.runner._clock = clock
+    w.runner.duration_s = 1000
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    _drive_to_working(w, clock)
+    bind_wizard_timing(w, clock)
+    w.runner.progress = 20
+    w.runner.progress_observation = sample(20, phase="writing")
+    assert w.progress_view.phase == "Writing"
+    w.runner.progress_observation = sample(20, phase="verifying")
+    view = w.progress_view
+    assert view.phase == "Verifying"
+    assert view.stale_for is None
+    assert w.screen == Screen.WORKING
+    assert w.wipe_result is None
+    assert not getattr(w.runner, "cancelled", False)
+
+
+def test_wizard_no_first_update_silence_and_resume_keep_the_process(monkeypatch, tmp_path):
+    from beamo_wipe.demo import make_demo_wizard
+    from test_wizard_flow import _drive_to_working
+
+    clock = Clock()
+    clock.add = clock.advance
+    w = make_demo_wizard()
+    w.preview = False
+    w._clock = clock
+    w.runner._clock = clock
+    w.runner.duration_s = 1000
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    _drive_to_working(w, clock)
+    bind_wizard_timing(w, clock)
+    clock.advance(FIRST_UPDATE_GRACE_S - 1)
+    early = w.progress_view
+    assert early.phase == "Preparing"
+    assert early.stale_for is None
+    assert early.animate
+    assert w.screen == Screen.WORKING
+    assert w.wipe_result is None
+    clock.advance(2)
+    missing = w.progress_view
+    assert missing.stale_for == pytest.approx(FIRST_UPDATE_GRACE_S + 1)
+    assert missing.percent_is_old is False
+    assert not missing.animate
+    assert "No new progress update" in missing.status_text
+    assert w.screen == Screen.WORKING
+    assert not getattr(w.runner, "cancelled", False)
+    w.runner.progress = 12
+    w.runner.progress_observation = sample(12)
+    fresh = w.progress_view
+    assert fresh.stale_for is None
+    assert fresh.percent_is_old is False
+    assert fresh.percent == 12
+    clock.advance(30)
+    stale = w.progress_view
+    assert stale.percent_is_old
+    assert stale.stale_for == pytest.approx(30)
+    assert stale.status_text.startswith("Last reported: 12% (old).")
+    assert w.screen == Screen.WORKING
+    assert w.wipe_result is None
+    assert not getattr(w.runner, "cancelled", False)
+    clock.advance(5)
+    w.runner.progress = 18
+    w.runner.progress_observation = sample(18)
+    resumed = w.progress_view
+    assert resumed.stale_for is None
+    assert resumed.percent_is_old is False
+    assert resumed.percent == 18
+    assert w.screen == Screen.WORKING
+    assert not getattr(w.runner, "cancelled", False)
+
+
+def test_process_exit_and_cancel_are_not_stale_telemetry(monkeypatch, tmp_path):
+    from beamo_wipe.demo import make_demo_wizard
+    from test_wizard_flow import _drive_to_working
+
+    clock = Clock()
+    clock.add = clock.advance
+    w = make_demo_wizard()
+    w.preview = False
+    w._clock = clock
+    w.runner._clock = clock
+    w.runner.duration_s = 1000
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    _drive_to_working(w, clock)
+    bind_wizard_timing(w, clock)
+    w.runner.progress = 40
+    w.runner.progress_observation = sample(40)
+    accepted = w.progress_view
+    assert accepted.percent == 40
+    assert accepted.stale_for is None
+    clock.advance(30)
+    stale = w.progress_view
+    assert stale.percent_is_old
+    assert stale.stale_for == pytest.approx(30)
+    assert w.screen == Screen.WORKING
+    assert w.wipe_result is None
+    assert not getattr(w.runner, "cancelled", False)
+    assert w._claim_stop()
+    stopping = w.progress_view
+    assert stopping.phase == "Stopping"
+    assert stopping.stale_for is None
+    assert stopping.percent_is_old is False
+    assert "No new progress update" not in stopping.status_text
+    w.screen = Screen.WORKING
+    w.runner.finalizing = True
+    finishing = w.progress_view
+    assert finishing.phase == "Finalizing"
+    assert finishing.stale_for is None
+    assert finishing.percent_is_old is False
+    assert w.wipe_result is None
+    result = WipeResult(False, 1, "nwipe exited 1", w._wipe_request.logfile)
+    w._finish(result)
+    done = w.progress_view
+    assert done.stale_for is None
+    assert done.percent_is_old is False
+    assert "No new progress update" not in done.status_text
+
+
+def test_recovery_does_not_show_live_stale_progress():
+    from beamo_wipe.demo import make_demo_wizard
+
+    w = make_demo_wizard()
+    clock = Clock()
+    w._clock = clock
+    w._recovered = True
+    w.evidence = {"timestamps": {"duration_s": 120}}
+    w.runner.progress = 55
+    w.runner.progress_observation = sample(55)
+    view = w.progress_view
+    assert view.stale_for is None
+    assert view.remaining is None
+    clock.advance(60)
+    assert w.progress_view.stale_for is None
+    assert w.elapsed_text == "Elapsed: 2 minutes"
+
+
+def test_status_text_marks_old_percent_without_claiming_failure():
+    view = ProgressView(
+        "Writing", 42, 120, stale_for=11, percent_is_old=True
+    )
+    assert view.status_text.startswith("Last reported: 42% (old).")
+    assert "No new progress update for less than 1 minute." in view.status_text
+    assert "fail" not in view.status_text.lower()
+    assert "cancel" not in view.status_text.lower()
+    assert not view.animate

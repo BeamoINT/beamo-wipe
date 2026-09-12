@@ -65,7 +65,7 @@ def test_countdown_display_never_zero_while_gate_blocks():
 
     wiz = make_demo_wizard(scenario="happy")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

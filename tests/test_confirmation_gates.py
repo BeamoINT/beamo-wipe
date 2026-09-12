@@ -102,7 +102,7 @@ def _drive_to_last_chance(wiz: Wizard, clock: Clock, tmp_path):
     orig_default = s.default_log_dir
     s.default_log_dir = lambda: tmp_path  # type: ignore[assignment]
     try:
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         wiz.set_owner(True)
         wiz.continue_owner()
@@ -164,7 +164,7 @@ def test_ownership_checkbox_required(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock, spy = _wiz_with_clock(clock=Clock(), spy=SpyRunner())
     # Try to continue from OWNER without checking box
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     assert wiz.screen == Screen.OWNER
     wiz.continue_owner()
@@ -190,7 +190,7 @@ def test_ownership_checkbox_required(tmp_path, monkeypatch):
 def test_ownership_rapid_clicks_and_focus_do_not_bypass(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock, spy = _wiz_with_clock(clock=Clock())
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     # Spam set_owner toggles rapidly
     for _ in range(10):
@@ -281,7 +281,7 @@ def test_token_bound_to_device_identity_snapshot(tmp_path, monkeypatch):
     clock = Clock()
     spy = SpyRunner()
     wiz = Wizard(disc, spy, clock=clock, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -397,7 +397,7 @@ def test_select_disk_ignored_outside_pick(tmp_path, monkeypatch):
     # Try to select from SPLASH/WHAT/OWNER/CONFIRM/METHOD/LAST_CHANCE — all no-ops
     wiz.select_disk("/dev/nvme0n1")
     assert wiz.selected is None
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.select_disk("/dev/nvme0n1")
     assert wiz.selected is None
@@ -450,7 +450,7 @@ def test_device_identity_change_invalidates_confirm(tmp_path, monkeypatch):
     base = make_demo_wizard()
     wiz = Wizard(base.discovery, spy, clock=clock, dry_run=False)
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -489,7 +489,7 @@ def test_focus_changes_do_not_bypass_gates(monkeypatch, tmp_path):
     """Tk focus: trace on _confirm_var only updates token_ok, does not auto-advance."""
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock, spy = _wiz_with_clock(clock=Clock())
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -593,7 +593,7 @@ def test_restart_clears_all_gates(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz = make_demo_wizard()
     # Drive to confirm
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -612,7 +612,7 @@ def test_restart_clears_all_gates(tmp_path, monkeypatch):
     assert wiz._wipe_request is None
     assert wiz.error is None
     # Must re-pass all gates from scratch
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.continue_owner()
     assert wiz.screen == Screen.OWNER  # owner not set
@@ -653,7 +653,7 @@ def test_unusual_ordering_any_sequence_before_gates_fails_closed(tmp_path, monke
     assert wiz.confirm is None  # no selected
     wiz.select_disk("/dev/sda")
     assert wiz.selected is None  # not in PICK
-    wiz.skip_splash()
+    wiz.skip_intro()
     # Still on WHAT, try to jump to LAST_CHANCE
     wiz.continue_method()
     assert wiz.screen == Screen.WHAT
@@ -672,7 +672,7 @@ def test_no_accessibility_or_preview_path_can_invoke_nwipe(tmp_path, monkeypatch
     real_runner = NwipeRunner()
     wiz = Wizard(base.discovery, real_runner, clock=clock, dry_run=True)
     wiz.preview = False  # dry_run True but preview False — still blocked
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -696,15 +696,21 @@ def test_no_accessibility_or_preview_path_can_invoke_nwipe(tmp_path, monkeypatch
 
 
 def test_no_timer_callback_auto_starts_wipe(tmp_path, monkeypatch):
-    """Tick only auto-advances SPLASH→WHAT and polls WORKING; never starts a wipe."""
+    """Tick only auto-advances SPLASH→KEYBOARD and polls WORKING; never starts a wipe."""
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock, spy = _wiz_with_clock(clock=Clock())
-    # Let splash time out to WHAT automatically
+    # Let splash time out to KEYBOARD automatically. Keyboard does not auto-continue.
     clock.add(3.1)
     wiz.tick()
-    assert wiz.screen == Screen.WHAT
-    # Tick many times without user input must never start
+    assert wiz.screen == Screen.KEYBOARD
     for _ in range(10):
+        clock.add(1.0)
+        wiz.tick()
+        assert wiz.screen == Screen.KEYBOARD
+        assert spy.start_calls == []
+    wiz.accept_keyboard()
+    assert wiz.screen == Screen.WHAT
+    for _ in range(5):
         clock.add(1.0)
         wiz.tick()
         assert wiz.screen == Screen.WHAT
@@ -727,7 +733,7 @@ def test_all_gates_must_be_simultaneously_valid(tmp_path, monkeypatch):
 
     # Case A: owner true, token ok, countdown ok, but no selected
     wiz, clock, spy = _wiz_with_clock(clock=Clock())
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

@@ -64,6 +64,49 @@ def test_evidence_reader_refuses_symlink(tmp_path):
         load_evidence(link)
 
 
+def _measured_gate_receipts(commit: str = "a" * 40):
+    from beamo_wipe.verification_evidence import build_gate_receipt, build_test_evidence
+
+    receipts = []
+    for gate in ("lint", "tests", "preview", "negative", "iso", "qemu"):
+        receipts.append(
+            build_gate_receipt(
+                gate=gate,
+                status="pass",
+                command=f"run {gate}",
+                source_commit=commit,
+                build_id="local",
+                environment={"runner": "test", "platform": "linux", "arch": "x86_64"},
+                measured={
+                    "passed": 5,
+                    "failed": 0,
+                    "errors": 0,
+                    "skipped": 0,
+                    "xfailed": 0,
+                    "deselected": 0,
+                    "total": 5,
+                },
+                skips=[],
+                log_sha256="b" * 64,
+                started_at="2026-09-11T00:00:00Z",
+                ended_at="2026-09-11T00:00:01Z",
+            )
+        )
+    return build_test_evidence(receipts)
+
+
+def _measured_inventory(commit: str = "a" * 40) -> dict:
+    from beamo_wipe.verification_evidence import build_package_inventory
+
+    return build_package_inventory(
+        packages=[{"name": "base-files", "version": "1", "arch": "amd64", "source": ""}],
+        collected_from="squashfs var/lib/dpkg/status",
+        apt_sources=["https://deb.debian.org/debian/"],
+        source_commit=commit,
+        generated_at="2026-09-11T00:00:00Z",
+    )
+
+
 def _manifest_for(root: Path, iso_bytes: bytes = b"known image") -> Path:
     import beamo_wipe.release_manifest as rm
 
@@ -76,9 +119,10 @@ def _manifest_for(root: Path, iso_bytes: bytes = b"known image") -> Path:
         f"{iso_sha}  {iso.name}\n", encoding="ascii"
     )
     body = {
-        "schema_version": 1,
+        "schema_version": 2,
         "beamo_wipe_version": "1.2.3",
-        "source": {"dirty": False},
+        "source": {"dirty": False, "commit": "a" * 40},
+        "build": {"release_build_id": "local"},
         "nwipe": {"version": "0.42", "commit": "a" * 40},
         "artifact": {
             "iso_name": iso.name,
@@ -86,6 +130,8 @@ def _manifest_for(root: Path, iso_bytes: bytes = b"known image") -> Path:
             "iso_size_bytes": len(iso_bytes),
             "iso_sha256": iso_sha,
         },
+        "test_evidence": _measured_gate_receipts(),
+        "installed_packages": _measured_inventory(),
     }
     canonical = json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     body["_manifest_sha256"] = hashlib.sha256(canonical.encode()).hexdigest()
@@ -220,7 +266,7 @@ def test_nwipe_build_hook_cannot_mask_source_or_build_failure():
 def test_qemu_gate_has_no_unverified_or_host_binary_fallback():
     script = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
     assert "mktemp -d /tmp/beamo-wipe-qemu.XXXXXX" in script
-    assert "verify_manifest" in script
+    assert "verify_build_manifest" in script
     assert "exact versioned ISO and manifest are required" in script
     assert "command -v nwipe" not in script
     assert "apt fallback" not in script.casefold()

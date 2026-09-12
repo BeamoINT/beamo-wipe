@@ -65,7 +65,7 @@ def _wiz(tmp_path: Path, clock=None, dry_run=True, wall=None):
 def test_schema_covers_required_fields(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -79,10 +79,20 @@ def test_schema_covers_required_fields(tmp_path, monkeypatch):
     wiz.confirm_erase()
     assert wiz.evidence is not None
     ev = wiz.evidence
-    assert ev["schema_version"] == 1
+    assert ev["schema_version"] == 2
     assert ev["beamo_wipe_version"] == __version__
     assert ev["nwipe_version"] == NWIPE_PINNED_VERSION
     assert ev["nwipe_commit"] == NWIPE_PINNED_COMMIT
+    assert ev["build_status"] in {
+        "production",
+        "development",
+        "dirty",
+        "source_mismatch",
+        "unavailable",
+    }
+    assert ev["timestamps"]["duration_source"] == "monotonic"
+    assert ev["timestamps"]["wall_confidence"] in {"unverified", "unavailable"}
+    assert ev["timestamps"]["wall_provenance"] in {"os_utc", "injected", "unavailable"}
     assert ev["outcome"] in ALLOWED_OUTCOMES
     assert ev["device"] is not None
     assert ev["device"]["path"] == wiz.selected.path  # type: ignore[union-attr]
@@ -107,7 +117,7 @@ def test_schema_covers_required_fields(tmp_path, monkeypatch):
 def test_nwipe_version_args_redacted_no_control_chars(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -136,7 +146,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     # started
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -260,7 +270,7 @@ def test_never_translate_nonzero_or_missing_evidence_into_success(tmp_path):
 def test_evidence_off_target_and_atomic(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -293,7 +303,7 @@ def test_evidence_off_target_and_atomic(tmp_path, monkeypatch):
 def test_preserve_through_restart_and_export_failure(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -326,7 +336,7 @@ def test_preserve_through_restart_and_export_failure(tmp_path, monkeypatch):
 def test_write_failure_does_not_crash_wizard(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -353,7 +363,7 @@ def test_write_failure_does_not_crash_wizard(tmp_path, monkeypatch):
 def test_export_to_second_usb_with_checksum(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -395,7 +405,7 @@ def test_export_to_second_usb_with_checksum(tmp_path, monkeypatch):
 def test_export_preserves_checksum_tamper_evident(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -503,7 +513,7 @@ def test_signal_exit_is_interrupted_or_failed(tmp_path, monkeypatch):
 def test_power_interruption_simulation(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -562,7 +572,7 @@ def test_clock_anomalies_handled(tmp_path, monkeypatch):
         raise OSError("clock failed")
 
     wiz, clock = _wiz(tmp_path, wall=bad_wall)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -617,7 +627,7 @@ def test_clock_anomalies_handled(tmp_path, monkeypatch):
 def test_duplicate_events_idempotent(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -652,7 +662,7 @@ def test_duplicate_events_idempotent(tmp_path, monkeypatch):
 def test_recovery_after_failed_write_then_success(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -723,7 +733,7 @@ def test_no_sensitive_host_details_in_evidence(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", "/home/secret-user")
     monkeypatch.setenv("USER", "secret-user")
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -744,7 +754,7 @@ def test_no_sensitive_host_details_in_evidence(tmp_path, monkeypatch):
 def test_evidence_files_off_target_and_no_forbidden_roots(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

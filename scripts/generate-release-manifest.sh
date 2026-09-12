@@ -27,18 +27,28 @@ fi
 # environment, never through source interpolation: the heredoc is quoted so
 # a crafted BEAMO_WIPE_VERSION cannot break out into Python exec.
 BEAMO_WIPE_MANIFEST_VERSION="$VERSION" BEAMO_WIPE_MANIFEST_DEST="$DEST" python3 - <<'PY'
-import os, pathlib, sys
+import json, os, pathlib, sys
 sys.path.insert(0, "src")
 from beamo_wipe.release_manifest import generate_manifest, write_manifest
 strict = os.environ.get("ALLOW_DIRTY") != "1"
-manifest = generate_manifest(version=os.environ["BEAMO_WIPE_MANIFEST_VERSION"], strict=strict)
+build_only = os.environ.get("BEAMO_BUILD_PROVENANCE_ONLY") == "1"
+inputs = {}
+if not build_only:
+    evidence = pathlib.Path("dist/evidence")
+    inputs["gate_receipts"] = [json.loads(p.read_text()) for p in sorted(evidence.glob("*.receipt.json"))]
+    inputs["package_inventory"] = json.loads((evidence / "packages.json").read_text())
+manifest = generate_manifest(version=os.environ["BEAMO_WIPE_MANIFEST_VERSION"], strict=strict,
+                             build_only=build_only, **inputs)
 dest = pathlib.Path(os.environ["BEAMO_WIPE_MANIFEST_DEST"])
 out = write_manifest(manifest, dest)
 # Always verify: with ALLOW_DIRTY only the dirty-state check is skipped, every
 # other structural check (checksum, placeholders, nwipe pin, ISO checksum)
 # still runs so a dirty-tree manifest cannot pass as clean provenance.
-from beamo_wipe.release_manifest import verify_manifest
-verify_manifest(out, allow_dirty=not strict)
+from beamo_wipe.release_manifest import verify_manifest, verify_build_manifest
+if build_only:
+    verify_build_manifest(out, allow_dirty=not strict)
+else:
+    verify_manifest(out, allow_dirty=not strict)
 print(f"Verified {out} (strict={strict})")
 import hashlib
 print(f"Manifest SHA256: {hashlib.sha256(out.read_bytes()).hexdigest()}")
