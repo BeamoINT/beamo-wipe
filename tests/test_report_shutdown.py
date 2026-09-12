@@ -12,6 +12,7 @@ from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.models import Screen
 from beamo_wipe.report_intent import ReportIntentStore
 from beamo_wipe.support_export import ExportReceipt
+from beamo_wipe.startup_stages import complete_synchronously
 from beamo_wipe.ui import console_wizard as console
 from test_report_intent import Terminal
 from test_usb_report_workflow import _done_wizard, _success_receipt
@@ -449,7 +450,7 @@ def test_live_graphical_failure_recovers_intent_and_power_action_is_once(
     monkeypatch.setattr(app, "apply_live_session_overrides", lambda args: None)
     monkeypatch.setattr(app.signal, "signal", lambda *a: None)
     monkeypatch.setattr(report_intent, "ReportIntentStore", lambda: store)
-    monkeypatch.setattr(app, "_build_wizard", lambda args: w)
+    monkeypatch.setattr(app, "_build_wizard", lambda *args, **kwargs: w)
     power = []
     monkeypatch.setattr(app, "_shutdown", lambda: power.append(True) or True)
 
@@ -459,10 +460,13 @@ def test_live_graphical_failure_recovers_intent_and_power_action_is_once(
         raise RuntimeError("display lost")
 
     monkeypatch.setattr("beamo_wipe.ui.tk_wizard.run_tk", fail_gui)
+    monkeypatch.setattr(
+        "beamo_wipe.ui.tk_wizard.run_tk_startup", complete_synchronously
+    )
     assert app.main([]) == 3 and not power
     recovered = make_demo_wizard()
     recovered.dry_run, recovered.preview = False, False
-    monkeypatch.setattr(app, "_build_wizard", lambda args: recovered)
+    monkeypatch.setattr(app, "_build_wizard", lambda *args, **kwargs: recovered)
 
     def console_ui(wizard):
         assert wizard.report_wanted

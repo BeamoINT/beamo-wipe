@@ -24,6 +24,7 @@ esac
 log() { printf '[ci-hosted] %s\n' "$*"; }
 
 install_test_deps() {
+  if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends \
     xvfb \
@@ -34,26 +35,30 @@ install_test_deps() {
     python3-setuptools \
     git \
     ca-certificates
-  python3 -m pip install --break-system-packages -q 'pytest==9.0.3'
+  python3 -m pip install --break-system-packages -q 'pytest==9.0.3' 'cryptography==49.0.0'
 }
 
 install_lint_deps() {
+  if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends \
     ca-certificates \
     python3 \
     python3-pip \
     python3-setuptools \
+    git \
     shellcheck
   python3 -m pip install --break-system-packages -q 'ruff==0.9.2' 'mypy==2.1.0'
 }
 
 install_preview_deps() {
+  if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
   apt-get update -qq
-  apt-get install -y -qq --no-install-recommends python3 python3-tk
+  apt-get install -y -qq --no-install-recommends python3 python3-tk git
 }
 
 install_qemu_deps() {
+  if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends \
     qemu-system-x86 \
@@ -102,7 +107,7 @@ run_pytest() {
   # Live-image tests that need lb config artifacts skip themselves when
   # packaging/live/config/{bootstrap,binary} are absent. Source assertions
   # for HTTPS mirrors and nox11autologin always run.
-  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest
+  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest --junitxml="${BEAMO_GATE_JUNIT:-$ROOT/dist/evidence/tests.xml}"
 }
 
 run_preview() {
@@ -198,7 +203,8 @@ run_qemu() {
   fi
   log "controlled QEMU verification (disposable qcow2, TCG where KVM absent)"
   ./scripts/build-usb-image.sh
-  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.7}" ./scripts/qemu-verify.sh
+  local qemu_code=0
+  BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.7}" ./scripts/qemu-verify.sh || qemu_code=$?
   # Copy private temporary evidence into the ignored workspace directory for
   # the explicit post-QEMU publisher. Verification-only builds discard it.
   evidence_source="$(cat "$ROOT/qemu-evidence/PATH" 2>/dev/null || true)"
@@ -208,42 +214,52 @@ run_qemu() {
   fi
   cp -r "$evidence_source/." "$ROOT/qemu-evidence/"
   log "QEMU evidence copied to qemu-evidence/"
+  return "$qemu_code"
+}
+
+record_gate() {
+  local gate="$1" action="$2"
+  if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then
+    "$action"
+  else
+    python3 -m beamo_wipe.ci_evidence "$gate"
+  fi
 }
 
 case "$PHASE" in
   lint)
     install_lint_deps
-    run_lint
+    record_gate lint run_lint
     ;;
   tests)
     install_test_deps
-    run_pytest
+    record_gate tests run_pytest
     ;;
   preview)
     install_preview_deps
-    run_preview
+    record_gate preview run_preview
     ;;
   negative)
     install_test_deps
-    run_negative
+    record_gate negative run_negative
     ;;
   iso)
-    run_iso
+    record_gate iso run_iso
     ;;
   qemu)
     install_qemu_deps
-    run_qemu
+    record_gate qemu run_qemu
     ;;
   all)
     install_lint_deps
-    run_lint
+    record_gate lint run_lint
     install_test_deps
-    run_pytest
-    run_preview
-    run_negative
-    run_iso
+    record_gate tests run_pytest
+    record_gate preview run_preview
+    record_gate negative run_negative
+    record_gate iso run_iso
     install_qemu_deps
-    run_qemu
+    record_gate qemu run_qemu
     ;;
 esac
 

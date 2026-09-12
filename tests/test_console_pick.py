@@ -8,7 +8,7 @@ from beamo_wipe.wizard import make_demo_wizard
 
 def test_plain_console_zero_does_not_select_last_disk(monkeypatch):
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -34,7 +34,7 @@ def test_plain_console_garbage_method_stays_on_method(monkeypatch):
     from beamo_wipe.models import MethodId
 
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -63,7 +63,7 @@ def test_plain_console_garbage_method_stays_on_method(monkeypatch):
 def test_plain_console_eof_does_not_crash(monkeypatch):
     """Ctrl-D on the last-resort TTY must shut down, not raise EOFError."""
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
 
     def fake_input(_prompt=""):
@@ -81,7 +81,7 @@ def test_plain_console_empty_method_keeps_extra(monkeypatch):
     from beamo_wipe.models import MethodId
 
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -122,7 +122,7 @@ def test_curses_enter_repeat_helper_ignores_second_enter():
 
 
 def _drive_to_working_plain(wiz):
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -197,7 +197,7 @@ def test_plain_loop_ctrl_c_outside_working_shuts_down(monkeypatch):
     from beamo_wipe.ui import console_wizard as C
 
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     assert wiz.screen == Screen.OWNER
 
@@ -242,7 +242,7 @@ def test_curses_pick_empty_enter_ignored_until_idle():
 
     wiz = make_demo_wizard(scenario="empty")
     wiz.preview = False
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

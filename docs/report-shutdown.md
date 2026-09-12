@@ -3,7 +3,10 @@
 **I want to save a report** records an optional preference. It never chooses
 media, saves automatically, creates erase evidence, or authorizes an erase.
 The live session's memory and temporary files are lost on shutdown or power
-loss. The application cannot stop loss of power or a hardware power button.
+loss. The application cannot stop loss of power or a hardware power button
+held long enough for firmware to cut power. The live image asks systemd not
+to sleep, hibernate, or treat lid close and a short power press as shutdown;
+see [live-session power](live-session-power.md).
 
 When a report was requested and no verified export of the current report has
 completed, **Shut down** opens **Shut down without saving?**. **Keep session

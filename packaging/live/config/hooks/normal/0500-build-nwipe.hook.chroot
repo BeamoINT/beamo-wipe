@@ -182,12 +182,24 @@ systemctl mask serial-getty@ttyS0.service || true
 # Debian live-config 0140-xinit writes an infinite `startx` loop on tty1
 # (sourced from /etc/profile.d before ~/.profile). Remove the component.
 rm -f /lib/live/config/0140-xinit
-mkdir -p /etc/systemd/logind.conf.d
-cat > /etc/systemd/logind.conf.d/beamo-kiosk.conf << 'EOF'
-[Login]
-NAutoVTs=1
-ReserveVT=1
-EOF
+# Live-session power policy is shipped in includes.chroot. Do not overwrite it.
+for policy in \
+  /etc/systemd/logind.conf.d/beamo-kiosk.conf \
+  /etc/systemd/sleep.conf.d/beamo-kiosk.conf \
+  /etc/X11/xorg.conf.d/10-beamo.conf
+do
+  if [ ! -f "$policy" ]; then
+    echo "ERROR: missing live-session power policy $policy" >&2
+    exit 1
+  fi
+done
+# Mask OS sleep units. Do not mask poweroff/reboot: wizard Shut down must work.
+for unit in sleep.target suspend.target hibernate.target hybrid-sleep.target \
+  suspend-then-hibernate.target
+do
+  ln -sfn /dev/null "/etc/systemd/system/${unit}"
+  systemctl mask "${unit}" || true
+done
 chmod 755 /usr/local/bin/beamo-wipe
 chmod 755 /usr/local/sbin/beamo-wipe-kiosk
 mkdir -p /etc/systemd/system/multi-user.target.wants
@@ -197,7 +209,13 @@ ln -sfn /etc/systemd/system/beamo-wipe-kiosk.service \
 # a macOS bind mount can otherwise preserve host UID/GID values in the chroot.
 chown -R root:root /usr/lib/beamo-wipe /usr/local/bin/beamo-wipe \
   /usr/local/sbin/beamo-wipe-kiosk /etc/systemd/system/beamo-wipe-kiosk.service \
+  /etc/systemd/logind.conf.d/beamo-kiosk.conf \
+  /etc/systemd/sleep.conf.d/beamo-kiosk.conf \
+  /etc/X11/xorg.conf.d/10-beamo.conf \
   /usr/share/beamo-wipe /usr/share/doc/beamo-wipe
+chmod 0644 /etc/systemd/logind.conf.d/beamo-kiosk.conf \
+  /etc/systemd/sleep.conf.d/beamo-kiosk.conf \
+  /etc/X11/xorg.conf.d/10-beamo.conf
 find /usr/lib/beamo-wipe /usr/share/beamo-wipe /usr/share/doc/beamo-wipe \
   -type d -exec chmod 0755 {} +
 find /usr/lib/beamo-wipe /usr/share/beamo-wipe /usr/share/doc/beamo-wipe \

@@ -439,7 +439,7 @@ def test_concurrent_double_confirm_erase_single_start_deterministic(tmp_path, mo
     clock = Clock()
 
     wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5, clock=clock), clock=clock, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -474,7 +474,7 @@ def test_cancellation_during_sigusr1_armed_yields_interrupted(tmp_path, monkeypa
     base = make_demo_wizard()
     clock = Clock()
     wiz = Wizard(base.discovery, DryRunRunner(duration_s=1.0, clock=clock), clock=clock, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -598,7 +598,7 @@ def test_wizard_lifecycle_empty_blocked_recovery(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     # empty scenario: no selectable
     empty = make_demo_wizard(scenario="empty")
-    empty.skip_splash()
+    empty.skip_intro()
     empty.accept_what()
     empty.set_owner(True)
     empty.continue_owner()
@@ -608,7 +608,7 @@ def test_wizard_lifecycle_empty_blocked_recovery(tmp_path, monkeypatch):
     assert empty.selected is None
     # blocked scenario
     blocked = make_demo_wizard(scenario="blocked")
-    blocked.skip_splash()
+    blocked.skip_intro()
     blocked.accept_what()
     blocked.set_owner(True)
     blocked.continue_owner()
@@ -623,7 +623,7 @@ def test_wizard_countdown_and_countdown_left_boundary(tmp_path, monkeypatch):
     base = make_demo_wizard()
     clock = Clock()
     wiz = Wizard(base.discovery, DryRunRunner(duration_s=0.5, clock=clock), clock=clock, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

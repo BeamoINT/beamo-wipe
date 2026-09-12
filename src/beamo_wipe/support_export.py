@@ -23,7 +23,7 @@ import sys
 import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
+from typing import TypeGuard, Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from beamo_wipe.discover import run_lsblk
 from beamo_wipe.evidence import _verified_evidence_bytes
@@ -276,7 +276,7 @@ def receipt_is_saved(
     expected_sha256: str,
     owner_file: str = OWNER_WIPE_FILE,
     share_copy: bool | None = None,
-) -> bool:
+) -> TypeGuard[ExportReceipt]:
     """True only for a structurally valid, verified, unmounted success receipt."""
     if not isinstance(receipt, ExportReceipt):
         return False
@@ -1160,6 +1160,13 @@ def _bundle_files(
             f"nwipe log: {log_status}.\r\n"
             "COMPLETE authenticates these file contents only. It does not claim that the USB is safe to remove.\r\n"
         ).encode("utf-8")
+    if isinstance(payload, dict):
+        for check in payload.get("checks") or ():
+            if not isinstance(check, dict):
+                continue
+            ident, status, summary = (check.get(key) for key in ("id", "status", "summary"))
+            if all(isinstance(value, str) for value in (ident, status, summary)):
+                readme += f"Check {ident}: {status}. {summary}\r\n".encode("utf-8")
     if diagnostic:
         files = {"diagnostic.json": evidence,
                  "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}

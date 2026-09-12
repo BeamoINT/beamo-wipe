@@ -32,6 +32,7 @@ class MethodId(str, Enum):
 
 class Screen(str, Enum):
     SPLASH = "splash"
+    KEYBOARD = "keyboard"
     WHAT = "what"
     OWNER = "owner"
     PICK = "pick"
