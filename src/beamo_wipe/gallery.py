@@ -13,6 +13,7 @@ from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
 from beamo_wipe.outcomes import preview_view
 from beamo_wipe.demo import discovery_for_scenario
+from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
 from beamo_wipe.identity import present_disk
@@ -132,7 +133,16 @@ def gallery_html() -> str:
         "limitsText": limits.full_text(),
         "previewBanner": C.PREVIEW_BANNER,
         "splash": C.SPLASH_TAGLINE,
+        "keyboardLead": C.KEYBOARD_LEAD,
+        "keyboardLimits": C.KEYBOARD_LIMITS,
+        "keyboardCheck": C.KEYBOARD_CHECK_LABEL,
+        "keyboardHint": C.KEYBOARD_CHECK_HINT,
+        "keyboardLayouts": [
+            {"id": layout_id, "title": LAYOUTS[layout_id].title, "note": LAYOUTS[layout_id].note}
+            for layout_id in LAYOUT_ORDER
+        ],
         "titles": {
+            "keyboard": C.TITLE_KEYBOARD,
             "what": C.TITLE_WHAT,
             "owner": C.TITLE_OWNER,
             "pick": C.TITLE_PICK,
@@ -198,6 +208,7 @@ def gallery_html() -> str:
             "blocked": C.HINT_BLOCKED,
             "working": C.HINT_WORKING,
             "splash": C.HINT_SPLASH,
+            "keyboard": C.HINT_KEYBOARD,
         },
         "helperHref": "../helper/index.html",
         "methods": {
@@ -461,6 +472,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .inventory-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
   .disktype { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 0; }
   .card .title, .card .meta { overflow-wrap: anywhere; }
+  /* Grid/flex items default to min-width:auto: a long unbroken serial,
+     model, or warning would push past the card instead of wrapping. */
+  .card .meta > *, .panel > div { min-width: 0; }
+  .panel > div { overflow-wrap: anywhere; }
   .card .meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; }
   .connection { grid-column: 1 / -1; }
   .compact-notice { padding: 8px 16px; font-size: 14px; }
@@ -524,6 +539,7 @@ let shutdownFrom = "what";
 let owner = false;
 let selected = null;
 let token = "";
+let keyboardLayout = "us";
 let method = "everyday";
 let tLeft = 5;
 let timer = null;
@@ -588,6 +604,7 @@ function boot(m) {
   owner = false;
   selected = null;
   token = "";
+  keyboardLayout = "us";
   method = "everyday";
   tLeft = 5;
   demoPct = null;
@@ -605,7 +622,7 @@ function disks() {
 }
 function selectable() { return disks().filter(d => d.eligible); }
 function stepInfo() {
-  const map = {splash:[0,"",""], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
+  const map = {splash:[0,"",""], keyboard:[0,"",P.titles.keyboard], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
     pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
     confirm:[4,"Step 4 of 8",P.titles.confirm], method:[5,"Step 5 of 8",P.titles.method],
     limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
@@ -633,7 +650,7 @@ function panel(kind, text, compact = false) {
   return `<div class="panel ${kind}${compact ? " compact-notice" : ""}">${badge(kind, 28)}<div>${text}</div></div>`;
 }
 function moreLink() {
-  return `<button type="button" class="linkbtn morelink" id="more">${showMore ? P.buttons.less : P.buttons.more}</button>`;
+  return `<button type="button" class="linkbtn morelink" id="more" aria-expanded="${showMore}">${showMore ? P.buttons.less : P.buttons.more}</button>`;
 }
 function bindMore() {
   const el = document.getElementById("more");
@@ -718,7 +735,26 @@ function draw() {
       <p class="splashlead">${P.splash}</p><p class="splash-roadmap">${P.splashRoadmap}</p>
       <button class="btn primary" id="herogo">${P.buttons.continue}</button>
       <div class="anykeycap">${P.hints.splash}</div></div>`;
-    main.querySelector("#herogo").onclick = () => { screen = "what"; draw(); };
+    main.querySelector("#herogo").onclick = () => { screen = "keyboard"; draw(); };
+  } else if (screen === "keyboard") {
+    const layouts = P.keyboardLayouts.map((item, i) => {
+      const selected = (keyboardLayout || "us") === item.id;
+      return `<div class="card${selected ? " selected" : ""}" data-layout="${item.id}" tabindex="0"><div class="row"><span class="kbd">${i+1}</span><div class="title grow">${item.title}</div></div><p class="small muted">${item.note}</p></div>`;
+    }).join("");
+    main.innerHTML = `<h1 class="sub">${P.titles.keyboard}</h1><p class="subtitle">${P.keyboardLead}</p>
+      <p class="small muted">${P.keyboardLimits}</p>
+      <div class="cz"><div class="czc">${layouts}
+      <p class="small">${P.keyboardCheck}</p>
+      <input id="kbcheck" type="text" autocomplete="off" spellcheck="false" placeholder="${P.keyboardHint}" value="">
+      </div></div>`;
+    main.querySelectorAll("[data-layout]").forEach(el => {
+      el.onclick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
+    });
+    const box = main.querySelector("#kbcheck");
+    if (box) box.value = "";
+    btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
+    renderHint(P.hints.keyboard);
+    btnsR.append(btn(P.buttons.continue, () => { screen = "what"; draw(); }, "primary"));
   } else if (screen === "what") {
     main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
@@ -785,7 +821,7 @@ function draw() {
       ${summaryCard(d)}
       ${moreLink()}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
-      <p style="font-size:16px;margin:14px 0 8px"><label for="tok">${d.prompt}</label></p>
+      <p style="font-size:16px;margin:14px 0 8px;overflow-wrap:anywhere"><label for="tok">${d.prompt}</label></p>
       <div class="entryshell"><input class="token" id="tok" aria-describedby="match" autocomplete="off" spellcheck="false"></div>
       <p class="match" id="match" role="status" aria-live="polite"></p></div></div>`;
     bindMore();

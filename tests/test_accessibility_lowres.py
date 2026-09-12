@@ -1,10 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Accessibility & low-resolution verification (keyboard-only, focus, contrast,
-wrapping, warning comprehension, error recovery, progress, browser/helper).
+"""Accessibility and low-resolution checks.
 
-All tests use fake disks (`make_demo_wizard`, injected lsblk JSON) and never
-exec nwipe on a real disk. Tk runtime tests require a display; when headless
-they exercise the same code structurally and skip the live geometry probe.
+The first section inspects source strings, copy, and wizard model properties.
+Those tests are structural. They are not proof that text, focus, wrapping, or
+actions appear on a mapped window.
+
+Rendered geometry, focus, and keyboard interaction live in the Tk runtime
+block below, plus `test_tk_runtime.py`, `test_adaptive_layout.py`,
+`test_rendered_visible_behavior.py`, and `test_console_parity.py`.
+
+Fake disks only. Never exec nwipe on a host disk.
 """
 
 import inspect
@@ -22,7 +27,7 @@ from beamo_wipe.ui import tk_wizard as tkui
 ROOT = Path(__file__).resolve().parents[1]
 
 # ---------------------------------------------------------------------------
-# Structural invariants (no display needed)
+# Structural invariants (source and model only — not rendered proof)
 # ---------------------------------------------------------------------------
 
 def test_tk_scaling_is_pinned_to_one():
@@ -42,6 +47,7 @@ def test_all_hints_render_as_key_caps():
         C.HINT_BLOCKED,
         C.HINT_DONE,
         C.HINT_SPLASH,
+        C.HINT_KEYBOARD,
     ):
         for word in ("Enter", "Esc", "Space", "Up/Down", "1, 2, or 3", "any key"):
             if word in hint:
@@ -191,6 +197,8 @@ def test_helper_page_focus_visible_and_key_caps():
     html = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
     assert 'a:focus-visible' in html
     assert 'outline: 3px solid var(--focus)' in html
+    assert 'Skip to instructions' in html
+    assert 'href="#main"' in html
     keys = re.findall(r'class="kbd">([^<]+)<', html)
     assert "F12" in keys
     assert 'max-width: 920px' in html  # wraps at 360px
@@ -210,7 +218,7 @@ def test_accessibility_shortcuts_cannot_bypass_gates():
     for scenario in ("happy", "empty", "blocked"):
         wiz = make_demo_wizard(scenario=scenario)  # DryRunRunner
         # Drive to at least PICK and poke
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         if wiz.screen == Screen.WHAT:
             continue  # demo empty/blocked edge — still no wipe
@@ -253,7 +261,7 @@ def test_accessibility_shortcuts_cannot_bypass_gates():
 
 def test_method_keyboard_up_down_cycles():
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -329,7 +337,7 @@ def test_done_failure_copy_never_says_secure():
 
 
 # ---------------------------------------------------------------------------
-# Tk runtime probes (require display — skip when headless)
+# Tk runtime probes (mapped windows — this is rendered proof)
 # ---------------------------------------------------------------------------
 
 try:
@@ -357,89 +365,68 @@ def _needs_display():
         pytest.skip(f"no display: {exc}")
 
 
-@pytest.mark.parametrize("size", [(1280, 820), (1024, 740)])
-def test_runtime_accessibility_lowres_matrix(size):
-    """Every screen fits without clipping/off-window at supported widths."""
+@pytest.mark.parametrize("size", [(1280, 820), (1024, 740), (800, 600)])
+@pytest.mark.parametrize(
+    "screen",
+    [
+        Screen.KEYBOARD,
+        Screen.WHAT,
+        Screen.OWNER,
+        Screen.PICK,
+        Screen.CONFIRM,
+        Screen.METHOD,
+        Screen.ADVANCED,
+        Screen.LAST_CHANCE,
+        Screen.WORKING,
+    ],
+)
+def test_runtime_accessibility_lowres_matrix(size, screen):
+    """Mapped windows: critical controls stay on-window and take focus."""
     _needs_display()
-    import tkinter as tk
     from beamo_wipe.demo import make_demo_wizard
-    from beamo_wipe.models import Screen
+    from beamo_wipe.models import Screen as Scr
+    from beamo_wipe.ui.layout import MIN_SIZE
     from beamo_wipe.ui.tk_wizard import TkWizard
+    from test_tk_runtime import _clipping_problems, _drive_to, _off_window_problems
 
-    def drive(app_wizard, screen):
-        w = app_wizard
-        if w.screen == Screen.SPLASH and screen != Screen.SPLASH:
-            w.skip_splash()
-        if screen in (Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED, Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
-            if w.screen == Screen.WHAT:
-                w.accept_what()
-        if screen != Screen.OWNER and w.screen == Screen.OWNER:
-            w.set_owner(True)
-            w.continue_owner()
-        if screen in (Screen.PICK, Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED):
-            if w.screen == Screen.PICK and w.selectable:
-                disk = sorted(w.selectable, key=lambda d: d.path)[0]
-                w.select_disk(disk.path)
-        if screen in (Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED):
-            if w.screen == Screen.PICK:
-                w.continue_pick()
-                spec = w.confirm
-                if spec:
-                    w.set_confirm_input(spec.token)
-        if screen in (Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED):
-            if w.screen == Screen.CONFIRM:
-                w.continue_confirm()
-        if screen == Screen.ADVANCED and w.screen == Screen.METHOD:
-            w.open_advanced()
-        if screen in (Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE):
-            if w.screen == Screen.METHOD:
-                w.continue_method()
-
-    for screen in (Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD, Screen.ADVANCED, Screen.LAST_CHANCE):
-        wiz = make_demo_wizard()
-        app = TkWizard(wiz)
+    wiz = make_demo_wizard()
+    app = TkWizard(wiz)
+    try:
+        app.root.minsize(*MIN_SIZE)
         app.root.geometry(f"{size[0]}x{size[1]}+40+40")
         app.root.update_idletasks()
         app.root.focus_force()
-        drive(wiz, screen)
-        app._draw()
+        if screen == Scr.WORKING:
+            _drive_to(wiz, app, Scr.LAST_CHANCE, size=size)
+            wiz.screen = Scr.WORKING
+            app._draw()
+            app.root.update_idletasks()
+            app.root.update()
+        else:
+            _drive_to(wiz, app, screen, size=size)
+        assert app.w.screen == screen, f"{screen} not reached at {size}"
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
         app.root.update_idletasks()
         app.root.update()
-        assert app.w.screen == screen, f"{screen} not reached at {size}"
-        # clipping check (labels/entries not wider than allocated)
-        def _clips(a):
-            probs = []
-            def visit(w):
-                try:
-                    if not w.winfo_ismapped():
-                        return
-                except tk.TclError:
-                    return
-                cls = w.winfo_class()
-                if cls in ("Label", "Entry") and not isinstance(w.master, tk.Canvas):
-                    # Canvas-hosted labels are inside _Box, ignore
-                    # Check only top-level labels not in a Canvas
-                    pass
-                for ch in w.winfo_children():
-                    visit(ch)
-            visit(a.root)
-            return probs
-        _clips(app)  # smoke — full clipping is in test_tk_runtime
-        # focusable exists
+        assert _clipping_problems(app) == []
+        if app._body_canvas is None:
+            assert _off_window_problems(app) == []
         found = []
-        def find_focus(w):
+
+        def find_focus(widget):
             try:
-                if w.winfo_ismapped() and str(w.cget("takefocus")) == "1":
-                    found.append(w.winfo_class())
-                if w.winfo_class() == "Entry" and str(w.cget("takefocus")) == "":
+                if widget.winfo_ismapped() and str(widget.cget("takefocus")) == "1":
+                    found.append(widget.winfo_class())
+                if widget.winfo_class() == "Entry":
                     found.append("Entry")
             except tk.TclError:
                 pass
-            for ch in w.winfo_children():
-                find_focus(ch)
+            for child in widget.winfo_children():
+                find_focus(child)
+
         find_focus(app.root)
-        # WORKING and SPLASH excluded from focusable requirement; others must have one
-        assert found or screen in (Screen.WHAT,), f"{screen} at {size} has no focusable"
+        assert found, f"{screen} at {size} has no focusable control"
+    finally:
         app._teardown()
 
 
@@ -452,7 +439,7 @@ def test_runtime_safe_default_focus_is_never_erase():
         app.root.geometry("1280x820+40+40")
         app.root.update_idletasks()
         # Drive to LAST_CHANCE
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         wiz.set_owner(True)
         wiz.continue_owner()
@@ -485,7 +472,7 @@ def test_runtime_tab_does_not_trap_on_confirm_and_pick():
     try:
         app.root.geometry("1280x820+40+40")
         app.root.update_idletasks()
-        wiz.skip_splash()
+        wiz.skip_intro()
         wiz.accept_what()
         wiz.set_owner(True)
         wiz.continue_owner()

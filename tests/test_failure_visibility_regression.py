@@ -359,7 +359,7 @@ def test_wizard_cancel_wipe_produces_interrupted_evidence(tmp_path, monkeypatch)
 
     base = make_demo_wizard()
     wiz = base
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

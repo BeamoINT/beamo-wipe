@@ -36,7 +36,7 @@ def test_fixture_cli_refresh_stays_on_fake_machine(monkeypatch):
     wizard = app._build_wizard(app._parser().parse_args(['--lsblk-json', str(FIXTURE)]))
     assert wizard.dry_run and isinstance(wizard.runner, DryRunRunner)
     before = wizard.discovery
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()

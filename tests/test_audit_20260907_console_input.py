@@ -16,7 +16,7 @@ def _working(monkeypatch, tmp_path):
     wizard.runner._clock = lambda: 0.0
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()

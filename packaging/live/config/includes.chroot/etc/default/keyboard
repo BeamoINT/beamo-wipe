@@ -1,0 +1,7 @@
+# Shipped console-setup default. The wizard may loadkeys us/fr/de for this
+# session only and does not rewrite this file. A kiosk restart returns to US.
+XKBMODEL="pc105"
+XKBLAYOUT="us"
+XKBVARIANT=""
+XKBOPTIONS=""
+BACKSPACE="guess"
