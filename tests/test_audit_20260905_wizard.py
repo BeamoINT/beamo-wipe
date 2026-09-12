@@ -15,7 +15,7 @@ def _working_wizard(monkeypatch):
     wizard.preview = False
     wizard.runner._clock = lambda: 0.0
     monkeypatch.setattr(wizard, "_write_evidence", lambda **kwargs: None)
-    wizard.skip_splash()
+    wizard.skip_intro()
     wizard.accept_what()
     wizard.set_owner(True)
     wizard.continue_owner()

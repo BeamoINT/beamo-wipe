@@ -57,6 +57,9 @@ def _happy_blob() -> str:
             copy.CONFIRM_LEAD,
             copy.METHOD_LEAD,
             copy.LAST_LEAD,
+            copy.TITLE_KEYBOARD,
+            copy.KEYBOARD_LEAD,
+            copy.KEYBOARD_LIMITS,
             copy.TITLE_WHAT,
             copy.TITLE_OWNER,
             copy.TITLE_PICK,
@@ -69,6 +72,17 @@ def _happy_blob() -> str:
             copy.confirm_type_size("256"),
             copy.confirm_type_four("A111"),
             copy.confirm_type_chars("ABC"),
+            copy.PREPARE_WINDOWS,
+            copy.PREPARE_SYSTEM,
+            copy.PREPARE_DATA,
+            copy.PREPARE_UNKNOWN,
+            copy.POWER_REMINDER,
+            copy.POWER_BLANKING,
+            copy.WORKING_PULSE,
+            copy.VIEWS["verified"].next_step,
+            copy.VIEWS["unverified"].next_step,
+            copy.VIEWS["cancelled"].next_step,
+            copy.VIEWS["indeterminate"].next_step,
         ]
     ).lower()
 
@@ -108,12 +122,17 @@ def test_customer_copy_does_not_say_beamo_did_not_write():
         assert phrase not in html, phrase
 
 
-def test_what_screen_is_two_plain_bullets():
-    assert len(copy.WHAT_BULLETS) == 2
+def test_what_screen_is_plain_prepare_bullets():
+    assert len(copy.WHAT_BULLETS) == 3
     blob = " ".join(copy.WHAT_BULLETS).lower()
+    assert "copies you need" in blob
     assert "pick a disk" in blob
     assert "cannot get the files back" in blob
+    assert "operating system" in blob
+    assert "recovery partitions" in blob
     assert "not apple silicon" in blob
+    assert "wall power" in copy.POWER_REMINDER.lower()
+    assert "not sleep" in copy.POWER_BLANKING.lower()
     assert "nwipe" not in blob
     assert "warranty" not in blob
     assert "did not write" not in blob

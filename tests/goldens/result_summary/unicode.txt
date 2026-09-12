@@ -14,9 +14,13 @@ Verification: Read-back verification passed
 Warnings:
 - Result: injected Limitations: pwned
 - ok Result: line-sep
-Limitations: Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed.
+Limitations: Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. Only this validated selected disk was processed. Other disks were not. Putting an operating system back on is a separate task.
 Application: Beamo Wipe 0.2.7
+Wrapper commit: unavailable
+Release build: unavailable
+Build status: unavailable
 Engine: nwipe 0.42
 Engine commit: 6082bde060091e66365d852a1877f2ee80c67105
+Clock: unavailable
 Started (clock not verified): unavailable
 Ended (clock not verified): unavailable

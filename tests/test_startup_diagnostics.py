@@ -18,7 +18,7 @@ from beamo_wipe.models import DiscoveryResult, Screen
 from beamo_wipe.nwipe_runner import DryRunRunner
 from beamo_wipe.safety import SafetyError
 from beamo_wipe.wizard import Wizard
-from test_usb_report_workflow import _payload, _discovery
+from test_usb_report_workflow import _payload, _discovery, _worker_success_stdout
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def blob():
 def test_startup_failure_keeps_console_and_sanitized_diagnostic_reachable(
     monkeypatch, capsys, exc, code
 ):
-    def fail(_args):
+    def fail(_args, **_kwargs):
         raise exc
 
     monkeypatch.setattr(app, "_build_wizard", fail)
@@ -109,8 +109,12 @@ def test_discovery_failures_have_allowlisted_codes(monkeypatch, exc):
 
 
 def test_graphical_startup_failure_retains_diagnostic_path(monkeypatch):
+    from beamo_wipe.startup_stages import complete_synchronously
+
     monkeypatch.setattr(
-        app, "_build_wizard", lambda _: (_ for _ in ()).throw(PermissionError("secret"))
+        app,
+        "_build_wizard",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(PermissionError("secret")),
     )
 
     def graphical(w, **kwargs):
@@ -118,6 +122,9 @@ def test_graphical_startup_failure_retains_diagnostic_path(monkeypatch):
         return 0
 
     monkeypatch.setattr("beamo_wipe.ui.tk_wizard.run_tk", graphical)
+    monkeypatch.setattr(
+        "beamo_wipe.ui.tk_wizard.run_tk_startup", complete_synchronously
+    )
     assert app.main([]) == 0
 
 
@@ -208,7 +215,7 @@ def test_build_identity_is_exact_and_runtime_overrides_are_ignored(
     monkeypatch.setattr(d, "BUILD_PATH", path)
     monkeypatch.setenv("BUILD_ID", "private")
     assert d.application_identity()["build"] == metadata
-    assert d.validate_report(blob())["application"]["build_status"] == "recorded"
+    assert d.validate_report(blob())["application"]["build_status"] == "production"
     metadata["hostname"] = "private"
     path.write_text(json.dumps(metadata))
     assert d.application_identity()["build_status"] == "unavailable"
@@ -392,18 +399,10 @@ def test_diagnostic_controller_worker_checksum_and_privacy_boundary(monkeypatch)
         request["evidence_sha256"] = "0" * 64
         with pytest.raises(SafetyError, match="checksum"):
             export._decode_worker_request(json.dumps(request).encode())
+        original = json.loads(kw["input"])
         return SimpleNamespace(
             returncode=0,
-            stdout=json.dumps(
-                {
-                    "ok": True,
-                    "safe_to_remove": True,
-                    "code": "saved_verified_unmounted",
-                    "evidence_sha256": hashlib.sha256(data).hexdigest(),
-                    "session_name": "report-" + "c" * 24,
-                    "log_status": "unavailable",
-                }
-            ),
+            stdout=_worker_success_stdout(original, diagnostic=True),
         )
 
     receipt = export.export_diagnostic_to_new_usb(
@@ -638,7 +637,7 @@ def test_supervisor_console_keeps_graphical_failure_visible(monkeypatch):
     w = make_demo_wizard()
     w.preview = False
     w.screen = Screen.WHAT
-    monkeypatch.setattr(app, "_build_wizard", lambda _: w)
+    monkeypatch.setattr(app, "_build_wizard", lambda *_args, **_kwargs: w)
     monkeypatch.setenv("BEAMO_WIPE_GRAPHICAL_UNAVAILABLE", "1")
     monkeypatch.setattr("beamo_wipe.ui.console_wizard.run_console", lambda w: 0)
     assert app.main(["--console"]) == 0

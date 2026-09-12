@@ -86,8 +86,18 @@ def test_untrusted_clocks_are_not_presented_as_fact():
     ev["timestamps"]["started_at_wall"] = "2026-09-09T12:00:00Z"
     ev["timestamps"]["ended_at_wall"] = "2026-09-09T12:01:00.5Z"
     text = build_result_summary(ev, evidence_sha256="b" * 64)
+    assert f"Started (clock not verified): {UNAVAILABLE}" in text
+    assert f"Clock: {UNAVAILABLE}" in text
+    ev["timestamps"]["wall_confidence"] = "unverified"
+    ev["timestamps"]["wall_provenance"] = "os_utc"
+    text = build_result_summary(ev, evidence_sha256="b" * 64)
     assert "Started (clock not verified): 2026-09-09T12:00:00Z" in text
     assert "Ended (clock not verified): 2026-09-09T12:01:00.5Z" in text
+    assert "Clock: unverified (os_utc)" in text
+    ev["timestamps"]["wall_confidence"] = "verified"
+    text = build_result_summary(ev, evidence_sha256="b" * 64)
+    assert f"Started (clock not verified): {UNAVAILABLE}" in text
+    assert f"Clock: {UNAVAILABLE}" in text
 
 
 def test_long_unicode_is_stable_and_cannot_inject_headings():
@@ -137,14 +147,19 @@ def test_redacted_share_withholds_identifiers_and_keeps_owner_original():
     )
     assert serial.encode() in bundle["RESULT.txt"]
     assert serial.encode() not in bundle["SHARE.txt"]
-    assert f"Hardware ID: {UNAVAILABLE}".encode() in bundle["SHARE.txt"]
-    assert bundle["result.json"]  # original preserved
+    assert serial.encode() not in bundle["SHARE.json"]
+    assert b"Serial: withheld" in bundle["SHARE.txt"]
+    assert bundle["result.json"] == json.dumps(ev).encode()
     complete = json.loads(bundle["COMPLETE"])
     assert complete["result_summary"] == "RESULT.txt"
+    assert complete["share_copy"] == "SHARE.json"
     assert complete["share_summary"] == "SHARE.txt"
+    assert complete["privacy_policy_version"] == 1
     assert complete["files"]["RESULT.txt"] == hashlib.sha256(bundle["RESULT.txt"]).hexdigest()
     assert complete["files"]["SHARE.txt"] == hashlib.sha256(bundle["SHARE.txt"]).hexdigest()
-    _assert_golden("share.txt", share)
+    assert complete["files"]["SHARE.json"] == hashlib.sha256(bundle["SHARE.json"]).hexdigest()
+    share_text = bundle["SHARE.txt"].decode("utf-8").replace("\r\n", "\n").rstrip("\n")
+    _assert_golden("share.txt", share_text)
 
 
 def test_bundle_checksums_cover_the_summary():

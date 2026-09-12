@@ -95,7 +95,7 @@ def test_pick_blocked_logs_but_does_not_expose_diagnostic():
         diagnostic="CalledProcessError: lsblk exit 1",
     )
     wiz = Wizard(blocked, base.runner, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -171,7 +171,7 @@ def test_evidence_write_failure_is_surfaced(tmp_path, monkeypatch):
 
     base = make_demo_wizard()
     wiz = Wizard(base.discovery, base.runner, dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

@@ -61,6 +61,7 @@ def test_helper_page_uses_the_same_color_tokens():
 
 def test_every_hint_key_name_renders_as_a_key_cap():
     hints = (
+        C.HINT_KEYBOARD,
         C.HINT_DEFAULT,
         C.HINT_PICK,
         C.HINT_OWNER,
@@ -124,6 +125,42 @@ def test_gallery_mirrors_wizard_components():
         "moreLink",  # optional extra detail, not a new screen
     ):
         assert marker in html
+
+
+def test_gallery_more_button_announces_expanded_state():
+    html = gallery_html()
+    assert 'id="more"' in html
+    assert 'aria-expanded="${showMore}"' in html
+    matrix = (ROOT / "docs" / "accessibility-lowres-matrix.md").read_text(encoding="utf-8")
+    assert "via click only" not in matrix
+    assert "aria-expanded" in matrix
+
+
+def test_gallery_identity_selectors_cannot_clip():
+    """Backlog #51: names, serials, paths, and warnings must wrap, not clip."""
+    html = gallery_html()
+    style = html.split("<style>", 1)[1].split("</style>", 1)[0]
+    assert "text-overflow" not in style
+    nowrap_rules = [
+        line.strip()
+        for line in style.splitlines()
+        if "white-space" in line and "nowrap" in line
+    ]
+    # Only fixed short copy may opt out of wrapping: step counts and the
+    # formatted capacity ("931 GB"). Identity selectors must never appear.
+    assert nowrap_rules, "expected the two documented nowrap rules"
+    for rule in nowrap_rules:
+        assert ".steptext" in rule or ".card .size" in rule, rule
+    for selector in (".card .title", ".card .meta", ".ser", ".panel > div",
+                     ".review-warning"):
+        assert selector in style, selector
+    # Grid/flex items default to min-width:auto and would push past the card.
+    assert ".card .meta > *, .panel > div" in style
+    # The confirm prompt can carry a full serial as the typed token.
+    prompt_line = next(
+        line for line in html.splitlines() if 'for="tok"' in line
+    )
+    assert "overflow-wrap:anywhere" in prompt_line
 
 
 def test_gallery_and_tk_share_plain_titles_and_more_detail():

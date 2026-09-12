@@ -9,8 +9,10 @@ import re
 import unicodedata
 from typing import Any, Mapping
 
+from beamo_wipe.build_identity import BUILD_ID_RE, COMMIT_RE as WRAPPER_COMMIT_RE, STATUSES
 from beamo_wipe.identity import HARDWARE_ID_LABEL, SERIAL_LABEL, SERIAL_NOT_REPORTED
 from beamo_wipe.outcomes import present_evidence
+from beamo_wipe.privacy import NOTICE as SHARE_NOTICE, SHARE_JSON, UNSUITABLE, is_sharing_copy
 from beamo_wipe.progress import duration
 
 UNAVAILABLE = "unavailable"
@@ -20,6 +22,17 @@ WALL_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 RESULT_FILE_RE = re.compile(r"^result-[A-Za-z0-9._-]{1,120}\.json$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+STATUS_LABELS = {
+    "production": "production",
+    "development": "development",
+    "dirty": "dirty",
+    "source_mismatch": "source mismatch",
+    "unavailable": UNAVAILABLE,
+}
+
+def _object_mapping(value: object) -> Mapping[str, Any]:
+    return value if isinstance(value, dict) else {}
+
 
 def sanitize_value(text: object, *, limit: int = MAX_VALUE) -> str:
     """Flatten untrusted text so it cannot inject headings or control codes."""
@@ -81,6 +94,36 @@ def _wall(value: object) -> str:
     return value
 
 
+def _schema_version(evidence: Mapping[str, Any]) -> int:
+    version = evidence.get("schema_version")
+    return version if type(version) is int else 0
+
+
+def _clock_line(timestamps: Mapping[str, Any], schema_version: int) -> str:
+    if schema_version >= 2:
+        confidence = timestamps.get("wall_confidence")
+        provenance = timestamps.get("wall_provenance")
+        if confidence == "verified":
+            return UNAVAILABLE
+        if confidence == "unverified" and provenance in {"os_utc", "injected"}:
+            return f"unverified ({provenance})"
+        return UNAVAILABLE
+    if _wall(timestamps.get("started_at_wall")) != UNAVAILABLE or _wall(
+        timestamps.get("ended_at_wall")
+    ) != UNAVAILABLE:
+        return "unverified"
+    return UNAVAILABLE
+
+
+def _wall_display(timestamps: Mapping[str, Any], key: str, schema_version: int) -> str:
+    if schema_version >= 2:
+        if timestamps.get("wall_confidence") != "unverified":
+            return UNAVAILABLE
+        if timestamps.get("wall_provenance") not in {"os_utc", "injected"}:
+            return UNAVAILABLE
+    return _wall(timestamps.get(key))
+
+
 def _elapsed(timestamps: object) -> str:
     """Prefer monotonic stamps. Wall time is never used for elapsed duration."""
     if not isinstance(timestamps, dict):
@@ -118,6 +161,8 @@ def _scrub(text: str, secrets: tuple[str, ...]) -> str:
 
 
 def _report_file(evidence: Mapping[str, Any]) -> str:
+    if is_sharing_copy(evidence):
+        return SHARE_JSON
     provenance = evidence.get("provenance")
     if not isinstance(provenance, dict):
         return UNAVAILABLE
@@ -131,11 +176,9 @@ def _report_file(evidence: Mapping[str, Any]) -> str:
 
 
 def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[str, str]]:
-    device = evidence.get("device") if isinstance(evidence.get("device"), dict) else {}
+    device = _object_mapping(evidence.get("device"))
     presentation = (
-        evidence.get("device_presentation")
-        if isinstance(evidence.get("device_presentation"), dict)
-        else {}
+        _object_mapping(evidence.get("device_presentation"))
     )
     secrets = _secrets(device) if redacted else ()
     title = _optional_text(presentation, "title")
@@ -156,12 +199,12 @@ def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[st
         serial = presented
     if hardware == UNAVAILABLE and label == HARDWARE_ID_LABEL:
         hardware = presented
-    if redacted:
+    if redacted or is_sharing_copy(evidence):
         title = _scrub(title, secrets)
         capacity = _scrub(capacity, secrets)
         connection = _scrub(connection, secrets)
-        serial = _maybe_withhold(serial)
-        hardware = _maybe_withhold(hardware)
+        serial = WITHHELD
+        hardware = WITHHELD
     return [
         ("Disk", title),
         ("Capacity", capacity),
@@ -172,7 +215,7 @@ def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[st
 
 
 def _method_lines(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
-    method = evidence.get("method") if isinstance(evidence.get("method"), dict) else {}
+    method = _object_mapping(evidence.get("method"))
     title = _optional_text(method, "title")
     summary = _optional_text(method, "operation_summary")
     if title != UNAVAILABLE and summary != UNAVAILABLE:
@@ -210,7 +253,7 @@ def _limitations(evidence: Mapping[str, Any]) -> str:
     if step != UNAVAILABLE:
         return step
     verification = (
-        evidence.get("verification") if isinstance(evidence.get("verification"), dict) else {}
+        _object_mapping(evidence.get("verification"))
     )
     return _optional_text(verification, "scope")
 
@@ -237,8 +280,26 @@ def _application(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
         commit_text = UNAVAILABLE
     else:
         commit_text = commit
+    wrapper = evidence.get("source_commit")
+    if not isinstance(wrapper, str) or not WRAPPER_COMMIT_RE.fullmatch(wrapper):
+        wrapper_text = UNAVAILABLE
+    else:
+        wrapper_text = wrapper
+    build_id = evidence.get("build_id")
+    if not isinstance(build_id, str) or not BUILD_ID_RE.fullmatch(build_id):
+        build_text = UNAVAILABLE
+    else:
+        build_text = build_id
+    status = evidence.get("build_status")
+    status_text = STATUS_LABELS.get(status, UNAVAILABLE) if status in STATUSES else UNAVAILABLE
+    if status_text == UNAVAILABLE:
+        wrapper_text = UNAVAILABLE
+        build_text = UNAVAILABLE
     return [
         ("Application", application),
+        ("Wrapper commit", wrapper_text),
+        ("Release build", build_text),
+        ("Build status", status_text),
         ("Engine", engine),
         ("Engine commit", commit_text),
     ]
@@ -252,16 +313,19 @@ def build_result_summary(
 ) -> str:
     """Stable labeled summary. Headings never come from evidence or logs."""
     payload = evidence if isinstance(evidence, dict) else {}
+    sharing = is_sharing_copy(payload)
     view = present_evidence(payload)
-    device = payload.get("device") if isinstance(payload.get("device"), dict) else {}
-    secrets = _secrets(device) if redacted else ()
+    device = _object_mapping(payload.get("device"))
+    secrets = _secrets(device) if (redacted or sharing) else ()
     checksum = evidence_sha256 if HEX64_RE.fullmatch(evidence_sha256 or "") else UNAVAILABLE
-    timestamps = payload.get("timestamps") if isinstance(payload.get("timestamps"), dict) else {}
-    lines: list[str] = [
-        "Sharing copy. Serials and hardware IDs withheld."
-        if redacted
-        else "Beamo Wipe result"
-    ]
+    timestamps = _object_mapping(payload.get("timestamps"))
+    if sharing:
+        header = SHARE_NOTICE
+    elif redacted:
+        header = "Sharing copy. Serials and hardware IDs withheld."
+    else:
+        header = "Beamo Wipe result"
+    lines: list[str] = [header]
     fields: list[tuple[str, str]] = [
         ("Report file", _report_file(payload)),
         ("Report checksum", checksum),
@@ -273,9 +337,12 @@ def build_result_summary(
         ("Warnings", _warnings(payload, secrets)),
         ("Limitations", _limitations(payload)),
         *_application(payload),
-        ("Started (clock not verified)", _wall(timestamps.get("started_at_wall"))),
-        ("Ended (clock not verified)", _wall(timestamps.get("ended_at_wall"))),
+        ("Clock", _clock_line(timestamps, _schema_version(payload))),
+        ("Started (clock not verified)", _wall_display(timestamps, "started_at_wall", _schema_version(payload))),
+        ("Ended (clock not verified)", _wall_display(timestamps, "ended_at_wall", _schema_version(payload))),
     ]
+    if sharing:
+        fields.append(("Identity evidence", UNSUITABLE))
     for label, value in fields:
         if "\n" in value:
             lines.append(f"{label}:")
@@ -283,6 +350,6 @@ def build_result_summary(
         else:
             lines.append(f"{label}: {value}")
     text = "\n".join(lines)
-    if redacted:
+    if redacted or sharing:
         text = _scrub(text, secrets)
     return text

@@ -31,7 +31,7 @@ def test_fake_lsblk_classification_console_and_help(rota, kind, monkeypatch, cap
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
     wiz = Wizard(discovery, DryRunRunner(), dry_run=True)
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()

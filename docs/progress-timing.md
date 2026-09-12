@@ -14,11 +14,22 @@ process identity under that lock. A late poll cannot update a replacement run.
 Preparing means no engine percentage has been reported since launch. Writing
 and Verifying require explicit target-bound engine markers. Blanking is a
 write. Syncing and Retrying retain their names because either can happen
-between passes. Missing/unknown markers say Phase not reported. An observation
-more than ten seconds old is labelled last reported; polling an unchanged log
-never makes it fresh. Stopping belongs to the cancellation owner, and Finalizing
+between passes. Missing/unknown markers say Phase not reported.
+
+Freshness uses the monotonic time of each **accepted** engine update (a new
+parsed target-bound record). Incomplete or malformed log tails are parser
+errors, not updates, and do not reset that clock. The runner still requests
+SIGUSR1 every 2.0 seconds after the handler is armed. Five missed pulses
+(10 seconds) after an accepted update mark the last percentage **old** and
+show `No new progress update for …`. Preparing may stay quiet for the PRNG
+auto-bench (8×1.0s) plus the first pulse; the first-update grace is 20
+seconds. After that grace with no number, progress is unavailable — not a
+process failure. Stopping belongs to the cancellation owner, and Finalizing
 means process exit was observed and terminal processing/cleanup is pending.
-Neither phase means successful completion.
+Those known phases, cancellation, and a confirmed process exit are never
+shown as stale telemetry. Quiet progress never cancels, kills, or restarts
+the erase. The sliding bar animates only during Preparing before the first
+number; stale or unavailable progress is static.
 
 ## Estimated time remaining
 

@@ -131,6 +131,22 @@ an erase completed. If temporary evidence was lost, the result is indeterminate.
 Save available evidence and contact support. Do not resume from a percentage or
 automatically retry an erase.
 
+`No new progress update for …` and an **old** last percentage mean the engine
+has not published a new number recently. That is not a confirmed failure,
+cancellation, or process death. Preparing can stay quiet for about 20 seconds
+while nwipe finishes its startup bench. Leave the USB in. Do not unplug the
+disk or turn the PC off. Do not tell the customer to kill nwipe or restart
+because the numbers paused. If the message stays for many minutes and the
+result screen never appears, wait for Finished/Stopped if possible, save the
+report, and contact support with that report. Liveness still comes from
+process status, not from progress lines.
+
+Hidden-storage, disk-error, and coverage checks record what pinned nwipe v0.42
+logged. `unavailable` means the check did not run or could not be read; it is
+not a pass. Those checks never change Finished versus failed. Do not run
+`hdparm` or `smartctl` against a customer or development disk to complete a
+missing check.
+
 ### 4.g nwipe errors — structured outcomes and safe next steps
 
 `nwipe_runner.py` interprets process termination and target-specific log evidence.
@@ -143,8 +159,8 @@ consistent method/verification facts, and no conflicting failure or interruption
 | Code | Visible explanation and safe next step |
 | --- | --- |
 | `start_failed` | The erase could not start. Keep the disks connected and contact support. Do not bypass protection. |
-| `verified` | Erase completed; verification passed. Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. |
-| `unverified` | Erase completed; verification was not performed. The erase was not checked by a read-back pass. Save the report if needed. |
+| `verified` | Erase completed; verification passed. Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. Only this validated selected disk was processed. Other disks were not. Putting an operating system back on is a separate task. |
+| `unverified` | Erase completed; verification was not performed. The erase was not checked by a read-back pass. Save the report if needed. Only this validated selected disk was processed. Other disks were not. Putting an operating system back on is a separate task. |
 | `occupied` | The disk is in use. The erase did not complete. Save the report and ask support what is using the disk. Do not force access. |
 | `open_failed` | The disk could not be opened. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `geometry_unusable` | The disk could not be used safely. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
