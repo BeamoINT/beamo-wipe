@@ -1682,6 +1682,17 @@ class Wizard:
         return True
 
     @property
+    def check_alerts(self) -> tuple[str, ...]:
+        """Concise engine-check warnings. Never a substitute for result_view."""
+        from beamo_wipe.engine_checks import alert_summaries
+
+        if self.preview:
+            return ()
+        with self._lock:
+            evidence = self.evidence if isinstance(self.evidence, dict) else {}
+            return alert_summaries(evidence.get("checks") or ())
+
+    @property
     def evidence_warning(self) -> str:
         with self._lock:
             if not self.evidence_error:

@@ -573,6 +573,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     wizard.reset_for_preview()
             else:
                 print(wizard.result_view.next_step)
+                for alert in wizard.check_alerts:
+                    print(alert)
                 print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
                 if report.can_retry_evidence:
                     prompt = "Type RETRY to save evidence again, or SHUTDOWN: "
@@ -858,6 +860,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
             content = wizard.elapsed_text + "\n" + wizard.result_view.next_step
+            if wizard.check_alerts:
+                content += "\n" + "\n".join(wizard.check_alerts)
             if not wizard.preview:
                 content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             if report.evidence_error:

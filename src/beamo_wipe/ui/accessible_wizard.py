@@ -447,6 +447,8 @@ class AccessibleWizard:
             if report.evidence_error:
                 self.label(self.w.evidence_warning)
             self.label(self.w.result_view.next_step)
+            for alert in self.w.check_alerts:
+                self.label(alert)
             if not self.w.preview and not report.evidence_error:
                 self.label(
                     C.report_aftercare(
