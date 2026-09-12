@@ -353,6 +353,9 @@ class AccessibleWizard:
                 reader.get_accessible().set_name(content)
 
             choice = Gtk.CheckButton.new_with_label(C.REPORT_WANTED)
+            choice.get_child().set_line_wrap(True)
+            choice.get_child().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            choice.get_child().set_max_width_chars(65)
             choice.set_active(self.w.report_wanted)
             choice.connect(
                 "toggled",
@@ -360,6 +363,9 @@ class AccessibleWizard:
             )
             self.body.pack_start(choice, False, False, 4)
             share = Gtk.CheckButton.new_with_label(C.REPORT_SHARE_REDACTED)
+            share.get_child().set_line_wrap(True)
+            share.get_child().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            share.get_child().set_max_width_chars(65)
             share.set_active(self.w.report_share_redacted)
             share.connect(
                 "toggled",

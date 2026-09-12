@@ -2559,7 +2559,7 @@ class TkWizard:
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
         text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
-                       height=10, bg=SURFACE, fg=INK)
+                       width=1, height=10, bg=SURFACE, fg=INK)
         scrollbar = tk.Scrollbar(frame, command=text.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.configure(yscrollcommand=scrollbar.set)
@@ -2581,6 +2581,8 @@ class TkWizard:
         tk.Checkbutton(
             col,
             text=C.REPORT_WANTED,
+            wraplength=max(200, self.lay.wrap - 40),
+            justify=tk.LEFT,
             variable=choice,
             bg=BG,
             font=self.font_s,
@@ -2595,6 +2597,8 @@ class TkWizard:
         tk.Checkbutton(
             col,
             text=C.REPORT_SHARE_REDACTED,
+            wraplength=max(200, self.lay.wrap - 40),
+            justify=tk.LEFT,
             variable=share,
             bg=BG,
             font=self.font_s,
@@ -2610,7 +2614,7 @@ class TkWizard:
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
         text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
-                       height=10, bg=SURFACE, fg=INK)
+                       width=1, height=10, bg=SURFACE, fg=INK)
         scrollbar = tk.Scrollbar(frame, command=text.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.configure(yscrollcommand=scrollbar.set)
