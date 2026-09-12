@@ -472,6 +472,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .inventory-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
   .disktype { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 0; }
   .card .title, .card .meta { overflow-wrap: anywhere; }
+  /* Grid/flex items default to min-width:auto: a long unbroken serial,
+     model, or warning would push past the card instead of wrapping. */
+  .card .meta > *, .panel > div { min-width: 0; }
+  .panel > div { overflow-wrap: anywhere; }
   .card .meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; }
   .connection { grid-column: 1 / -1; }
   .compact-notice { padding: 8px 16px; font-size: 14px; }
@@ -646,7 +650,7 @@ function panel(kind, text, compact = false) {
   return `<div class="panel ${kind}${compact ? " compact-notice" : ""}">${badge(kind, 28)}<div>${text}</div></div>`;
 }
 function moreLink() {
-  return `<button type="button" class="linkbtn morelink" id="more">${showMore ? P.buttons.less : P.buttons.more}</button>`;
+  return `<button type="button" class="linkbtn morelink" id="more" aria-expanded="${showMore}">${showMore ? P.buttons.less : P.buttons.more}</button>`;
 }
 function bindMore() {
   const el = document.getElementById("more");
@@ -817,7 +821,7 @@ function draw() {
       ${summaryCard(d)}
       ${moreLink()}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
-      <p style="font-size:16px;margin:14px 0 8px"><label for="tok">${d.prompt}</label></p>
+      <p style="font-size:16px;margin:14px 0 8px;overflow-wrap:anywhere"><label for="tok">${d.prompt}</label></p>
       <div class="entryshell"><input class="token" id="tok" aria-describedby="match" autocomplete="off" spellcheck="false"></div>
       <p class="match" id="match" role="status" aria-live="polite"></p></div></div>`;
     bindMore();

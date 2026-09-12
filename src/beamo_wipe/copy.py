@@ -111,6 +111,21 @@ OWNER_CHECKBOX = (
     "I own this computer and these disks, or I have written permission to erase them."
 )
 
+# Startup stages. Plain customer language; stages describe work in progress
+# and never claim a safety check has passed. The exclusion of the boot USB
+# is verified by discovery itself, never by these lines.
+STARTUP_TITLE = "Starting Beamo Wipe"
+STARTUP_TITLE_HINT = "Getting ready."
+STARTUP_STAGE_BOOT_USB = "Checking the boot USB"
+STARTUP_STAGE_BOOT_USB_HINT = (
+    "Learning which disk is this USB stick, so it is never offered for erasure."
+)
+STARTUP_STAGE_FINDING = "Finding disks"
+STARTUP_STAGE_FINDING_HINT = "Listing the disks connected to this computer."
+STARTUP_STILL_WORKING = (
+    "Still working — this can take a minute on older machines."
+)
+
 OWNER_LEAD = "Check the box, then continue."
 
 BOOT_USB_BANNER = "This is the Beamo USB — do not erase"
