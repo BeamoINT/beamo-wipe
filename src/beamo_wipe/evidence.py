@@ -12,6 +12,7 @@ import errno
 import hashlib
 import json
 import os
+import re
 import stat
 import time
 import unicodedata
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
 
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
+from beamo_wipe.build_identity import evidence_identity
 from beamo_wipe.methods import METHODS
 from beamo_wipe.storage_limits import VERIFICATION_SCOPE, notice
 from beamo_wipe.models import Disk, MethodId, WipeRequest, WipeResult
@@ -26,10 +28,13 @@ import beamo_wipe.safety as safety
 from beamo_wipe.safety import SafetyError, assert_log_not_on_target
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = frozenset({1, 2})
 EVIDENCE_PREFIX = "result-"
 EVIDENCE_SUFFIX = ".json"
 CHECKSUM_SUFFIX = ".sha256"
+WALL_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
+WALL_PROVENANCE = frozenset({"os_utc", "injected", "unavailable"})
 
 # Explicit outcome set. VERIFIED means COMPLETED + verify==last + markers.
 OUTCOME_STARTED = "started"
@@ -51,8 +56,49 @@ ALLOWED_OUTCOMES = frozenset(
 
 
 def _iso_now_wall() -> str:
-    # UTC, no local timezone leakage
+    # UTC, no local timezone leakage. Format is not evidence of a correct clock.
     return datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def valid_wall(value: object) -> str:
+    if not isinstance(value, str) or not WALL_RE.fullmatch(value):
+        return ""
+    try:
+        datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    return value
+
+
+def wall_timestamps(
+    started_at_wall: object,
+    ended_at_wall: object,
+    provenance: object,
+) -> dict[str, Any]:
+    """Record wall stamps without treating ISO format as trust."""
+    source = provenance if provenance in WALL_PROVENANCE else "unavailable"
+    started = valid_wall(started_at_wall)
+    ended = valid_wall(ended_at_wall)
+    if not started and not ended:
+        return {
+            "started_at_wall": "",
+            "ended_at_wall": "",
+            "wall_confidence": "unavailable",
+            "wall_provenance": "unavailable",
+        }
+    if source == "unavailable":
+        return {
+            "started_at_wall": "",
+            "ended_at_wall": "",
+            "wall_confidence": "unavailable",
+            "wall_provenance": "unavailable",
+        }
+    return {
+        "started_at_wall": started,
+        "ended_at_wall": ended,
+        "wall_confidence": "unverified",
+        "wall_provenance": source,
+    }
 
 
 def _sanitize_argv(argv: Sequence[str]) -> List[str]:
@@ -205,15 +251,14 @@ def build_evidence(
     log_text: str,
     interrupted: bool = False,
     cancelled: bool = False,
+    wall_provenance: str = "unavailable",
 ) -> dict[str, Any]:
     """Build a truthful, user-safe evidence dict."""
     spec = METHODS.get(method)
     if spec is None:
         raise ValueError("unknown method")
 
-    # Timestamps
-    started_at_wall = started_at_wall or ""
-    ended_at_wall = ended_at_wall or ""
+    walls = wall_timestamps(started_at_wall, ended_at_wall, wall_provenance)
     try:
         duration_s = (
             float(ended_mono - started_mono) if (started_mono is not None and ended_mono is not None) else None  # type: ignore[operator]
@@ -236,15 +281,21 @@ def build_evidence(
     except Exception:
         boot_path = ""
 
-    # Warnings
+    # Warnings stay advisory. Structured checks never rewrite outcome.
     selectable: Sequence[Disk] = getattr(discovery, "selectable", ())  # type: ignore[assignment]
-    warnings = _warnings_for(disk, selectable)
+    warnings = list(_warnings_for(disk, selectable))
+    device_path = disk.path if disk else (request.device if request else "")
+    from beamo_wipe.engine_checks import alert_summaries, check_payloads
+
+    checks = check_payloads(log_text or "", device_path, disk)
+    for summary in alert_summaries(checks):
+        if summary not in warnings:
+            warnings.append(summary)
     from beamo_wipe.identity import present_disk
 
     device_presentation = present_disk(disk, selectable).payload() if disk is not None else None
 
     # Verification
-    device_path = disk.path if disk else (request.device if request else "")
     validated_ok = False
     if result is not None and result.ok:
         try:
@@ -313,9 +364,14 @@ def build_evidence(
             log_checksum = None
             log_snapshot_size_bytes = 0
 
+    identity = evidence_identity()
     evidence: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "beamo_wipe_version": __version__,
+        "source_commit": identity["source_commit"],
+        "build_id": identity["build_id"],
+        "build_status": identity["build_status"],
+        "source_dirty": identity["source_dirty"],
         "nwipe_version": NWIPE_PINNED_VERSION,
         "nwipe_commit": NWIPE_PINNED_COMMIT,
         "outcome": outcome,
@@ -334,14 +390,18 @@ def build_evidence(
             "overwrite_passes": spec.overwrite_passes,
             "verification_passes": spec.verification_passes,
             "description": spec.description,
+            "operation_summary": spec.operation_summary,
         },
         "boot_device": boot_path,
         "timestamps": {
-            "started_at_wall": started_at_wall,
-            "ended_at_wall": ended_at_wall,
+            "started_at_wall": walls["started_at_wall"],
+            "ended_at_wall": walls["ended_at_wall"],
             "started_monotonic": started_mono,
             "ended_monotonic": ended_mono,
             "duration_s": duration_s,
+            "duration_source": "monotonic",
+            "wall_confidence": walls["wall_confidence"],
+            "wall_provenance": walls["wall_provenance"],
         },
         "nwipe": {
             "version": NWIPE_PINNED_VERSION,
@@ -357,6 +417,7 @@ def build_evidence(
             "scope": VERIFICATION_SCOPE,
         },
         "warnings": warnings,
+        "checks": checks,
         "interruption": {
             "interrupted": bool(interrupted or cancelled),
             "cancelled": bool(cancelled),

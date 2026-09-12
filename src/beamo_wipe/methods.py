@@ -59,6 +59,16 @@ class NwipeMethodSpec:
         return f"{self.title}: {self.description}"
 
     @property
+    def operation_summary(self) -> str:
+        """Last-chance line. Same overwrite/verify counts as argv and reports."""
+        count = self.overwrite_passes
+        names = {1: "One overwrite", 3: "Three overwrites"}
+        overwrites = names.get(count, f"{count} overwrites")
+        if self.verification_passes:
+            return f"{overwrites}, followed by verification."
+        return f"{overwrites}. Verification is not performed."
+
+    @property
     def docs_name(self) -> str:
         return self.description
 

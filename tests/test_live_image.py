@@ -117,7 +117,11 @@ def test_nwipe_hook_hides_engine_and_extra_gettys():
     assert "/usr/sbin/nwipe" in text
     assert "nwipe is not run directly" in text
     assert 'systemctl mask "getty@${tty}.service"' in text or "getty@tty2.service" in text
-    assert "NAutoVTs=1" in text
+    logind = (
+        ROOT
+        / "packaging/live/config/includes.chroot/etc/systemd/logind.conf.d/beamo-kiosk.conf"
+    ).read_text(encoding="utf-8")
+    assert "NAutoVTs=1" in logind
     assert "systemd-networkd.service" in text
     assert "sshd.service" in text
     assert "getty@tty1" in text or 'getty@${tty}' in text
@@ -196,6 +200,14 @@ def test_xorg_does_not_force_vesa_on_every_gpu():
     assert 'Driver "vesa"' not in text
     assert "AllowMouseOpenFail" in text
     assert 'Section "Device"' not in text
+    assert 'Option "XkbLayout" "us"' in text
+    default = (
+        ROOT / "packaging/live/config/includes.chroot/etc/default/keyboard"
+    ).read_text(encoding="utf-8")
+    assert 'XKBLAYOUT="us"' in default
+    kiosk = SUPERVISOR.read_text(encoding="utf-8")
+    assert "setxkbmap" not in kiosk
+    assert "loadkeys" not in kiosk
 
 
 def test_live_config_xinit_cannot_hijack_kiosk():

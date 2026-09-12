@@ -26,7 +26,7 @@ CASES = [
 
 def at_method(method):
     wiz = make_demo_wizard()
-    wiz.skip_splash()
+    wiz.skip_intro()
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
@@ -116,6 +116,7 @@ def test_cards_gallery_and_plain_console(
         assert "Verification is not performed" in card["pace"]
     payload = json.loads(re.search(r"const P = (.*);", gallery_html()).group(1))
     assert payload["methods"][method.value]["summary"] == spec.summary
+    assert payload["methods"][method.value]["operation"] == spec.operation_summary
     wiz = at_method(method)
 
     def stop(_prompt):
@@ -130,7 +131,9 @@ def test_cards_gallery_and_plain_console(
     wiz.continue_method()
     wiz._erase_until = 0
     console_wizard._plain_loop(wiz)
-    assert spec.summary in capsys.readouterr().out
+    last = capsys.readouterr().out
+    assert spec.summary in last
+    assert spec.operation_summary in last
     wiz.wants_shutdown = False
     wiz.screen = Screen.DONE
     console_wizard._plain_loop(wiz)

@@ -1,0 +1,7 @@
+[2026/07/15 12:00:00]    info: No hidden sectors on /dev/sda
+******************************** Error Summary *********************************
+!   Device | Pass Errors | Verifications Errors | Fdatasync I\O Errors
+--------------------------------------------------------------------------------
+Fehlerzusammenfassung unlesbar
+********************************************************************************
+      sda | Erased |  120MB/s | 01:25:04 | FAKE/DISK

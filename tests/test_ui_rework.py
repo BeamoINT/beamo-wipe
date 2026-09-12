@@ -40,7 +40,7 @@ def test_review_keeps_full_long_disk_identity_and_safe_default(ui):  # noqa: F81
     labels = [w for w in descendants(app.root) if w.winfo_class() == "Label"]
     for expected in (C.SELECTED_DISK, wiz.selected.display_name, wiz.selected.serial,
                      wiz.method_summary, C.REVIEW_CHECK):
-        matches = [w for w in labels if w.cget("text") == expected]
+        matches = [w for w in labels if str(w.cget("text")).replace("\n", "") == expected]
         assert len(matches) == 1
         label = matches[0]
         assert label.winfo_ismapped()
@@ -50,6 +50,15 @@ def test_review_keeps_full_long_disk_identity_and_safe_default(ui):  # noqa: F81
     assert not _off_window_problems(app)
     focus = app.root.focus_get()
     assert isinstance(focus, _Button)
+    # A long review remains reachable, not merely mapped outside the viewport.
+    canvas = app._body_canvas
+    assert canvas is not None
+    canvas.yview_moveto(1.0)
+    app.root.update()
+    review_check = next(w for w in labels if w.cget("text") == C.REVIEW_CHECK)
+    y = review_check.winfo_rooty() - canvas.winfo_rooty()
+    assert 0 <= y and y + review_check.winfo_height() <= canvas.winfo_height() + 2
+    assert focus.winfo_ismapped()
     assert focus.itemcget(focus._label, "text") == C.BTN_BACK
     assert not wiz.erase_enabled
 
