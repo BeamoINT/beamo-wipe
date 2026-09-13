@@ -3424,7 +3424,7 @@ def run_tk_startup(build, *, fullscreen: bool = False,
         except tk.TclError:
             pass
 
-    def poll() -> None:
+    def poll_once() -> None:
         if outcome:
             return
         try:
@@ -3434,7 +3434,8 @@ def run_tk_startup(build, *, fullscreen: bool = False,
         result = run.poll()
         if result is None:
             try:
-                root.after(100, poll)
+                if poll is not None:
+                    root.after(100, poll)
             except tk.TclError:
                 pass
             return
@@ -3450,12 +3451,23 @@ def run_tk_startup(build, *, fullscreen: bool = False,
         except tk.TclError:
             pass
 
+    poll: Optional[Callable[[], None]] = poll_once
     root.protocol("WM_DELETE_WINDOW", close)
     root.bind("<Escape>", lambda _event: close())
-    render()
-    run.start()
-    root.after(100, poll)
-    root.mainloop()
+    try:
+        render()
+        run.start()
+        root.after(100, poll_once)
+        root.mainloop()
+    finally:
+        # The recursive callback otherwise retains itself and the destroyed
+        # Tcl interpreter in a cycle. Worker-thread GC can then finalize Tcl
+        # on the wrong thread and abort the process after startup completes.
+        poll = None
+        try:
+            root.destroy()
+        except tk.TclError:
+            pass
     if outcome:
         return outcome[0]
     return ("abandoned", None)
