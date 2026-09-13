@@ -1,5 +1,7 @@
 # Beamo Wipe
 
+For development on Windows, macOS, or Linux, start with the [development guide](docs/development.md) and `python3 dev.py doctor` (`py -3 dev.py doctor` on Windows).
+
 A guided USB for **nwipe**.
 
 Beamo Wipe is a bootable x86_64 live USB UI that walks a first-time BIOS user

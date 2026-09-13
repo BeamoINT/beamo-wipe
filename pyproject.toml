@@ -30,6 +30,6 @@ where = ["src"]
 beamo_wipe = ["demo_lsblk.json", "demo_empty.json", "demo_blocked.json", "assets/*.png", "assets/*.svg"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "developer_tests"]
 pythonpath = ["src"]
 addopts = "-q"

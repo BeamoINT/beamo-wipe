@@ -88,7 +88,9 @@ install_qemu_deps() {
 
 run_lint() {
   log "blocking syntax, shell and security lint"
-  python3 -m compileall -q src/beamo_wipe
+  python3 -m compileall -q src/beamo_wipe dev.py scripts/build_desktop.py
+  python3 -m ruff check dev.py scripts/build_desktop.py developer_tests
+  python3 -m ruff format --check dev.py scripts/build_desktop.py developer_tests
   shellcheck preview scripts/*.sh packaging/live/inside-docker.sh \
     packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot
   python3 -m ruff check --select S102,S103,S104,S105,S106,S107,S113,S307,S501,S506,S508,S602,S604,S605,S606,S608,S609,S610,S611,S612 src/beamo_wipe

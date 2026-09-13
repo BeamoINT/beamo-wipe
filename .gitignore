@@ -65,3 +65,6 @@ Thumbs.db
 
 # Local browser automation captures; reviewed evidence lives under docs/evidence.
 /.playwright-mcp/
+
+# Host-specific developer environments (never share Windows/POSIX venvs).
+.venv-*/
