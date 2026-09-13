@@ -6,6 +6,24 @@ committed, printed, pasted into tickets, or attached to pull-request builds.
 Production key creation and rotation need separate operator authorization;
 nothing here authorizes either.
 
+## Approved first-key setup
+
+On 2026-09-13 UTC, the product owner explicitly authorized automated GCP
+signing setup in place of the offline two-operator ceremony for key
+`93caaf7ca93eff4d`. Its SHA-256 public fingerprint is
+`93caaf7ca93eff4d7fa1c16e360f9d6aa17ced0155a56d4cf89d8f6d429e66f7`.
+The fingerprint was also provided directly to the owner in the release task.
+
+For this key, private material was generated in process memory and stored
+as one versioned Secret Manager secret. No offline copy was made. Loss of
+that secret requires an explicitly authorized replacement key. A dedicated
+release publisher identity has secret access; normal PR/main workers do not.
+A separate operator-invoked publisher job retrieves artifacts only after a
+successful full qualification build and verifies their source, hashes and
+execution receipts before signing. The normal `cloudbuild.yaml` remains
+secret-free. This approval applies to this first key only; future rotation
+still requires separate authorization.
+
 ## Registry
 
 `keys.json` (`beamo-wipe-release-keys/1`) maps key id (first 16 hex chars of

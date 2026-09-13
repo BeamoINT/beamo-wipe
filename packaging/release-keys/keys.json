@@ -1,1 +1,10 @@
-{"keys": {}, "schema": "beamo-wipe-release-keys/1"}
+{
+  "schema": "beamo-wipe-release-keys/1",
+  "keys": {
+    "93caaf7ca93eff4d": {
+      "fingerprint": "93caaf7ca93eff4d7fa1c16e360f9d6aa17ced0155a56d4cf89d8f6d429e66f7",
+      "public_key": "vSH7gza3ro/Pfg4jfylbEeXDJoil9mwm97+9r/5Z9qQ=",
+      "status": "active"
+    }
+  }
+}

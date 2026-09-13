@@ -17,7 +17,7 @@ Warnings:
 - The hidden-storage check was not available. That is not a pass.
 - Disk error counts were not available. That is not a pass.
 Limitations: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
-Application: Beamo Wipe 0.2.7
+Application: Beamo Wipe 0.2.8
 Wrapper commit: unavailable
 Release build: unavailable
 Build status: unavailable

@@ -1,5 +1,8 @@
 # Production qualification closeout — 2026-09-12
 
+> Historical snapshot: current release identity and executed gate results are carried
+> by the signed release manifest. See [0.2.8 release notes](release-0.2.8.md).
+
 Status: **implementation and full hosted qualification complete; no release published**.
 Author: Codex. Closeout branch: `feat/qemu-three-method-journeys`, based on
 `feat/rendered-visible-coverage` / PR #26 at
