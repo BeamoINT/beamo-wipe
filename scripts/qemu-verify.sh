@@ -278,6 +278,14 @@ grep -q "Beamo Wipe: start the erase guide (nothing is erased yet)" "$EFI_GRUB" 
   echo "ISO UEFI menu lost the branded normal entry" >&2; exit 2; }
 grep -q "Beamo Wipe: troubleshoot startup (nothing is erased yet)" "$EFI_GRUB" || {
   echo "ISO UEFI menu lost the troubleshooting entry" >&2; exit 2; }
+grep -Eq 'Beamo Wipe: \^?speech for screen readers' "$BIOS_LIVE" || {
+  echo "ISO BIOS menu lost the speech entry" >&2; exit 2; }
+grep -q 'beamo.ui=accessible' "$BIOS_LIVE" || {
+  echo "ISO BIOS speech entry lost beamo.ui=accessible" >&2; exit 2; }
+grep -q "Beamo Wipe: speech for screen readers (nothing is erased yet)" "$EFI_GRUB" || {
+  echo "ISO UEFI menu lost the speech entry" >&2; exit 2; }
+grep -q 'beamo.ui=accessible' "$EFI_GRUB" || {
+  echo "ISO UEFI speech entry lost beamo.ui=accessible" >&2; exit 2; }
 if grep -q "Live system (" "$BIOS_LIVE" "$EFI_GRUB"; then
   echo "ISO boot menu still shows the stock Debian entry" >&2; exit 2
 fi
@@ -1073,6 +1081,26 @@ drive_report_export() {
   wait_for_report_saved "$label"
 }
 
+drive_speech_boot() {
+  local label="$1" qmp_socket="$2" deadline
+  deadline=$((SECONDS + BOOT_WAIT_SECONDS))
+  # Exercise the shipped menu hotkey. BIOS selects the entry with S and
+  # activates it with Return; GRUB's S hotkey activates it directly.
+  # Stop sending keys before X starts, at the supervisor's mode marker.
+  while [[ "$(marker_count "$label" BEAMO_WIPE_UI_MODE=accessible)" == 0 ]]; do
+    if (( SECONDS >= deadline )); then
+      echo "QEMU $label never selected the speech boot entry" >&2
+      return 1
+    fi
+    send_key "$qmp_socket" s
+    send_key "$qmp_socket" ret
+    sleep 1
+  done
+  wait_for_marker "$label" BEAMO_WIPE_STAGE_DONE "$BOOT_WAIT_SECONDS" || return 1
+  wait_for_marker "$label" BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD "$BOOT_WAIT_SECONDS" || return 1
+  log "$label speech entry completed discovery and rendered the accessible wizard"
+}
+
 boot_probe() {
   local label="$1" exercise_export="$2"
   local method_key=3 token="${QEMU_TARGET_SERIAL:-}"
@@ -1114,6 +1142,13 @@ boot_probe() {
   pid=$!
   if [[ "$label" == bios* ]]; then BIOS_PID="$pid"; else UEFI_PID="$pid"; fi
   wait_for_qmp "$label" "$qmp_socket"
+  if [[ "$label" == *-speech-usb ]]; then
+    drive_speech_boot "$label" "$qmp_socket"
+    kill -0 "$pid" 2>/dev/null || { echo "Speech guest exited after rendering" >&2; return 1; }
+    stop_pid "$pid"
+    if [[ "$label" == bios* ]]; then BIOS_PID=""; else UEFI_PID=""; fi
+    return 0
+  fi
   wait_for_marker "$label" BEAMO_WIPE_SCREEN_KEYBOARD "$BOOT_WAIT_SECONDS"
   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_WHAT 20
   # The rendered Tk screen is the authoritative kiosk-ready boundary.  The
@@ -1440,6 +1475,13 @@ boot_probe uefi-usb no \
   -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
   -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-usb-vars.fd"
 
+# Both real USB boot menus must select the new view, not merely contain its text.
+boot_probe bios-speech-usb no
+cp "$OVMF_VARS" "$RUN_ROOT/ovmf-speech-vars.fd"
+boot_probe uefi-speech-usb no \
+  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-speech-vars.fd"
+
 # Enrolled Microsoft keys and SMM enforcement. A bare OVMF boot is not
 # Secure Boot evidence. The guest must report the actual firmware variable.
 SECURE_CODE=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd
@@ -1451,7 +1493,7 @@ boot_probe secureboot-usb no \
   -drive "if=pflash,format=raw,readonly=on,file=$SECURE_CODE" \
   -drive "if=pflash,format=raw,file=$RUN_ROOT/secureboot-vars.fd"
 
-printf 'iso_sha256=%s\nnwipe_sha256=%s\nsource_commit=%s\nbuild_id=%s\nrepetitions=2\ncases=%s\neveryday=pass\nextra=pass\nquick_zero=pass\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nreport_export=pass\n' \
+printf 'iso_sha256=%s\nnwipe_sha256=%s\nsource_commit=%s\nbuild_id=%s\nrepetitions=2\ncases=%s\neveryday=pass\nextra=pass\nquick_zero=pass\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nspeech_bios_usb=pass\nspeech_uefi_usb=pass\nreport_export=pass\n' \
   "$(sha256sum "$ISO" | awk '{print $1}')" "$shipped_sha" \
   "$(tr -d '\n' <"$EVIDENCE_DIR/source-commit.txt")" \
   "${BUILD_ID:-local}" "${EXECUTED_CASES}" \

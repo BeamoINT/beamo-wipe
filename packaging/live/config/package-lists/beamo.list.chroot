@@ -16,6 +16,8 @@ at-spi2-core
 dbus-x11
 orca
 speech-dispatcher-espeak-ng
+# CLI only for the kiosk's pre-X spoken startup cue; Orca speaks via speech-dispatcher.
+espeak-ng
 speech-dispatcher
 pulseaudio
 python3-minimal

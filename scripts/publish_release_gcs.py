@@ -343,6 +343,10 @@ def _release_inputs(version: str) -> list[Path]:
                 "uefi-usb-qemu.txt",
                 "secureboot-usb-serial.txt",
                 "secureboot-usb-qemu.txt",
+                "bios-speech-usb-serial.txt",
+                "bios-speech-usb-qemu.txt",
+                "uefi-speech-usb-serial.txt",
+                "uefi-speech-usb-qemu.txt",
                 "summary.txt",
             )
         ],

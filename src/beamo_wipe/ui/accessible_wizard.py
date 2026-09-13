@@ -21,6 +21,7 @@ from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa
 from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
 from beamo_wipe.models import Screen  # noqa: E402
+from beamo_wipe.diagnostics import emit_serial_marker  # noqa: E402
 from beamo_wipe.safety import same_size_conflict  # noqa: E402
 from beamo_wipe.wizard import Wizard  # noqa: E402
 
@@ -538,6 +539,7 @@ class AccessibleWizard:
             self.window.get_window().focus(Gdk.CURRENT_TIME)
         arrival.grab_focus()
         self.update_status()
+        emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
 
     def _inventory(self):
         if self.w.other_devices:
@@ -689,11 +691,17 @@ class AccessibleWizard:
         return 3 if self.failed else 0
 
 
-def run_accessible(wizard: Wizard, fullscreen: bool = False) -> int:
+def start_live_reader():
+    """Start PulseAudio and Orca on the live USB. Returns the Orca Popen or None.
+
+    Off the live USB (preview) nothing is started. Audio or reader failures
+    never raise: the view stays usable without speech and the failure is logged.
+    """
     from beamo_wipe.safety import running_on_live_usb
 
-    reader = None
-    if running_on_live_usb():
+    if not running_on_live_usb():
+        return None
+    try:
         subprocess.run(
             ["/usr/bin/pulseaudio", "--start", "--exit-idle-time=60"],
             check=True,
@@ -702,22 +710,48 @@ def run_accessible(wizard: Wizard, fullscreen: bool = False) -> int:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        reader = subprocess.Popen(
+    except (OSError, subprocess.SubprocessError) as exc:
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("accessible", "pulseaudio_failed", type(exc).__name__)
+        except Exception:
+            pass
+    try:
+        return subprocess.Popen(
             ["/usr/bin/orca"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+    except OSError as exc:
+        try:
+            from beamo_wipe.diagnostics import log_diag
+
+            log_diag("accessible", "orca_failed", type(exc).__name__)
+        except Exception:
+            pass
+        return None
+
+
+def stop_live_reader(reader) -> None:
+    if reader is None:
+        return
+    if reader.poll() is None:
+        reader.terminate()
+        try:
+            reader.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            reader.kill()
+            reader.wait(timeout=5)
+
+
+def run_accessible(wizard: Wizard, fullscreen: bool = False, reader=None) -> int:
+    owned = start_live_reader() if reader is None else None
     try:
         return AccessibleWizard(wizard, fullscreen).run()
     finally:
-        if reader is not None and reader.poll() is None:
-            reader.terminate()
-            try:
-                reader.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                reader.kill()
-                reader.wait(timeout=5)
+        stop_live_reader(owned)
 
 
 def _ensure_gtk_display() -> None:

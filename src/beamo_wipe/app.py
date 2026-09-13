@@ -403,6 +403,31 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
     want_accessible = (not use_console
                        and (args.accessible or os.environ.get("BEAMO_WIPE_UI") == "accessible"))
     fullscreen = args.fullscreen or not windowed
+    reader = None
+    if want_accessible and not args.demo:
+        # Speech starts before the startup stages so a blind owner hears
+        # discovery progress instead of a silent window.
+        from beamo_wipe.ui.accessible_wizard import start_live_reader
+
+        reader = start_live_reader()
+    try:
+        return _run_session(
+            args,
+            session_store=session_store,
+            use_console=use_console,
+            want_accessible=want_accessible,
+            fullscreen=fullscreen,
+            reader=reader,
+        )
+    finally:
+        if reader is not None:
+            from beamo_wipe.ui.accessible_wizard import stop_live_reader
+
+            stop_live_reader(reader)
+
+
+def _run_session(args, *, session_store, use_console, want_accessible,
+                 fullscreen, reader) -> int:
     if args.demo:
         # Instant fake data: stages would flash meaninglessly.
         try:
@@ -438,14 +463,14 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
             if want_accessible:
                 wizard.diagnostic_ui = "accessible"
                 from beamo_wipe.ui.accessible_wizard import run_accessible
-                code = run_accessible(wizard, fullscreen=fullscreen)
+                code = run_accessible(wizard, fullscreen=fullscreen, reader=reader)
             else:
                 from beamo_wipe.ui.tk_wizard import run_tk
                 code = run_tk(wizard, fullscreen=fullscreen)
                 if code == 4:
                     wizard.diagnostic_ui = "accessible"
                     from beamo_wipe.ui.accessible_wizard import run_accessible
-                    code = run_accessible(wizard, fullscreen=fullscreen)
+                    code = run_accessible(wizard, fullscreen=fullscreen, reader=reader)
             if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
                 _shutdown()
             return code

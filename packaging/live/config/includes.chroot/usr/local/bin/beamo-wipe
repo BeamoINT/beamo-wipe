@@ -16,7 +16,7 @@ umask 077
 export LANG=C.UTF-8
 cd /
 # -s: ignore user site-packages. -P: do not prepend cwd (Python 3.11+, bookworm).
-# "$@" is only --console / --fullscreen from the kiosk profile. app.py still
+# "$@" is only --console / --fullscreen / --accessible from the kiosk profile. app.py still
 # strips preview/gallery/boot-device flags if this binary is invoked by hand.
 # Display blanking is X screensaver, not OS sleep. xset confirms the
 # ServerFlags policy when X is up; failure is ignored.
