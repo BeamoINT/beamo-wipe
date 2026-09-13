@@ -140,6 +140,7 @@ def test_package_list_installs_espeak_ng():
 
 def test_main_starts_reader_before_startup_stages(monkeypatch):
     import beamo_wipe.app as app
+    pytest.importorskip("gi", reason="GTK bindings are validated on the hosted Linux image")
     from beamo_wipe.ui import accessible_wizard
 
     monkeypatch.setattr(app, "running_on_live_usb", lambda: True)
@@ -166,6 +167,7 @@ def test_main_starts_reader_before_startup_stages(monkeypatch):
 def test_main_passes_reader_to_run_accessible_and_stops_once(monkeypatch):
     import beamo_wipe.app as app
     from beamo_wipe.demo import make_demo_wizard
+    pytest.importorskip("gi", reason="GTK bindings are validated on the hosted Linux image")
     from beamo_wipe.ui import accessible_wizard
 
     monkeypatch.setattr(app, "running_on_live_usb", lambda: True)
@@ -197,6 +199,7 @@ def test_main_passes_reader_to_run_accessible_and_stops_once(monkeypatch):
 def test_main_console_starts_no_reader(monkeypatch):
     import beamo_wipe.app as app
     from beamo_wipe.demo import make_demo_wizard
+    pytest.importorskip("gi", reason="GTK bindings are validated on the hosted Linux image")
     from beamo_wipe.ui import accessible_wizard
 
     calls = []
@@ -222,6 +225,7 @@ def test_main_console_starts_no_reader(monkeypatch):
 
 def test_main_demo_accessible_starts_no_reader(monkeypatch):
     import beamo_wipe.app as app
+    pytest.importorskip("gi", reason="GTK bindings are validated on the hosted Linux image")
     from beamo_wipe.ui import accessible_wizard
 
     calls = []
@@ -246,6 +250,7 @@ def test_main_demo_accessible_starts_no_reader(monkeypatch):
 
 
 def test_start_live_reader_failure_paths(monkeypatch):
+    pytest.importorskip("gi", reason="GTK bindings are validated on the hosted Linux image")
     from beamo_wipe.ui import accessible_wizard as module
 
     monkeypatch.setattr("beamo_wipe.safety.running_on_live_usb", lambda: True)
@@ -267,6 +272,7 @@ def test_start_live_reader_failure_paths(monkeypatch):
 
 
 def test_start_live_reader_off_live_usb_starts_nothing(monkeypatch):
+    pytest.importorskip("gi", reason="GTK bindings are validated on the hosted Linux image")
     from beamo_wipe.ui import accessible_wizard as module
 
     monkeypatch.setattr("beamo_wipe.safety.running_on_live_usb", lambda: False)
@@ -279,6 +285,7 @@ def test_start_live_reader_off_live_usb_starts_nothing(monkeypatch):
 
 def test_run_accessible_does_not_stop_a_reader_it_does_not_own(monkeypatch):
     from beamo_wipe.demo import make_demo_wizard
+    pytest.importorskip("gi", reason="GTK bindings are validated on the hosted Linux image")
     from beamo_wipe.ui import accessible_wizard as module
 
     monkeypatch.setattr("beamo_wipe.safety.running_on_live_usb", lambda: True)
@@ -381,3 +388,30 @@ def test_docs_teach_the_speech_entry():
     assert '<span class="kbd">S</span>' in helper
     assert "**S**" in readme
     assert "**S**" in reader_doc
+
+
+@pytest.mark.parametrize("mode,missing,expected", [
+    ("yes", "", 0),
+    ("no", "", 1),
+    ("yes", "BEAMO_WIPE_STAGE_DONE", 1),
+    ("yes", "BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD", 1),
+])
+def test_speech_boot_probe_requires_mode_discovery_and_rendering(mode, missing, expected):
+    source = QEMU_VERIFY.read_text()
+    helper = re.search(r"drive_speech_boot\(\) \{\n.*?\n\}\n", source, re.S)
+    assert helper
+    harness = '''
+BOOT_WAIT_SECONDS=0
+marker_count() { if [ "$MODE" = yes ]; then echo 1; else echo 0; fi; }
+wait_for_marker() { printf '%s\\n' "$2"; [ "$2" != "$MISSING" ]; }
+log() { :; }
+'''
+    result = subprocess.run(
+        ["bash", "-ceu", harness + helper.group(0) + '\ndrive_speech_boot bios-speech-usb /fake/qmp'],
+        capture_output=True, text=True, env=dict(os.environ, MODE=mode, MISSING=missing),
+    )
+    assert (result.returncode == 0) == (expected == 0), result.stderr
+    if expected == 0:
+        assert result.stdout.splitlines() == [
+            "BEAMO_WIPE_STAGE_DONE", "BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD",
+        ]

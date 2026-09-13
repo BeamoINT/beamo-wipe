@@ -21,6 +21,7 @@ from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa
 from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
 from beamo_wipe.models import Screen  # noqa: E402
+from beamo_wipe.diagnostics import emit_serial_marker  # noqa: E402
 from beamo_wipe.safety import same_size_conflict  # noqa: E402
 from beamo_wipe.wizard import Wizard  # noqa: E402
 
@@ -538,6 +539,7 @@ class AccessibleWizard:
             self.window.get_window().focus(Gdk.CURRENT_TIME)
         arrival.grab_focus()
         self.update_status()
+        emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
 
     def _inventory(self):
         if self.w.other_devices:

@@ -220,6 +220,10 @@ if args[:3] == ["builds", "triggers", "describe"]:
             else "--update-substitutions=_SKIP_QEMU=true"
         )
         assert any(substitution_flag in args for args in pr_calls)
+        assert any(
+            "--comment-control=COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY" in args
+            for args in pr_calls
+        ), "External contributor CI still requires maintainer approval"
         if verb == "update":
             assert all("--clear-substitutions" in args for args in structural)
 

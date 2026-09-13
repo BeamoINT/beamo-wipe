@@ -843,3 +843,17 @@ def test_accessible_progress_has_shared_text_without_duplicate_announcements(ui)
         assert label.get_text() == view.status_text
         assert label.get_accessible().get_name() == view.status_text
         assert "Estimated time remaining: about 2 hours" in text(app)
+
+
+def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
+    from beamo_wipe.ui import accessible_wizard as module
+
+    markers = []
+    monkeypatch.setattr(module, "emit_serial_marker", markers.append)
+    wizard = make_demo_wizard()
+    app = ui(wizard)
+    assert markers[-1] == f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{wizard.screen.name}"
+    wizard.screen = Screen.OWNER
+    app.render()
+    assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
+    assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)

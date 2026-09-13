@@ -59,3 +59,11 @@ AT-SPI client, and real Orca speech-generation diagnostics. Run with a private
 D-Bus session and Xvfb at 72 DPI, as described in [CI](ci.md). These checks do not
 prove physical speaker output, braille hardware behavior, or compatibility with
 every sound card. No test uses host disks or audio-device passthrough.
+
+## Automated boot evidence
+
+The hosted QEMU gate selects the shipped speech entry through its S hotkey
+on both BIOS and UEFI USB boots. It requires the accessible-mode marker,
+completed disk discovery, and a rendered GTK keyboard screen before passing.
+The Linux suite separately verifies real Orca announcements through AT-SPI.
+These checks do not certify audible output on every physical sound device.

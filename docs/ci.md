@@ -37,7 +37,7 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 
 `scripts/install-cloud-triggers.sh` creates (requires the Cloud Build GitHub App connected to `BeamoINT/beamo-wipe` first):
 
-- `beamo-wipe-pr-gate` — PRs targeting `main`: lint, tests, preview, negative, ISO (QEMU skipped via `_SKIP_QEMU=true`). Comment control is `COMMENTS_DISABLED`: every PR builds on push without a `/gcbrun` comment, including PRs opened by bots or non-collaborators. That is acceptable because the gate is secret-free and `_PUBLISH_RELEASE` defaults to `false`.
+- `beamo-wipe-pr-gate` — PRs targeting `main`: lint, tests, preview, negative, ISO (QEMU skipped via `_SKIP_QEMU=true`).
 - `beamo-wipe-main-gate` — pushes to `main`: the full gate including QEMU.
 
 The installer pins the production project's existing, constrained build service
