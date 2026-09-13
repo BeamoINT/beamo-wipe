@@ -1,6 +1,6 @@
 Privacy-reduced sharing copy. Not identity evidence. Do not use this copy where a serial, hardware ID, or device path is required.
 Report file: SHARE.json
-Report checksum: f92574c6f17f60c6444ba23ef6ef478bb7fc4fd7d0c421767daf8cff4cd06fec
+Report checksum: b3196967c0bbf79ff38988e88b4b7843e0d4f39b5a40b4604c155e28a710cabb
 Disk: Samsung SSD 970 EVO
 Capacity: 256 GB
 Connection: NVMe
@@ -17,7 +17,7 @@ Warnings:
 - The hidden-storage check was not available. That is not a pass.
 - Disk error counts were not available. That is not a pass.
 Limitations: Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. Only this validated selected disk was processed. Other disks were not. Putting an operating system back on is a separate task.
-Application: Beamo Wipe 0.2.8
+Application: Beamo Wipe 0.2.9
 Wrapper commit: unavailable
 Release build: unavailable
 Build status: unavailable
