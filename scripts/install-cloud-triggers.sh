@@ -76,7 +76,7 @@ if ! reconcile beamo-wipe-pr-gate \
     --pull-request-pattern='^main$' \
     --description='Beamo Wipe lint/pytest/preview/negative/ISO on PRs to main (QEMU runs on main)' \
     --substitutions=_SKIP_QEMU=true \
-    --comment-control=COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY; then
+    --comment-control=COMMENTS_DISABLED; then
   printf '\nConnect BeamoINT/beamo-wipe to Cloud Build in project %s, then re-run:\n' "$project" >&2
   printf '  https://console.cloud.google.com/cloud-build/triggers;add=github?project=%s\n' "$project" >&2
   printf '  %s\n' "$0" >&2
