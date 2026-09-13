@@ -26,7 +26,8 @@ view stays usable and the failure is recorded as `pulseaudio_failed` or
 `orca_failed` in the diagnostic log. If the graphical view cannot start at
 all, a spoken notice says the keyboard text screen is showing and that speech
 is not available on it. Intentional differences: the BIOS menu has no beep
-(only UEFI plays the two-tone menu beep), `./preview --accessible` starts no
+(only the UEFI menu plays two short PC-speaker beeps, and only on hardware
+with a speaker), `./preview --accessible` starts no
 audio or reader, and the keyboard console fallback has no speech.
 
 Tab and Shift+Tab move focus; Space activates a focused control. The ownership

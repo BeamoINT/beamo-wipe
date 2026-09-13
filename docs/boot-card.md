@@ -50,8 +50,9 @@ When the Beamo Wipe menu appears, pick **Beamo Wipe: start the erase guide**
 guide erases nothing by itself.
 
 The menu also offers **Beamo Wipe: speech for screen readers** — press **S**
-as soon as the menu appears. On UEFI computers a short two-tone beep plays
-when the menu is showing; the older BIOS menu does not beep. The menu waits
+as soon as the menu appears. UEFI computers with a built-in speaker play two
+short beeps when the menu is showing; many laptops and the older BIOS menu
+make no sound, so press **S** a few times after the firmware logo. The menu waits
 five seconds, then starts the ordinary guide; if that happens, press **F8**
 in the guide to switch to the spoken view. Choosing either entry erases
 nothing.
