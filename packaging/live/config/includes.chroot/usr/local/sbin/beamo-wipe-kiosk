@@ -43,26 +43,158 @@ if [ -c /dev/ttyS0 ]; then
   fi
 fi
 
-run_ui() {
-  rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
-  say "Beamo Wipe is starting with speech. Please wait. Nothing is erased yet."
-  if command -v startx >/dev/null 2>&1; then
-    if [ "$UI_MODE" = accessible ]; then
-      startx /usr/local/bin/beamo-wipe --accessible -- -nolisten tcp vt1
-    else
-      startx /usr/local/bin/beamo-wipe -- -nolisten tcp vt1
-    fi
-    rc=$?
-    rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
-    if [ "$rc" -eq 0 ]; then
-      return 0
-    fi
-  fi
-  say "The spoken screen could not start. A keyboard text screen is showing instead. Speech is not available on it."
-  BEAMO_WIPE_GRAPHICAL_UNAVAILABLE=1 /usr/local/bin/beamo-wipe --console
+# These fixed status values survive failed imports and X startup.
+graphical_rc=not-run
+console_rc=not-run
+
+run_console() {
+  console_rc=0
+  BEAMO_WIPE_GRAPHICAL_UNAVAILABLE=1 /usr/local/bin/beamo-wipe --console || console_rc=$?
+  return "$console_rc"
 }
 
+run_ui() {
+  rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
+  say "Beamo Wipe is starting with speech. No new erase starts automatically."
+  if command -v startx >/dev/null 2>&1; then
+    graphical_rc=0
+    if [ "$UI_MODE" = accessible ]; then
+      startx /usr/local/bin/beamo-wipe --accessible -- -nolisten tcp vt1 || graphical_rc=$?
+    else
+      startx /usr/local/bin/beamo-wipe -- -nolisten tcp vt1 || graphical_rc=$?
+    fi
+    rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
+    if [ "$graphical_rc" -eq 0 ]; then
+      return 0
+    fi
+  else
+    graphical_rc=127
+  fi
+  say "The spoken screen could not start. A keyboard text screen is showing instead. Speech is not available on it."
+  run_console
+}
+
+clear_screen() {
+  # A crashed curses session may leave raw input, hidden cursor or attributes.
+  stty sane 2>/dev/null || true
+  stty susp undef quit undef intr undef 2>/dev/null || true
+  printf '\033[0m\033[?25h\033[?1049l\033[2J\033[H'
+}
+
+recovery_menu() {
+  clear_screen
+  printf '%s\n' '' \
+    'Beamo Wipe recovery' \
+    "$recovery_reason" \
+    'An earlier erase may still be running or may be incomplete.' \
+    'This screen cannot identify disks or confirm an erase result.' \
+    'Keep all disks connected. Retrying does not start a new erase.' \
+    '' \
+    '1  Try Beamo Wipe again' \
+    '2  Use keyboard text screens' \
+    '3  Technical details and logs' \
+    '4  Restart computer' \
+    '5  Shut down'
+  say "Beamo Wipe recovery. $recovery_reason"
+  say 'An earlier erase may still be running or may be incomplete. Keep disks connected.'
+  say '1: Try Beamo Wipe again. 2: Use keyboard text screens. 3: Technical details and logs.'
+  say '4: Restart computer. 5: Shut down. Type a number, then press Enter.'
+}
+
+notice() {
+  printf '%s\n' "$1"
+  say "$1"
+}
+
+short_choices() {
+  notice '1 Retry  2 Text screens  3 Details  4 Restart  5 Shut down'
+}
+
+read_choice() {
+  if ! IFS= read -r choice; then
+    notice 'Input is unavailable. Recovery stays here; no automatic retry.'
+    # Restart=no and TTYVTDisallocate=no preserve the terminal on EOF.
+    exit 0
+  fi
+}
+
+power_choice() {
+  clear_screen
+  notice 'An earlier erase may still be running or may be incomplete.'
+  case "$1" in
+    reboot) token=RESTART ;;
+    poweroff) token=SHUTDOWN ;;
+    *) return ;;
+  esac
+  notice 'Restarting or shutting down loses unsaved reports and temporary logs.'
+  notice "Type $token to confirm, or press Enter to cancel."
+  read_choice
+  if [ "$choice" != "$token" ]; then
+    notice 'Cancelled. The computer will stay on.'
+    return
+  fi
+  # A crashed UI can leave the pinned nwipe process alive. Never power off
+  # on an uncertain process check, including a missing/broken procps tool.
+  engine_rc=0
+  pgrep -x nwipe >/dev/null 2>&1 || engine_rc=$?
+  if [ "$engine_rc" -ne 1 ]; then
+    notice 'We cannot confirm that erasing has stopped. Power request blocked.'
+    notice 'Try Beamo Wipe again to review and stop an interrupted erase.'
+    return
+  fi
+  if systemctl --no-block "$1"; then
+    notice 'Power request accepted. Wait for the computer to finish.'
+  else
+    notice 'The power request failed. Recovery is still available.'
+  fi
+}
+
+# One budget for this supervisor lifetime. A normal UI exit is not a failure;
+# return to the menu immediately. Manual attempts never refill the budget.
+attempt=0
+recovery_reason='Automatic retries have stopped after 3 failed attempts.'
+while [ "$attempt" -lt 3 ]; do
+  attempt=$((attempt + 1))
+  if run_ui; then
+    recovery_reason='Beamo Wipe has closed. Choose what to do next.'
+    break
+  fi
+  if [ "$attempt" -lt 3 ]; then sleep 1 || true; fi
+done
+
+recovery_menu
 while :; do
-  run_ui || true
-  sleep 1
+  printf '%s\n' 'Choose 1, 2, 3, 4 or 5, then press Enter:'
+  read_choice
+  case "$choice" in
+    1)
+      run_ui || true
+      recovery_reason='The retry has ended. Automatic retries remain stopped.'
+      recovery_menu
+      ;;
+    2)
+      run_console || true
+      recovery_reason='The text screen has closed. Automatic retries remain stopped.'
+      recovery_menu
+      ;;
+    3)
+      clear_screen
+      notice 'Beamo Wipe recovery: technical details'
+      notice "Automatic attempts used: $attempt of 3"
+      notice "Graphical exit code: $graphical_rc"
+      notice "Text screen exit code: $console_rc"
+      notice 'Code 127 means a required command could not be found.'
+      if [ -d /tmp/beamo-wipe ] && [ ! -L /tmp/beamo-wipe ] && [ -r /tmp/beamo-wipe ]; then
+        notice 'Application log folder: /tmp/beamo-wipe/'
+        notice 'Files may be incomplete. No log proves that an erase succeeded.'
+      else
+        notice 'Application log folder is not available.'
+      fi
+      notice 'These details are temporary. Note them before restarting.'
+      short_choices
+      ;;
+    4) power_choice reboot; short_choices ;;
+    5) power_choice poweroff; short_choices ;;
+    *) recovery_menu; notice 'Choose 1, 2, 3, 4 or 5. Nothing was started.' ;;
+  esac
 done

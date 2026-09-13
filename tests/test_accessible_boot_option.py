@@ -116,7 +116,7 @@ def test_kiosk_script_wires_accessible_mode():
     for needle in (
         "--accessible",
         "beamo.ui=accessible",
-        "Beamo Wipe is starting with speech. Please wait. Nothing is erased yet.",
+        "Beamo Wipe is starting with speech. No new erase starts automatically.",
         "The spoken screen could not start. A keyboard text screen is showing instead. Speech is not available on it.",
         "espeak-ng",
         "startx /usr/local/bin/beamo-wipe",

@@ -444,7 +444,7 @@ def _run_session(args, *, session_store, use_console, want_accessible,
         # The startup display was closed before discovery finished: stop
         # like a window close, without opening the wizard and without
         # powering off (closing the wizard does not power off either; the
-        # kiosk supervisor relaunches).
+        # kiosk supervisor offers recovery choices).
         return 0
 
     if not args.demo and not wizard.dry_run and running_on_live_usb():

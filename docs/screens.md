@@ -59,3 +59,9 @@ commands; see [screen-reader operation](screen-reader.md).
 
 Local previews use fake devices and never erase disks. The browser gallery is
 a preview; the shipped graphical views are native windows.
+
+The shipped live supervisor also has a [terminal recovery menu](kiosk-recovery.md)
+after repeated startup failures or a normal interface close. It is outside the
+Python wizard so missing graphical/Python dependencies cannot hide it. Browser
+and native previews retain the wizard's own diagnostic screens; the offline
+helper explains the live-only recovery choices and accessibility limits.

@@ -342,7 +342,7 @@ def test_kiosk_restart_returns_to_shipped_us_qwerty():
     kiosk = KIOSK.read_text(encoding="utf-8")
     xorg = XORG.read_text(encoding="utf-8")
     default = CONSOLE_KEYBOARD.read_text(encoding="utf-8")
-    assert "Restart=always" in service
+    assert "Restart=no" in service
     assert "setxkbmap" not in kiosk
     assert "loadkeys" not in kiosk
     assert 'Option "XkbLayout" "us"' in xorg

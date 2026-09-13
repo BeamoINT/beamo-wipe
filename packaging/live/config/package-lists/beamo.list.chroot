@@ -40,6 +40,8 @@ tk
 # to the X server's unscalable built-in "fixed" bitmap font.
 fonts-dejavu-core
 util-linux
+# Recovery refuses power actions while nwipe is running or the check fails.
+procps
 smartmontools
 # nwipe v0.42 uses hdparm only for read-only HPA/DCO discovery. It is kept as
 # an engine dependency; Beamo never constructs ATA security-erase arguments.
