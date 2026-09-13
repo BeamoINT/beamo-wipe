@@ -278,6 +278,14 @@ grep -q "Beamo Wipe: start the erase guide (nothing is erased yet)" "$EFI_GRUB" 
   echo "ISO UEFI menu lost the branded normal entry" >&2; exit 2; }
 grep -q "Beamo Wipe: troubleshoot startup (nothing is erased yet)" "$EFI_GRUB" || {
   echo "ISO UEFI menu lost the troubleshooting entry" >&2; exit 2; }
+grep -Eq 'Beamo Wipe: \^?speech for screen readers' "$BIOS_LIVE" || {
+  echo "ISO BIOS menu lost the speech entry" >&2; exit 2; }
+grep -q 'beamo.ui=accessible' "$BIOS_LIVE" || {
+  echo "ISO BIOS speech entry lost beamo.ui=accessible" >&2; exit 2; }
+grep -q "Beamo Wipe: speech for screen readers (nothing is erased yet)" "$EFI_GRUB" || {
+  echo "ISO UEFI menu lost the speech entry" >&2; exit 2; }
+grep -q 'beamo.ui=accessible' "$EFI_GRUB" || {
+  echo "ISO UEFI speech entry lost beamo.ui=accessible" >&2; exit 2; }
 if grep -q "Live system (" "$BIOS_LIVE" "$EFI_GRUB"; then
   echo "ISO boot menu still shows the stock Debian entry" >&2; exit 2
 fi

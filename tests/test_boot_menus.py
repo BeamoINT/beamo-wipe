@@ -79,7 +79,7 @@ def _hotkeys(text: str, pattern: str) -> list:
 def test_bios_menu_entries_carry_product_identity():
     menu = _bios_menu()
     labels = re.findall(r"(?m)^\tmenu label (.+)$", menu)
-    assert len(labels) == 2, labels
+    assert len(labels) == 3, labels
     assert all("Beamo Wipe" in label for label in labels), labels
     assert "Debian" not in menu and "Live system (" not in menu
 
@@ -87,17 +87,18 @@ def test_bios_menu_entries_carry_product_identity():
 def test_bios_menu_keeps_default_and_recovery_entry():
     menu = _bios_menu()
     stanzas = re.split(r"(?m)^label ", menu)
-    assert len(stanzas) == 3  # leading text plus exactly two entries
+    assert len(stanzas) == 4  # leading text plus normal, speech, failsafe
     assert "menu default" in stanzas[1]
     assert "menu default" not in stanzas[2]
-    assert "failsafe" in stanzas[2].splitlines()[0]
-    assert "noswap" in stanzas[2]  # real failsafe args, not the normal line
+    assert "menu default" not in stanzas[3]
+    assert "failsafe" in stanzas[3].splitlines()[0]
+    assert "noswap" in stanzas[3]  # real failsafe args, not the normal line
 
 
 def test_bios_menu_states_booting_erases_nothing():
     menu = _bios_menu()
     helps = re.findall(r"(?m)^\ttext help\n(.+)\n\tendtext$", menu)
-    assert len(helps) == 2, helps
+    assert len(helps) == 3, helps
     assert all("Nothing is erased" in line for line in helps), helps
 
 
@@ -121,7 +122,7 @@ def test_bios_menu_has_unique_hotkeys_and_no_placeholders_left():
     menu = _bios_menu()
     assert PLACEHOLDER.search(menu) is None
     keys = _hotkeys(menu, r"\^([A-Za-z])")
-    assert len(keys) == 2 and len(set(keys)) == 2, keys
+    assert len(keys) == 3 and len(set(keys)) == 3, keys
 
 
 def test_bios_menu_title_and_wiring_preserved():
@@ -138,7 +139,7 @@ def test_uefi_menu_entries_carry_product_identity():
     menu = _grub_menu()
     titles = re.findall(r'menuentry "([^"]+)"', menu)
     live = [t for t in titles if "Beamo Wipe" in t]
-    assert len(live) == 2, titles
+    assert len(live) == 3, titles
     assert any("troubleshoot" in t for t in live), titles
 
 

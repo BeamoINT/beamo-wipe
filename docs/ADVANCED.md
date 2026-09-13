@@ -7,6 +7,14 @@ https://github.com/martijnvanbrummelen/nwipe/releases/tag/v0.42
 
 Beamo Wipe never implements its own overwrite. It only execs `nwipe`.
 
+## Live boot arguments
+
+`beamo.ui=accessible` on the kernel command line selects the screen-reader
+view at boot (the BIOS/UEFI menu's speech entry sets it; the kiosk reads
+`/proc/cmdline` and runs `beamo-wipe --accessible`). It is the only recognised
+`beamo.ui=` value, and it changes only the interface — never disk selection,
+boot-device identification, or nwipe arguments.
+
 ## Happy-path mapping
 
 | Wizard choice | nwipe | Notes |

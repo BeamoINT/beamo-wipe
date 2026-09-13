@@ -53,7 +53,9 @@ see the flow in Safari or Chrome without installing anything extra.
 
 If `./preview` cannot open a window (no Tk), it falls back to `--console`.
 
-On the live USB, press **F8** before erasure to open the screen-reader view
+On the live USB, the boot menu also offers a speech entry — press **S** when
+the menu appears (see [screen-reader operation](docs/screen-reader.md)).
+Inside the guide, press **F8** before erasure to open the screen-reader view
 with Orca. Switching views clears all previous confirmations and checks disks
 again. Use Tab and Shift+Tab to move, Space to activate controls, and the
 standard Orca reading commands for text. See [screen-reader operation](docs/screen-reader.md).

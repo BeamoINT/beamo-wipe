@@ -15,6 +15,20 @@ acknowledgement, typed confirmation, method, and countdown. Complete the entire
 authorization flow in the new view. Switching is unavailable while an erase is
 starting or running. A failed refresh leaves no stale disk selectable.
 
+The live USB boot menu also offers **Beamo Wipe: speech for screen readers** —
+press **S** when the menu appears. That entry passes `beamo.ui=accessible` on
+the kernel command line; the kiosk supervisor then launches
+`beamo-wipe --accessible` directly, so a blind owner never has to operate the
+graphical wizard first. Speech (PulseAudio and Orca) is started before disk
+discovery, so the startup stages are announced, and an espeak-ng cue before
+the graphical server says startup is underway. If audio or Orca fails, the
+view stays usable and the failure is recorded as `pulseaudio_failed` or
+`orca_failed` in the diagnostic log. If the graphical view cannot start at
+all, a spoken notice says the keyboard text screen is showing and that speech
+is not available on it. Intentional differences: the BIOS menu has no beep
+(only UEFI plays the two-tone menu beep), `./preview --accessible` starts no
+audio or reader, and the keyboard console fallback has no speech.
+
 Tab and Shift+Tab move focus; Space activates a focused control. The ownership
 checkbox and typed confirmation still gate Continue. The Erase now button stays
 disabled for the five-second countdown and never activates automatically.

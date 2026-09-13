@@ -12,6 +12,20 @@ stty intr undef 2>/dev/null || true
 trap 'exit 0' TERM HUP
 trap '' TSTP INT QUIT
 
+boot_ui_mode() {
+  # shellcheck disable=SC2013,SC2046
+  for word in $(cat "$1" 2>/dev/null); do
+    case "$word" in
+      beamo.ui=accessible) printf '%s\n' accessible; return 0 ;;
+    esac
+  done
+  return 0
+}
+
+UI_MODE="$(boot_ui_mode /proc/cmdline)"
+
+say() { [ "$UI_MODE" = accessible ] || return 0; command -v espeak-ng >/dev/null 2>&1 || return 0; timeout 15 espeak-ng -- "$1" >/dev/null 2>&1 || true; }
+
 # QEMU's boot gate waits for this marker from the shipped live filesystem.
 # It is harmless on physical machines without a serial console.
 if [ -c /dev/ttyS0 ]; then
@@ -24,18 +38,27 @@ if [ -c /dev/ttyS0 ]; then
       0|1) printf 'BEAMO_WIPE_SECURE_BOOT=%s\n' "$sb_value" >/dev/ttyS0 2>/dev/null || true ;;
     esac
   fi
+  if [ "$UI_MODE" = accessible ]; then
+    printf '%s\n' BEAMO_WIPE_UI_MODE=accessible >/dev/ttyS0 2>/dev/null || true
+  fi
 fi
 
 run_ui() {
   rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
+  say "Beamo Wipe is starting with speech. Please wait. Nothing is erased yet."
   if command -v startx >/dev/null 2>&1; then
-    startx /usr/local/bin/beamo-wipe -- -nolisten tcp vt1
+    if [ "$UI_MODE" = accessible ]; then
+      startx /usr/local/bin/beamo-wipe --accessible -- -nolisten tcp vt1
+    else
+      startx /usr/local/bin/beamo-wipe -- -nolisten tcp vt1
+    fi
     rc=$?
     rm -f /tmp/.X11-unix/X0 /tmp/.X0-lock "$XAUTHORITY" 2>/dev/null || true
     if [ "$rc" -eq 0 ]; then
       return 0
     fi
   fi
+  say "The spoken screen could not start. A keyboard text screen is showing instead. Speech is not available on it."
   BEAMO_WIPE_GRAPHICAL_UNAVAILABLE=1 /usr/local/bin/beamo-wipe --console
 }
 

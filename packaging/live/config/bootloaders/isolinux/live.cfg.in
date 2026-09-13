@@ -8,6 +8,15 @@ Opens the Beamo Wipe guide. Nothing is erased until you pick a disk and confirm 
 	initrd @INITRD@
 	append @APPEND_LIVE@
 
+label live-@FLAVOUR@-speech
+	menu label Beamo Wipe: ^speech for screen readers
+	text help
+Starts the same guide with spoken output (Orca). Nothing is erased until you pick a disk and confirm it.
+	endtext
+	linux @LINUX@
+	initrd @INITRD@
+	append @APPEND_LIVE@ beamo.ui=accessible
+
 label live-@FLAVOUR@-failsafe
 	menu label Beamo Wipe: ^troubleshoot startup
 	text help

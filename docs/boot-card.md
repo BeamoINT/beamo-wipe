@@ -49,6 +49,13 @@ When the Beamo Wipe menu appears, pick **Beamo Wipe: start the erase guide**
 (or **troubleshoot startup** if the PC does not start normally). Opening the
 guide erases nothing by itself.
 
+The menu also offers **Beamo Wipe: speech for screen readers** — press **S**
+as soon as the menu appears. On UEFI computers a short two-tone beep plays
+when the menu is showing; the older BIOS menu does not beep. The menu waits
+five seconds, then starts the ordinary guide; if that happens, press **F8**
+in the guide to switch to the spoken view. Choosing either entry erases
+nothing.
+
 1. Read the first screen. This is nwipe with a guide on top.
 2. Check the owner box.
 3. Pick the disk by **size and serial**. The Beamo USB is marked and
