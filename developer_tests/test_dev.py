@@ -193,8 +193,11 @@ def test_preview_keeps_argument_order(dev, monkeypatch):
     assert calls[0][-3:] == ["--scenario", "empty", "--console"]
 
 
+@pytest.mark.parametrize(
+    "host,native", [("linux", False), ("darwin", False), ("win32", True)]
+)
 def test_setup_bootstraps_pep517_tools_before_editable_install(
-    dev, monkeypatch, tmp_path
+    dev, monkeypatch, tmp_path, host, native
 ):
     executable = tmp_path / "bin/python"
     executable.parent.mkdir()
@@ -203,10 +206,12 @@ def test_setup_bootstraps_pep517_tools_before_editable_install(
     monkeypatch.setattr(dev, "live_environment", lambda: False)
     monkeypatch.setattr(dev, "venv_python", lambda: executable)
     monkeypatch.setattr(dev, "run", lambda cmd, **kw: calls.append(cmd) or 0)
-    assert dev.main(["setup"]) == 0
+    monkeypatch.setattr(dev.sys, "platform", host)
+    assert dev.main(["setup"] + (["--native"] if native else [])) == 0
     assert calls[0][2:5] == ["pip", "install", "--upgrade"]
     assert "pip>=23" in calls[0]
-    assert "-e" in calls[1]
+    assert ("-e" in calls[1]) is (not native)
+    assert "pytest==9.0.3" in calls[1]
 
 
 def test_concurrent_build_cannot_mix_executables_and_hashes(tmp_path, monkeypatch):
@@ -284,3 +289,15 @@ def test_git_windows_checkout_keeps_shell_line_endings(tmp_path):
         cwd=fixture,
     )
     assert (checkout / "preview.sh").read_bytes() == b"#!/bin/sh\nprintf hello\n"
+
+
+def test_windows_full_setup_delegates_to_wsl(dev, monkeypatch):
+    calls = []
+    monkeypatch.setattr(dev.sys, "platform", "win32")
+    monkeypatch.setattr(dev, "live_environment", lambda: False)
+    monkeypatch.setattr(dev, "wsl", lambda args: calls.append(args) or 0)
+    monkeypatch.setattr(
+        dev, "run", lambda *a, **k: pytest.fail("native setup must not run")
+    )
+    assert dev.main(["setup"]) == 0
+    assert calls == [["setup"]]
