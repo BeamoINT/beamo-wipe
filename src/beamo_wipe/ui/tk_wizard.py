@@ -1266,7 +1266,9 @@ class TkWizard:
             elif self.w.screen in {Screen.WORKING, Screen.STOPPING}:
                 self._refresh_working()
             self._after_id = self.root.after(100, self._tick)
-        except tk.TclError as exc:
+        except Exception as exc:
+            # Tk otherwise swallows callback exceptions and leaves the timer
+            # unscheduled, so a running erase would lose status monitoring.
             self._after_id = None
             self._fatal_ui = True
             try:

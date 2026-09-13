@@ -183,24 +183,41 @@ def parse_junit_xml(text: str, *, what: str = "junit report") -> Dict[str, Any]:
     totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
     skips: List[Dict[str, str]] = []
     for suite in suites:
+        declared = {}
         for key in totals:
             raw = suite.get(key, "0")
+            if not re.fullmatch(r"[0-9]+", raw):
+                raise RuntimeError(f"{what} has a bad {key} count: {raw!r}")
             try:
-                totals[key] += int(float(raw))
-            except (TypeError, ValueError) as exc:
+                declared[key] = int(raw)
+            except ValueError as exc:
                 raise RuntimeError(f"{what} has a bad {key} count: {raw!r}") from exc
+        observed = dict.fromkeys(totals, 0)
         for case in suite.findall("testcase"):
             classname = (case.get("classname") or "").strip()
             name = (case.get("name") or "").strip()
             if not name:
                 raise RuntimeError(f"{what} has a testcase without a name")
             test_id = f"{classname}.{name}" if classname else name
-            skipped_node = case.find("skipped")
-            if skipped_node is not None:
+            failure_nodes = case.findall("failure")
+            error_nodes = case.findall("error")
+            skipped_nodes = case.findall("skipped")
+            observed["failures"] += len(failure_nodes)
+            observed["errors"] += len(error_nodes)
+            observed["skipped"] += len(skipped_nodes)
+            # Pytest can split call/teardown failures across repeated IDs,
+            # or put a skip and teardown error (even two xfails) in one
+            # testcase. Its tests count measures those outcomes separately.
+            observed["tests"] += max(1, len(failure_nodes) + len(error_nodes) + len(skipped_nodes))
+            for skipped_node in skipped_nodes:
                 kind = skipped_node.get("type") or ""
                 kind = "xfail" if "xfail" in kind else "skip"
                 reason = (skipped_node.get("message") or "").strip() or "unspecified"
                 skips.append({"id": test_id, "kind": kind, "reason": reason})
+        if declared != observed:
+            raise RuntimeError(f"{what} has inconsistent testsuite counts")
+        for key in totals:
+            totals[key] += observed[key]
     tests = totals["tests"]
     failures = totals["failures"]
     errors = totals["errors"]

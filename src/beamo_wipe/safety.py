@@ -289,44 +289,29 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
 
 def _stable_same_size_token(disk: Disk, same: Sequence[Disk]) -> Optional[ConfirmSpec]:
     peer_names = _peer_name_tokens(disk, same)
-    serial = (disk.serial or "").strip()
-    if len(serial) >= 4:
-        token = _safe_token(serial[-4:])
-        same_token = [
-            d
-            for d in same
-            if _safe_token((d.serial or "").strip()[-4:]).casefold() == token.casefold()
-        ]
-        if token and len(same_token) == 1 and token.casefold() not in peer_names:
-            return ConfirmSpec(token=token, prompt=confirm_type_four(token))
-    serial_token = _safe_token(serial)
-    if serial_token:
-        same_serial = [
-            d
-            for d in same
-            if _safe_token((d.serial or "").strip()).casefold() == serial_token.casefold()
-        ]
-        if len(same_serial) == 1 and serial_token.casefold() not in peer_names:
-            return ConfirmSpec(token=serial_token, prompt=confirm_type_chars(serial_token))
-    wwn = (disk.wwn or "").strip()
-    if len(wwn) >= 4:
-        token = _safe_token(wwn[-4:])
-        same_token = [
-            d
-            for d in same
-            if _safe_token((d.wwn or "").strip()[-4:]).casefold() == token.casefold()
-        ]
-        if token and len(same_token) == 1 and token.casefold() not in peer_names:
-            return ConfirmSpec(token=token, prompt=confirm_type_four(token))
-    wwn_token = _safe_token(wwn)
-    if wwn_token:
-        same_wwn = [
-            d
-            for d in same
-            if _safe_token((d.wwn or "").strip()).casefold() == wwn_token.casefold()
-        ]
-        if len(same_wwn) == 1 and wwn_token.casefold() not in peer_names:
-            return ConfirmSpec(token=wwn_token, prompt=confirm_type_chars(wwn_token))
+    want = os.path.realpath(disk.path)
+    # A peer may confirm by serial or WWN. Suffixes must avoid both its full
+    # values and suffixes; full values must avoid its full values. This lets
+    # a short full ID remain usable while forcing its peer to use a longer ID.
+    peer_full = set(peer_names)
+    peer_suffixes = set()
+    for other in same:
+        if os.path.realpath(other.path) == want:
+            continue
+        for value in (other.serial, other.wwn):
+            value = (value or "").strip()
+            peer_full.add(_safe_token(value).casefold())
+            if len(value) >= 4:
+                peer_suffixes.add(_safe_token(value[-4:]).casefold())
+    for field in ("serial", "wwn"):
+        value = (getattr(disk, field) or "").strip()
+        candidates = []
+        if len(value) >= 4:
+            candidates.append((_safe_token(value[-4:]), confirm_type_four, peer_full | peer_suffixes))
+        candidates.append((_safe_token(value), confirm_type_chars, peer_full))
+        for token, prompt, conflicts in candidates:
+            if token and token.casefold() not in conflicts:
+                return ConfirmSpec(token=token, prompt=prompt(token), identity_field=field)
     return None
 
 

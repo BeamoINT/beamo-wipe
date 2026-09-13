@@ -955,6 +955,10 @@ class Wizard:
             log_diag("discover", "refresh_failed", type(exc).__name__)
             fresh = DiscoveryResult(error=REDISCOVER_ERROR, boot_identified=False, error_code="refresh_failed")
         with self._lock:
+            # Validation runs outside the lock. A duplicate completion may
+            # have committed this scan and allowed a newer scan or navigation.
+            if seq != self._refresh_seq or self.screen != Screen.REFRESHING:
+                return False
             self.discovery = fresh
             self.startup_error_code = fresh.error_code
             self.error = fresh.error
@@ -2279,7 +2283,7 @@ class Wizard:
     def erase_label(self) -> str:
         if self.selected is None:
             return "Erase now"
-        return erase_now_label(self.selected)
+        return erase_now_label(self.selected, self.listed_disks)
 
 
 def make_demo_wizard(*args, **kwargs):
