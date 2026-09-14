@@ -857,3 +857,21 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     app.render()
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case[0] for case in CASES])
+@pytest.mark.parametrize("status", ["idle", "saving", "saved", "error"])
+def test_separate_erase_and_report_headings(ui, case, status):
+    from gi.repository import Atk
+    from beamo_wipe import copy as C
+    wizard, _, _ = case_evidence(case)
+    wizard.report_status = status
+    app = ui(wizard)
+    headings = {
+        widget.get_accessible().get_name()
+        for widget in widgets(app.window)
+        if widget.get_accessible().get_role() == Atk.Role.HEADING
+    }
+    assert {C.ERASE_STATUS_TITLE, C.REPORT_STATUS_TITLE} <= headings
+    assert wizard.report_view.headline in text(app)
+    assert wizard.result_view == VIEWS[case[0]]

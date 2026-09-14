@@ -2843,7 +2843,7 @@ class TkWizard:
     def _done(self, report: ReportView) -> None:
         col = self._column(self._body, fill_height=True)
         result = self.w.result_view
-        title = "Finished" if result.success else "Erase result"
+        title = C.ERASE_STATUS_TITLE
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         badge_size = 64 if self.lay.short else 96
         icon = (_icon_status(col, True, badge_size) if result.icon == "check"
@@ -2860,8 +2860,20 @@ class TkWizard:
         ).pack(fill=tk.X)
         self._p(col, self.w.elapsed_text, fg=MUTED, font=self.font_s,
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(4, 0))
-        # Keep identity and its disclosure ahead of variable-length warnings.
-        # The remaining report details can scroll; footer actions stay fixed.
+        self._p(col, C.REPORT_STATUS_TITLE, font=self.font_s_bold).pack(
+            fill=tk.X, pady=(12, 4)
+        )
+        detail = (C.REPORT_PREVIEW if self.w.preview else
+                  self.w.evidence_warning if report.evidence_error else
+                  C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
+        self._panel(
+            col, kind="info" if self.w.preview else report.tone,
+            text=C.REPORT_PREVIEW if self.w.preview else report.headline,
+            extra=C.REPORT_STATUS_NOTICE + ("" if self.w.preview else " " + detail),
+            compact=True,
+        ).pack(fill=tk.X)
+        # Both status areas precede disk details and check warnings.
+        # Long details can scroll; footer actions stay fixed.
         if self.w.selected is not None:
             self._disk_summary(col, self.w.selected).pack(
                 fill=tk.X, pady=(8 if self.lay.short else 24, 0)
@@ -2871,27 +2883,6 @@ class TkWizard:
         self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
         for alert in self.w.check_alerts:
             self._panel(col, kind="warn", text=alert).pack(fill=tk.X, pady=(8, 0))
-        if report.evidence_error:
-            self._p(
-                col,
-                self.w.evidence_warning,
-                font=self.font_s_bold,
-                wraplength=min(700, self.lay.wrap),
-                justify=tk.CENTER,
-                anchor="center",
-                fg=DANGER,
-            ).pack(fill=tk.X, pady=(12, 0))
-        if not self.w.preview and not report.evidence_error:
-            instruction = C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
-            self._p(
-                col,
-                instruction,
-                font=self.font_s_bold,
-                wraplength=min(700, self.lay.wrap),
-                justify=tk.CENTER,
-                anchor="center",
-                fg=(DANGER if report.status == "error" else INK),
-            ).pack(fill=tk.X, pady=(12, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         row = self._footer_shell(C.HINT_DEFAULT if self.w.preview else C.HINT_DONE)
         if self.w.preview:

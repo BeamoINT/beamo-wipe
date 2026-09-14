@@ -563,26 +563,30 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 raise EOFError from exc
             continue
         if screen == Screen.DONE:
+            print(C.ERASE_STATUS_TITLE)
             print(wizard.elapsed_text)
             report = wizard.report_view
             print(wizard.method_summary)
             print(wizard.method_result)
             if wizard.selected:
                 _print_view(wizard.disk_view(wizard.selected))
+            print(wizard.result_view.next_step)
+            for alert in wizard.check_alerts:
+                print(alert)
+            print(C.REPORT_STATUS_TITLE)
+            print(C.REPORT_PREVIEW if wizard.preview else report.headline)
+            print(C.REPORT_STATUS_NOTICE)
             if report.evidence_error:
                 print(wizard.evidence_warning)
             if wizard.preview:
-                print(wizard.result_view.next_step)
                 ans = _answer(wizard, "Enter to run again, or q to close… ").strip().lower()
                 if ans in ("q", "quit", "close"):
                     wizard.shutdown()
                 else:
                     wizard.reset_for_preview()
             else:
-                print(wizard.result_view.next_step)
-                for alert in wizard.check_alerts:
-                    print(alert)
-                print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
+                if not report.evidence_error:
+                    print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
                 if report.can_retry_evidence:
                     prompt = "Type RETRY to save evidence again, or SHUTDOWN: "
                 elif report.can_save:
@@ -872,13 +876,16 @@ def _loop(stdscr, wizard: Wizard) -> int:
             report = wizard.report_view
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
+            y = _wrap(stdscr, y, C.ERASE_STATUS_TITLE, w, y_max)
             y = _wrap(stdscr, y, wizard.method_result, w, y_max)
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
             content = wizard.elapsed_text + "\n" + wizard.result_view.next_step
             if wizard.check_alerts:
                 content += "\n" + "\n".join(wizard.check_alerts)
-            if not wizard.preview:
+            content += "\n" + C.REPORT_STATUS_TITLE + "\n" + (C.REPORT_PREVIEW if wizard.preview else report.headline)
+            content += "\n" + C.REPORT_STATUS_NOTICE
+            if not wizard.preview and not report.evidence_error:
                 content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             if report.evidence_error:
                 content += "\n" + wizard.evidence_warning

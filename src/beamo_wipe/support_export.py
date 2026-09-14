@@ -310,7 +310,7 @@ def present_export_receipt(receipt: ExportReceipt) -> str:
     else:
         lead = (
             f"Report saved and verified on {receipt.destination_label}. "
-            "The report USB is safe to remove."
+            "The report USB is safe to remove. Saving this report does not confirm erase success."
         )
     lines = [
         lead,

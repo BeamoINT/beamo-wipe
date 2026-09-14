@@ -1752,3 +1752,25 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert C.prepare_selected(wiz.selected) in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize("case", RESULT_CASES, ids=[case[0] for case in RESULT_CASES])
+@pytest.mark.parametrize("status", ["idle", "saving", "saved", "error"])
+def test_done_separates_report_status_at_minimum_size(ui, case, status):
+    from beamo_wipe import copy as C
+    _, app = ui(size=MIN_WINDOW)
+    app.w, _, _ = case_evidence(case)
+    app.w.report_status = status
+    app._draw()
+    app.root.update()
+    def walk(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from walk(child)
+    labels = {widget.cget("text"): widget for widget in walk(app.root) if isinstance(widget, tk.Label)}
+    assert C.ERASE_STATUS_TITLE in labels
+    assert C.REPORT_STATUS_TITLE in labels
+    assert app.w.report_view.headline in labels
+    assert labels[C.ERASE_STATUS_TITLE].winfo_rooty() < labels[C.REPORT_STATUS_TITLE].winfo_rooty()
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)

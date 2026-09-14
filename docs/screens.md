@@ -12,7 +12,7 @@ Every interface uses the same Wizard authorization and validated result model.
 | Supported storage limits | Full offline limits, reached directly from method selection. Back returns to the chosen method. |
 | Last chance to stop | Show identity, partition-evidence preparation, irreversible-action warning and canonical method summary. Require a fresh five-second countdown and explicit Erase now action. |
 | Working | Keep device identity, the method summary, and progress visible. Remind the owner to leave the USB in and keep wall power connected. The screen is non-interactive except **Cancel erase** (Tk secondary button, GTK button, console `CANCEL` + Enter, curses Esc): cancellation is confirmed, and a failed cancel stays on Working with a danger panel because the disk may still be erasing. Interruption and inability to confirm a stop remain distinct outcomes. Shut down is not offered while an erase may still be running. Progress is percent text plus bar plus an indeterminate slide before the engine reports a number; percent never shows 100% early. |
-| Finished | Use validated evidence and the canonical explanation in `outcomes.py`. The heading is **Finished** on success and **Erase result** otherwise. The screen shows elapsed time, the method summary, the next step, the disk summary with Show more, and the guarded report instruction. Successful outcomes add that only the validated selected disk was processed and that reinstalling an operating system is a separate task. Failures, cancellation and indeterminate results do not claim a disk was processed. Quick zero completion explicitly says verification was not performed. Footer, live session: **Save report to USB** (enabled only when the evidence gate allows saving), **Shut down** (disabled while exporting or saving evidence), and **Retry evidence save** when evidence saving failed. Footer, preview: **Close preview** and **Run again**. Console equivalents are the `SAVE` / `RETRY` / `SHUTDOWN` prompts; the screen-reader view exposes the same actions as native buttons. |
+| Finished | Use validated evidence and the canonical explanation in `outcomes.py`. Separate **Erase status** and **Report status** areas identify the erase result and the report copy independently. The erase badge uses the canonical outcome; report status uses neutral information or an amber warning, never the erase-success check or red failure badge. Report copy checking is not disk read-back verification. The screen shows elapsed time, the method summary, the next step, the disk summary with Show more, and the guarded report instruction. Successful outcomes add that only the validated selected disk was processed and that reinstalling an operating system is a separate task. Failures, cancellation and indeterminate results do not claim a disk was processed. Quick zero completion explicitly says verification was not performed. Footer, live session: **Save report to USB** (enabled only when the evidence gate allows saving), **Shut down** (disabled while exporting or saving evidence), and **Retry evidence save** when evidence saving failed. Footer, preview: **Close preview** and **Run again**. Console equivalents are the `SAVE` / `RETRY` / `SHUTDOWN` prompts; the screen-reader view exposes the same actions as native buttons. |
 | Advanced | Technician information and the report workflow guidance. |
 | Shut down without saving? | Shown when a report was requested but no current verified export is confirmed. Keep session open returns; explicit discard authorizes shutdown. [State and recovery rules](report-shutdown.md). |
 
@@ -65,3 +65,19 @@ after repeated startup failures or a normal interface close. It is outside the
 Python wizard so missing graphical/Python dependencies cannot hide it. Browser
 and native previews retain the wizard's own diagnostic screens; the offline
 helper explains the live-only recovery choices and accessibility limits.
+
+### Erase and report status (#96)
+
+Every completion view separates erase status from report status. Report save,
+check, and retry messages never replace the erase outcome. A saved receipt means
+only that the report copy was checked and the report USB safely unmounted; it does
+not confirm erase success. Existing evidence validation remains conservative:
+when evidence preparation fails, completion cannot be confirmed, even if the
+process reported completion. Retry does not run the erase again.
+
+Tk places the report panel directly below the erase summary, before scrollable
+disk details and check warnings. The GTK screen-reader interface exposes explicit
+ATK headings and focusable report text; the canonical erase announcement retains
+arrival focus. Console uses text headings without relying on color. The browser
+and native previews show the same two areas but explicitly state that no report
+was saved; the gallery does not simulate report export or offer a real save action.

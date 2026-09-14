@@ -107,6 +107,10 @@ def gallery_html() -> str:
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
+        "eraseStatusTitle": C.ERASE_STATUS_TITLE,
+        "reportStatusTitle": C.REPORT_STATUS_TITLE,
+        "reportPreview": C.REPORT_PREVIEW,
+        "reportStatusNotice": C.REPORT_STATUS_NOTICE,
         "journey": C.JOURNEY_LABELS,
         "selectedDisk": C.SELECTED_DISK,
         "serialLabel": C.SERIAL_LABEL,
@@ -967,9 +971,13 @@ function draw() {
     const ok = !fail;
     const result = P.previewResults[ok ? "ok" : "failed"];
     main.innerHTML = `<div class="centerstage"><div class="status" aria-hidden="true"><div class="core">i</div></div>
-      <h1>${result.message}</h1>
+      <section aria-labelledby="erase-status-heading"><h1 id="erase-status-heading">${P.eraseStatusTitle}</h1>
+      <p class="statustext">${result.message}</p>
       <p class="statustext" style="color:var(--ink)">${result.next_step}</p>
       <p>${P.methods[method].summary}</p><p role="status" aria-live="polite">${result.announcement}</p>
+      </section><section aria-labelledby="report-status-heading">
+      <h2 id="report-status-heading">${P.reportStatusTitle}</h2>
+      <p>${P.reportPreview}</p><p class="small">${P.reportStatusNotice}</p></section>
       <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div>
       ${moreLink()}</div>`;
     bindMore();

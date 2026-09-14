@@ -14,7 +14,8 @@ os.environ["GTK_MODULES"] = "gail:atk-bridge"
 os.environ["NO_AT_BRIDGE"] = "0"
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
+gi.require_version("Atk", "1.0")
+from gi.repository import Atk, Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa: E402
@@ -53,6 +54,7 @@ class AccessibleWizard:
             #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #244A73; box-shadow: none; }
             #beamo-accessible .erase-warning { background: #FBEBE9; color: #B3261E; padding: 10px; border-radius: 6px; }
             #beamo-accessible .screen-actions { border-top: 1px solid #D8DFE6; padding-top: 8px; }
+            #beamo-accessible .report-warning { background: #FFF3CD; color: #825600; padding: 8px; }
             #beamo-accessible .error-message { color: #B3261E; font-weight: bold; }
         """)
         # Size before the first show: a low-resolution live session may have
@@ -418,6 +420,11 @@ class AccessibleWizard:
         elif screen == Screen.DONE:
             result = self.w.result_view
             heading.set_text(result.announcement)
+            heading.get_accessible().set_role(Atk.Role.HEADING)
+            erase_heading = self.label(C.ERASE_STATUS_TITLE)
+            erase_heading.get_accessible().set_role(Atk.Role.HEADING)
+            erase_heading.get_style_context().add_class("screen-heading")
+            self.body.reorder_child(erase_heading, self.body.get_children().index(heading))
             icon = Gtk.Image.new_from_icon_name(
                 {
                     "check": "emblem-ok-symbolic",
@@ -446,12 +453,19 @@ class AccessibleWizard:
             self.identity()
             self.label(self.w.method_summary)
             self.label(self.w.elapsed_text)
-            report = self.w.report_view
-            if report.evidence_error:
-                self.label(self.w.evidence_warning)
             self.label(self.w.result_view.next_step)
             for alert in self.w.check_alerts:
                 self.label(alert)
+            report = self.w.report_view
+            report_heading = self.label(C.REPORT_STATUS_TITLE, focusable=True)
+            report_heading.get_accessible().set_role(Atk.Role.HEADING)
+            report_heading.get_style_context().add_class("screen-heading")
+            report_summary = self.label(C.REPORT_PREVIEW if self.w.preview else report.headline, focusable=True)
+            if not self.w.preview and report.tone == "warn":
+                report_summary.get_style_context().add_class("report-warning")
+            self.label(C.REPORT_STATUS_NOTICE)
+            if report.evidence_error:
+                self.label(self.w.evidence_warning)
             if not self.w.preview and not report.evidence_error:
                 self.label(
                     C.report_aftercare(
