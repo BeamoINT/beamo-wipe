@@ -30,6 +30,10 @@ STATUS_LABELS = {
     "unavailable": UNAVAILABLE,
 }
 
+def _object_mapping(value: object) -> Mapping[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def sanitize_value(text: object, *, limit: int = MAX_VALUE) -> str:
     """Flatten untrusted text so it cannot inject headings or control codes."""
     if not isinstance(text, str):
@@ -172,11 +176,9 @@ def _report_file(evidence: Mapping[str, Any]) -> str:
 
 
 def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[str, str]]:
-    device = evidence.get("device") if isinstance(evidence.get("device"), dict) else {}
+    device = _object_mapping(evidence.get("device"))
     presentation = (
-        evidence.get("device_presentation")
-        if isinstance(evidence.get("device_presentation"), dict)
-        else {}
+        _object_mapping(evidence.get("device_presentation"))
     )
     secrets = _secrets(device) if redacted else ()
     title = _optional_text(presentation, "title")
@@ -213,7 +215,7 @@ def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[st
 
 
 def _method_lines(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
-    method = evidence.get("method") if isinstance(evidence.get("method"), dict) else {}
+    method = _object_mapping(evidence.get("method"))
     title = _optional_text(method, "title")
     summary = _optional_text(method, "operation_summary")
     if title != UNAVAILABLE and summary != UNAVAILABLE:
@@ -251,7 +253,7 @@ def _limitations(evidence: Mapping[str, Any]) -> str:
     if step != UNAVAILABLE:
         return step
     verification = (
-        evidence.get("verification") if isinstance(evidence.get("verification"), dict) else {}
+        _object_mapping(evidence.get("verification"))
     )
     return _optional_text(verification, "scope")
 
@@ -313,10 +315,10 @@ def build_result_summary(
     payload = evidence if isinstance(evidence, dict) else {}
     sharing = is_sharing_copy(payload)
     view = present_evidence(payload)
-    device = payload.get("device") if isinstance(payload.get("device"), dict) else {}
+    device = _object_mapping(payload.get("device"))
     secrets = _secrets(device) if (redacted or sharing) else ()
     checksum = evidence_sha256 if HEX64_RE.fullmatch(evidence_sha256 or "") else UNAVAILABLE
-    timestamps = payload.get("timestamps") if isinstance(payload.get("timestamps"), dict) else {}
+    timestamps = _object_mapping(payload.get("timestamps"))
     if sharing:
         header = SHARE_NOTICE
     elif redacted:

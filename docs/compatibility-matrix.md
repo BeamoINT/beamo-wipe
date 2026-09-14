@@ -58,6 +58,8 @@ It does **not** weaken safety gates. Every *Fail Closed* row lists no disks and 
 
 Local `python3 -m pytest` is the fast fake-device gate; `tk_runtime` clipped-text checks require Xvfb 72 DPI and are run on the hosted gate. Tk tests scale with DPI — `DISPLAY=:99` @72 DPI or `xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"`; VNC `DISPLAY=:1` @96 DPI is not the gate.
 
+Environments map to evidence tiers defined in [`docs/evidence-tiers.md`](evidence-tiers.md): local fake-device is Tier 1 (never boot/wipe/hardware proof), Cloud Build ISO + isolated QEMU is Tier 2 (never physical-hardware proof), named lab machines are Tier 3. Section 4–9 rows marked *Supported* rest on Tier 1 unless §4 of that page links a dated Tier 2/3 receipt for the pinned build; unlinked combinations are explicitly `UNVERIFIED` there.
+
 ---
 
 ## 3. Image identity
@@ -333,7 +335,7 @@ BEAMO_WIPE_VERSION=0.2.7 ./scripts/qemu-verify.sh
 
 ## 13. Evidence & logs (this checkout)
 
-- `python3 -m pytest -k "not tk_runtime"` — **218 passed, 0 failed** on `Darwin arm64` with `BEAMO_WIPE_DRY_RUN=1` (this matrix changeset). Hosted gate re-runs the same under `xvfb-run 72 DPI` on `x86_64`.
+- `python3 -m pytest -k "not tk_runtime"` — **218 passed, 0 failed** on `Darwin arm64` with `BEAMO_WIPE_DRY_RUN=1` (historical snapshot from the 0.1.1 matrix release, kept for provenance; for current counts see the hosted gate per `docs/ci.md`). Hosted gate re-runs the same under `xvfb-run 72 DPI` on `x86_64`.
 - Tk clipped-text / off-window probes: 14 layout tests + 12 keyboard/scroll tests. On this Mac, Tk `Aborted` in headless `DISPLAY=:1` @96 DPI is pre-existing and not the gate; hosted gate uses `DISPLAY=:99` @72 DPI.
 - `BEAMO_WIPE_NO_OPEN=1 ./preview --web` → `web-preview/index.html` (gallery) and `BEAMO_WIPE_DEMO=1 ./preview --console </dev/null` both exit 0; no real disks enumerated.
 - No `nwipe` subprocess was spawned in any fake-device test — spy: `NwipeRunner.start` raises `SafetyError("Refusing to exec nwipe in preview or dry-run.")`; `DryRunRunner` fakes `WipeResult`; `subprocess.Popen` spy in `test_popen_inherits_wipe_lock_fd` asserts `pass_fds`, `cwd="/"`, `shell False`, `start_new_session True`.

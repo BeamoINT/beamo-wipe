@@ -311,6 +311,7 @@ def test_plain_console_deduplicates_and_remains_cancellable(monkeypatch, capsys)
     from beamo_wipe.ui import console_wizard
 
     w = SimpleNamespace(
+        power_text="Wall power: unknown.",
         wants_shutdown=False,
         screen=Screen.WORKING,
         preview=False,

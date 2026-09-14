@@ -16,6 +16,7 @@ from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
+from beamo_wipe.power import PowerStatus
 from beamo_wipe.identity import present_disk
 from beamo_wipe.safety import SafetyError, confirm_spec, listed_disks, same_size_conflict
 
@@ -160,6 +161,15 @@ def gallery_html() -> str:
         "what": list(C.WHAT_BULLETS),
         "powerReminder": C.POWER_REMINDER,
         "powerBlanking": C.POWER_BLANKING,
+        "powerKeep": C.POWER_KEEP,
+        "powerEvents": C.POWER_EVENTS,
+        "powerScenarios": {
+            "unknown": PowerStatus().text,
+            "ac": PowerStatus(ac=True, batteries=(80,), complete=True).text,
+            "battery": PowerStatus(ac=False, batteries=(55,), complete=True).text,
+            "low": PowerStatus(ac=False, batteries=(12,), complete=True).text,
+            "desktop": PowerStatus(complete=True).text,
+        },
         "whatMore": C.WHAT_MORE,
         "engine": C.ENGINE_LINE,
         "secureBoot": C.SECURE_BOOT_HINT,
@@ -472,6 +482,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .inventory-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
   .disktype { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 0; }
   .card .title, .card .meta { overflow-wrap: anywhere; }
+  /* Grid/flex items default to min-width:auto: a long unbroken serial,
+     model, or warning would push past the card instead of wrapping. */
+  .card .meta > *, .panel > div { min-width: 0; }
+  .panel > div { overflow-wrap: anywhere; }
   .card .meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; }
   .connection { grid-column: 1 / -1; }
   .compact-notice { padding: 8px 16px; font-size: 14px; }
@@ -516,6 +530,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <button type="button" onclick="boot('empty')">No other disks</button>
     <button type="button" onclick="boot('blocked')">Cannot identify USB</button>
     <button type="button" onclick="boot('fail')">Failed wipe</button>
+    <label>Fake power <select id="power-choice" onchange="updatePower(this.value)">
+      <option value="unknown">Unknown</option><option value="ac">Wall power connected</option>
+      <option value="battery">On battery</option><option value="low">Low battery</option>
+      <option value="desktop">No battery reported</option>
+    </select></label>
   </div>
   <div class="shell">
     <div class="preview-stripe" id="stripe"></div>
@@ -527,6 +546,16 @@ _TEMPLATE = r"""<!DOCTYPE html>
 </div>
 <script>
 const P = __PAYLOAD__;
+let powerChoice = "unknown";
+function powerText() { return "Preview power (not a hardware reading). " + P.powerScenarios[powerChoice]; }
+function powerPanel(reminder=true) {
+  return `<div class="panel info"><div>${reminder ? `<div>${P.powerKeep}</div>` : ""}<div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>`;
+}
+function updatePower(value) {
+  powerChoice = Object.hasOwn(P.powerScenarios, value) ? value : "unknown";
+  const status = document.getElementById("power-status");
+  if (status) status.textContent = powerText();
+}
 let screen = "splash";
 let renderedScreen = null;
 let reportWanted = false;
@@ -646,7 +675,7 @@ function panel(kind, text, compact = false) {
   return `<div class="panel ${kind}${compact ? " compact-notice" : ""}">${badge(kind, 28)}<div>${text}</div></div>`;
 }
 function moreLink() {
-  return `<button type="button" class="linkbtn morelink" id="more">${showMore ? P.buttons.less : P.buttons.more}</button>`;
+  return `<button type="button" class="linkbtn morelink" id="more" aria-expanded="${showMore}">${showMore ? P.buttons.less : P.buttons.more}</button>`;
 }
 function bindMore() {
   const el = document.getElementById("more");
@@ -756,9 +785,10 @@ function draw() {
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
       <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div></div></div>
+      ${powerPanel(false)}
       ${moreLink()}
       ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      <div>${P.secureBoot}</div><div class="extra">${P.engine}</div></div></div>` : ""}</div></div>`;
+      <div>${P.secureBoot}</div><div class="extra">${P.engine} ${P.powerEvents}</div></div></div>` : ""}</div></div>`;
     bindMore();
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsR.append(btn(P.buttons.understand, () => { screen = "owner"; draw(); }, "primary"));
@@ -817,7 +847,7 @@ function draw() {
       ${summaryCard(d)}
       ${moreLink()}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
-      <p style="font-size:16px;margin:14px 0 8px"><label for="tok">${d.prompt}</label></p>
+      <p style="font-size:16px;margin:14px 0 8px;overflow-wrap:anywhere"><label for="tok">${d.prompt}</label></p>
       <div class="entryshell"><input class="token" id="tok" aria-describedby="match" autocomplete="off" spellcheck="false"></div>
       <p class="match" id="match" role="status" aria-live="polite"></p></div></div>`;
     bindMore();
@@ -904,7 +934,7 @@ function draw() {
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p class="small" style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p></div><div class="ringwrap"><div style="position:relative;width:144px;height:144px">
+      <div class="review-grid"><div>${summaryCard(selected)}<p class="small" style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:144px;height:144px">
         <svg width="144" height="144" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :
@@ -924,6 +954,7 @@ function draw() {
     main.innerHTML = `<h1>${P.titles.working}</h1>
       ${summaryCard(selected)}
       ${moreLink()}
+      ${powerPanel()}
       <div class="cz"><div class="czc">
       <div class="progress-card"><div class="progress-label">Erase progress</div>
       <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>

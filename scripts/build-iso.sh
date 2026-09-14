@@ -201,11 +201,11 @@ mv -- "$BUILD_OUT/$ISO_NAME" "$OUT_DIR/$ISO_NAME"
 echo "Wrote $OUT_DIR/$ISO_NAME"
 ls -lh "$OUT_DIR/$ISO_NAME"
 # Generate provenance manifest (fails closed on dirty/placeholder/missing
-# checksum). There is deliberately no environment bypass: every ISO build is
-# bound to verified provenance. Locally, ALLOW_DIRTY=1 relaxes only the clean
-# tree requirement and still verifies every artifact checksum.
+# checksum). This pre-QEMU manifest verifies artifact integrity only. The
+# hosted gate finalizes release evidence after QEMU passes; the publisher
+# rejects this preliminary manifest. ALLOW_DIRTY relaxes only source cleanliness.
 echo "Generating release manifest..."
-BEAMO_WIPE_VERSION="$VERSION" ./scripts/generate-release-manifest.sh "dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+BEAMO_BUILD_PROVENANCE_ONLY=1 BEAMO_WIPE_VERSION="$VERSION" ./scripts/generate-release-manifest.sh "dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 echo "Manifest: dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 for _f in "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"; do
   if [ ! -f "$_f" ]; then

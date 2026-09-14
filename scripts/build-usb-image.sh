@@ -21,7 +21,7 @@ for output in "$OUT" "$OUT.sha256" "$OUT.json"; do
     echo 'Unused image and sidecar output paths are required.' >&2; exit 2;
   }
 done
-PYTHONPATH="$ROOT/src" python3 -c 'import pathlib,sys; from beamo_wipe.release_manifest import verify_manifest; verify_manifest(pathlib.Path(sys.argv[1]))' "$ROOT/dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+PYTHONPATH="$ROOT/src" python3 -c 'import pathlib,sys; from beamo_wipe.release_manifest import verify_build_manifest; verify_build_manifest(pathlib.Path(sys.argv[1]))' "$ROOT/dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 TMP_IMAGE="$(mktemp -d /tmp/beamo-wipe-usb.XXXXXX)"
 trap 'rm -rf -- "$TMP_IMAGE"' EXIT
 TREE="$TMP_IMAGE/tree"

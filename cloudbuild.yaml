@@ -20,6 +20,8 @@ options:
   machineType: E2_HIGHCPU_8
   diskSizeGb: 200
   logging: CLOUD_LOGGING_ONLY
+  env:
+    - BUILD_ID=$BUILD_ID
 
 substitutions:
   _SKIP_ISO: "false"
@@ -117,4 +119,8 @@ steps:
       - |
         apt-get update -qq
         apt-get install -y -qq --no-install-recommends ca-certificates git python3
+        if [ "$$PUBLISH_RELEASE" = true ]; then
+          apt-get install -y -qq --no-install-recommends python3-pip
+          python3 -m pip install --break-system-packages -q 'cryptography==49.0.0'
+        fi
         python3 scripts/publish_release_gcs.py

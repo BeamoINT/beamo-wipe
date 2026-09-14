@@ -175,6 +175,7 @@ class AccessibleWizard:
         self.generation += 1
         self.actions = {}
         self.primary = self.progress_label = self.countdown_label = None
+        self.power_label = None
         self.shown = self.w.screen
         self.report_revision = self.w.report_view.revision
         old = self.window.get_child()
@@ -252,6 +253,7 @@ class AccessibleWizard:
             self.label("\n".join(C.WHAT_BULLETS))
             self.label(C.POWER_REMINDER)
             self.label(C.POWER_BLANKING)
+            self.label(C.POWER_EVENTS, focusable=True)
             self.button(C.BTN_CONTINUE, self.w.accept_what)
         elif screen == Screen.OWNER:
             heading.set_text(C.TITLE_OWNER)
@@ -353,6 +355,9 @@ class AccessibleWizard:
                 reader.get_accessible().set_name(content)
 
             choice = Gtk.CheckButton.new_with_label(C.REPORT_WANTED)
+            choice.get_child().set_line_wrap(True)
+            choice.get_child().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            choice.get_child().set_max_width_chars(65)
             choice.set_active(self.w.report_wanted)
             choice.connect(
                 "toggled",
@@ -360,6 +365,9 @@ class AccessibleWizard:
             )
             self.body.pack_start(choice, False, False, 4)
             share = Gtk.CheckButton.new_with_label(C.REPORT_SHARE_REDACTED)
+            share.get_child().set_line_wrap(True)
+            share.get_child().set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            share.get_child().set_max_width_chars(65)
             share.set_active(self.w.report_share_redacted)
             share.connect(
                 "toggled",
@@ -520,6 +528,10 @@ class AccessibleWizard:
             Screen.ADVANCED,
         } or (screen == Screen.KEYBOARD and self.w._keyboard_from):
             self.button(C.BTN_BACK, self.w.back)
+        if screen in {Screen.WHAT, Screen.LAST_CHANCE, Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+            if screen != Screen.WHAT:
+                self.label(C.POWER_KEEP)
+            self.power_label = self.label(self.w.power_text, focusable=True)
         self._style_tree(self.window)
         self.window.show_all()
         if not self.utilities.get_children():
@@ -558,6 +570,8 @@ class AccessibleWizard:
         self.w.set_typing_check(text)
 
     def update_status(self):
+        if self.power_label and self.power_label.get_text() != self.w.power_text:
+            self.power_label.set_text(self.w.power_text)
         if self.countdown_label:
             self.countdown_label.set_text(
                 f"Wait {self.w.countdown_display} seconds."
@@ -710,3 +724,130 @@ def run_accessible(wizard: Wizard, fullscreen: bool = False) -> int:
             except subprocess.TimeoutExpired:
                 reader.kill()
                 reader.wait(timeout=5)
+
+
+def _ensure_gtk_display() -> None:
+    """Raise RuntimeError when no display is reachable for the splash.
+
+    Same fail-safe idea as the Tk probe: a child process attempts the
+    display connection, so a headless host becomes a catchable error and
+    app.py keeps its existing graphical-failure path.
+    """
+    try:
+        probe = subprocess.run(
+            [sys.executable, "-c",
+             "from gi.repository import Gtk as _G; "
+             "_w = _G.Window(); _w.destroy()"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise RuntimeError("no accessible display for startup stages")
+    if probe.returncode != 0:
+        raise RuntimeError("no accessible display for startup stages")
+
+
+def run_accessible_startup(build, *, fullscreen: bool = False,
+                           stall_after_s: float | None = None) -> tuple:
+    """Show startup stages in the screen-reader view while ``build()`` runs.
+
+    Same worker discipline and return protocol as ``run_tk_startup``:
+    ("wizard", wizard), ("failed", exc), or ("abandoned", None) on window
+    close or Escape. Stage rows are plain labels; the status line takes
+    keyboard focus and is selectable so a screen reader announces it.
+    Raises RuntimeError (never aborts) when no display is reachable.
+    """
+    _ensure_gtk_display()
+    from beamo_wipe.startup_stages import STALL_AFTER_S, StartupRun
+
+    run = StartupRun(
+        build,
+        stall_after_s=STALL_AFTER_S if stall_after_s is None else stall_after_s,
+    )
+    outcome: list = []
+    try:
+        window = Gtk.Window(title="Beamo Wipe — starting")
+    except Exception as exc:
+        raise RuntimeError(f"no accessible display for startup stages: {exc}")
+    window.set_name("beamo-accessible")
+    window.set_default_size(640, 420)
+    if fullscreen:
+        window.fullscreen()
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    box.set_border_width(24)
+    window.add(box)
+    rows = []
+    for _i in range(3):
+        status = Gtk.Label()
+        title = Gtk.Label()
+        title.get_style_context().add_class("screen-heading")
+        hint = Gtk.Label()
+        hint.set_line_wrap(True)
+        hint.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        box.pack_start(status, False, False, 0)
+        box.pack_start(title, False, False, 0)
+        box.pack_start(hint, False, False, 6)
+        rows.append((status, title, hint))
+    stall = Gtk.Label()
+    stall.set_line_wrap(True)
+    box.pack_start(stall, False, False, 6)
+    status_line = Gtk.Label(label="")
+    status_line.set_can_focus(True)
+    status_line.set_selectable(True)
+    box.pack_start(status_line, False, False, 6)
+
+    _STATUS_WORDS = {"pending": "Waiting", "active": "Working…", "done": "Done"}
+
+    def render() -> None:
+        snap = run.drain()
+        for (status, title, hint), row in zip(rows, snap):
+            status.set_text(_STATUS_WORDS[row["state"]])
+            title.set_text(row["title"])
+            hint.set_text(row["hint"])
+        note = run.stalled_note()
+        stall.set_text(note or "")
+        active = [row for row in snap if row["state"] == "active"]
+        if active:
+            status_line.set_text(f"{active[0]['title']} — working.")
+
+    def finish(result) -> bool:
+        outcome.append(result)
+        window.destroy()
+        if Gtk.main_level():
+            Gtk.main_quit()
+        return False
+
+    def close(*_args):
+        if not outcome:
+            outcome.append(("abandoned", None))
+        window.destroy()
+        if Gtk.main_level():
+            Gtk.main_quit()
+        return False
+
+    def poll() -> bool:
+        if outcome:
+            return False
+        render()
+        result = run.poll()
+        if result is None:
+            return True
+        # run.poll() applied the final report; announce it before closing.
+        render()
+        return finish(result)
+
+    window.connect("delete-event", close)
+    window.connect("key-press-event", lambda _w, event: close()
+                   if event.keyval in (Gdk.KEY_Escape,) else None)
+    window.show_all()
+    status_line.grab_focus()
+    render()
+    run.start()
+    GLib.timeout_add(100, poll)
+    Gtk.main()
+    if outcome:
+        return outcome[0]
+    return ("abandoned", None)

@@ -72,7 +72,17 @@ WHAT_BULLETS = (
 
 POWER_REMINDER = (
     "If this computer has a battery, plug it into wall power before you erase. "
+    "Keep the lid open. "
     "A power cut stops the erase."
+)
+
+POWER_KEEP = "Laptop: keep wall power connected and keep the lid open."
+POWER_EVENTS = (
+    "This live USB asks Linux to ignore lid closure and a short power-button press, "
+    "and disables sleep. Firmware or a held power button can still stop the erase. "
+    "Use Cancel erase to stop; wait for the result before shutting down. "
+    "A power cut can leave the disk partly erased and lose unsaved reports. "
+    "An interrupted erase does not resume automatically."
 )
 
 POWER_BLANKING = (
@@ -111,6 +121,21 @@ OWNER_CHECKBOX = (
     "I own this computer and these disks, or I have written permission to erase them."
 )
 
+# Startup stages. Plain customer language; stages describe work in progress
+# and never claim a safety check has passed. The exclusion of the boot USB
+# is verified by discovery itself, never by these lines.
+STARTUP_TITLE = "Starting Beamo Wipe"
+STARTUP_TITLE_HINT = "Getting ready."
+STARTUP_STAGE_BOOT_USB = "Checking the boot USB"
+STARTUP_STAGE_BOOT_USB_HINT = (
+    "Learning which disk is this USB stick, so it is never offered for erasure."
+)
+STARTUP_STAGE_FINDING = "Finding disks"
+STARTUP_STAGE_FINDING_HINT = "Listing the disks connected to this computer."
+STARTUP_STILL_WORKING = (
+    "Still working — this can take a minute on older machines."
+)
+
 OWNER_LEAD = "Check the box, then continue."
 
 BOOT_USB_BANNER = "This is the Beamo USB — do not erase"
@@ -128,6 +153,7 @@ SSD_FOOTER = OVERWRITE_LIMITS + " Not a formal certificate."
 
 WORKING_PULSE = (
     "Leave the USB in. Keep wall power connected if this computer has a battery. "
+    "Keep the lid open. "
     "Do not turn the PC off."
 )
 

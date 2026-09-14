@@ -398,6 +398,7 @@ def test_unchanged_working_revision_does_not_rebuild_controls():
     ui._pick_canvas = None
     ui.root = SimpleNamespace(after=lambda *args: 1)
     ui._clear = lambda *args: None
+    ui._prepare_body_host = lambda: None  # renderer stub; no actual Tk widgets
     ui._sync_chrome = lambda *args: None
     ui._draw_header = ui._draw_strip = ui._refresh_working = lambda: None
     ui._shown_report_revision = -1

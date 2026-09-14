@@ -154,7 +154,7 @@ def apply_live_session_overrides(args: argparse.Namespace) -> None:
             pass
 
 
-def _build_wizard(args: argparse.Namespace) -> Wizard:
+def _build_wizard(args: argparse.Namespace, progress=None) -> Wizard:
     apply_live_session_overrides(args)
 
     if args.demo:
@@ -182,6 +182,7 @@ def _build_wizard(args: argparse.Namespace) -> Wizard:
     discovery = discover(
         lsblk_payload=payload,
         boot_path=args.boot_device,
+        progress=progress,
     )
     try:
         from beamo_wipe.diagnostics import log_diag as _log_diag
@@ -261,6 +262,112 @@ def _shutdown() -> bool:
     return False
 
 
+def _blocked_wizard(exc: Exception) -> Wizard:
+    # Startup remains fail-closed, but support stays reachable.
+    from beamo_wipe.diagnostic_report import exception_code
+    from beamo_wipe.models import DiscoveryResult
+    startup_code = exception_code(exc)
+    discovery = DiscoveryResult(error="Startup was blocked. Save a diagnostic report for support.",
+                                error_code=startup_code)
+    wizard = Wizard(discovery, DryRunRunner(), dry_run=not running_on_live_usb())
+    wizard._startup_blocked = True
+    wizard.screen = Screen.PICK_BLOCKED
+    wizard.error = discovery.error
+    print(f"Startup blocked ({startup_code}).", file=sys.stderr)
+    return wizard
+
+
+def _print_startup_row(title: str, hint: str) -> None:
+    import textwrap as _textwrap
+
+    print(f"{title}.")
+    for line in _textwrap.wrap(hint, 76):
+        print(line)
+
+
+def _build_wizard_with_console_stages(args: argparse.Namespace) -> Wizard:
+    """Staged startup for the keyboard screens: lines, then the wizard."""
+    import time as _time
+
+    from beamo_wipe.startup_stages import StartupRun
+
+    run = StartupRun(lambda report: _build_wizard(args, progress=report))
+    shown: set = set()
+
+    def show() -> None:
+        for row in run.drain():
+            if row["key"] in shown:
+                continue
+            shown.add(row["key"])
+            _print_startup_row(row["title"], row["hint"])
+
+    show()
+    run.start()
+    while True:
+        _time.sleep(0.2)
+        outcome = run.poll()
+        # Poll drains first, so this prints the final stage too — the last
+        # line before the wizard is never "Waiting" for finished work.
+        show()
+        note = run.stalled_note()
+        if note is not None:
+            print(note)
+        if outcome is None:
+            continue
+        kind, payload = outcome
+        if kind == "wizard":
+            return payload
+        return _blocked_wizard(payload)
+
+
+def _build_without_splash(args: argparse.Namespace) -> Wizard:
+    """Synchronous build when no display exists for a startup splash."""
+    try:
+        return _build_wizard(args)
+    except Exception as exc:  # startup remains fail-closed, support reachable
+        return _blocked_wizard(exc)
+
+
+def _build_wizard_with_tk_stages(args: argparse.Namespace, fullscreen: bool):
+    """Staged startup for the graphical wizard; None when abandoned."""
+    from beamo_wipe.ui.tk_wizard import run_tk_startup
+
+    try:
+        kind, payload = run_tk_startup(
+            lambda report: _build_wizard(args, progress=report),
+            fullscreen=fullscreen,
+        )
+    except RuntimeError:
+        # No display for the splash (probe refused to abort the process).
+        # Build with no splash; the later run_tk keeps the long-standing
+        # graphical-failure path (keyboard fallback, or code 3).
+        return _build_without_splash(args)
+    if kind == "wizard":
+        return payload
+    if kind == "failed":
+        return _blocked_wizard(payload)
+    return None
+
+
+def _build_wizard_with_accessible_stages(args: argparse.Namespace, fullscreen: bool):
+    """Staged startup for the screen-reader view; None when abandoned."""
+    from beamo_wipe.ui.accessible_wizard import run_accessible_startup
+
+    try:
+        kind, payload = run_accessible_startup(
+            lambda report: _build_wizard(args, progress=report),
+            fullscreen=fullscreen,
+        )
+    except RuntimeError:
+        # No display for the splash; same fallback discipline as Tk.
+        return _build_without_splash(args)
+    if kind == "wizard":
+        return payload
+    if kind == "failed":
+        return _blocked_wizard(payload)
+    return None
+
+
 def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> int:
     args = args if args is not None else _parser().parse_args(argv)
     if args.empty or args.blocked or args.fail_demo or args.scenario != "happy":
@@ -291,19 +398,29 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
             helper = Path.cwd() / "helper" / "index.html"
         return _open_html(helper)
 
-    try:
-        wizard = _build_wizard(args)
-    except Exception as exc:  # startup remains fail-closed, but support stays reachable
-        from beamo_wipe.diagnostic_report import exception_code
-        from beamo_wipe.models import DiscoveryResult
-        startup_code = exception_code(exc)
-        discovery = DiscoveryResult(error="Startup was blocked. Save a diagnostic report for support.",
-                                    error_code=startup_code)
-        wizard = Wizard(discovery, DryRunRunner(), dry_run=not running_on_live_usb())
-        wizard._startup_blocked = True
-        wizard.screen = Screen.PICK_BLOCKED
-        wizard.error = discovery.error
-        print(f"Startup blocked ({startup_code}).", file=sys.stderr)
+    windowed = args.demo and not args.fullscreen
+    use_console = args.plain_console or args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
+    want_accessible = (not use_console
+                       and (args.accessible or os.environ.get("BEAMO_WIPE_UI") == "accessible"))
+    fullscreen = args.fullscreen or not windowed
+    if args.demo:
+        # Instant fake data: stages would flash meaninglessly.
+        try:
+            wizard = _build_wizard(args)
+        except Exception as exc:  # startup remains fail-closed, but support stays reachable
+            wizard = _blocked_wizard(exc)
+    elif use_console:
+        wizard = _build_wizard_with_console_stages(args)
+    elif want_accessible:
+        wizard = _build_wizard_with_accessible_stages(args, fullscreen)
+    else:
+        wizard = _build_wizard_with_tk_stages(args, fullscreen)
+    if wizard is None:
+        # The startup display was closed before discovery finished: stop
+        # like a window close, without opening the wizard and without
+        # powering off (closing the wizard does not power off either; the
+        # kiosk supervisor relaunches).
+        return 0
 
     if not args.demo and not wizard.dry_run and running_on_live_usb():
         from beamo_wipe.report_intent import ReportIntentStore
@@ -313,24 +430,22 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
     if session_store is not None:
         wizard.enable_session_recovery(session_store)
 
-    windowed = args.demo and not args.fullscreen
-    use_console = args.plain_console or args.console or os.environ.get("BEAMO_WIPE_UI") == "console"
     wizard.diagnostic_ui = "console" if use_console else "graphical"
     if use_console and os.environ.get("BEAMO_WIPE_GRAPHICAL_UNAVAILABLE") == "1" and not wizard.startup_error_code:
         wizard.startup_error_code = "graphical_unavailable"
     if not use_console:
         try:
-            if args.accessible or os.environ.get("BEAMO_WIPE_UI") == "accessible":
+            if want_accessible:
                 wizard.diagnostic_ui = "accessible"
                 from beamo_wipe.ui.accessible_wizard import run_accessible
-                code = run_accessible(wizard, fullscreen=args.fullscreen or not windowed)
+                code = run_accessible(wizard, fullscreen=fullscreen)
             else:
                 from beamo_wipe.ui.tk_wizard import run_tk
-                code = run_tk(wizard, fullscreen=args.fullscreen or not windowed)
+                code = run_tk(wizard, fullscreen=fullscreen)
                 if code == 4:
                     wizard.diagnostic_ui = "accessible"
                     from beamo_wipe.ui.accessible_wizard import run_accessible
-                    code = run_accessible(wizard, fullscreen=args.fullscreen or not windowed)
+                    code = run_accessible(wizard, fullscreen=fullscreen)
             if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
                 _shutdown()
             return code

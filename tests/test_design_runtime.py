@@ -29,7 +29,7 @@ def test_full_device_identity_wraps_in_rows_and_summaries(ui, size):  # noqa: F8
         app.root.update()
     for container in (row, summary):
         labels = [w for w in descendants(container) if w.winfo_class() == 'Label'
-                  and w.cget('text') in (disk.display_name, disk.serial)]
+                  and str(w.cget('text')).replace('\n', '') in (disk.display_name, disk.serial)]
         assert len(labels) == 2
         for label in labels:
             assert label.winfo_ismapped()

@@ -288,6 +288,13 @@ def test_hosted_python_tests_install_git_for_fail_closed_manifest():
     assert "    git \\\n" in test_deps
 
 
+def test_hosted_python_tests_install_cryptography_for_release_signing():
+    """Signature tests run in the same worker; a missing lib must fail loudly."""
+    hosted = (ROOT / "scripts" / "ci-hosted.sh").read_text(encoding="utf-8")
+    test_deps = hosted.split("install_test_deps() {", 1)[1].split("\n}", 1)[0]
+    assert "'cryptography==" in test_deps
+
+
 def test_qemu_phase_installs_pytest_for_fake_disk_gate():
     """Cloud Build step containers cannot share the earlier pip install."""
     hosted = (ROOT / "scripts" / "ci-hosted.sh").read_text(encoding="utf-8")

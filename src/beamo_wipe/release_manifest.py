@@ -16,6 +16,11 @@ from typing import Any, Dict, List, Optional
 
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
 from beamo_wipe.build_identity import BUILD_ID_RE
+from beamo_wipe.verification_evidence import (
+    build_test_evidence,
+    verify_package_inventory,
+    verify_release_evidence,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_VERSION = 2
@@ -321,16 +326,36 @@ def known_issues() -> List[str]:
     ]
 
 
-def test_evidence_stub() -> Dict[str, Any]:
-    # Machine-readable but not placeholder: real CI will fill with actual pytest counts
+def unmeasured_test_evidence(reason: str) -> Dict[str, Any]:
+    """Development-only marker. verify_manifest rejects it: script paths are
+    not execution evidence, so a manifest without measured gate receipts can
+    never verify as a release."""
     return {
-        "pytest": "see cloudbuild.yaml python-tests (xvfb 72 DPI, BEAMO_WIPE_DRY_RUN=1)",
-        "preview": "BEAMO_WIPE_NO_OPEN=1 ./preview --web (web-preview/index.html) + ./preview --console",
-        "qemu": "see docs/qemu-verify.md and cloudbuild.yaml qemu-verify (disposable qcow2)",
+        "schema": "beamo-wipe-test-evidence/1",
+        "measured": False,
+        "reason": reason,
+        "gates": {},
     }
 
 
-def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[str, Any]:
+def unmeasured_package_inventory(reason: str) -> Dict[str, Any]:
+    """Development-only marker. verify_manifest rejects it."""
+    return {
+        "schema": "beamo-wipe-package-inventory/1",
+        "measured": False,
+        "reason": reason,
+        "package_count": 0,
+        "packages": [],
+    }
+
+
+def generate_manifest(
+    version: str = __version__,
+    strict: bool = True,
+    gate_receipts: Optional[List[Dict[str, Any]]] = None,
+    package_inventory: Optional[Dict[str, Any]] = None,
+    build_only: bool = False,
+) -> Dict[str, Any]:
     version = _validate_version(version)
     commit = git_commit()
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
@@ -393,7 +418,24 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
             "pinned_path": "/usr/lib/beamo-wipe/nwipe",
         },
         "artifact": iso,
-        "test_evidence": test_evidence_stub(),
+        "test_evidence": (
+            build_test_evidence(gate_receipts)
+            if gate_receipts is not None
+            else unmeasured_test_evidence(
+                "no gate receipts collected"
+                if strict
+                else "development manifest without gate receipts"
+            )
+        ),
+        "installed_packages": (
+            verify_package_inventory(package_inventory)
+            if package_inventory is not None
+            else unmeasured_package_inventory(
+                "no package inventory collected"
+                if strict
+                else "development manifest without package inventory"
+            )
+        ),
         "hardware_limits": hardware_limits(),
         "known_issues": known_issues(),
         "license": {
@@ -417,6 +459,13 @@ def generate_manifest(version: str = __version__, strict: bool = True) -> Dict[s
         final_dirty, _final_files = git_dirty()
         if final_commit != commit or final_dirty:
             raise RuntimeError("source state changed during manifest generation")
+        missing = []
+        if gate_receipts is None:
+            missing.append("gate receipts (measured gate results)")
+        if package_inventory is None:
+            missing.append("package inventory (installed image packages)")
+        if missing and not build_only:
+            raise RuntimeError(f"missing release evidence: {', '.join(missing)}")
     # Top-level checksum (of manifest without itself)
     canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     manifest["_manifest_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -499,6 +548,16 @@ def write_manifest(manifest: Dict[str, Any], dest: Path) -> Path:
 
 
 def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
+    """Consumer/release verification: all measured gates must have passed."""
+    _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=True)
+
+
+def verify_build_manifest(path: Path, allow_dirty: bool = False) -> None:
+    """Pre-QEMU artifact integrity only; never sufficient for publication."""
+    _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=False)
+
+
+def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -> None:
     path = Path(path)
     fd = _open_regular_nofollow(path)
     with os.fdopen(fd, "r", encoding="utf-8") as stream:
@@ -535,6 +594,30 @@ def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
         raise RuntimeError("missing release build identity")
     if not re.fullmatch(r"[0-9a-f]{40}", str(data.get("source", {}).get("commit", ""))):
         raise RuntimeError("untraceable source state: commit not 40-hex")
+    if require_evidence:
+        # Measured release evidence: script paths are not execution evidence, so
+        # a manifest without verified gate receipts and package inventory fails.
+        evidence = data.get("test_evidence")
+        if not isinstance(evidence, dict) or evidence.get("measured") is not True:
+            raise RuntimeError("missing measured gate evidence")
+        verified_gates = verify_release_evidence(evidence)
+        manifest_commit = str(data.get("source", {}).get("commit", ""))
+        manifest_build = str(data.get("build", {}).get("release_build_id", ""))
+        for gate_name, receipt in verified_gates.items():
+            if receipt["source_commit"] != manifest_commit:
+                raise RuntimeError(
+                    f"gate {gate_name!r} evidence is for another source commit"
+                )
+            if receipt["build_id"] != manifest_build:
+                raise RuntimeError(
+                    f"gate {gate_name!r} evidence is for another build identity"
+                )
+        inventory = data.get("installed_packages")
+        if not isinstance(inventory, dict) or inventory.get("measured") is not True:
+            raise RuntimeError("missing measured package inventory")
+        verified_inventory = verify_package_inventory(inventory)
+        if verified_inventory["source_commit"] != manifest_commit:
+            raise RuntimeError("package inventory is for another source commit")
     artifact = data.get("artifact", {})
     version = _validate_version(data.get("beamo_wipe_version", ""))
     iso_name = f"beamo-wipe-{version}-amd64.iso"

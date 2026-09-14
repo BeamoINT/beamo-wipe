@@ -7,8 +7,11 @@ Fake devices only. Live Microsoft URLs are read-only link checks.
 from __future__ import annotations
 
 from html.parser import HTMLParser
+import os
 from pathlib import Path
 import shutil
+import signal
+import time
 import subprocess
 import tempfile
 import urllib.error
@@ -18,6 +21,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / "helper" / "index.html"
+BOOT_CARD = ROOT / "docs" / "boot-card.md"
 START_HERE = ROOT / "packaging/live/config/includes.binary/START-HERE.html"
 DESKTOP = ROOT / "desktop/web/index.html"
 BUILD_ISO = ROOT / "scripts" / "build-iso.sh"
@@ -92,11 +96,27 @@ def _parse() -> _Doc:
     return doc
 
 
-def test_helper_and_iso_start_here_are_identical():
-    assert HELPER.read_bytes() == START_HERE.read_bytes()
+def test_helper_and_iso_start_here_are_identical(tmp_path):
+    # A clean checkout has no generated ISO staging. Execute the builder's
+    # actual copy commands against disposable destinations on every platform.
     script = BUILD_ISO.read_text(encoding="utf-8")
-    assert 'cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"' in script
-    assert 'cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"' in script
+    commands = [line.strip() for line in script.splitlines()
+                if line.strip().startswith('cp "$ROOT/helper/index.html" ')]
+    assert commands == [
+        'cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"',
+        'cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"',
+    ]
+    binary = tmp_path / "binary"
+    share = tmp_path / "share"
+    binary.mkdir()
+    (share / "helper").mkdir(parents=True)
+    subprocess.run(["bash", "-ceu", "\n".join(commands)], check=True,
+                   env=dict(os.environ, ROOT=str(ROOT), STAGE_BIN=str(binary),
+                            STAGE_SHARE=str(share)))
+    assert HELPER.read_bytes() == (binary / "START-HERE.html").read_bytes()
+    assert HELPER.read_bytes() == (share / "helper/index.html").read_bytes()
+    if START_HERE.is_file():
+        assert HELPER.read_bytes() == START_HERE.read_bytes()
 
 
 def test_helper_is_self_contained_for_offline_usb():
@@ -151,6 +171,19 @@ def test_oem_variation_and_safe_fallbacks_are_documented():
     assert "another direct USB port" in text or "another USB port" in text
     assert "manufacturer" in text.lower()
     assert "legacy BIOS" in text
+
+
+def test_boot_card_vendor_keys_match_helper():
+    import re
+
+    card = BOOT_CARD.read_text(encoding="utf-8")
+    html = _html()
+    rows = re.findall(r"^\| ([A-Za-z]+) \| (.+) \|$", card, flags=re.MULTILINE)
+    assert len(rows) >= 7, "boot-card vendor table shrank unexpectedly"
+    for vendor, keys in rows:
+        assert vendor in html, f"helper page lost vendor {vendor}"
+        for key in re.findall(r"F1[012]|Esc", keys):
+            assert key in html, f"helper page lost key {key} for {vendor}"
 
 
 def test_keyboard_and_small_display_structure():
@@ -229,22 +262,62 @@ def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
         tmp_path = Path(tmp)
         for width, height, name in ((360, 900, "small"), (1280, 900, "desktop")):
             shot = tmp_path / f"{name}.png"
-            dump = subprocess.check_output(
+            argv = (
                 [
                     chrome,
                     "--headless=new",
+                    # Keep pixel checks independent of an open personal
+                    # Chrome session and of other concurrent test runs.
+                    f"--user-data-dir={tmp_path / (name + '-profile')}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-background-networking",
+                    "--disable-component-update",
+                    "--disable-extensions",
+                    "--disable-sync",
+                    "--use-mock-keychain",
+                    "--password-store=basic",
                     "--disable-gpu",
                     "--hide-scrollbars",
                     f"--window-size={width},{height}",
                     f"--screenshot={shot}",
-                    "--virtual-time-budget=2000",
+                    "--timeout=10000",
                     "--dump-dom",
                     html,
-                ],
-                stderr=subprocess.STDOUT,
-                timeout=40,
+                ]
             )
-            dom = dump.decode("utf-8", "replace")
+            # Chrome may keep background services alive after completing both
+            # requested artifacts. Wait for those artifacts, then clean up the
+            # entire isolated process group; never reuse a personal profile.
+            with (tmp_path / f"{name}.log").open("w+b") as output:
+                proc = subprocess.Popen(argv, stdout=output, stderr=subprocess.STDOUT,
+                                        start_new_session=True)
+                try:
+                    deadline = time.monotonic() + 40
+                    dom = ""
+                    while time.monotonic() < deadline:
+                        dom = (tmp_path / f"{name}.log").read_text(errors="replace")
+                        code = proc.poll()
+                        if code is not None:
+                            assert code == 0, dom
+                            break
+                        if ("</html>" in dom and shot.is_file()
+                                and shot.stat().st_size > 2000
+                                and "bytes written to file" in dom):
+                            break
+                        time.sleep(0.1)
+                    else:
+                        pytest.fail(f"Chrome did not finish rendering within 40s: {dom}")
+                finally:
+                    try:
+                        os.killpg(proc.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        proc.wait(timeout=3)
             assert "Windows 11: start this USB from Settings" in dom
             assert "Windows 10: start this USB from Settings" in dom
             assert "BitLocker recovery key" in dom

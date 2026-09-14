@@ -320,6 +320,7 @@ def _release_inputs(version: str) -> list[Path]:
         Path(f"{image}.json"),
         manifest,
         Path(f"{manifest}.sha256"),
+        Path(f"{manifest}.sig"),
         ROOT / "dist" / "SHA256SUMS",
         *[
             ROOT / "qemu-evidence" / name
@@ -333,10 +334,7 @@ def _release_inputs(version: str) -> list[Path]:
                 "fixed-vulnerabilities.txt",
                 "fake-disk-e2e.txt",
                 "qemu-img.txt",
-                "nwipe-boundary.txt",
                 "nwipe-invalid-target.txt",
-                "bios-serial.txt",
-                "bios-qemu.txt",
                 "uefi-serial.txt",
                 "uefi-qemu.txt",
                 "bios-usb-serial.txt",
@@ -348,7 +346,109 @@ def _release_inputs(version: str) -> list[Path]:
                 "summary.txt",
             )
         ],
+        *[
+            ROOT / "qemu-evidence" / name
+            for base_method in ("everyday", "extra", "quick_zero")
+            for method in (base_method, f"{base_method}-repeat")
+            for name in (
+                f"host-{method}.log", f"host-{method}-nwipe.txt",
+                f"bios-{method}-serial.txt", f"bios-{method}-qemu.txt",
+                f"bios-{method}-cmdline.txt", f"guest-{method}-readback.txt",
+                f"guest-{method}-bundle.txt", f"guest-{method}-fsck.txt",
+            )
+        ],
+        *[
+            ROOT / "dist" / "evidence" / name
+            for gate in ("lint", "tests", "preview", "negative", "iso", "qemu")
+            for name in (f"{gate}.receipt.json", f"{gate}.log")
+        ],
+        ROOT / "dist" / "evidence" / "packages.json",
     ]
+
+
+def _read_signing_key() -> bytes:
+    """Load the publisher key from the operator-provided file, fail closed.
+
+    The key file arrives only via an operator-invoked release submission
+    (Secret Manager); trigger builds never carry it, so its absence here
+    refuses publication instead of publishing unsigned.
+    """
+    key_path = os.environ.get("BEAMO_WIPE_SIGNING_KEY_FILE", "")
+    if not key_path:
+        raise PublishError("refusing release publication without signing material")
+    path = Path(key_path)
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise PublishError("signing material is unreadable") from exc
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
+        raise PublishError("unsafe signing material")
+    if stat.S_IMODE(metadata.st_mode) not in (0o600, 0o400):
+        raise PublishError("signing material must be mode 0600 or 0400")
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise PublishError("signing material cannot be securely opened") from exc
+    try:
+        with os.fdopen(fd, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            if (opened.st_dev, opened.st_ino, opened.st_uid, opened.st_mode) != (
+                metadata.st_dev, metadata.st_ino, metadata.st_uid, metadata.st_mode
+            ):
+                raise PublishError("signing material changed while opening")
+            raw = stream.read(33)
+    except OSError as exc:
+        raise PublishError("signing material cannot be read") from exc
+    if len(raw) != 32:
+        raise PublishError("signing material must hold 32 raw bytes")
+    return raw
+
+
+def _sign_release_manifest(dist: Path, version: str) -> Path:
+    """Sign the verified manifest and verify the sidecar before upload."""
+    sys.path.insert(0, str(ROOT / "src"))
+    from beamo_wipe.release_signing import (
+        load_key_registry,
+        sign_manifest_bytes,
+        verify_with_registry,
+    )
+
+    manifest = dist / f"beamo-wipe-{version}-amd64.manifest.json"
+    with _open_owned_file(manifest) as stream:
+        manifest_bytes = stream.read(16 * 1024 * 1024 + 1)
+    if len(manifest_bytes) > 16 * 1024 * 1024:
+        raise PublishError("manifest exceeded the safety limit")
+    sidecar = sign_manifest_bytes(manifest_bytes, _read_signing_key())
+    try:
+        registry = load_key_registry(
+            json.loads(
+                (ROOT / "packaging" / "release-keys" / "keys.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+        )
+    except (OSError, ValueError) as exc:
+        raise PublishError("publisher key registry is unreadable") from exc
+    try:
+        result = verify_with_registry(manifest_bytes, sidecar, registry)
+    except RuntimeError as exc:
+        raise PublishError(f"fresh manifest signature rejected: {exc}") from exc
+    sig_path = Path(f"{manifest}.sig")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    try:
+        fd = os.open(sig_path, flags, 0o600)
+    except FileExistsError as exc:
+        raise PublishError("stale signature sidecar already exists") from exc
+    except OSError as exc:
+        raise PublishError("signature sidecar cannot be written") from exc
+    try:
+        payload = (json.dumps(sidecar, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(payload)
+    except OSError as exc:
+        raise PublishError("signature sidecar cannot be written") from exc
+    print(f"Signed manifest with publisher key {result['key_id']}")
+    return sig_path
 
 
 def publish() -> str | None:
@@ -366,14 +466,28 @@ def publish() -> str | None:
         raise PublishError("missing or invalid Cloud Build ID")
 
     inputs = _release_inputs(version)
+    sig_name = f"beamo-wipe-{version}-amd64.manifest.json.sig"
     for path in inputs:
+        if path.name == sig_name:
+            continue  # created by signing below, after manifest verification
         _regular_owned_file(path)
     commit = _verify_source(version)
 
     sys.path.insert(0, str(ROOT / "src"))
     from beamo_wipe.release_manifest import verify_manifest
+    from beamo_wipe.ci_evidence import load_receipts
 
-    verify_manifest(ROOT / "dist" / f"beamo-wipe-{version}-amd64.manifest.json")
+    manifest_path = ROOT / "dist" / f"beamo-wipe-{version}-amd64.manifest.json"
+    verify_manifest(manifest_path)
+    manifest_data = json.loads(manifest_path.read_text())
+    if (manifest_data["source"]["commit"] != commit
+            or manifest_data["build"]["release_build_id"] != build_id):
+        raise PublishError("manifest does not match the release source and build")
+    receipts = {r["gate"]: r for r in load_receipts(ROOT / "dist" / "evidence")}
+    if receipts != manifest_data["test_evidence"]["gates"]:
+        raise PublishError("execution receipts do not match the verified manifest")
+    _sign_release_manifest(ROOT / "dist", version)
+    _regular_owned_file(ROOT / "dist" / sig_name)
     _verify_sha256sums(ROOT / "dist", version)
     _verify_usb_image(ROOT / "dist", version)
 

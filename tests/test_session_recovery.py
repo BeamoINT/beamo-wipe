@@ -443,7 +443,7 @@ def test_preflight_is_saved_before_discovery_and_recovery_survives_discovery_fai
     monkeypatch.setattr(app, "running_on_live_usb", lambda: True)
     monkeypatch.setattr(app, "apply_live_session_overrides", lambda args: None)
 
-    def discover_failure(args):
+    def discover_failure(args, **_kwargs):
         assert (directory / NAME).exists()
         raise OSError("discovery crash")
 

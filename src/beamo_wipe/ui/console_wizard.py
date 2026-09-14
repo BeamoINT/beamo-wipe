@@ -376,10 +376,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(C.KEYBOARD_LIMITS)
             print(CONSOLE_DEAD_KEYS)
             for i, layout_id in enumerate(LAYOUT_ORDER, 1):
-                spec = LAYOUTS[layout_id]
+                layout_spec = LAYOUTS[layout_id]
                 mark = ">" if wizard.keyboard_layout == layout_id else " "
-                print(f"{mark} {i} {spec.title}")
-                print(spec.note)
+                print(f"{mark} {i} {layout_spec.title}")
+                print(layout_spec.note)
             if wizard.keyboard_message:
                 print(wizard.keyboard_message)
             elif wizard.error:
@@ -387,9 +387,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(C.KEYBOARD_CHECK_LABEL)
             typed = input("> ")
             key = typed.strip()
-            mapping = {"1": "us", "2": "fr", "3": "de"}
-            if key in mapping:
-                wizard.set_keyboard_layout(mapping[key])
+            keyboard_mapping = {"1": "us", "2": "fr", "3": "de"}
+            if key in keyboard_mapping:
+                wizard.set_keyboard_layout(keyboard_mapping[key])
             elif key.upper() == "K":
                 pass
             elif key == "":
@@ -402,6 +402,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(" -", b)
             print(C.POWER_REMINDER)
             print(C.POWER_BLANKING)
+            print(C.POWER_EVENTS)
+            print(wizard.power_text)
             _answer(wizard, "Press Enter to continue… ")
             wizard.accept_what()
             continue
@@ -452,11 +454,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.CONFIRM:
             disk = wizard.selected
-            spec = wizard.confirm
+            confirm_spec = wizard.confirm
             if disk:
                 _print_view(wizard.disk_view(disk))
             print(textwrap.fill(wizard.warning_text(), 76, break_long_words=True, break_on_hyphens=False))
-            print(spec.prompt if spec else "")
+            print(confirm_spec.prompt if confirm_spec else "")
             typed = _answer(wizard, "> ")
             wizard.set_confirm_input(typed)
             if wizard.token_ok:
@@ -502,6 +504,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 Screen.REFRESHING: "Previous selections and confirmations have been cleared.",
             }
             print(titles[screen])
+            if screen != Screen.REFRESHING:
+                print(C.POWER_KEEP)
+                print(wizard.power_text)
             if wizard.selected is not None:
                 _print_view(wizard.disk_view(wizard.selected))
             print(textwrap.fill(messages[screen], 76))
@@ -510,6 +515,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen == Screen.LAST_CHANCE:
             if wizard.selected:
                 _print_view(wizard.disk_view(wizard.selected))
+            print(C.POWER_KEEP)
+            print(wizard.power_text)
             print(wizard.prepare_text())
             print(wizard.operation_summary)
             print(wizard.erase_label())
@@ -527,7 +534,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.back()
             continue
         if screen == Screen.WORKING:
-            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning)
+            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text)
             if status != last_working:
                 print(status[0], "  [type CANCEL then Enter to interrupt]")
                 for warning in status[1:]:
@@ -667,9 +674,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, CONSOLE_DEAD_KEYS, w, y_max) + 1
             lines = []
             for i, layout_id in enumerate(LAYOUT_ORDER, 1):
-                spec = LAYOUTS[layout_id]
+                layout_spec = LAYOUTS[layout_id]
                 star = ">" if wizard.keyboard_layout == layout_id else " "
-                lines.extend(_lines(f"{star} {i} {spec.title}: {spec.note}", w))
+                lines.extend(_lines(f"{star} {i} {layout_spec.title}: {layout_spec.note}", w))
                 lines.append("")
             if wizard.keyboard_message:
                 lines.extend(_lines(wizard.keyboard_message, w))
@@ -684,6 +691,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 lines.append("")
             lines.extend(_lines(C.POWER_REMINDER, w))
             lines.extend(_lines(C.POWER_BLANKING, w))
+            lines.extend(_lines(wizard.power_text, w))
+            lines.extend(_lines(C.POWER_EVENTS, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.OWNER:
             y = _wrap(stdscr, y, C.OWNER_CHECKBOX, w, y_max)
@@ -741,9 +750,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             view = wizard.disk_view(wizard.selected)
             y = _wrap_view(stdscr, y, view, w, y_max)
             rest = _lines(wizard.warning_text(), w)
-            spec = wizard.confirm
-            if spec:
-                rest.extend(_lines(spec.prompt, w))
+            confirm_spec = wizard.confirm
+            if confirm_spec:
+                rest.extend(_lines(confirm_spec.prompt, w))
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
             _paint_footer(stdscr, footer)
             _curses_opt("echo")
@@ -820,6 +829,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
             rest = []
+            rest.extend(_lines(C.POWER_KEEP, w))
+            rest.extend(_lines(wizard.power_text, w))
             rest.extend(_lines(wizard.prepare_text(), w))
             rest.extend(_lines(wizard.operation_summary, w))
             rest.extend(_lines(wizard.erase_label(), w))
@@ -831,10 +842,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.progress_view.status_text, w, y_max)
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            if wizard.error:
-                y = _wrap(stdscr, y, wizard.error, w, y_max)
-            if wizard.evidence_warning:
-                _wrap(stdscr, y, wizard.evidence_warning, w, y_max)
+            lines = []
+            for text in (wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text):
+                if text:
+                    lines.extend(_lines(text, w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen in {Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING}:
             titles = {
                 Screen.CHECKING: "Checking disk",
@@ -849,7 +861,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, titles[wizard.screen], w, y_max)
             if wizard.selected is not None:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            _wrap(stdscr, y, messages[wizard.screen], w, y_max)
+            content = messages[wizard.screen]
+            if wizard.screen != Screen.REFRESHING:
+                content += "\n" + C.POWER_KEEP + "\n" + wizard.power_text
+            lines = [line for text in content.split("\n") for line in _lines(text, w)]
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.DONE:
             report = wizard.report_view
             if wizard.selected:
@@ -929,6 +945,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             enter_quiet_since = None
             continue
         _paged = {
+            Screen.WORKING, Screen.CHECKING, Screen.STOPPING,
             Screen.LIMITS,
             Screen.REPORT_HELP,
             Screen.ADVANCED,
@@ -1034,9 +1051,9 @@ def _handle(wizard: Wizard, ch: int) -> None:
         wizard.open_keyboard()
         return
     if wizard.screen == Screen.KEYBOARD:
-        mapping = {ord("1"): "us", ord("2"): "fr", ord("3"): "de"}
-        if ch in mapping:
-            wizard.set_keyboard_layout(mapping[ch])
+        keyboard_mapping = {ord("1"): "us", ord("2"): "fr", ord("3"): "de"}
+        if ch in keyboard_mapping:
+            wizard.set_keyboard_layout(keyboard_mapping[ch])
             return
         if ch in (curses.KEY_ENTER, 10, 13):
             wizard.accept_keyboard()

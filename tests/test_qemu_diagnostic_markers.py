@@ -125,12 +125,13 @@ qemu-system-x86_64() {
 }
 wait_for_qmp() { wait "$BIOS_PID"; }
 wait_for_marker() { :; }
+send_key_for_marker() { :; }
 drive_report_export() { :; }
 kill() { :; }
 stop_pid() { :; }
 log() { :; }
 """
-    for name in ("marker_count", "report_marker_summary", "boot_probe"):
+    for name in ("marker_count", "report_marker_summary", "record_qemu_cmdline", "boot_probe"):
         script += _shell_function(source, name)
     script += '\nboot_probe bios "$2"\n'
     result = subprocess.run(  # noqa: S603

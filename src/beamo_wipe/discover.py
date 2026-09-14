@@ -9,9 +9,10 @@ import re
 import subprocess
 import unicodedata
 from dataclasses import replace
-from typing import Mapping, Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Mapping, Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from beamo_wipe.copy import IDENTIFY_ERROR as CANNOT_IDENTIFY
+from beamo_wipe.startup_stages import STAGE_BOOT_USB, STAGE_FINDING
 from beamo_wipe.models import (
     CONTENTS_DATA,
     CONTENTS_SYSTEM,
@@ -1337,11 +1338,38 @@ def discover(
     mount_sources: Optional[Sequence[str]] = None,
     cmdline: Optional[str] = None,
     env: Optional[Mapping[str, str]] = None,
+    progress: Optional[Callable[[str], None]] = None,
 ) -> DiscoveryResult:
     if env is None:
         env = os.environ
+
+    def _report(stage: str) -> None:
+        # Stage display must never break discovery or identification.
+        if progress is None:
+            return
+        try:
+            progress(stage)
+        except Exception:
+            pass
+
     try:
-        payload = lsblk_payload if lsblk_payload is not None else run_lsblk()
+        # Injected inventory describes an entirely fake machine. Never combine
+        # it with the developer host's mounts or kernel boot arguments.
+        if lsblk_payload is not None:
+            payload = lsblk_payload
+            mount_sources = [] if mount_sources is None else mount_sources
+            cmdline = "" if cmdline is None else cmdline
+        else:
+            # Boot evidence first: the same reads identify_boot_path would
+            # perform below, hoisted unchanged so the checking stage reports
+            # genuine work. Boot media mounts do not change during startup.
+            _report(STAGE_BOOT_USB)
+            if mount_sources is None:
+                mount_sources = read_mount_sources()
+            if cmdline is None:
+                cmdline = read_cmdline()
+            _report(STAGE_FINDING)
+            payload = run_lsblk()
         if not isinstance(payload, dict):
             raise ValueError("lsblk JSON root must be an object")
         if lsblk_payload is None and not (
@@ -1349,18 +1377,11 @@ def discover(
         ):
             _validate_real_lsblk_metadata(payload)
         blockdevices = payload.get("blockdevices") or []
-        # Injected inventory describes an entirely fake machine. Never combine
-        # it with the developer host's mounts or kernel boot arguments.
-        if lsblk_payload is not None:
-            mount_sources = [] if mount_sources is None else mount_sources
-            cmdline = "" if cmdline is None else cmdline
         identified = identify_boot_path(
             blockdevices,
             env_boot=boot_path or env.get("BEAMO_WIPE_BOOT_DEVICE"),
-            mount_sources=(
-                mount_sources if mount_sources is not None else read_mount_sources()
-            ),
-            cmdline=cmdline if cmdline is not None else read_cmdline(),
+            mount_sources=mount_sources,
+            cmdline=cmdline,
         )
         return parse_lsblk_json(payload, boot_path=identified, require_boot=True)
     except (
