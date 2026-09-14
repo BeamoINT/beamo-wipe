@@ -1349,7 +1349,7 @@ class TkWizard:
             ),
             Screen.STOPPING: lambda: self._status_screen(
                 "warn", "Stopping erase",
-                "Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.",
+                C.STOPPING_TEXT,
             ),
             Screen.WORKING: self._working,
             Screen.ADVANCED: self._advanced,
@@ -2753,7 +2753,22 @@ class TkWizard:
         self._shown_report_revision = self.w.report_view.revision
         col = self._column(self._body, fill_height=True)
         disk = self.w.selected
-        self._title_block(col, C.TITLE_WORKING)
+        if self.w.stop_confirmation is not None:
+            confirmation = self.w.stop_confirmation
+            self._title_block(col, C.STOP_TITLE)
+            self._panel(col, kind="warn", text=C.STOP_LEAD).pack(fill=tk.X, pady=(12, 0))
+            if disk is not None:
+                self._disk_summary(col, disk).pack(fill=tk.X, pady=(12, 0))
+            row = self._footer_shell("Keep the disk and Beamo USB connected.")
+            keep = self._secondary_btn(row, C.STOP_KEEP, self.w.keep_erasing)
+            self._primary_btn(row, C.STOP_CONFIRM, lambda: self.w.confirm_stop(confirmation), danger=True)
+            keep.focus_set()
+            return
+        self._title_block(col, C.VIEWS["stop_unconfirmed"].message
+                          if self.w.error == C.VIEWS["stop_unconfirmed"].announcement
+                          else C.TITLE_WORKING)
+        if self.w.error:
+            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
             self._more_link(col)
@@ -2780,18 +2795,11 @@ class TkWizard:
         self._progress_label.pack(fill=tk.X, pady=(14, 0))
         self._p(zone, self.w.method_summary, font=self.font_s,
                 fg=MUTED, bg=SURFACE_ALT).pack(fill=tk.X, pady=(10, 0))
-        # A failed cancel stays on WORKING with w.error set: show it so the
-        # owner knows the disk may still be erasing (never fail silently).
-        if self.w.error:
-            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         if self.w.evidence_warning:
             self._p(col, self.w.evidence_warning, font=self.font_s_bold).pack(fill=tk.X, pady=(8, 0))
-        # Cancel is a secondary action: visible but not primary to avoid
-        # accidental clicks. Always shown so interruption is reachable.
+        # Stopping is always reachable, with consent before signalling.
         row = self._footer_shell(C.HINT_WORKING)
-        # Left side: Cancel; Right side empty (no primary while working)
-        # HINT_WORKING already says "Leave this USB in…" but we add explicit hint
-        self._secondary_btn(row, "Cancel erase", self._click_cancel)
+        self._secondary_btn(row, C.STOP_ASK, self._click_cancel)
         self._refresh_working()
 
     def _refresh_working(self) -> None:
@@ -2843,7 +2851,8 @@ class TkWizard:
     def _done(self, report: ReportView) -> None:
         col = self._column(self._body, fill_height=True)
         result = self.w.result_view
-        title = "Finished" if result.success else "Erase result"
+        title = (result.message if result.code == "cancelled" else
+                 "Finished" if result.success else "Erase result")
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
         badge_size = 64 if self.lay.short else 96
         icon = (_icon_status(col, True, badge_size) if result.icon == "check"
@@ -2968,16 +2977,10 @@ class TkWizard:
             self._draw()
             return "break"
         if self.w.screen == Screen.WORKING:
-            # Working: Esc triggers visible cancel (fail-safe interruption)
-            try:
-                self.w.begin_cancel()
-            except Exception as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("ui", "escape_cancel_failed", type(exc).__name__)
-                except Exception:
-                    pass
+            if self.w.stop_confirmation is not None:
+                self.w.keep_erasing()
+            else:
+                self.w.request_stop()
             self._draw()
             return "break"
         if self.w.screen not in (Screen.WHAT, Screen.DONE):
@@ -3048,16 +3051,8 @@ class TkWizard:
         self.w.begin_erase()
 
     def _click_cancel(self) -> None:
-        """Visible cancel on WORKING. Never silently ignored."""
-        try:
-            self.w.begin_cancel()
-        except Exception as exc:
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("ui", "cancel_click_failed", type(exc).__name__)
-            except Exception:
-                pass
+        """Request confirmation; never stop on the initiating click."""
+        self.w.request_stop()
         self._draw()
 
     def _click_retry_evidence(self) -> None:
@@ -3304,18 +3299,8 @@ class TkWizard:
         return None
 
     def _close(self) -> None:
-        if self.w.screen == Screen.WORKING and not self.w.preview:
-            # Window close on WORKING is now an explicit cancel (visible
-            # evidence with "interrupted" outcome) instead of silently blocked.
-            try:
-                self.w.begin_cancel()
-            except Exception as exc:
-                try:
-                    from beamo_wipe.diagnostics import log_diag
-
-                    log_diag("ui", "close_cancel_failed", type(exc).__name__)
-                except Exception:
-                    pass
+        if self.w.screen == Screen.WORKING:
+            self.w.request_stop()
             self._draw()
             return
         self.w.shutdown()

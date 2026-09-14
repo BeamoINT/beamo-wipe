@@ -69,9 +69,11 @@ A charger can be connected but insufficient or faulty. These are reported
 readings, not a guarantee of available runtime or successful sleep inhibition.
 
 Power readings are advisory: they do not start, cancel, pause, resume, shut down,
-or change authorization or disk selection. Use Cancel erase and wait for the
+or change authorization or disk selection. Use Stop erase, confirm the stop, and wait for the
 result before shutting down. OS lid and short-button policy remains as above;
 keep the lid open even though logind is configured to ignore it. Firmware power
 cuts, physical lid behavior, thermal limits and real battery accuracy still need
 receipts from explicitly dedicated hardware. No such hardware claim follows from
 fixture, rendered, source-policy or QEMU tests.
+
+Stopping cannot restore files already erased. Keep erasing dismisses the stop confirmation. If the stop could not be confirmed, the erase may still be running; keep the disk and USB connected.

@@ -2,7 +2,7 @@
 """User-facing strings. 8th-grade English. No forbidden claims."""
 
 from beamo_wipe.inventory import EMPTY_STEPS
-from beamo_wipe.outcomes import VIEWS
+from beamo_wipe.outcomes import VIEWS, STOP_WARNING
 from beamo_wipe.models import (
     CONTENTS_DATA,
     CONTENTS_SYSTEM,
@@ -80,7 +80,7 @@ POWER_KEEP = "Laptop: keep wall power connected and keep the lid open."
 POWER_EVENTS = (
     "This live USB asks Linux to ignore lid closure and a short power-button press, "
     "and disables sleep. Firmware or a held power button can still stop the erase. "
-    "Use Cancel erase to stop; wait for the result before shutting down. "
+    "Use Stop erase to stop; wait for the result before shutting down. "
     "A power cut can leave the disk partly erased and lose unsaved reports. "
     "An interrupted erase does not resume automatically."
 )
@@ -363,3 +363,10 @@ def pick_subtitle() -> str:
         "Match the name, size and serial or hardware ID. "
         "Choose only the disk you intend to erase."
     )
+
+STOP_TITLE = "Stop this erase?"
+STOP_ASK = "Stop erase"
+STOP_CONFIRM = "Yes, stop erasing"
+STOP_KEEP = "Keep erasing"
+STOP_LEAD = STOP_WARNING + " Files may still remain on the disk. The erase continues until you confirm."
+STOPPING_TEXT = "The disk may still be erasing. Keep the disk and Beamo USB connected while we confirm it has stopped."

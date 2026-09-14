@@ -181,6 +181,7 @@ class Wizard:
         # so a concurrent tick() drops the post-cancel poll result instead
         # of finishing with a misleading engine-'failed' outcome.
         self._cancel_requested = False
+        self.stop_confirmation: Optional[object] = None
         self._advanced_from: Optional[Screen] = None
         self.log_text = ""
         self._done_keyboard_armed = False
@@ -303,6 +304,7 @@ class Wizard:
                                           view.message, evidence["logfile"])
             self._evidence_written_for = self._result_evidence_key(self.wipe_result)
             self.screen = Screen.DONE
+            self.stop_confirmation = None
             self.error = None
             self._touch_report_locked()
         except (OSError, SafetyError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
@@ -1170,8 +1172,9 @@ class Wizard:
                         self.screen = Screen.WORKING
                     self._start_claim = None
                     self._cancel_requested = False
+                    from beamo_wipe.outcomes import VIEWS
                     self.error = ("Disk checking could not start. Try again." if screen == Screen.CHECKING
-                                  else "Stopping could not start. The disk may still be erasing. Try cancel again.")
+                                  else VIEWS["stop_unconfirmed"].announcement)
             return False
 
     def interface_failed(self) -> None:
@@ -1319,6 +1322,7 @@ class Wizard:
                 self._evidence_end_mono = None
             self.wipe_result = result
             self.screen = Screen.DONE
+            self.stop_confirmation = None
             self.error = None
             self._done_keyboard_armed = False
             self.log_text = result.summary
@@ -1329,11 +1333,39 @@ class Wizard:
         # Persist auditable evidence (atomic, off-target, truthful outcome)
         self._write_evidence(result=result, cancelled=cancelled, interrupted=interrupted)
 
+    def request_stop(self) -> None:
+        """Open a user confirmation without pausing engine polling."""
+        with self._lock:
+            if self.screen == Screen.WORKING and self._wipe_request is not None:
+                if self.stop_confirmation is None:
+                    self.stop_confirmation = object()
+
+    def keep_erasing(self) -> None:
+        with self._lock:
+            self.stop_confirmation = None
+
+    def confirm_stop(self, confirmation: Optional[object], *, asynchronous: bool = True) -> bool:
+        """Reject stale confirmations, including completion while reading."""
+        with self._lock:
+            if confirmation is None or confirmation is not self.stop_confirmation:
+                return False
+            self.stop_confirmation = None
+            if self.screen != Screen.WORKING:
+                return False
+            # Claim under the same lock; no subsequent run can inherit consent.
+            if not self._claim_stop():
+                return False
+        if asynchronous:
+            return self._launch_operation(lambda: self._perform_stop("user"), Screen.STOPPING)
+        self._perform_stop("user")
+        return True
+
     def _claim_stop(self) -> bool:
         with self._lock:
             if self._wipe_request is None or self.screen != Screen.WORKING or self._cancel_requested:
                 return False
             self._cancel_requested = True
+            self.stop_confirmation = None
             self._progress_timing.clear_estimate()
             self.screen = Screen.STOPPING
             self.error = None

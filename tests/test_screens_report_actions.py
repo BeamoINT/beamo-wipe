@@ -20,7 +20,7 @@ def _row(name: str) -> str:
 
 def test_working_row_documents_cancel_interactivity():
     row = _row("Working")
-    assert "Cancel erase" in row
+    assert "Stop erase" in row
     assert "Shut down is not offered" in row
     assert "indeterminate" in row
 

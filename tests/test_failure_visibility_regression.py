@@ -381,20 +381,20 @@ def test_wizard_cancel_wipe_produces_interrupted_evidence(tmp_path, monkeypatch)
 
 
 def test_tk_wizard_working_has_cancel_and_escape_wires():
-    text = Path("src/beamo_wipe/ui/tk_wizard.py").read_text(encoding="utf-8")
-    assert "Cancel erase" in text
-    assert "def _click_cancel" in text
-    assert "escape_cancel_failed" in text or "cancel_wipe" in text
-    # _close should now cancel instead of silently blocking
-    assert "close_cancel_failed" in text
-    # _working footer should contain secondary btn
-    assert "_secondary_btn(row, \"Cancel erase\"" in text
+    import inspect
+    from beamo_wipe.ui.tk_wizard import TkWizard
+    assert "request_stop" in inspect.getsource(TkWizard._click_cancel)
+    assert "request_stop" in inspect.getsource(TkWizard._close)
+    escape = inspect.getsource(TkWizard._on_escape)
+    assert "request_stop" in escape and "keep_erasing" in escape
+    working = inspect.getsource(TkWizard._working)
+    assert "C.STOP_ASK" in working and "C.STOP_LEAD" in working
 
 
 def test_console_working_shows_cancel_hint():
     text = Path("src/beamo_wipe/ui/console_wizard.py").read_text(encoding="utf-8")
-    assert "Esc: cancel erase" in text
-    assert "console_cancel_failed" in text
+    assert "Esc: stop erase" in text
+    assert "wizard.confirm_stop" in text and "wizard.keep_erasing" in text
 
 
 # ---------------------------------------------------------------------------
