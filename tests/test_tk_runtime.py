@@ -1752,3 +1752,60 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert C.prepare_selected(wiz.selected) in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, (800, 600)])
+def test_method_keeps_selected_disk_identity(ui, size):
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, Screen.METHOD, size=size)
+    selected = wiz.selected
+    view = wiz.disk_view(selected)
+    text = _label_text(app)
+    for value in (view.title, view.capacity, view.id_value, view.connection):
+        assert value in text
+    app._more_button._command()
+    app.root.update()
+    assert selected.path in _label_text(app)
+    for method in METHODS:
+        app._choose_method(method)
+        app.root.update()
+        assert wiz.selected is selected
+        assert view.id_value in _label_text(app)
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    wiz.continue_method()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert wiz.selected is selected
+
+
+@pytest.mark.parametrize("missing", [False, True])
+@pytest.mark.parametrize("enlarged", [False, True])
+def test_method_identity_wraps_without_losing_values(ui, missing, enlarged):
+    wiz, app = ui(size=(800, 600))
+    _drive_to(wiz, app, Screen.METHOD, size=(800, 600))
+    wiz.selected = replace(
+        wiz.selected,
+        model="" if missing else "LONGMODEL" * 18,
+        serial="" if missing else "LONGSERIAL" * 18,
+        bus="" if missing else "SATA",
+        path="/dev/" + "longpath" * 18,
+    )
+    if enlarged:
+        for name, font in vars(app).items():
+            if name.startswith("font_"):
+                font.configure(size=round(int(font.cget("size")) * 1.5))
+    app._show_more = True
+    app._draw()
+    app.root.update()
+    # Soft line breaks may split unbroken hardware identifiers, never truncate.
+    packed = "".join(_label_text(app).split())
+    view = wiz.disk_view(wiz.selected)
+    for value in (view.title, view.capacity, view.id_value, view.connection,
+                  view.system_path, *view.notes):
+        assert "".join(value.split()) in packed
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert app._body_canvas is not None
+    app._body_canvas.yview_moveto(1)
+    app.root.update()
+    assert app._body_canvas.yview()[1] == 1.0

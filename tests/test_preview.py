@@ -181,7 +181,8 @@ def test_advanced_button_redraws_via_nav():
 
     from beamo_wipe.ui.tk_wizard import TkWizard
 
-    source = inspect.getsource(TkWizard._method)
+    source = inspect.getsource(TkWizard._footer_shell)
+    assert "self.w.screen == Screen.METHOD" in source
     assert "_nav(self.w.open_advanced)" in source
 
 
