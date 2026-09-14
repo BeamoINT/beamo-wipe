@@ -402,6 +402,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(" -", b)
             print(C.POWER_REMINDER)
             print(C.POWER_BLANKING)
+            print(C.POWER_EVENTS)
+            print(wizard.power_text)
             _answer(wizard, "Press Enter to continue… ")
             wizard.accept_what()
             continue
@@ -502,6 +504,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 Screen.REFRESHING: "Previous selections and confirmations have been cleared.",
             }
             print(titles[screen])
+            if screen != Screen.REFRESHING:
+                print(C.POWER_KEEP)
+                print(wizard.power_text)
             if wizard.selected is not None:
                 _print_view(wizard.disk_view(wizard.selected))
             print(textwrap.fill(messages[screen], 76))
@@ -510,6 +515,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen == Screen.LAST_CHANCE:
             if wizard.selected:
                 _print_view(wizard.disk_view(wizard.selected))
+            print(C.POWER_KEEP)
+            print(wizard.power_text)
             print(wizard.prepare_text())
             print(wizard.operation_summary)
             print(wizard.erase_label())
@@ -527,7 +534,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.back()
             continue
         if screen == Screen.WORKING:
-            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning)
+            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text)
             if status != last_working:
                 print(status[0], "  [type CANCEL then Enter to interrupt]")
                 for warning in status[1:]:
@@ -686,6 +693,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 lines.append("")
             lines.extend(_lines(C.POWER_REMINDER, w))
             lines.extend(_lines(C.POWER_BLANKING, w))
+            lines.extend(_lines(wizard.power_text, w))
+            lines.extend(_lines(C.POWER_EVENTS, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.OWNER:
             y = _wrap(stdscr, y, C.OWNER_CHECKBOX, w, y_max)
@@ -822,6 +831,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
             rest = []
+            rest.extend(_lines(C.POWER_KEEP, w))
+            rest.extend(_lines(wizard.power_text, w))
             rest.extend(_lines(wizard.prepare_text(), w))
             rest.extend(_lines(wizard.operation_summary, w))
             rest.extend(_lines(wizard.erase_label(), w))
@@ -833,10 +844,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.progress_view.status_text, w, y_max)
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            if wizard.error:
-                y = _wrap(stdscr, y, wizard.error, w, y_max)
-            if wizard.evidence_warning:
-                _wrap(stdscr, y, wizard.evidence_warning, w, y_max)
+            lines = []
+            for text in (wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text):
+                if text:
+                    lines.extend(_lines(text, w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen in {Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING}:
             titles = {
                 Screen.CHECKING: "Checking disk",
@@ -851,7 +863,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, titles[wizard.screen], w, y_max)
             if wizard.selected is not None:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            _wrap(stdscr, y, messages[wizard.screen], w, y_max)
+            content = messages[wizard.screen]
+            if wizard.screen != Screen.REFRESHING:
+                content += "\n" + C.POWER_KEEP + "\n" + wizard.power_text
+            lines = [line for text in content.split("\n") for line in _lines(text, w)]
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.DONE:
             report = wizard.report_view
             if wizard.selected:
@@ -933,6 +949,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             enter_quiet_since = None
             continue
         _paged = {
+            Screen.WORKING, Screen.CHECKING, Screen.STOPPING,
             Screen.LIMITS,
             Screen.REPORT_HELP,
             Screen.ADVANCED,

@@ -53,6 +53,7 @@ from beamo_wipe.safety import (
 )
 from beamo_wipe.nwipe_runner import NwipeRunner, ProcessStatusError, build_nwipe_argv
 from beamo_wipe.progress import ProgressTiming, ProgressView
+from beamo_wipe.power import PowerMonitor, read_power
 
 
 if TYPE_CHECKING:
@@ -144,6 +145,7 @@ class Wizard:
         self.runner = runner
         self._clock = clock or time.monotonic
         self.dry_run = dry_run
+        self.power = PowerMonitor(None if dry_run else read_power)
         self._rediscover = rediscover
         self._wall_clock = wall_clock  # for testing; default is evidence._iso_now_wall
         if dry_run:
@@ -527,6 +529,7 @@ class Wizard:
         self._report_revision += 1
 
     def tick(self) -> None:
+        self.power.tick(self.now)
         with self._lock:
             self._recover_when_quiescent()
         if (
@@ -559,6 +562,11 @@ class Wizard:
                 # would say engine-'failed' instead of 'interrupted').
         if should_finish is not None:
             self._finish(should_finish)
+
+    @property
+    def power_text(self) -> str:
+        prefix = "Preview power (not a hardware reading). " if self.dry_run else ""
+        return prefix + self.power.status.text
 
     def skip_splash(self) -> None:
         with self._lock:

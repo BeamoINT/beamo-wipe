@@ -72,7 +72,17 @@ WHAT_BULLETS = (
 
 POWER_REMINDER = (
     "If this computer has a battery, plug it into wall power before you erase. "
+    "Keep the lid open. "
     "A power cut stops the erase."
+)
+
+POWER_KEEP = "Laptop: keep wall power connected and keep the lid open."
+POWER_EVENTS = (
+    "This live USB asks Linux to ignore lid closure and a short power-button press, "
+    "and disables sleep. Firmware or a held power button can still stop the erase. "
+    "Use Cancel erase to stop; wait for the result before shutting down. "
+    "A power cut can leave the disk partly erased and lose unsaved reports. "
+    "An interrupted erase does not resume automatically."
 )
 
 POWER_BLANKING = (
@@ -143,6 +153,7 @@ SSD_FOOTER = OVERWRITE_LIMITS + " Not a formal certificate."
 
 WORKING_PULSE = (
     "Leave the USB in. Keep wall power connected if this computer has a battery. "
+    "Keep the lid open. "
     "Do not turn the PC off."
 )
 

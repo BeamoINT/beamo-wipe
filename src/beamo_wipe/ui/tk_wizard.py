@@ -1155,7 +1155,7 @@ class TkWizard:
     def _prepare_body_host(self) -> None:
         self._body_inner = None
         self._body_canvas = None
-        if self._body is None or not (self.lay.short or self.w.screen in {Screen.LAST_CHANCE, Screen.DONE}):
+        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE}):
             return
         if self.w.screen in {
             Screen.PICK,
@@ -1265,6 +1265,9 @@ class TkWizard:
                 self._refresh_last_chance()
             elif self.w.screen in {Screen.WORKING, Screen.STOPPING}:
                 self._refresh_working()
+            power_label = getattr(self, "_power_label", None)
+            if power_label is not None:
+                power_label.configure(text=self.w.power_text)
             self._after_id = self.root.after(100, self._tick)
         except tk.TclError as exc:
             self._after_id = None
@@ -1322,6 +1325,7 @@ class TkWizard:
         self._match_label = None
         self._match_icon = None
         self._match_pill = None
+        self._power_label: Optional[tk.Label] = None
         screen = self.w.screen
         report_view = self.w.report_view if screen == Screen.DONE else None
         working_revision = self.w.report_view.revision if screen == Screen.WORKING else None
@@ -1887,6 +1891,15 @@ class TkWizard:
             return
         self.w.set_typing_check(self._typing_var.get())
 
+    def _power_notice(self, parent, *, reminder=True) -> None:
+        if reminder:
+            self._wrapping_label(parent, C.POWER_KEEP, font=self.font_s_bold, bg=BG)
+        label = self._p(parent, self.w.power_text, font=self.font_s, bg=BG)
+        label.configure(width=1)
+        label.pack(fill=tk.X)
+        label.bind("<Configure>", lambda event: label.configure(wraplength=max(1, event.width - 4)))
+        self._power_label = label
+
     def _what(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_WHAT, C.WHAT_LEAD)
@@ -1909,9 +1922,10 @@ class TkWizard:
         self._panel(
             zone, kind="info", text=C.POWER_REMINDER, extra=C.POWER_BLANKING
         ).pack(fill=tk.X, pady=(12, 0))
+        self._power_notice(zone, reminder=False)
         if self._more_link(zone):
             self._panel(
-                zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE
+                zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE + " " + C.POWER_EVENTS
             ).pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self._click_shutdown)
@@ -2278,6 +2292,8 @@ class TkWizard:
             fg=MUTED, font=self.font_b,
             wraplength=wrap, justify=tk.CENTER, anchor="center",
         ).pack(fill=tk.X)
+        if self.w.screen in {Screen.CHECKING, Screen.STOPPING}:
+            self._power_notice(col)
         if self.w.screen == Screen.STOPPING:
             self._progress_label = self._p(col, self.w.progress_view.timing_text, fg=MUTED)
             self._progress_label.pack(fill=tk.X, pady=(12, 0))
@@ -2667,6 +2683,7 @@ class TkWizard:
                              fg=MUTED, bg=BG).pack_configure(pady=(12, 0))
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+        self._power_notice(details)
         ring_px = self.lay.ring
         self._ring_px = ring_px
         ring = tk.Canvas(
@@ -2740,6 +2757,7 @@ class TkWizard:
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
             self._more_link(col)
+        self._power_notice(col)
         card_copy = C.METHOD_CARDS[self.w.method]
         container = self._center_zone(col)
         progress_card = _Box(container, radius=RADIUS, fill=SURFACE_ALT,

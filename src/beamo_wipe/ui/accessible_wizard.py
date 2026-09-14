@@ -176,6 +176,7 @@ class AccessibleWizard:
         self.generation += 1
         self.actions = {}
         self.primary = self.progress_label = self.countdown_label = None
+        self.power_label = None
         self.shown = self.w.screen
         self.report_revision = self.w.report_view.revision
         old = self.window.get_child()
@@ -253,6 +254,7 @@ class AccessibleWizard:
             self.label("\n".join(C.WHAT_BULLETS))
             self.label(C.POWER_REMINDER)
             self.label(C.POWER_BLANKING)
+            self.label(C.POWER_EVENTS, focusable=True)
             self.button(C.BTN_CONTINUE, self.w.accept_what)
         elif screen == Screen.OWNER:
             heading.set_text(C.TITLE_OWNER)
@@ -529,6 +531,10 @@ class AccessibleWizard:
             Screen.ADVANCED,
         } or (screen == Screen.KEYBOARD and self.w._keyboard_from):
             self.button(C.BTN_BACK, self.w.back)
+        if screen in {Screen.WHAT, Screen.LAST_CHANCE, Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+            if screen != Screen.WHAT:
+                self.label(C.POWER_KEEP)
+            self.power_label = self.label(self.w.power_text, focusable=True)
         self._style_tree(self.window)
         self.window.show_all()
         if not self.utilities.get_children():
@@ -568,6 +574,8 @@ class AccessibleWizard:
         self.w.set_typing_check(text)
 
     def update_status(self):
+        if self.power_label and self.power_label.get_text() != self.w.power_text:
+            self.power_label.set_text(self.w.power_text)
         if self.countdown_label:
             self.countdown_label.set_text(
                 f"Wait {self.w.countdown_display} seconds."
