@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Display-only explanations; eligibility remains owned by safety.py."""
 
-from beamo_wipe.models import Disk, ExcludedDevice
+import os
+
+from beamo_wipe.models import Disk, DiscoveryResult, ExcludedDevice
 
 
 TITLE = "Other detected devices"
@@ -55,3 +57,29 @@ def excluded_device(
 
 def full_text(devices: tuple[ExcludedDevice, ...]) -> str:
     return INTRO + "\n\n" + "\n\n".join(d.explanation for d in devices)
+
+
+def other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
+    """Display-only exclusions, with confirmed boot media presented separately."""
+    from beamo_wipe.safety import selectable_disks
+
+    # Never display inventory when boot identity failed closed.
+    if not discovery.boot_identified or discovery.error or discovery.boot is None:
+        return ()
+    boot_paths = {
+        discovery.boot.path,
+        os.path.realpath(discovery.boot.path),
+    }
+    if discovery.excluded:
+        return tuple(
+            device
+            for device in discovery.excluded
+            if not device.path or device.path not in boot_paths
+        )
+    eligible = {d.path for d in selectable_disks(discovery)}
+    boot_paths = {discovery.boot.path, os.path.realpath(discovery.boot.path)}
+    return tuple(
+        excluded_device(d)
+        for d in discovery.disks
+        if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
+    )
