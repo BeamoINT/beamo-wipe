@@ -280,6 +280,16 @@ class AccessibleWizard:
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {self.w.disk_view(disk).announcement}"
                 self.button(text, lambda path=disk.path: self._select(path), in_body=True)
+            if len(self.w.selectable) > 1:
+                expander = Gtk.Expander.new(inventory.COMPARE_TITLE)
+                reader = Gtk.Label(label=inventory.comparison_text(self.w.selectable, peers=self.w.listed_disks))
+                reader.set_line_wrap(True)
+                reader.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                reader.set_max_width_chars(65)
+                reader.set_selectable(True)
+                reader.set_can_focus(True)
+                expander.add(reader)
+                self.body.pack_start(expander, False, False, 4)
             self._inventory()
         elif screen in (Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             heading.set_text(

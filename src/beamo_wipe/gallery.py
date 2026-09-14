@@ -116,6 +116,9 @@ def gallery_html() -> str:
             "ok": preview_view(True).payload(),
             "failed": preview_view(False).payload(),
         },
+        "compareTitle": inventory.COMPARE_TITLE,
+        "compareIntro": inventory.COMPARE_INTRO,
+        "comparison": inventory.comparison_entries(result.selectable, peers=listed_disks(result)),
         "otherTitle": inventory.TITLE,
         "otherDevices": {
             "happy": inventory.full_text(result.excluded),
@@ -823,6 +826,7 @@ function draw() {
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd, true)}</div>`;
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
+    if (selectable().length > 1) html += `<details><summary>${esc(P.compareTitle)}</summary><p>${esc(P.compareIntro)}</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px">${P.comparison.map(text => `<pre tabindex="0" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;padding:12px;border:1px solid #ccd3dc">${esc(text)}</pre>`).join("")}</div></details>`;
     selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
