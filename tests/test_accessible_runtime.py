@@ -135,8 +135,8 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     app.actions["Continue"].clicked()
     app.actions["Continue"].clicked()
     assert wizard.screen == Screen.LAST_CHANCE
-    assert "Last chance to stop" in text(app)
-    assert "If this is the wrong disk, go back." in text(app)
+    assert "Review before erasing" in text(app)
+    assert "Reaching zero only enables Erase; it never starts erasure." in text(app)
     assert not app.actions["Erase now"].get_sensitive()
     stale_erase = app.actions["Erase now"]
     app.actions["Check disks again (F5)"].clicked()
@@ -857,3 +857,35 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     app.render()
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
+
+
+def test_review_countdown_announces_only_changed_text(ui):
+    from beamo_wipe import copy as C
+    wizard = make_demo_wizard()
+    wizard.skip_intro()
+    wizard.accept_what()
+    wizard.set_owner(True)
+    wizard.continue_owner()
+    wizard.select_disk(wizard.selectable[0].path)
+    wizard.continue_pick()
+    wizard.set_confirm_input(wizard.confirm.token)
+    wizard.continue_confirm()
+    wizard.continue_method()
+    app = ui(wizard)
+    changes = []
+    app.countdown_label.connect("notify::label", lambda *args: changes.append(1))
+    app.update_status()
+    changes.clear()
+    app.update_status()
+    app.update_status()
+    assert changes == []
+    focus = app.window.get_focus()
+    wizard._erase_until = 0
+    app.update_status()
+    assert changes == [1]
+    assert app.countdown_label.get_text() == C.COUNTDOWN_READY
+    app.update_status()
+    assert changes == [1]
+    assert app.window.get_focus() == focus
+    assert wizard.screen == Screen.LAST_CHANCE
+    assert not wizard.runner.started

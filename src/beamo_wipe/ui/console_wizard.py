@@ -513,6 +513,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             time.sleep(0.2)
             continue
         if screen == Screen.LAST_CHANCE:
+            print(C.LAST_LEAD)
             if wizard.selected:
                 _print_view(wizard.disk_view(wizard.selected))
             print(C.POWER_KEEP)
@@ -828,6 +829,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 _add(stdscr, y, 0, line)
                 y += 1
         elif wizard.screen == Screen.LAST_CHANCE:
+            y = _wrap(stdscr, y, C.LAST_LEAD, w, y_max)
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
             rest = []

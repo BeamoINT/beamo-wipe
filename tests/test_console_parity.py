@@ -182,6 +182,8 @@ def test_last_chance_and_done_keep_full_identity(method, monkeypatch):
         METHODS[method].overwrite_description.split(":")[0] in shown
         or METHODS[method].summary in shown
     )
+    assert "Check the selected disk and method." in shown
+    assert "it never starts erasure." in shown
     footer = _footer(term)
     assert "Enter to erase" in footer or "Wait" in footer
     wiz.wants_shutdown = False

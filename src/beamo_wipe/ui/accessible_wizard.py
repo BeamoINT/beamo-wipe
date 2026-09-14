@@ -577,11 +577,13 @@ class AccessibleWizard:
         if self.power_label and self.power_label.get_text() != self.w.power_text:
             self.power_label.set_text(self.w.power_text)
         if self.countdown_label:
-            self.countdown_label.set_text(
-                f"Wait {self.w.countdown_display} seconds."
+            text = (
+                f"{self.w.countdown_display} {C.COUNTDOWN_CAPTION}"
                 if not self.w.erase_enabled
                 else C.COUNTDOWN_READY
             )
+            if self.countdown_label.get_text() != text:
+                self.countdown_label.set_text(text)
             self.primary.set_sensitive(self.w.erase_enabled)
         if self.progress_label:
             text = self.w.progress_view.status_text
