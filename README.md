@@ -62,6 +62,15 @@ with Orca. Switching views clears all previous confirmations and checks disks
 again. Use Tab and Shift+Tab to move, Space to activate controls, and the
 standard Orca reading commands for text. See [screen-reader operation](docs/screen-reader.md).
 
+On the disk list, choose **I'm not sure which disk** for identification help,
+including external disks and disks from another computer. Help clears the
+selected disk and its confirmation. Back returns with nothing selected; your
+existing ownership acknowledgement is retained. **Stop and shut down** lets
+you stop before checking labels or connections. The console offers **U** for
+help, **Esc** to return and **S** to stop; the plain text fallback asks for
+`BACK` or `STOP`. Preview closes or shows a close-tab message instead of
+powering off this computer.
+
 Before erasure, **Check disks again** (F5, or `CHECK DISKS AGAIN` at a text
 prompt) reads the inventory again and identifies the boot device again. It
 clears the selected disk, ownership acknowledgement, typed confirmation,
@@ -195,7 +204,8 @@ used. Details: [docs/ci.md](docs/ci.md).
 
 1. Boot the live USB (UEFI or legacy BIOS, x86_64).
 2. The wizard is the first screen. There is no desktop and no raw nwipe TUI.
-3. Confirm you own the machine. Pick a disk by model, size, and serial.
+3. Confirm ownership or permission to erase. Identify the intended disk by
+   model, size, and serial. If unsure, open the identification help.
 4. The Beamo USB cannot be selected. If we cannot tell which disk is the USB,
    the app refuses to list disks.
 5. Type-to-confirm, five-second delay, then nwipe runs non-interactively.

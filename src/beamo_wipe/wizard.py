@@ -617,6 +617,7 @@ class Wizard:
                 Screen.ADVANCED,
                 Screen.LIMITS,
                 Screen.REPORT_HELP,
+                Screen.DISK_HELP,
             }
             and self._wipe_request is None
             and not self.wants_shutdown
@@ -898,7 +899,7 @@ class Wizard:
         return self.screen in {
             Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.PICK_EMPTY,
             Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD,
-            Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP,
+            Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP, Screen.DISK_HELP,
         } and self._wipe_request is None and not self.wants_shutdown and not self._startup_blocked and not self._diagnostic_busy
 
     def begin_refresh(self) -> Optional[int]:
@@ -1017,6 +1018,16 @@ class Wizard:
             and self._authorized_operation is not None
             and key == self._authorized_operation
         )
+
+    def open_disk_help(self) -> None:
+        """Reading identification help revokes the target, never authorizes it."""
+        with self._lock:
+            if self.screen != Screen.PICK or self.wants_shutdown:
+                return
+            self._clear_authorization_locked()
+            self.selected = None
+            self.error = None
+            self.screen = Screen.DISK_HELP
 
     def select_disk(self, path: str) -> None:
         with self._lock:
@@ -2245,6 +2256,7 @@ class Wizard:
                 return
             mapping = {
                 Screen.OWNER: Screen.WHAT,
+                Screen.DISK_HELP: Screen.PICK,
                 Screen.PICK: Screen.OWNER,
                 Screen.PICK_EMPTY: Screen.OWNER,
                 Screen.PICK_BLOCKED: Screen.OWNER,

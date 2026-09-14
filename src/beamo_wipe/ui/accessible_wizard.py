@@ -273,6 +273,7 @@ class AccessibleWizard:
         elif screen == Screen.PICK:
             heading.set_text(C.TITLE_PICK)
             self.label(C.pick_subtitle())
+            self.button(C.DISK_HELP_BUTTON, self.w.open_disk_help, in_body=True)
             if same_size_conflict(self.w.listed_disks):
                 self.label(C.SAME_SIZE_HINT)
             if self.w.error:
@@ -332,6 +333,10 @@ class AccessibleWizard:
             self.button(storage_limits.BUTTON, self.w.open_limits, utility=True)
             self.button(C.BTN_ADVANCED, self.w.open_advanced, utility=True)
             self.button(C.BTN_CONTINUE, self.w.continue_method)
+        elif screen == Screen.DISK_HELP:
+            heading.set_text(C.DISK_HELP_TITLE)
+            self.reader(C.DISK_HELP_TEXT)
+            self.button(C.DISK_HELP_STOP, self.w.shutdown)
         elif screen == Screen.REPORT_HELP:
             heading.set_text(C.REPORT_HELP_TITLE)
             reader = self.reader(
@@ -528,6 +533,7 @@ class AccessibleWizard:
             Screen.LAST_CHANCE,
             Screen.LIMITS,
             Screen.REPORT_HELP,
+            Screen.DISK_HELP,
             Screen.ADVANCED,
         } or (screen == Screen.KEYBOARD and self.w._keyboard_from):
             self.button(C.BTN_BACK, self.w.back)
