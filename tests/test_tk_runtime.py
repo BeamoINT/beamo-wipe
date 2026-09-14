@@ -1752,3 +1752,34 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert C.prepare_selected(wiz.selected) in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("long", [False, True])
+def test_serial_comparison_markers_wrap_and_leave_controls_visible(size, long):
+    from test_serial_comparison import comparison_wizard
+    _needs_display()
+    serials = ("A" * 240 + "X" + "Z" * 80, "A" * 240 + "Y" + "Z" * 80) if long else ("ABC123XYZ", "ABC124XYZ")
+    wiz = comparison_wizard(serials)
+    app = TkWizard(wiz)
+    try:
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        _drive_to(wiz, app, Screen.PICK, size=size)
+        for disk in wiz.selectable:
+            labels = []
+            def visit(widget):
+                if isinstance(widget, tk.Label):
+                    labels.append(widget)
+                for child in widget.winfo_children():
+                    visit(child)
+            visit(app._pick_cards[disk.path])
+            view = wiz.disk_view(disk)
+            assert any(str(label.cget('text')).replace('\n', '') == view.marked_id for label in labels)
+            assert any(view.comparison_note == str(label.cget('text')) for label in labels)
+            for label in labels:
+                assert label.winfo_reqwidth() <= label.winfo_width() + 2
+                assert label.winfo_reqheight() <= label.winfo_height() + 2
+        assert not _off_window_problems(app)
+        assert not _clipping_problems(app)
+    finally:
+        app._teardown()

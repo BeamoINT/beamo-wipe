@@ -196,6 +196,11 @@ used. Details: [docs/ci.md](docs/ci.md).
 1. Boot the live USB (UEFI or legacy BIOS, x86_64).
 2. The wizard is the first screen. There is no desktop and no raw nwipe TUI.
 3. Confirm you own the machine. Pick a disk by model, size, and serial.
+   For same-size disks, square brackets mark the serial portion to compare
+   when a comparison is available. A text note also gives its character
+   positions. Always check the full ID and follow the confirmation prompt.
+   Duplicate or missing serials are not highlighted. If identity is uncertain,
+   shut down and disconnect the extra drives.
 4. The Beamo USB cannot be selected. If we cannot tell which disk is the USB,
    the app refuses to list disks.
 5. Type-to-confirm, five-second delay, then nwipe runs non-interactively.

@@ -857,3 +857,14 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     app.render()
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
+
+
+def test_serial_comparison_is_in_accessible_disk_name(ui):
+    from test_serial_comparison import comparison_wizard
+    wizard = comparison_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    names = [w.get_accessible().get_name() or "" for w in widgets(app.window)]
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        assert any(view.id_value in name and view.comparison_note in name for name in names)

@@ -372,7 +372,9 @@ class Wizard:
         target = disk if disk is not None else self.selected
         if target is None:
             raise SafetyError("No disk is selected.")
-        return present_disk(target, self.listed_disks)
+        return present_disk(
+            target, self.listed_disks, compare_serials=self.screen == Screen.PICK
+        )
 
     @property
     def confirm(self) -> Optional[ConfirmSpec]:
