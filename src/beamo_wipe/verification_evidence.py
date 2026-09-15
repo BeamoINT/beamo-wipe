@@ -214,7 +214,17 @@ def parse_junit_xml(text: str, *, what: str = "junit report") -> Dict[str, Any]:
                 kind = "xfail" if "xfail" in kind else "skip"
                 reason = (skipped_node.get("message") or "").strip() or "unspecified"
                 skips.append({"id": test_id, "kind": kind, "reason": reason})
-        if declared != observed:
+        # Hidden failures/errors/skips are never allowed. Pytest's tests=
+        # attribute may sit between testcase count and per-outcome count when
+        # one testcase carries both a skip and a teardown error.
+        n_cases = len(suite.findall("testcase"))
+        if (
+            declared["failures"] != observed["failures"]
+            or declared["errors"] != observed["errors"]
+            or declared["skipped"] != observed["skipped"]
+            or declared["tests"] < n_cases
+            or declared["tests"] > observed["tests"]
+        ):
             raise RuntimeError(f"{what} has inconsistent testsuite counts")
         for key in totals:
             totals[key] += observed[key]

@@ -958,13 +958,19 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.method_result, w, y_max)
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
-            content = wizard.elapsed_text + "\n" + wizard.result_view.next_step
+            y = _wrap(stdscr, y, C.REPORT_STATUS_TITLE, w, y_max)
+            y = _wrap(stdscr, y, C.REPORT_PREVIEW if wizard.preview else report.headline, w, y_max)
+            if not wizard.preview and not report.evidence_error:
+                y = _wrap(
+                    stdscr, y,
+                    C.report_aftercare(
+                        can_save=report.can_save, status=report.status, message=report.message
+                    ),
+                    w, y_max,
+                )
+            content = wizard.elapsed_text + "\n" + C.REPORT_STATUS_NOTICE
             if wizard.check_alerts:
                 content += "\n" + "\n".join(wizard.check_alerts)
-            content += "\n" + C.REPORT_STATUS_TITLE + "\n" + (C.REPORT_PREVIEW if wizard.preview else report.headline)
-            content += "\n" + C.REPORT_STATUS_NOTICE
-            if not wizard.preview and not report.evidence_error:
-                content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             if report.evidence_error:
                 content += "\n" + wizard.evidence_warning
             lines = [line for paragraph in content.split("\n") for line in _lines(paragraph, w)]

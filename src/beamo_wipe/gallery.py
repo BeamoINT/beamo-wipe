@@ -716,7 +716,7 @@ function metaLine(d) {
   const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
     .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
   const extra = showMore ? `<div class="small muted">System name (not a stable identity): ${esc(d.path)}</div>` : "";
-  return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(screen === "pick" ? d.markedSerial || d.serial : d.serial)}</span></span>
+  return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(screen === "pick" && !d.isBoot ? d.markedSerial || d.serial : d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
     <div class="connection"><span>${esc(d.connection || d.bus)}</span></div>${notes}${extra}</div>`;
 }

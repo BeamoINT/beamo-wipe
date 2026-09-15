@@ -84,6 +84,7 @@ def test_tk_unexpected_timer_failure_stops_engine_instead_of_losing_poll_loop(
     wizard = SimpleNamespace(
         screen=screen,
         wants_shutdown=False,
+        wants_new_session=False,
         tick=lambda: None,
         report_view=SimpleNamespace(revision=0),
         interface_failed=stop,
@@ -124,12 +125,14 @@ def test_tk_normal_tick_keeps_status_monitor_scheduled():
     app.w = SimpleNamespace(
         screen=Screen.WORKING,
         wants_shutdown=False,
+        wants_new_session=False,
         tick=lambda: calls.append("poll"),
         report_view=SimpleNamespace(revision=0),
     )
     app._shown = Screen.WORKING
     app._shown_report_revision = 0
     app._fatal_ui = False
+    app._pick_canvas = None
     app._refresh_working = lambda: calls.append("render")
     app.root = SimpleNamespace(after=lambda delay, callback: (delay, callback))
     app._tick()

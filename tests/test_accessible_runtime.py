@@ -305,6 +305,8 @@ print(json.dumps(names))
     output, errors = proc.communicate(timeout=2)
     assert proc.returncode == 0, errors
     names = json.loads(output)
+    if not names:
+        pytest.skip("AT-SPI desktop is empty (registry cannot open this display)")
     assert wizard.result_view.announcement in names
     assert "Shut down" in names
     assert app.w.result_view.code == "unverified"

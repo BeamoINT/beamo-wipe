@@ -2081,7 +2081,7 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_PICK, C.pick_subtitle())
         _Button(col, text=C.DISK_HELP_BUTTON, command=self._nav(self.w.open_disk_help),
-                font=self.font_s_bold, variant="ghost", compact=True).pack(anchor="w", pady=(0, 4))
+                font=self.font_s_bold, variant="ghost").pack(anchor="w", pady=(0, 4))
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.error:
@@ -3004,6 +3004,14 @@ class TkWizard:
         ).pack(fill=tk.X)
         self._p(col, self.w.elapsed_text, fg=MUTED, font=self.font_s,
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(4, 0))
+        # Keep the selected-disk summary in the first viewport so Show more
+        # stays reachable on short windows; report status follows, still
+        # independent of the erase badge.
+        if self.w.selected is not None:
+            self._disk_summary(col, self.w.selected).pack(
+                fill=tk.X, pady=(8 if self.lay.short else 24, 0)
+            )
+            self._more_link(col)
         self._p(col, C.REPORT_STATUS_TITLE, font=self.font_s_bold).pack(
             fill=tk.X, pady=(12, 4)
         )
@@ -3016,13 +3024,6 @@ class TkWizard:
             extra=C.REPORT_STATUS_NOTICE + ("" if self.w.preview else " " + detail),
             compact=True,
         ).pack(fill=tk.X)
-        # Both status areas precede disk details and check warnings.
-        # Long details can scroll; footer actions stay fixed.
-        if self.w.selected is not None:
-            self._disk_summary(col, self.w.selected).pack(
-                fill=tk.X, pady=(8 if self.lay.short else 24, 0)
-            )
-            self._more_link(col)
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
         self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
         for alert in self.w.check_alerts:
