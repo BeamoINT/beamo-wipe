@@ -397,3 +397,14 @@ STOP_KEEP = "Keep erasing"
 STOP_LEAD = STOP_WARNING + " Files may still remain on the disk. The erase continues until you confirm."
 STOPPING_TEXT = "The disk may still be erasing. Keep the disk and Beamo USB connected while we confirm it has stopped."
 
+BTN_ERASE_ANOTHER = "Erase another disk"
+ANOTHER_TITLE = "Continue without saving this report?"
+ANOTHER_LOSS = (
+    "This report has not been saved to a report USB. Starting a new session "
+    "closes this result and its report controls. Keep this session open to save "
+    "the report, or continue without saving. You will need to choose a disk "
+    "and complete every confirmation again. Keep the Beamo USB connected."
+)
+ANOTHER_DISCARD = "Continue without saving"
+ANOTHER_HINT = "Remove the report USB first. Keep the Beamo USB connected."
+

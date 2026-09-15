@@ -995,3 +995,21 @@ def test_separate_erase_and_report_headings(ui, case, status):
     assert {C.ERASE_STATUS_TITLE, C.REPORT_STATUS_TITLE} <= headings
     assert wizard.report_view.headline in text(app)
     assert wizard.result_view == VIEWS[case[0]]
+
+def test_accessible_erase_another_guard(ui):
+    from beamo_wipe import copy as C
+    w, _, _ = case_evidence(CASES[0])
+    app = ui(w)
+    app.actions[C.BTN_ERASE_ANOTHER].clicked()
+    drain()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM
+    assert C.ANOTHER_LOSS in text(app)
+    stale = app.actions[C.ANOTHER_DISCARD]
+    app.actions[C.SHUTDOWN_KEEP].clicked()
+    drain()
+    assert w.screen == Screen.DONE
+    app.actions[C.BTN_ERASE_ANOTHER].clicked()
+    stale.clicked()
+    assert not w.wants_new_session
+    app.actions[C.ANOTHER_DISCARD].clicked()
+    assert w.wants_new_session and app.closed

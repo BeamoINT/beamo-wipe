@@ -428,6 +428,26 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
 
 def _run_session(args, *, session_store, use_console, want_accessible,
                  fullscreen, reader) -> int:
+    # A new object graph is the session boundary: never reset live authority
+    # fields in place or reuse a runner, report worker, or discovery snapshot.
+    keyboard_layout = None
+    while True:
+        code = _run_one_session(
+            args, session_store=session_store, use_console=use_console,
+            want_accessible=want_accessible, fullscreen=fullscreen, reader=reader,
+            keyboard_layout=keyboard_layout)
+        if not isinstance(code, Wizard):
+            return code
+        keyboard_layout = code.keyboard_layout
+        use_console = code.diagnostic_ui == "console"
+        want_accessible = code.diagnostic_ui == "accessible"
+        code = None
+        if session_store is not None:
+            session_store.begin_new_session()
+
+
+def _run_one_session(args, *, session_store, use_console, want_accessible,
+                     fullscreen, reader, keyboard_layout=None) -> int | Wizard:
     if args.demo:
         # Instant fake data: stages would flash meaninglessly.
         try:
@@ -455,6 +475,8 @@ def _run_session(args, *, session_store, use_console, want_accessible,
     if session_store is not None:
         wizard.enable_session_recovery(session_store)
 
+    if keyboard_layout is not None:
+        wizard.keyboard_layout = keyboard_layout
     wizard.diagnostic_ui = "console" if use_console else "graphical"
     if use_console and os.environ.get("BEAMO_WIPE_GRAPHICAL_UNAVAILABLE") == "1" and not wizard.startup_error_code:
         wizard.startup_error_code = "graphical_unavailable"
@@ -471,6 +493,8 @@ def _run_session(args, *, session_store, use_console, want_accessible,
                     wizard.diagnostic_ui = "accessible"
                     from beamo_wipe.ui.accessible_wizard import run_accessible
                     code = run_accessible(wizard, fullscreen=fullscreen, reader=reader)
+            if wizard.wants_new_session:
+                return wizard
             if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
                 _shutdown()
             return code
@@ -507,6 +531,8 @@ def _run_session(args, *, session_store, use_console, want_accessible,
         code = _plain_loop(wizard)
     else:
         code = run_console(wizard)
+    if wizard.wants_new_session:
+        return wizard
     if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
         _shutdown()
     return code

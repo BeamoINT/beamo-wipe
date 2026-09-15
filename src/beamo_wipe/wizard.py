@@ -192,6 +192,8 @@ class Wizard:
         self._apply_keyboard = apply_layout
         self.method = DEFAULT_METHOD
         self.wants_shutdown = False
+        self.wants_new_session = False
+        self._new_session_pending = False
         self.error: Optional[str] = None
         self.wipe_result: Optional[WipeResult] = None
         self._splash_until = self._clock() + SPLASH_S
@@ -228,6 +230,7 @@ class Wizard:
         self._evidence_write_seq = 0
         self.evidence_status = "unknown"  # unknown | saving | saved | failed
         self.evidence_error_code = ""
+        self._finishing = False
         self._evidence_saving = False
         self._evidence_retries = 0
         self._pending_evidence: Optional[tuple[dict[str, Any], Any, Optional[WipeResult], Optional[str]]] = None
@@ -768,11 +771,71 @@ class Wizard:
             )
         # evidence / evidence_path / evidence_error are kept for audit
 
+    @property
+    def can_erase_another(self) -> bool:
+        return (
+            self.screen == Screen.DONE and self.wipe_result is not None
+            and not self.preview and not self.wants_shutdown
+            and not self.wants_new_session and not self._report_exporting
+            and not self._evidence_saving and not self._diagnostic_busy
+            and not self._finishing
+            and not self._new_session_store_blocked()
+            and self.result_view.code != "stop_unconfirmed"
+        )
+
+    def _new_session_store_blocked(self) -> bool:
+        store = self._session_store
+        if store is None:
+            return False
+        try:
+            return store.invalid or not store.is_quiescent()
+        except (OSError, SafetyError):
+            return True
+
+    @property
+    def exit_confirmation_title(self) -> str:
+        from beamo_wipe import copy as C
+        return C.ANOTHER_TITLE if self._new_session_pending else C.SHUTDOWN_TITLE
+
+    @property
+    def exit_confirmation_loss(self) -> str:
+        from beamo_wipe import copy as C
+        return C.ANOTHER_LOSS if self._new_session_pending else C.SHUTDOWN_LOSS
+
+    @property
+    def exit_confirmation_discard(self) -> str:
+        from beamo_wipe import copy as C
+        return C.ANOTHER_DISCARD if self._new_session_pending else C.SHUTDOWN_DISCARD
+
+    def erase_another_disk(self) -> None:
+        """Request replacement by a freshly constructed application session."""
+        with self._lock:
+            if not self.can_erase_another:
+                return
+            self._new_session_pending = True
+            # Every unsaved result needs an explicit decision, even when the
+            # owner did not opt into reports before the previous erase.
+            if not self._has_verified_export_locked():
+                self._shutdown_from = self.screen
+                self.shutdown_generation += 1
+                self.screen = Screen.SHUTDOWN_CONFIRM
+                self._done_keyboard_armed = False
+                return
+            self._request_new_session_locked()
+
+    def _request_new_session_locked(self) -> None:
+        self.owner_ok = False
+        self.confirm_input = ""
+        self._authorized_operation = None
+        self._erase_until = None
+        self._done_keyboard_armed = False
+        self.wants_new_session = True
+
     def shutdown(self) -> None:
         with self._lock:
             if self._recovery_busy():
                 return
-            if self.wants_shutdown or self.screen in {
+            if self.wants_shutdown or self.wants_new_session or self.screen in {
                 Screen.WORKING,
                 Screen.REFRESHING, Screen.CHECKING, Screen.STOPPING,
             }:
@@ -821,6 +884,7 @@ class Wizard:
                 return
             self.screen = self._shutdown_from or Screen.WHAT
             self._shutdown_from = None
+            self._new_session_pending = False
             self._done_keyboard_armed = False
 
     def confirm_shutdown_without_saving(self, generation: int) -> None:
@@ -830,11 +894,15 @@ class Wizard:
                 or self._shutdown_from is None
                 or generation != self.shutdown_generation
                 or self.wants_shutdown
+                or self.wants_new_session
                 or self._report_exporting
                 or self._diagnostic_busy
             ):
                 return
-            self.wants_shutdown = True
+            if self._new_session_pending:
+                self._request_new_session_locked()
+            else:
+                self.wants_shutdown = True
 
     def enable_report_intent_recovery(self, store) -> None:
         """Recover preference only, never erase authorization or export success."""
@@ -1151,7 +1219,7 @@ class Wizard:
             if self.screen == Screen.WORKING and self._wipe_request is not None:
                 self.error = "A wipe is already running."
                 return None
-            if self.wants_shutdown or self.screen != Screen.LAST_CHANCE:
+            if self.wants_shutdown or self.wants_new_session or self.screen != Screen.LAST_CHANCE:
                 return None
             if not self.erase_enabled or self.selected is None:
                 return None
@@ -1352,6 +1420,7 @@ class Wizard:
             if self._progress_timing.invalid_clock:
                 self._evidence_end_mono = None
             self.wipe_result = result
+            self._finishing = True
             self.screen = Screen.DONE
             self.stop_confirmation = None
             self.error = None
@@ -1362,7 +1431,12 @@ class Wizard:
                 status="idle", message="", session="", exporting=False
             )
         # Persist auditable evidence (atomic, off-target, truthful outcome)
-        self._write_evidence(result=result, cancelled=cancelled, interrupted=interrupted)
+        try:
+            self._write_evidence(result=result, cancelled=cancelled, interrupted=interrupted)
+        finally:
+            with self._lock:
+                self._finishing = False
+                self._touch_report_locked()
 
     def request_stop(self) -> None:
         """Open a user confirmation without pausing engine polling."""
@@ -1717,7 +1791,7 @@ class Wizard:
             and self._evidence_retries < EVIDENCE_RETRIES and pending is not None
             and pending[1] == self._evidence_context()
             and pending[2] == self.wipe_result
-            and not self.wants_shutdown and not self._report_exporting
+            and not self.wants_shutdown and not self.wants_new_session and not self._report_exporting
             and not self._diagnostic_busy and not self._recovery_busy()
         )
 
@@ -1804,6 +1878,7 @@ class Wizard:
         if (
             self.preview
             or self.wants_shutdown
+            or self.wants_new_session
             or self.screen != Screen.DONE
             or result is None
             or self.evidence_error

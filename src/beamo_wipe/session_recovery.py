@@ -309,6 +309,20 @@ class SessionStore:
             except FileNotFoundError:
                 pass
 
+    def begin_new_session(self):
+        """Rotate the journal only after the UI resolved the previous report.
+
+        Keep old evidence/log files, and retain interface ownership throughout.
+        The runner lock proves that no old process can still be writing.
+        """
+        if self.invalid or self.record is None or not self.is_quiescent():
+            raise SafetyError("Previous erase is not confirmed stopped")
+        self.save({"phase": "preflight", "context": None, "terminal": None,
+                   "session": secrets.token_hex(16), "created": time.monotonic()})
+        self.previous = False
+        os.close(self.quiescent)
+        self.quiescent = -1
+
     def arm(self, discovery, request):
         if self.record is None or self.record["phase"] != "preflight" or self.previous:
             raise SafetyError("This session cannot start another erase")

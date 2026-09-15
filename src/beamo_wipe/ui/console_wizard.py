@@ -207,7 +207,7 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     if screen == Screen.SHUTDOWN_CONFIRM:
         return [
             "Enter/Esc: keep session open",
-            "D: shut down without saving (type confirmation)",
+            "D: " + wizard.exit_confirmation_discard + " (type confirmation)",
         ]
     if screen == Screen.DIAGNOSTIC:
         action = "save diagnostic report" if wizard._diagnostic_baseline else "prepare baseline"
@@ -222,6 +222,9 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
             action = "E: retry evidence save    Enter: shut down"
         else:
             action = "Enter: shut down"
+        if wizard.can_erase_another:
+            return ["Up/Down, PgUp/PgDn: read aftercare.", C.ANOTHER_HINT,
+                    action + "    A: erase another disk"]
         return ["Up/Down, PgUp/PgDn: read aftercare.", action]
     return ["Esc: back"]
 
@@ -311,8 +314,8 @@ def _plain_loop(wizard: Wizard) -> int:
             wizard.shutdown()
             if not wizard.wants_shutdown:
                 if wizard.screen == Screen.SHUTDOWN_CONFIRM:
-                    print(C.SHUTDOWN_TITLE)
-                    print(C.SHUTDOWN_LOSS)
+                    print(wizard.exit_confirmation_title)
+                    print(wizard.exit_confirmation_loss)
                 print("Console input unavailable. Shutdown was not authorized.")
                 return 3
             return 0
@@ -324,20 +327,20 @@ def _plain_loop(wizard: Wizard) -> int:
                     wizard.request_stop()
                 except Exception:
                     pass
-                if wizard.wants_shutdown:
+                if wizard.wants_shutdown or wizard.wants_new_session:
                     return 0
                 continue
             if wizard.screen == Screen.SHUTDOWN_CONFIRM:
                 wizard.keep_report_session()
             else:
                 wizard.shutdown()
-            if wizard.wants_shutdown:
+            if wizard.wants_shutdown or wizard.wants_new_session:
                 return 0
 
 
 def _plain_loop_body(wizard: Wizard) -> int:
     last_working = None
-    while not wizard.wants_shutdown:
+    while not wizard.wants_shutdown and not wizard.wants_new_session:
         wizard.tick()
         screen = wizard.screen
         if screen != Screen.WORKING:
@@ -348,14 +351,14 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(C.PREVIEW_BANNER)
             print("=" * 60)
         if screen == Screen.SHUTDOWN_CONFIRM:
-            print(C.SHUTDOWN_TITLE)
-            print(textwrap.fill(C.SHUTDOWN_LOSS, 76))
+            print(wizard.exit_confirmation_title)
+            print(textwrap.fill(wizard.exit_confirmation_loss, 76))
             print(wizard.report_recovery_warning)
             generation = wizard.shutdown_generation
             answer = input(
-                "Type SHUT DOWN WITHOUT SAVING to discard; Enter keeps session open: "
+                f"Type {wizard.exit_confirmation_discard.upper()} to discard; Enter keeps session open: "
             )
-            if answer == "SHUT DOWN WITHOUT SAVING":
+            if answer == wizard.exit_confirmation_discard.upper():
                 wizard.confirm_shutdown_without_saving(generation)
             else:
                 wizard.keep_report_session()
@@ -638,11 +641,16 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     prompt = "Type SAVE to save the report, or SHUTDOWN: "
                 else:
                     prompt = "Type SHUTDOWN: "
+                if wizard.can_erase_another:
+                    print(C.ANOTHER_HINT)
+                    prompt += "Or type ANOTHER to erase another disk: "
                 action = _answer(wizard, prompt).strip().upper()
                 if action == "RETRY" and report.can_retry_evidence:
                     wizard.retry_evidence_save()
                 elif action == "SAVE" and report.can_save:
                     wizard.save_report_to_usb()
+                elif action == "ANOTHER":
+                    wizard.erase_another_disk()
                 elif action == "SHUTDOWN":
                     wizard.shutdown()
             continue
@@ -695,7 +703,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
     inventory_boot = False
     inventory_offset = 0
     pick_offset = 0
-    while not wizard.wants_shutdown:
+    while not wizard.wants_shutdown and not wizard.wants_new_session:
         wizard.tick()
         stdscr.erase()
         h, w = stdscr.getmaxyx()
@@ -796,8 +804,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if need_below:
                 _add(stdscr, y_max - 1, 0, "More disks below. Use Up and Down.")
         elif wizard.screen == Screen.SHUTDOWN_CONFIRM:
-            y = _wrap(stdscr, y, C.SHUTDOWN_TITLE, w, y_max)
-            y = _wrap(stdscr, y, C.SHUTDOWN_LOSS, w, y_max)
+            y = _wrap(stdscr, y, wizard.exit_confirmation_title, w, y_max)
+            y = _wrap(stdscr, y, wizard.exit_confirmation_loss, w, y_max)
             _wrap(stdscr, y, wizard.report_recovery_warning, w, y_max)
         elif wizard.screen == Screen.DIAGNOSTIC:
             y = _wrap(stdscr, y, D.report_title(wizard.startup_error_code) + "\n" + D.NOTICE, w, y_max)
@@ -1106,11 +1114,11 @@ def _confirm_report_discard(stdscr, wizard: Wizard) -> None:
     _curses_opt("echo")
     _curses_opt("curs_set", 1)
     try:
-        _add(stdscr, h - 2, 0, "Type SHUT DOWN WITHOUT SAVING; anything else returns:")
+        _add(stdscr, h - 2, 0, f"Type {wizard.exit_confirmation_discard.upper()}; anything else returns:")
         _add(stdscr, h - 1, 0, " " * 55)
         stdscr.refresh()
         answer = stdscr.getstr(h - 1, 0, 32).decode("ascii", errors="replace")
-        if answer == "SHUT DOWN WITHOUT SAVING":
+        if answer == wizard.exit_confirmation_discard.upper():
             wizard.confirm_shutdown_without_saving(generation)
         else:
             wizard.keep_report_session()
@@ -1159,6 +1167,9 @@ def _handle(wizard: Wizard, ch: int) -> None:
         if ch == 27:
             wizard.back()
             return
+        return
+    if wizard.screen == Screen.DONE and ch in (ord("a"), ord("A")):
+        wizard.erase_another_disk()
         return
     if wizard.screen == Screen.DONE and ch in (ord("e"), ord("E")):
         wizard.begin_evidence_retry()

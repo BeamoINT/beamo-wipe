@@ -507,7 +507,7 @@ def test_live_tk_failure_returns_to_supervisor_before_console(monkeypatch):
     from beamo_wipe import app
 
     fake = SimpleNamespace(
-        wants_shutdown=False,
+        wants_shutdown=False, wants_new_session=False,
         dry_run=False,
         screen=Screen.WHAT,
         cancel_wipe=lambda: None,
@@ -537,7 +537,7 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
 
     cancelled = []
     fake = SimpleNamespace(
-        wants_shutdown=False,
+        wants_shutdown=False, wants_new_session=False,
         screen=Screen.WORKING,
         preview=False,
         progress=None,
