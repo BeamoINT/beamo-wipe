@@ -28,11 +28,13 @@ var sourceCommit = "unknown"
 var sourceDirty = "false"
 
 type view struct {
-	Ready   bool   `json:"ready"`
-	Preview bool   `json:"preview"`
-	Title   string `json:"title"`
-	Detail  string `json:"detail"`
-	Version string `json:"version"`
+	Checks    []readinessCheck `json:"checks"`
+	Technical string           `json:"technical"`
+	Ready     bool             `json:"ready"`
+	Preview   bool             `json:"preview"`
+	Title     string           `json:"title"`
+	Detail    string           `json:"detail"`
+	Version   string           `json:"version"`
 }
 
 func planView(p Plan, preview bool) view {
@@ -53,6 +55,13 @@ func planView(p Plan, preview bool) view {
 		if v.Detail == "" {
 			v.Detail = "Automatic startup could not be checked. Nothing has been changed. Follow the boot instructions below."
 		}
+	}
+	v.Checks, v.Technical = p.checks, p.technical
+	if len(v.Checks) == 0 {
+		v.Checks, v.Technical = explainReadiness(Snapshot{}, p)
+	}
+	if preview {
+		v.Technical = "Simulated preview. No devices or startup settings were read.\n" + v.Technical
 	}
 	return v
 }

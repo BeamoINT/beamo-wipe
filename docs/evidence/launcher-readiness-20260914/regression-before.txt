@@ -1,0 +1,22 @@
+--- FAIL: TestReadinessExplainsEachCheck (0.00s)
+    --- FAIL: TestReadinessExplainsEachCheck/pass (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":true,"preview":false,"title":"Ready for a guided restart","detail":"Save your work and close your applications. Keep the Beamo USB connected. After restarting, choose and confirm the disk. Nothing is erased by this launcher.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/partial (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/fail (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/unsupported (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"This launcher supports Intel/AMD 64-bit Windows and Linux PCs. This USB does not support Apple Silicon or Chromebooks.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/legacy (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"This computer does not offer the supported automatic restart path. Keep the USB connected and follow the boot instructions below.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/permission (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"The computer's boot settings could not be read. You can still use the boot menu. Administrator permission may be required for a guided restart.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/pending (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"Another application has already requested a special next startup. Beamo will not replace it. Complete that startup before trying again.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/unattended (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"Automated installation files were found on this USB. Beamo Wipe will not request a guided restart. Review those files, then use the boot menu.","version":"development"}
+    --- FAIL: TestReadinessExplainsEachCheck/live (0.00s)
+        readiness_test.go:48: want three explained checks, got {"ready":false,"preview":false,"title":"Use the computer's boot menu","detail":"You are already in the Beamo USB environment. Use the Beamo Wipe window to choose and confirm a disk.","version":"development"}
+FAIL
+FAIL	beamo-wipe/desktop	0.005s
+FAIL
