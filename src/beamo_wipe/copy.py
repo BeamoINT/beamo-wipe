@@ -138,8 +138,8 @@ STARTUP_STILL_WORKING = (
 
 OWNER_LEAD = "Check the box, then continue."
 
-BOOT_USB_BANNER = "This is the Beamo USB — do not erase"
-BOOT_DISC_BANNER = "This is the Beamo boot disc — do not erase"
+BOOT_USB_BANNER = "Beamo USB — protected, cannot be erased"
+BOOT_DISC_BANNER = "Beamo boot disc — protected, cannot be erased"
 
 IDENTIFY_ERROR = (
     "We cannot tell which disk is this USB. Unplug extra USB sticks and start again."

@@ -1,0 +1,1 @@
+Built Windows and Linux desktop launchers. Runtime and firmware tests remain separate gates.

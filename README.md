@@ -78,6 +78,11 @@ method, and countdown. Complete the entire confirmation flow again. A failed
 refresh leaves no stale target selectable. Refresh is unavailable once an
 erase is starting or running.
 
+**Beamo USB — protected, cannot be erased** appears separately above the disks
+you can choose, with its name, size and serial or hardware ID. The keyboard
+console shows its protected status; press B to read its full identity. If the
+boot device cannot be identified, no protected card or erase targets are shown.
+
 **Other detected devices** is information only: each row explains why the
 device cannot be selected. In the keyboard console, press O to read and scroll
 these explanations. No excluded row offers an erase action or bypass.
@@ -206,6 +211,16 @@ used. Details: [docs/ci.md](docs/ci.md).
 2. The wizard is the first screen. There is no desktop and no raw nwipe TUI.
 3. Confirm ownership or permission to erase. Identify the intended disk by
    model, size, and serial. If unsure, open the identification help.
+   For same-size disks, square brackets mark the serial portion to compare
+   when a comparison is available. A text note also gives its character
+   positions. Always check the full ID and follow the confirmation prompt.
+   Duplicate or missing serials are not highlighted. With multiple disks, open
+   **Compare disks** to read their identities side by side (stacked on narrow
+   screens). Reading the comparison does not change your selection. In the
+   screen-reader view, expand **Compare disks**; in the console, press **C**,
+   then **Esc** to return. The plain console prints the same comparison before
+   the disk choices. If identity is uncertain, shut down and disconnect the
+   extra drives.
 4. The Beamo USB cannot be selected. If we cannot tell which disk is the USB,
    the app refuses to list disks.
 5. Type-to-confirm, five-second delay, then nwipe runs non-interactively.

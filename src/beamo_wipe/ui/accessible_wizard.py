@@ -278,9 +278,20 @@ class AccessibleWizard:
                 self.label(C.SAME_SIZE_HINT)
             if self.w.error:
                 self.label(self.w.error)
+            self._protected_boot()
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {self.w.disk_view(disk).announcement}"
                 self.button(text, lambda path=disk.path: self._select(path), in_body=True)
+            if len(self.w.selectable) > 1:
+                expander = Gtk.Expander.new(inventory.COMPARE_TITLE)
+                reader = Gtk.Label(label=inventory.comparison_text(self.w.selectable, peers=self.w.listed_disks))
+                reader.set_line_wrap(True)
+                reader.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                reader.set_max_width_chars(65)
+                reader.set_selectable(True)
+                reader.set_can_focus(True)
+                expander.add(reader)
+                self.body.pack_start(expander, False, False, 4)
             self._inventory()
         elif screen in (Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             heading.set_text(
@@ -291,8 +302,8 @@ class AccessibleWizard:
                 if screen == Screen.PICK_EMPTY
                 else (self.w.error or C.IDENTIFY_ERROR)
             )
-            if screen == Screen.PICK_EMPTY and self.w.empty_detail:
-                self.label(self.w.empty_detail)
+            if screen == Screen.PICK_EMPTY:
+                self._protected_boot()
             self._inventory()
             self.button("Shut down", self.w.shutdown)
         elif screen == Screen.CONFIRM:
@@ -552,6 +563,10 @@ class AccessibleWizard:
         arrival.grab_focus()
         self.update_status()
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
+
+    def _protected_boot(self):
+        if self.w.protected_boot_text:
+            self.reader(self.w.protected_boot_text)
 
     def _inventory(self):
         if self.w.other_devices:

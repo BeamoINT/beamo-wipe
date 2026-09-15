@@ -1,0 +1,62 @@
+...............................................................sssssss.. [  2%]
+........................................................................ [  5%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 23%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+....................................................................sss. [ 61%]
+.s.ssssssss............................................................. [ 64%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+................................................ss...................... [ 84%]
+............s........................................................... [ 87%]
+........................................................................ [ 90%]
+.................s...........................................sssssssssss [ 93%]
+s....................................................................... [ 96%]
+........................................................................ [ 99%]
+....................                                                     [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_accessible_runtime.py:13: could not import 'gi': No module named 'gi'
+SKIPPED [1] tests/test_laptop_power_accessible.py:3: could not import 'gi': No module named 'gi'
+SKIPPED [1] tests/test_accessible_boot_option.py:143: GTK bindings are validated on the hosted Linux image
+SKIPPED [1] tests/test_accessible_boot_option.py:170: GTK bindings are validated on the hosted Linux image
+SKIPPED [1] tests/test_accessible_boot_option.py:202: GTK bindings are validated on the hosted Linux image
+SKIPPED [1] tests/test_accessible_boot_option.py:228: GTK bindings are validated on the hosted Linux image
+SKIPPED [1] tests/test_accessible_boot_option.py:253: GTK bindings are validated on the hosted Linux image
+SKIPPED [1] tests/test_accessible_boot_option.py:275: GTK bindings are validated on the hosted Linux image
+SKIPPED [1] tests/test_accessible_boot_option.py:288: GTK bindings are validated on the hosted Linux image
+SKIPPED [1] tests/test_release_manifest.py:179: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:222: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:235: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:297: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:329: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:356: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:374: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:397: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:414: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:446: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:459: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [1] tests/test_release_manifest.py:472: manufacturing ISO absent: run scripts/build-iso.sh or fetch the release artifact
+SKIPPED [2] tests/test_startup_stages.py:186: live kiosk fullscreen requires an isolated Linux X server
+SKIPPED [1] tests/test_tk_runtime.py:91: bare X11 fullscreen check requires an isolated X server
+SKIPPED [1] tests/test_tk_runtime.py:1583: physical key injection requires an isolated test X server
+SKIPPED [12] tests/test_usb_image_readback.py:45: regular-file FAT32 test requires dosfstools and mtools
+2433 passed, 37 skipped in 290.97s (0:04:50)

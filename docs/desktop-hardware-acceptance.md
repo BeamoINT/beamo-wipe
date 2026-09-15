@@ -6,6 +6,12 @@ Additional [Google Cloud desktop results](gcp-desktop-validation-2026-09-07.md)
 cover Debian and Windows Server UI and permission flows. Neither report fills
 in this physical checklist; no physical configuration has been accepted.
 
+The executable physical matrix (firmware, monitors, ports, USB controllers,
+keyboards, touchpads, audio, power, plus these desktop-USB cases) is
+[physical acceptance #111](evidence/physical-acceptance-111/README.md).
+That folder is scaffolding: every physical cell is **NOT TESTED**. QEMU,
+USB-lab, and GCP desktop VM receipts must not be copied into a Pass.
+
 ## Record the configuration
 
 - Tester and date:
