@@ -155,11 +155,15 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
         return ["Space to check. Enter continues only when checked. Esc: back"]
     if screen == Screen.PICK:
         lines = ["Up/Down then Enter. PgUp/PgDn page. Esc back."]
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
     if screen == Screen.PICK_EMPTY:
         lines = ["Enter: shut down    Esc: back"]
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
@@ -421,8 +425,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
-            if wizard.empty_detail:
-                print(wizard.empty_detail)
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -430,6 +434,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -642,6 +648,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
     enter_quiet_since = None
     limits_offset = 0
     inventory_open = False
+    inventory_boot = False
     inventory_offset = 0
     pick_offset = 0
     while not wizard.wants_shutdown:
@@ -657,9 +664,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, 1, 0, C.PREVIEW_BANNER)
             y = min(3, y_max)
         if inventory_open:
-            _add(stdscr, y, 0, inventory.TITLE)
+            _add(stdscr, y, 0, "Protected boot media" if inventory_boot else inventory.TITLE)
             y += 1
-            lines = [line for paragraph in inventory.full_text(wizard.other_devices).split("\n")
+            detail = wizard.protected_boot_text if inventory_boot else inventory.full_text(wizard.other_devices)
+            lines = [line for paragraph in detail.split("\n")
                      for line in _lines(paragraph, w)]
             page_size = max(1, y_max - y)
             inventory_offset = min(inventory_offset, max(0, len(lines) - page_size))
@@ -915,7 +923,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
                          curses.KEY_PPAGE: -page_size, curses.KEY_NPAGE: page_size}[ch]
                 inventory_offset = max(0, inventory_offset + delta)
             continue
+        if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("b"), ord("B")) and wizard.protected_boot:
+            inventory_open = True
+            inventory_boot = True
+            inventory_offset = 0
+            continue
         if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("o"), ord("O")) and wizard.other_devices:
+            inventory_boot = False
             inventory_open = True
             inventory_offset = 0
             continue
