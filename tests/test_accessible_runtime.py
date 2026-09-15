@@ -548,6 +548,22 @@ sys.exit(entry['main']())
         app.render()
         wait_for(wizard.erase_label(), since=checkpoint)
         assert not wizard.runner.started
+        from beamo_wipe import copy as C
+        wizard.back(); wizard.back(); wizard.back()
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.render()
+        wait_for(C.TITLE_PICK, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.actions[C.DISK_HELP_BUTTON].grab_focus()
+        wait_for(C.DISK_HELP_BUTTON, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.actions[C.DISK_HELP_BUTTON].clicked()
+        wait_for(C.DISK_HELP_TITLE, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        help_reader = next(item for item in widgets(app.window) if isinstance(item, Gtk.TextView))
+        help_reader.grab_focus()
+        wait_for("You do not need to choose now", since=checkpoint)
+        assert wizard.selected is None and not wizard.runner.started
         app.close()
     finally:
         reader.terminate()
@@ -882,3 +898,42 @@ def test_serial_comparison_is_in_accessible_disk_name(ui):
     for disk in wizard.selectable:
         view = wizard.disk_view(disk)
         assert any(view.id_value in name and view.comparison_note in name for name in names)
+
+@pytest.mark.parametrize('size', [(800, 600), (1280, 820)])
+def test_unsure_disk_accessible_reader_and_return(ui, size):
+    from beamo_wipe import copy as C
+    w = make_demo_wizard()
+    w.skip_intro()
+    w.accept_what()
+    w.set_owner(True)
+    w.continue_owner()
+    w.select_disk(w.selectable[0].path)
+    app = ui(w, size=size)
+    action = app.actions[C.DISK_HELP_BUTTON]
+    assert action.get_accessible().get_name() == C.DISK_HELP_BUTTON
+    action.grab_focus()
+    action.activate()
+    drain()
+    # GtkButton activation animates before emitting clicked.
+    deadline = time.monotonic() + 1
+    while w.screen == Screen.PICK and time.monotonic() < deadline:
+        drain()
+        time.sleep(.01)
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+    reader = next(x for x in widgets(app.window) if isinstance(x, Gtk.TextView))
+    assert reader.get_accessible().get_name() == C.DISK_HELP_TEXT
+    assert reader.get_can_focus() and not reader.get_editable()
+    reader.grab_focus()
+    drain()
+    assert reader.has_focus()
+    app.actions[C.BTN_BACK].clicked()
+    drain()
+    assert w.screen == Screen.PICK and w.selected is None
+    app.actions[C.DISK_HELP_BUTTON].clicked()
+    drain()
+    w.report_wanted = True
+    app.actions[C.DISK_HELP_STOP].clicked()
+    drain()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM and not w.wants_shutdown
+    w.back()
+    assert w.screen == Screen.DISK_HELP and w.selected is None

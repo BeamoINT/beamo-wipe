@@ -127,6 +127,10 @@ def gallery_html() -> str:
             "happy": inventory.full_text(inventory.other_devices(result)),
             "empty": inventory.full_text(inventory.other_devices(discovery_for_scenario("empty"))),
         },
+        "diskHelpButton": C.DISK_HELP_BUTTON,
+        "diskHelpTitle": C.DISK_HELP_TITLE,
+        "diskHelpText": C.DISK_HELP_TEXT,
+        "diskHelpStop": C.DISK_HELP_STOP,
         "limitsTitle": limits.TITLE,
         "reportHelpTitle": C.REPORT_HELP_TITLE,
         "reportHelpText": C.REPORT_HELP_TEXT,
@@ -656,7 +660,7 @@ function stepInfo() {
   const map = {splash:[0,"",""], keyboard:[0,"",P.titles.keyboard], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
     pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
     confirm:[4,"Step 4 of 8",P.titles.confirm], method:[5,"Step 5 of 8",P.titles.method],
-    limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
+    disk_help:[3,P.diskHelpTitle,P.diskHelpTitle], limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
     working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk]};
   return map[screen] || [0,"",""];
 }
@@ -834,10 +838,19 @@ function draw() {
     selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
+    const unsure = btn(P.diskHelpButton, () => {
+      if (screen !== "pick") return;
+      selected = null; token = ""; tLeft = 5;
+      if (timer) clearInterval(timer);
+      timer = null; screen = "disk_help"; draw();
+    }, "ghost");
+    unsure.id = "unsure-disk";
+    main.querySelector(".subtitle").after(unsure);
     renderOtherDevices();
     bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => {
+        if (screen !== "pick") return;
         selected = disks().find(d => d.path === el.dataset.path);
         draw();
         Array.from(main.querySelectorAll(".card.pickable"))
@@ -919,6 +932,13 @@ function draw() {
     main.querySelector("#report-wanted").onchange = e => { reportWanted = e.target.checked; };
     btnsL.append(btn(P.buttons.back, () => { screen = reportHelpFrom; draw(); }));
     renderHint("Nothing is saved here. Esc returns.");
+  } else if (screen === "disk_help") {
+    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" role="region" aria-label="Identify the disk" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
+    main.querySelector("#disk-help-text").textContent = P.diskHelpText;
+    main.querySelector("#disk-help-text").focus();
+    btnsL.append(btn(P.buttons.back, () => { screen = "pick"; draw(); main.querySelector("#unsure-disk").focus(); }));
+    btnsR.append(btn(P.diskHelpStop, closePreview));
+    renderHint("Esc returns with no disk selected.");
   } else if (screen === "limits") {
     main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" role="region" aria-label="Supported storage limits" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
     main.querySelector("#limits-text").textContent = P.limitsText;
@@ -1001,6 +1021,9 @@ document.addEventListener("keydown", e => {
   if (screen === "shutdown_confirm" && ["Escape", "Enter"].includes(e.key)) {
     e.preventDefault(); screen = shutdownFrom; draw(); return;
   }
+  if (screen === "disk_help" && e.key === "Escape") {
+    e.preventDefault(); screen = "pick"; draw(); main.querySelector("#unsure-disk").focus(); return;
+  }
   if (screen === "report_help" && e.key === "Escape") {
     e.preventDefault(); screen = reportHelpFrom; draw(); return;
   }
@@ -1065,6 +1088,7 @@ function applyHash() {
   if (q.get("pct")) demoPct = parseInt(q.get("pct"), 10);
   reportWanted = q.get("report") === "1";
   const s = q.get("s");
+  if (s === "disk_help") { selected = null; token = ""; tLeft = 5; }
   if (s) { screen = s; draw(); }
 }
 if (location.hash) applyHash(); else boot("happy");

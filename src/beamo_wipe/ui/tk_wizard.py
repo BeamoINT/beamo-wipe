@@ -98,6 +98,7 @@ _STEP_ORDER = {
     Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
     Screen.WHAT: (1, "Step 1 of 8", C.TITLE_WHAT),
     Screen.OWNER: (2, "Step 2 of 8", "Ownership"),
+    Screen.DISK_HELP: (3, "Identify the disk", C.DISK_HELP_TITLE),
     Screen.PICK: (3, "Step 3 of 8", C.TITLE_PICK),
     Screen.PICK_EMPTY: (3, "Step 3 of 8", C.TITLE_PICK),
     Screen.PICK_BLOCKED: (3, "Step 3 of 8", C.TITLE_PICK),
@@ -1160,6 +1161,7 @@ class TkWizard:
         if self.w.screen in {
             Screen.PICK,
             Screen.LIMITS,
+            Screen.DISK_HELP,
             Screen.REPORT_HELP,
         }:
             return
@@ -1338,6 +1340,7 @@ class TkWizard:
             Screen.WHAT: self._what,
             Screen.OWNER: self._owner,
             Screen.PICK: self._pick,
+            Screen.DISK_HELP: self._disk_help,
             Screen.PICK_BLOCKED: self._blocked,
             Screen.PICK_EMPTY: self._empty,
             Screen.CONFIRM: self._confirm,
@@ -2046,6 +2049,8 @@ class TkWizard:
     def _pick(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_PICK, C.pick_subtitle())
+        _Button(col, text=C.DISK_HELP_BUTTON, command=self._nav(self.w.open_disk_help),
+                font=self.font_s_bold, variant="ghost", compact=True).pack(anchor="w", pady=(0, 4))
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.error:
@@ -2714,6 +2719,24 @@ class TkWizard:
         ).pack(anchor="w", pady=(0, 8))
         self._back_btn(self._footer_shell("Enter or Esc returns. Nothing is saved here."))
         text.focus_set()
+
+    def _disk_help(self) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, C.DISK_HELP_TITLE, "Up/Down or Page Up/Page Down to read. Esc returns.", compact=True)
+        frame = tk.Frame(col, bg=BG)
+        frame.pack(fill=tk.BOTH, expand=True)
+        text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
+                       width=1, height=10, bg=SURFACE, fg=INK)
+        scrollbar = tk.Scrollbar(frame, command=text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text.configure(yscrollcommand=scrollbar.set)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        text.insert("1.0", C.DISK_HELP_TEXT)
+        text.configure(state=tk.DISABLED)
+        text.focus_set()
+        row = self._footer_shell("Esc returns with no disk selected.")
+        self._back_btn(row)
+        self._secondary_btn(row, C.DISK_HELP_STOP, self.w.shutdown)
 
     def _limits(self) -> None:
         col = self._column(self._body, fill_height=True)

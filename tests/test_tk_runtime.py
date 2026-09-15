@@ -1818,3 +1818,39 @@ def test_serial_comparison_markers_wrap_and_leave_controls_visible(size, long):
         assert not _clipping_problems(app)
     finally:
         app._teardown()
+
+@pytest.mark.parametrize('size', [WINDOW, MIN_WINDOW])
+def test_unsure_disk_keyboard_return_and_reader(ui, size):
+    from beamo_wipe import copy as C
+    w, app = ui(size=size)
+    w.skip_intro()
+    w.accept_what()
+    w.set_owner(True)
+    w.continue_owner()
+    w.select_disk(w.selectable[0].path)
+    app._draw()
+    app.root.update()
+    def descendants(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from descendants(child)
+    unsure = next(x for x in descendants(app.root) if isinstance(x, _Button) and x.itemcget(x._label, "text") == C.DISK_HELP_BUTTON)
+    unsure.focus_set()
+    app.root.update()
+    unsure.event_generate('<Return>')
+    app.root.update()
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+    reader = next(x for x in descendants(app.root) if isinstance(x, tk.Text))
+    assert C.DISK_HELP_TEXT == reader.get('1.0', 'end-1c')
+    assert app.root.focus_get() == reader
+    reader.event_generate('<Next>')
+    reader.event_generate('<Return>')
+    app.root.update()
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+    for x in descendants(app.root):
+        if isinstance(x, _Button) and x.winfo_ismapped():
+            assert x.winfo_rooty() + x.winfo_height() <= app.root.winfo_rooty() + size[1]
+    reader.event_generate('<Escape>')
+    app.root.update()
+    assert w.screen == Screen.PICK and w.selected is None
+    assert not w.runner.started

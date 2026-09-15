@@ -39,6 +39,13 @@ F5 checks disks again before erasure. Escape goes back where allowed. Full
 identity text before the disk-selection buttons. It is never a Select button.
 **Other detected devices** is read-only text; it never offers an erase action.
 
+On the disk list, **I'm not sure which disk** opens identification guidance
+for internal or external targets. Tab to the read-only text and use normal
+reader commands or Page Up/Page Down. **Back** or Escape returns with no disk
+selected. **Stop and shut down** uses the report-protected shutdown decision.
+Opening this help retains only the ownership acknowledgement already made;
+select the disk and complete confirmation and countdown again before erasure.
+
 On screen changes, focus moves to the screen explanation. Finished announces
 the canonical evidence outcome and safe next step. Quick zero completion says
 “Erase completed; verification was not performed.” A verified completion checks
