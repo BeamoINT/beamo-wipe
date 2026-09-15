@@ -177,11 +177,13 @@ def test_excluded_devices_are_read_only_and_no_selection(ui):
     wizard.continue_owner()
     app = ui(wizard)
     assert wizard.screen == Screen.PICK_EMPTY
-    assert "not erasable" in text(app).lower()
-    assert wizard.discovery.boot.display_name in text(app)
-    assert wizard.discovery.boot.path not in text(app)
-    assert "Other detected devices" in text(app)
     readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
+    protected = [w for w in readers if w.get_accessible().get_name() == wizard.protected_boot_text]
+    assert len(protected) == 1
+    assert "protected, cannot be erased" in protected[0].get_accessible().get_name()
+    assert wizard.discovery.boot.display_name in protected[0].get_accessible().get_name()
+    assert wizard.discovery.boot.path not in protected[0].get_accessible().get_name()
+    assert "Other detected devices" in text(app)
     assert readers and all(not w.get_editable() for w in readers)
     assert all(w.get_allocation().height >= 180 for w in readers)
     assert not any(name.startswith("Select ") for name in app.actions)
@@ -546,6 +548,22 @@ sys.exit(entry['main']())
         app.render()
         wait_for(wizard.erase_label(), since=checkpoint)
         assert not wizard.runner.started
+        from beamo_wipe import copy as C
+        wizard.back(); wizard.back(); wizard.back()
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.render()
+        wait_for(C.TITLE_PICK, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.actions[C.DISK_HELP_BUTTON].grab_focus()
+        wait_for(C.DISK_HELP_BUTTON, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.actions[C.DISK_HELP_BUTTON].clicked()
+        wait_for(C.DISK_HELP_TITLE, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        help_reader = next(item for item in widgets(app.window) if isinstance(item, Gtk.TextView))
+        help_reader.grab_focus()
+        wait_for("You do not need to choose now", since=checkpoint)
+        assert wizard.selected is None and not wizard.runner.started
         app.close()
     finally:
         reader.terminate()
@@ -857,3 +875,65 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     app.render()
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
+
+
+def test_picker_protected_identity_is_reader_not_select_action(ui):
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
+    protected = [w for w in readers if w.get_accessible().get_name() == wizard.protected_boot_text]
+    assert len(protected) == 1 and not protected[0].get_editable()
+    assert wizard.discovery.boot.serial in protected[0].get_accessible().get_name()
+    assert not any(name.startswith("Select ") and wizard.discovery.boot.serial in name for name in app.actions)
+    assert wizard.selected is None and not wizard.runner.started
+
+
+def test_serial_comparison_is_in_accessible_disk_name(ui):
+    from test_serial_comparison import comparison_wizard
+    wizard = comparison_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    names = [w.get_accessible().get_name() or "" for w in widgets(app.window)]
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        assert any(view.id_value in name and view.comparison_note in name for name in names)
+
+@pytest.mark.parametrize('size', [(800, 600), (1280, 820)])
+def test_unsure_disk_accessible_reader_and_return(ui, size):
+    from beamo_wipe import copy as C
+    w = make_demo_wizard()
+    w.skip_intro()
+    w.accept_what()
+    w.set_owner(True)
+    w.continue_owner()
+    w.select_disk(w.selectable[0].path)
+    app = ui(w, size=size)
+    action = app.actions[C.DISK_HELP_BUTTON]
+    assert action.get_accessible().get_name() == C.DISK_HELP_BUTTON
+    action.grab_focus()
+    action.activate()
+    drain()
+    # GtkButton activation animates before emitting clicked.
+    deadline = time.monotonic() + 1
+    while w.screen == Screen.PICK and time.monotonic() < deadline:
+        drain()
+        time.sleep(.01)
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+    reader = next(x for x in widgets(app.window) if isinstance(x, Gtk.TextView))
+    assert reader.get_accessible().get_name() == C.DISK_HELP_TEXT
+    assert reader.get_can_focus() and not reader.get_editable()
+    reader.grab_focus()
+    drain()
+    assert reader.has_focus()
+    app.actions[C.BTN_BACK].clicked()
+    drain()
+    assert w.screen == Screen.PICK and w.selected is None
+    app.actions[C.DISK_HELP_BUTTON].clicked()
+    drain()
+    w.report_wanted = True
+    app.actions[C.DISK_HELP_STOP].clicked()
+    drain()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM and not w.wants_shutdown
+    w.back()
+    assert w.screen == Screen.DISK_HELP and w.selected is None

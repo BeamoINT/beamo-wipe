@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Display-only explanations; eligibility remains owned by safety.py."""
 
-from beamo_wipe.models import Disk, ExcludedDevice
+import os
+from typing import Iterable
+
+from beamo_wipe.models import Disk, DiscoveryResult, ExcludedDevice
 
 
 TITLE = "Other detected devices"
@@ -55,3 +58,105 @@ def excluded_device(
 
 def full_text(devices: tuple[ExcludedDevice, ...]) -> str:
     return INTRO + "\n\n" + "\n\n".join(d.explanation for d in devices)
+
+
+def other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
+    """Display-only exclusions, with confirmed boot media presented separately."""
+    from beamo_wipe.safety import selectable_disks
+
+    # Never display inventory when boot identity failed closed.
+    if not discovery.boot_identified or discovery.error or discovery.boot is None:
+        return ()
+    boot_paths = {
+        discovery.boot.path,
+        os.path.realpath(discovery.boot.path),
+    }
+    if discovery.excluded:
+        return tuple(
+            device
+            for device in discovery.excluded
+            if not device.path or device.path not in boot_paths
+        )
+    eligible = {d.path for d in selectable_disks(discovery)}
+    boot_paths = {discovery.boot.path, os.path.realpath(discovery.boot.path)}
+    return tuple(
+        excluded_device(d)
+        for d in discovery.disks
+        if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
+    )
+
+
+def serial_comparison(disk: Disk, peers: tuple[Disk, ...]) -> tuple[int, int, str]:
+    """Display-only span (Python offsets) and spoken, one-based explanation.
+
+    Compare the existing warning's displayed-capacity group. Strip only a
+    common prefix/suffix, so the remaining portion preserves every difference.
+    Case-only differences cannot establish identity. Missing serials prevent a
+    complete comparison; duplicate serials never receive a distinguishing span.
+    """
+    serial = (disk.serial or "").strip()
+    others = [d for d in peers if d.path != disk.path
+              and d.size_gb_label == disk.size_gb_label]
+    values = [serial, *((d.serial or "").strip() for d in others)]
+    if (disk.is_boot or not others or not all(values)
+            or any(serial.casefold() == (other.serial or "").strip().casefold()
+                   for other in peers if other.path != disk.path)):
+        return 0, 0, ""
+    start = 0
+    shortest = min(map(len, values))
+    while start < shortest and len({v[start].casefold() for v in values}) == 1:
+        start += 1
+    suffix = 0
+    while (suffix < shortest - start
+           and len({v[-suffix - 1].casefold() for v in values}) == 1):
+        suffix += 1
+    end = len(serial) - suffix
+    reminder = "Check the full ID before choosing."
+    if start == end:
+        unit = "character" if len(serial) == 1 else "characters"
+        return 0, 0, f"Serial has {len(serial)} {unit}; other serials are longer. {reminder}"
+    position = (f"character {start + 1}" if end == start + 1
+                else f"characters {start + 1} to {end}")
+    return start, end, f"Compare serial {position}: {serial[start:end]}. {reminder}"
+
+
+COMPARE_TITLE = "Compare disks"
+COMPARE_INTRO = (
+    "Read only. Compare model, capacity, serial and connection before choosing. "
+    "Your selection stays unchanged. If identity is uncertain, do not guess."
+)
+
+
+def comparison_entries(
+    disks: Iterable[Disk], *, peers: Iterable[Disk] | None = None
+) -> tuple[str, ...]:
+    """Accept only the caller's eligible snapshot; never discover or select."""
+    from beamo_wipe.identity import present_disk, SERIAL_NOT_REPORTED
+
+    candidates = tuple(disks)
+    identity_peers = tuple(peers) if peers is not None else candidates
+    entries = []
+    numbered = enumerate(sorted(candidates, key=lambda d: d.path), 1)
+    # Keep equal-capacity candidates adjacent while retaining picker numbers.
+    ordered = sorted(
+        numbered, key=lambda item: (item[1].size_bytes, (item[1].model or "").casefold(), item[0])
+    )
+    for number, disk in ordered:
+        view = present_disk(disk, identity_peers)
+        lines = [
+            f"Disk {number}",
+            f"Model: {view.title}",
+            f"Capacity: {view.capacity}",
+            f"Serial: {(disk.serial or '').strip() or SERIAL_NOT_REPORTED}",
+            f"Connection: {view.connection}",
+        ]
+        if view.id_label != "Serial":
+            lines.append(f"{view.id_label}: {view.id_value}")
+        lines.extend(view.notes)
+        entries.append("\n".join(lines))
+    return tuple(entries)
+
+
+def comparison_text(disks: Iterable[Disk], *, peers: Iterable[Disk] | None = None) -> str:
+    return COMPARE_INTRO + "\n\n" + "\n\n".join(comparison_entries(disks, peers=peers))
+

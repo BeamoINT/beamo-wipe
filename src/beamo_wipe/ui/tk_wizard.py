@@ -98,6 +98,7 @@ _STEP_ORDER = {
     Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
     Screen.WHAT: (1, "Step 1 of 8", C.TITLE_WHAT),
     Screen.OWNER: (2, "Step 2 of 8", "Ownership"),
+    Screen.DISK_HELP: (3, "Identify the disk", C.DISK_HELP_TITLE),
     Screen.PICK: (3, "Step 3 of 8", C.TITLE_PICK),
     Screen.PICK_EMPTY: (3, "Step 3 of 8", C.TITLE_PICK),
     Screen.PICK_BLOCKED: (3, "Step 3 of 8", C.TITLE_PICK),
@@ -1160,6 +1161,7 @@ class TkWizard:
         if self.w.screen in {
             Screen.PICK,
             Screen.LIMITS,
+            Screen.DISK_HELP,
             Screen.REPORT_HELP,
         }:
             return
@@ -1338,6 +1340,7 @@ class TkWizard:
             Screen.WHAT: self._what,
             Screen.OWNER: self._owner,
             Screen.PICK: self._pick,
+            Screen.DISK_HELP: self._disk_help,
             Screen.PICK_BLOCKED: self._blocked,
             Screen.PICK_EMPTY: self._empty,
             Screen.CONFIRM: self._confirm,
@@ -1646,7 +1649,7 @@ class TkWizard:
                  fg=MUTED, bg=bg).pack(side=tk.LEFT, anchor="n", padx=(0, 8), pady=2)
         value = tk.Frame(identity, bg=bg)
         value.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self._wrapping_label(value, view.id_value, font=self.font_mono_bold, bg=bg)
+        self._wrapping_label(value, view.marked_id, font=self.font_mono_bold, bg=bg)
         for note in view.notes:
             self._wrapping_label(value, note, font=self.font_s, fg=MUTED, bg=bg)
         if self._show_more:
@@ -2045,19 +2048,13 @@ class TkWizard:
         icon.pack(side=tk.LEFT, anchor="n", pady=1)
         title_col = tk.Frame(top, bg=fill)
         title_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        if disk.is_boot:
+            banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
+            self._p(title_col, banner, font=self.font_s_bold, bg=fill,
+                    wraplength=max(200, self.lay.wrap - 100)).pack(fill=tk.X, pady=(0, 6))
         self._disk_heading(title_col, disk, fill)
         self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(4, 0))
         if disk.is_boot:
-            banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
-            pill = _Box(
-                inner, radius=PILL, fill=DANGER_TINT, outline=DANGER_BORDER,
-                ow=1, padx=11, pady=3,
-            )
-            tk.Label(
-                pill.inner, text=banner, font=self.font_s_bold, fg=DANGER, bg=DANGER_TINT
-            ).pack()
-            pill.fit_now()
-            pill.pack(anchor="w", pady=(10, 0), padx=(36, 0))
             return card
 
         def _click(_e, p=disk.path):
@@ -2078,6 +2075,8 @@ class TkWizard:
     def _pick(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_PICK, C.pick_subtitle())
+        _Button(col, text=C.DISK_HELP_BUTTON, command=self._nav(self.w.open_disk_help),
+                font=self.font_s_bold, variant="ghost", compact=True).pack(anchor="w", pady=(0, 4))
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.error:
@@ -2141,6 +2140,15 @@ class TkWizard:
             widget.bind("<Button-5>", _wheel)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
+        boot_card = self._protected_boot(cards)
+        if boot_card is not None:
+            def boot_wheel(widget):
+                for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                    widget.bind(sequence, _wheel)
+                for child in widget.winfo_children():
+                    boot_wheel(child)
+            boot_wheel(boot_card)
+        self._comparison(cards)
         items: List = sorted(self.w.selectable, key=lambda d: d.path)
         for disk in items:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
@@ -2187,6 +2195,79 @@ class TkWizard:
         # Always land keyboard focus somewhere sensible: the obvious next
         # action when a disk is chosen, otherwise the safe way out.
         (self._primary if can and self._primary is not None else back).focus_set()
+
+    def _comparison(self, parent) -> None:
+        entries = inventory.comparison_entries(self.w.selectable, peers=self.w.listed_disks)
+        if len(entries) < 2:
+            return
+        section = tk.Frame(parent, bg=BG)
+        section.pack(fill=tk.X, pady=(0, 10))
+        content = tk.Frame(section, bg=BG)
+        opened = tk.BooleanVar(value=False)
+        def toggle():
+            if opened.get():
+                content.pack(fill=tk.X)
+            else:
+                content.pack_forget()
+        toggle_button = tk.Checkbutton(
+            section, text=inventory.COMPARE_TITLE, variable=opened,
+            command=toggle, bg=BG, fg=INK, font=self.font_s_bold,
+            takefocus=True, highlightcolor=FOCUS,
+        )
+        toggle_button.pack(anchor="w")
+        for key in ("Return", "KP_Enter"):
+            toggle_button.bind(f"<{key}>", lambda e: (toggle_button.invoke(), "break")[1])
+        intro = self._p(content, inventory.COMPARE_INTRO, font=self.font_s)
+        intro.pack(fill=tk.X)
+        content.bind("<Configure>", lambda e: intro.configure(wraplength=max(1, e.width - 12)))
+        grid = tk.Frame(content, bg=BG)
+        grid.pack(fill=tk.X)
+        cells = []
+        for entry in entries:
+            cell = tk.Frame(grid, bg=BG)
+            cells.append(cell)
+            reader = tk.Text(cell, height=8, width=1, wrap=tk.CHAR,
+                             font=self.font_s, bg=SURFACE_ALT, fg=INK,
+                             takefocus=True, padx=10, pady=8,
+                             highlightcolor=FOCUS, highlightthickness=1)
+            reader.insert("1.0", entry)
+            reader.configure(state=tk.DISABLED)
+            scrollbar = tk.Scrollbar(cell, command=reader.yview, takefocus=False)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            reader.configure(yscrollcommand=scrollbar.set)
+            reader.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            setattr(reader, "_beamo_comparison", True)
+            for key, delta in (("Up", -1), ("Down", 1), ("Prior", -6), ("Next", 6)):
+                reader.bind(f"<{key}>", lambda e, r=reader, d=delta: (r.yview_scroll(d, "units"), "break")[1])
+            for key in ("Return", "KP_Enter", "space"):
+                reader.bind(f"<{key}>", lambda e: "break")
+            reader.bind("<Tab>", lambda e: (e.widget.tk_focusNext().focus_set(), "break")[1])
+            reader.bind("<Shift-Tab>", lambda e: (e.widget.tk_focusPrev().focus_set(), "break")[1])
+            def reveal(event):
+                canvas = self._pick_canvas
+                if canvas is not None and str(event.widget).startswith(str(canvas)):
+                    self._pick_restore_pending = False
+                    bounds = canvas.bbox("all")
+                    if bounds:
+                        top = event.widget.winfo_rooty() - canvas.winfo_rooty()
+                        if top < 0 or top + event.widget.winfo_height() > canvas.winfo_height():
+                            canvas.yview_moveto((canvas.canvasy(0) + top) / max(1, bounds[3]))
+            reader.bind("<FocusIn>", reveal)
+        def reflow(event):
+            columns = 2 if event.width >= 700 else 1
+            for column in range(2):
+                grid.columnconfigure(column, weight=1 if column < columns else 0, uniform="compare")
+            for i, cell in enumerate(cells):
+                cell.grid(row=i // columns, column=i % columns, sticky="nsew", padx=3, pady=3)
+        grid.bind("<Configure>", reflow)
+
+    def _protected_boot(self, parent):
+        if self.w.protected_boot is not None:
+            card = self._disk_row(parent, self.w.protected_boot, False)
+            setattr(card, "_beamo_protected_boot", True)
+            return card
+        return None
+
 
     def _other_devices(self, col, *, before=None) -> None:
         if not self.w.other_devices:
@@ -2337,11 +2418,20 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         _icon_badge(col, "info", 40).pack(anchor="w")
         msg = C.EMPTY_DISKS
-        detail = self.w.empty_detail
-        if detail:
-            msg = f"{msg}\n\n{detail}"
         self._title_block(col, C.TITLE_EMPTY, msg)
-        self._other_devices(col)
+        region = tk.Frame(col, bg=BG)
+        region.pack(fill=tk.BOTH, expand=True)
+        canvas = tk.Canvas(region, bg=BG, highlightthickness=0)
+        cards = tk.Frame(canvas, bg=BG)
+        window = canvas.create_window((0, 0), window=cards, anchor="nw")
+        cards.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda _e: canvas.itemconfigure(window, width=canvas.winfo_width()))
+        scroll = tk.Scrollbar(region, command=canvas.yview, takefocus=True)
+        canvas.configure(yscrollcommand=scroll.set)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._protected_boot(cards)
+        self._other_devices(cards)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2649,6 +2739,24 @@ class TkWizard:
         ).pack(anchor="w", pady=(0, 8))
         self._back_btn(self._footer_shell("Enter or Esc returns. Nothing is saved here."))
         text.focus_set()
+
+    def _disk_help(self) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, C.DISK_HELP_TITLE, "Up/Down or Page Up/Page Down to read. Esc returns.", compact=True)
+        frame = tk.Frame(col, bg=BG)
+        frame.pack(fill=tk.BOTH, expand=True)
+        text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
+                       width=1, height=10, bg=SURFACE, fg=INK)
+        scrollbar = tk.Scrollbar(frame, command=text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text.configure(yscrollcommand=scrollbar.set)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        text.insert("1.0", C.DISK_HELP_TEXT)
+        text.configure(state=tk.DISABLED)
+        text.focus_set()
+        row = self._footer_shell("Esc returns with no disk selected.")
+        self._back_btn(row)
+        self._secondary_btn(row, C.DISK_HELP_STOP, self.w.shutdown)
 
     def _limits(self) -> None:
         col = self._column(self._body, fill_height=True)
@@ -3285,7 +3393,8 @@ class TkWizard:
             self._owner_var.set(1 if self.w.owner_ok else 0)
             self._draw()
             return "break"
-        if getattr(self.root.focus_get(), "_beamo_inventory", False):
+        if any(getattr(self.root.focus_get(), marker, False)
+               for marker in ("_beamo_inventory", "_beamo_comparison")):
             return None
         if self.w.screen == Screen.PICK and event.keysym in ("Up", "Down"):
             self._pick_ensure_visible = True
