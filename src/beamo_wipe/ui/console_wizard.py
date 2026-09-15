@@ -157,11 +157,15 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
         lines = ["Up/Down then Enter. PgUp/PgDn page. Esc back."]
         if len(wizard.selectable) > 1:
             lines.insert(0, "Compare disks (C): read only.")
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
     if screen == Screen.PICK_EMPTY:
         lines = ["Enter: shut down    Esc: back"]
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
@@ -423,8 +427,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
-            if wizard.empty_detail:
-                print(wizard.empty_detail)
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -432,6 +436,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
             if len(wizard.selectable) > 1:
                 print(inventory.COMPARE_TITLE)
                 print(inventory.comparison_text(wizard.selectable, peers=wizard.listed_disks))
@@ -648,6 +654,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
     limits_offset = 0
     inventory_open = False
     comparison_open = False
+    inventory_boot = False
     inventory_offset = 0
     pick_offset = 0
     while not wizard.wants_shutdown:
@@ -663,13 +670,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, 1, 0, C.PREVIEW_BANNER)
             y = min(3, y_max)
         if inventory_open:
-            _add(stdscr, y, 0, inventory.COMPARE_TITLE if comparison_open else inventory.TITLE)
+            if comparison_open:
+                overlay_title = inventory.COMPARE_TITLE
+                overlay_text = inventory.comparison_text(
+                    wizard.selectable, peers=wizard.listed_disks
+                )
+            elif inventory_boot:
+                overlay_title = "Protected boot media"
+                overlay_text = wizard.protected_boot_text
+            else:
+                overlay_title = inventory.TITLE
+                overlay_text = inventory.full_text(wizard.other_devices)
+            _add(stdscr, y, 0, overlay_title)
             y += 1
-            reading = (
-                inventory.comparison_text(wizard.selectable, peers=wizard.listed_disks)
-                if comparison_open else inventory.full_text(wizard.other_devices)
-            )
-            lines = [line for paragraph in reading.split("\n")
+            lines = [line for paragraph in overlay_text.split("\n")
                      for line in _lines(paragraph, w)]
             page_size = max(1, y_max - y)
             inventory_offset = min(inventory_offset, max(0, len(lines) - page_size))
@@ -928,10 +942,18 @@ def _loop(stdscr, wizard: Wizard) -> int:
         if wizard.screen == Screen.PICK and ch in (ord("c"), ord("C")) and len(wizard.selectable) > 1:
             inventory_open = True
             comparison_open = True
+            inventory_boot = False
+            inventory_offset = 0
+            continue
+        if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("b"), ord("B")) and wizard.protected_boot:
+            inventory_open = True
+            inventory_boot = True
+            comparison_open = False
             inventory_offset = 0
             continue
         if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("o"), ord("O")) and wizard.other_devices:
             comparison_open = False
+            inventory_boot = False
             inventory_open = True
             inventory_offset = 0
             continue

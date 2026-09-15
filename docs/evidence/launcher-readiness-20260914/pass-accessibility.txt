@@ -1,0 +1,29 @@
+- main:
+  - heading "Ready for a guided restart" [level=1]
+  - paragraph: Save your work and close your applications. Keep the Beamo USB connected. After restarting, choose and confirm the disk. Nothing is erased by this launcher.
+  - region "Before you restart":
+    - heading "Before you restart" [level=2]
+    - list:
+      - listitem:
+        - heading "Original USB detection" [level=3]
+        - paragraph: Found. The launcher is on the identified Beamo USB.
+        - paragraph: Keep this USB connected. This check does not select a disk to erase.
+      - listitem:
+        - heading "Startup-settings readability" [level=3]
+        - paragraph: Readable. The computer's startup entries were read.
+        - paragraph: No settings were changed by this check. Review the restart-route check next.
+      - listitem:
+        - heading "Supported restart route" [level=3]
+        - paragraph: Available. One startup entry matches this USB.
+        - paragraph: Save your work, confirm below, then request a restart. Administrator permission may still be required; a successful boot is not guaranteed.
+  - group: Technical details
+  - status: Readiness checks complete.
+  - heading "Save your work first" [level=2]
+  - paragraph: Close your applications. Keep the Beamo USB and the drive you intend to erase connected.
+  - checkbox "I’ve saved my work. After restarting I will still choose and confirm the disk before anything is erased."
+  - text: I’ve saved my work. After restarting I will still choose and confirm the disk before anything is erased.
+  - button "Restart into Beamo Wipe" [disabled]
+  - paragraph: This version restarts before erasing any drive. After startup, you choose the disk and confirm the erase. You can keep working by closing this window.
+  - group: Need help starting from the USB?
+  - paragraph: Powered by nwipe, free software. Read-back verification checks exposed storage; SSD hidden areas may retain data. Treat erasure as permanent.
+  - text: Version development · Runs locally on this computer

@@ -1,0 +1,170 @@
+.............................................................s.sssssss.. [  2%]
+........................................................................ [  5%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 23%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+......................................................................F. [ 38%]
+...........F............................................................ [ 41%]
+........................................................................ [ 44%]
+....................................................F................... [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+................................................sss..s.ssssssss......... [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+............................ss..................................s....... [ 85%]
+........................................................................ [ 88%]
+.....................................................................s.. [ 91%]
+.........................................ssssssssssss................... [ 94%]
+........................................................................ [ 97%]
+........................................................................ [100%]
+=================================== FAILURES ===================================
+_________________ test_helper_and_iso_start_here_are_identical _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-0/test_helper_and_iso_start_here0')
+
+    def test_helper_and_iso_start_here_are_identical(tmp_path):
+        # A clean checkout has no generated ISO staging. Execute the builder's
+        # actual copy commands against disposable destinations on every platform.
+        script = BUILD_ISO.read_text(encoding="utf-8")
+        commands = [line.strip() for line in script.splitlines()
+                    if line.strip().startswith('cp "$ROOT/helper/index.html" ')]
+        assert commands == [
+            'cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"',
+            'cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"',
+        ]
+        binary = tmp_path / "binary"
+        share = tmp_path / "share"
+        binary.mkdir()
+        (share / "helper").mkdir(parents=True)
+        subprocess.run(["bash", "-ceu", "\n".join(commands)], check=True,
+                       env=dict(os.environ, ROOT=str(ROOT), STAGE_BIN=str(binary),
+                                STAGE_SHARE=str(share)))
+        assert HELPER.read_bytes() == (binary / "START-HERE.html").read_bytes()
+        assert HELPER.read_bytes() == (share / "helper/index.html").read_bytes()
+        if START_HERE.is_file():
+>           assert HELPER.read_bytes() == START_HERE.read_bytes()
+E           AssertionError: assert b'<!DOCTYPE h...y>\n</html>\n' == b'<!DOCTYPE h...y>\n</html>\n'
+E             
+E             At index 5613 diff: b'3' != b'4'
+E             Use -v to get more diff
+
+tests/test_helper_boot_guidance.py:119: AssertionError
+_____ test_helper_renders_both_windows_paths_on_small_and_desktop_displays _____
+
+    def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
+        chrome = _chrome()
+        if not chrome:
+            pytest.skip("Chrome is not installed for helper pixel checks")
+        html = HELPER.resolve().as_uri()
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            for width, height, name in ((360, 900, "small"), (1280, 900, "desktop")):
+                shot = tmp_path / f"{name}.png"
+                argv = (
+                    [
+                        chrome,
+                        "--headless=new",
+                        # Keep pixel checks independent of an open personal
+                        # Chrome session and of other concurrent test runs.
+                        f"--user-data-dir={tmp_path / (name + '-profile')}",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                        "--disable-background-networking",
+                        "--disable-component-update",
+                        "--disable-extensions",
+                        "--disable-sync",
+                        "--use-mock-keychain",
+                        "--password-store=basic",
+                        "--disable-gpu",
+                        "--hide-scrollbars",
+                        f"--window-size={width},{height}",
+                        f"--screenshot={shot}",
+                        "--timeout=10000",
+                        "--dump-dom",
+                        html,
+                    ]
+                )
+                # Chrome may keep background services alive after completing both
+                # requested artifacts. Wait for those artifacts, then clean up the
+                # entire isolated process group; never reuse a personal profile.
+                with (tmp_path / f"{name}.log").open("w+b") as output:
+                    proc = subprocess.Popen(argv, stdout=output, stderr=subprocess.STDOUT,
+                                            start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 40
+                        dom = ""
+                        while time.monotonic() < deadline:
+                            dom = (tmp_path / f"{name}.log").read_text(errors="replace")
+                            code = proc.poll()
+                            if code is not None:
+                                assert code == 0, dom
+                                break
+                            if ("</html>" in dom and shot.is_file()
+                                    and shot.stat().st_size > 2000
+                                    and "bytes written to file" in dom):
+                                break
+                            time.sleep(0.1)
+                        else:
+>                           pytest.fail(f"Chrome did not finish rendering within 40s: {dom}")
+E                           Failed: Chrome did not finish rendering within 40s: [633085:633130:0914/121403.517155:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [633085:633130:0914/121403.523028:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [633085:633130:0914/121403.523111:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [633085:633130:0914/121403.714431:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [633085:633130:0914/121403.714468:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [633085:633085:0914/121403.726744:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.Properties.GetAll: object_path= /org/freedesktop/UPower/devices/DisplayDevice: unknown error type: 
+E                           [0914/121403.875349:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+E                           [0914/121403.875396:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)
+E                           [0914/121403.893865:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+E                           [0914/121403.893884:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)
+E                           [633085:633131:0914/121407.452202:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+E                           [633085:633131:0914/121407.457633:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+E                           Created TensorFlow Lite XNNPACK delegate for CPU.
+E                           [633085:633131:0914/121433.223305:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+
+tests/test_helper_boot_guidance.py:310: Failed
+____________________ test_staged_chroot_package_matches_src ____________________
+
+    def test_staged_chroot_package_matches_src():
+        src = ROOT / "src/beamo_wipe"
+        staged = (
+            ROOT
+            / "packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe"
+        )
+        if not staged.is_dir():
+            return
+        for path in src.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix == ".pyc" or "__pycache__" in path.parts:
+                continue
+            rel = path.relative_to(src)
+            other = staged / rel
+            assert other.is_file(), f"missing staged copy of {rel}"
+>           assert other.read_bytes() == path.read_bytes(), f"staged copy drifted: {rel}"
+E           AssertionError: staged copy drifted: nwipe_runner.py
+E           assert b'# SPDX-Lice...f._request)\n' == b'# SPDX-Lice...f._request)\n'
+E             
+E             At index 630 diff: b'a' != b'l'
+E             Use -v to get more diff
+
+tests/test_live_image.py:193: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_helper_boot_guidance.py::test_helper_and_iso_start_here_are_identical
+FAILED tests/test_helper_boot_guidance.py::test_helper_renders_both_windows_paths_on_small_and_desktop_displays
+FAILED tests/test_live_image.py::test_staged_chroot_package_matches_src - Ass...
+3 failed, 2409 passed, 38 skipped in 326.28s (0:05:26)

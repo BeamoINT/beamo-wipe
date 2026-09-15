@@ -177,11 +177,13 @@ def test_excluded_devices_are_read_only_and_no_selection(ui):
     wizard.continue_owner()
     app = ui(wizard)
     assert wizard.screen == Screen.PICK_EMPTY
-    assert "not erasable" in text(app).lower()
-    assert wizard.discovery.boot.display_name in text(app)
-    assert wizard.discovery.boot.path not in text(app)
-    assert "Other detected devices" in text(app)
     readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
+    protected = [w for w in readers if w.get_accessible().get_name() == wizard.protected_boot_text]
+    assert len(protected) == 1
+    assert "protected, cannot be erased" in protected[0].get_accessible().get_name()
+    assert wizard.discovery.boot.display_name in protected[0].get_accessible().get_name()
+    assert wizard.discovery.boot.path not in protected[0].get_accessible().get_name()
+    assert "Other detected devices" in text(app)
     assert readers and all(not w.get_editable() for w in readers)
     assert all(w.get_allocation().height >= 180 for w in readers)
     assert not any(name.startswith("Select ") for name in app.actions)
@@ -857,3 +859,26 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     app.render()
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
+
+
+def test_picker_protected_identity_is_reader_not_select_action(ui):
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
+    protected = [w for w in readers if w.get_accessible().get_name() == wizard.protected_boot_text]
+    assert len(protected) == 1 and not protected[0].get_editable()
+    assert wizard.discovery.boot.serial in protected[0].get_accessible().get_name()
+    assert not any(name.startswith("Select ") and wizard.discovery.boot.serial in name for name in app.actions)
+    assert wizard.selected is None and not wizard.runner.started
+
+
+def test_serial_comparison_is_in_accessible_disk_name(ui):
+    from test_serial_comparison import comparison_wizard
+    wizard = comparison_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    names = [w.get_accessible().get_name() or "" for w in widgets(app.window)]
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        assert any(view.id_value in name and view.comparison_note in name for name in names)

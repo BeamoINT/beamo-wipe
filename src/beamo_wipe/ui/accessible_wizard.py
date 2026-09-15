@@ -277,6 +277,7 @@ class AccessibleWizard:
                 self.label(C.SAME_SIZE_HINT)
             if self.w.error:
                 self.label(self.w.error)
+            self._protected_boot()
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {self.w.disk_view(disk).announcement}"
                 self.button(text, lambda path=disk.path: self._select(path), in_body=True)
@@ -300,8 +301,8 @@ class AccessibleWizard:
                 if screen == Screen.PICK_EMPTY
                 else (self.w.error or C.IDENTIFY_ERROR)
             )
-            if screen == Screen.PICK_EMPTY and self.w.empty_detail:
-                self.label(self.w.empty_detail)
+            if screen == Screen.PICK_EMPTY:
+                self._protected_boot()
             self._inventory()
             self.button("Shut down", self.w.shutdown)
         elif screen == Screen.CONFIRM:
@@ -556,6 +557,10 @@ class AccessibleWizard:
         arrival.grab_focus()
         self.update_status()
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
+
+    def _protected_boot(self):
+        if self.w.protected_boot_text:
+            self.reader(self.w.protected_boot_text)
 
     def _inventory(self):
         if self.w.other_devices:

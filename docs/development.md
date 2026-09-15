@@ -183,3 +183,34 @@ artifacts do not automatically update when source changes.
   never disable safety tests, use real disks, or broaden cloud IAM to get green.
 - Interrupted preview/test/build: inspect the process and result before retrying.
   No preview state is evidence of erasure. Preserve unrelated working-tree edits.
+
+## Desktop readiness checks
+
+The desktop launcher reports three separate checks: original USB detection,
+startup-settings readability, and a supported restart route. Partial results
+retain successful evidence; checks that were not reached remain unverified.
+A read failure may mean permission is needed, but does not prove that permission
+was denied. The technical disclosure includes the available USB identity,
+partition identities, Secure Boot read result and matched startup entry.
+These checks never select a disk to erase or guarantee a successful boot.
+
+The existing `ready`, `title`, `detail`, `preview` and `version` JSON fields are
+preserved. `checks` and `technical` add explanations to `/api/check`, completed
+`/api/state` results and `--check-json`. Restart authorization still uses the
+original plan, explicit confirmation and a fresh elevated probe. A browser
+retry or failed request clears stale displayed evidence and confirmation.
+
+The offline helper describes these checks but cannot perform them. Build staging
+copies `helper/index.html` into START-HERE.html; Go embeds `desktop/web/*` into
+both launchers. Tk, console fallback and `./preview --web` run the wipe wizard
+after USB startup (or simulate that wizard), so they do not show pre-restart
+firmware checks. Their disk exclusion and erase confirmations are unchanged.
+The desktop `--preview` uses simulated checks without reading devices.
+
+For browser regressions, install Python `playwright` alongside the development
+dependencies and install Chrome or Chromium. Run
+`python3 -m pytest tests/test_launcher_readiness.py`; it renders shipped assets
+against fake Go snapshots and intercepts all launcher requests. Missing browser
+tooling is an explicit skip, not rendered acceptance. The tests inspect the
+accessibility tree and keyboard behavior; actual screen-reader speech and
+physical Windows/Linux restart acceptance remain separate environment checks.
