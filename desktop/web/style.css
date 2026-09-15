@@ -59,6 +59,8 @@ summary { font-weight: 600; cursor: pointer; margin-bottom: 20px; }
 dl { display: grid; grid-template-columns: 1fr 1fr; max-width: 600px; gap: 10px; }
 dt { font-weight: 600; }
 dd { margin: 0; }
+#usb-build-ids { margin: 0 0 20px; max-width: 68ch; }
+#usb-build-ids dd { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
 footer { font-size: 14px; border-top: 1px solid var(--border); padding-top: 22px; margin-top: 36px; }
 footer p { margin-bottom: 10px; }
 [hidden] { display: none !important; }

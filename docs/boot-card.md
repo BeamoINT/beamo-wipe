@@ -10,8 +10,8 @@ and offers **Restart into Beamo Wipe** when supported. Save your work first.
 If the application cannot open or offer a restart, use the boot menu below.
 
 **Erasing still requires booting this USB.** Inserting it or opening the
-application does not erase anything. This card describes the development
-image; it does not change the contents of previously sold sticks.
+application does not erase anything. Open START-HERE.html on this USB to see
+this image's build. Older sticks may use different startup files.
 
 ## Open the boot menu (typical keys)
 
@@ -66,11 +66,11 @@ nothing.
 If the stick never appears: try another port, disable fast boot, or allow
 USB boot in firmware.
 
-The development image includes signed Debian EFI components. Secure Boot
-still depends on the computer's trust settings and revocation updates. If
-firmware rejects the USB, record its exact message and use the computer
-manufacturer's guidance or contact support. The application does not change
-Secure Boot settings. Older sticks may contain a different boot image.
+This image includes signed Debian EFI components. Secure Boot still depends
+on the computer's trust settings and revocation updates. If firmware rejects
+the USB, record its exact message and use the computer manufacturer's
+guidance or contact support. The application does not change Secure Boot
+settings. Older sticks may contain a different boot image.
 
 Source and license: **https://github.com/BeamoINT/beamo-wipe**
 (print a QR to that README, not a store page).

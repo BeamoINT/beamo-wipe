@@ -161,6 +161,20 @@
       margin: 0 0 14px;
     }
     .warn h2 { color: var(--danger); }
+    dl.build-ids {
+      display: grid;
+      grid-template-columns: 12rem 1fr;
+      gap: 8px 16px;
+      margin: 16px 0 0;
+      font-size: 16px;
+    }
+    dl.build-ids dt { color: var(--muted); font-weight: 700; }
+    dl.build-ids dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+    }
     @media (max-width: 600px) {
       header .inner { flex-wrap: wrap; padding: 16px 20px; gap: 8px; }
       main { padding: 24px 20px 48px; }
@@ -168,6 +182,7 @@
       h2 { font-size: 22px; }
       th, td { padding: 12px 8px; font-size: 16px; }
       table { display: block; overflow-x: auto; }
+      dl.build-ids { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -187,6 +202,22 @@
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B3261E" stroke="#B3261E" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
       <span>This page does not erase anything. Restart the computer and press the key for your PC.</span>
     </p>
+    <div class="card" id="this-usb">
+      <h2>This USB</h2>
+      <p id="usb-build-label"><!--BEAMO_BUILD_LABEL-->This copy is not a manufactured USB image. It is the source helper used while building one.<!--/BEAMO_BUILD_LABEL--></p>
+      <p>Beamo Wipe <!--BEAMO_VERSION-->0.2.9<!--/BEAMO_VERSION-->. The lines below are this image's start and compatibility notes, not a history of other builds.</p>
+      <dl class="build-ids">
+        <dt>Release build</dt>
+        <dd data-field="build-id"><!--BEAMO_BUILD_ID-->not packaged<!--/BEAMO_BUILD_ID--></dd>
+        <dt>Source</dt>
+        <dd data-field="source-commit"><!--BEAMO_SOURCE_COMMIT-->not packaged<!--/BEAMO_SOURCE_COMMIT--></dd>
+        <dt>Build status</dt>
+        <dd data-field="build-status"><!--BEAMO_BUILD_STATUS-->not a manufactured image<!--/BEAMO_BUILD_STATUS--></dd>
+      </dl>
+      <p>For 64-bit Intel/AMD Windows or Linux PCs that start from this USB. <strong>Not Apple Silicon Macs. Not Chromebooks.</strong> Some Intel Macs may show this USB; many will not.</p>
+      <p>This USB uses Debian's signed boot files. Whether your computer starts it depends on that computer's firmware trust settings and revocation updates. Beamo Wipe does not change Secure Boot and does not bypass a refusal.</p>
+      <p>The pages on this USB describe this image. Older sticks may use different startup files.</p>
+    </div>
     <div class="card">
       <h2>Start from your desktop</h2>
       <p>On Windows, open <strong>Start Beamo Wipe.exe</strong> on this USB. On a supported Linux desktop, open <strong>Start Beamo Wipe Linux</strong>. The launcher shows separate checks for the original USB, whether startup settings can be read, and whether a supported restart route is available. Each check explains what to do next; Technical details shows the evidence.</p>
@@ -263,8 +294,8 @@
 
     <div class="card">
       <h2>If the computer says Secure Boot will not start this USB</h2>
-      <p>This build uses Debian's signed boot components. Whether your computer accepts them depends on its firmware trust settings and revocation updates.</p>
-      <p>If it refuses the USB, try another direct USB port and consult the computer manufacturer's startup instructions. The launcher does not change Secure Boot settings or bypass a refusal. Do not assume that reaching a boot menu means an erase has started.</p>
+      <p>This USB uses Debian's signed boot files. Whether your computer starts it depends on that computer's firmware trust settings and revocation updates. Beamo Wipe does not change Secure Boot and does not bypass a refusal.</p>
+      <p>If it refuses the USB, try another direct USB port and consult the computer manufacturer's startup instructions. Do not assume that reaching a boot menu means an erase has started.</p>
     </div>
 
     <div class="card" id="kiosk-recovery">
@@ -282,7 +313,7 @@
       <p>If this computer has a battery, plug it into wall power before you erase. Keep the lid open. A power cut stops the erase. The screen may go dark; press a key or move the mouse to bring it back. That is the display, not sleep.</p>
       <p>The live USB asks Linux to ignore lid closure and a short power-button press, and disables sleep. Firmware or a held power button can still stop the erase. Use Cancel erase and wait for the result before shutting down. A power cut can leave the disk partly erased and lose unsaved reports; an interrupted erase does not resume automatically.</p>
       <p>This offline helper cannot read battery or wall-power status. The live wizard shows reported readings when available; unknown readings are not proof that power is connected or will last.</p>
-      <p>For 64-bit Intel/AMD Windows or Linux PCs that start from USB. <strong>Not Apple Silicon Macs. Not Chromebooks.</strong> Some Intel Macs may show this USB; many will not.</p>
+      <p>For 64-bit Intel/AMD Windows or Linux PCs that start from this USB. <strong>Not Apple Silicon Macs. Not Chromebooks.</strong> Some Intel Macs may show this USB; many will not.</p>
       <p class="small">Source: <a href="https://github.com/BeamoINT/beamo-wipe">github.com/BeamoINT/beamo-wipe</a></p>
       <p class="small">Windows Recovery Environment, BitLocker recovery, and recovery-key locations follow Microsoft documentation. The steps above stay on this USB if you have no network. Optional references: <a href="https://support.microsoft.com/en-us/windows/experience/backup-recovery/windows-recovery-environment">Windows Recovery Environment</a>, <a href="https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-recovery-environment--windows-re--technical-reference?view=windows-11">WinRE technical reference</a>, <a href="https://learn.microsoft.com/en-us/windows/security/operating-system-security/data-protection/bitlocker/recovery-overview">BitLocker recovery overview</a>, <a href="https://support.microsoft.com/en-us/windows/security/encryption/find-your-bitlocker-recovery-key">Find your BitLocker recovery key</a>.</p>
     </div>

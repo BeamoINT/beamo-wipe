@@ -189,6 +189,7 @@ def gallery_html() -> str:
             "desktop": PowerStatus(complete=True).text,
         },
         "whatMore": C.WHAT_MORE,
+        "thisUsb": C.this_usb_line(),
         "engine": C.ENGINE_LINE,
         "secureBoot": C.SECURE_BOOT_HINT,
         "owner": C.OWNER_CHECKBOX,
@@ -816,7 +817,7 @@ function draw() {
       ${powerPanel(false)}
       ${moreLink()}
       ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      <div>${P.secureBoot}</div><div class="extra">${P.engine} ${P.powerEvents}</div></div></div>` : ""}</div></div>`;
+      <div>${P.thisUsb}</div><div class="extra">${P.secureBoot} ${P.engine} ${P.powerEvents}</div></div></div>` : ""}</div></div>`;
     bindMore();
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsR.append(btn(P.buttons.understand, () => { screen = "owner"; draw(); }, "primary"));

@@ -96,9 +96,14 @@ def _parse() -> _Doc:
     return doc
 
 
-def test_helper_and_iso_start_here_are_identical(tmp_path):
+def test_helper_and_iso_start_here_are_injected_from_source(tmp_path):
     # A clean checkout has no generated ISO staging. Execute the builder's
-    # actual copy commands against disposable destinations on every platform.
+    # copy commands against disposable destinations, then the same inject
+    # function the ISO script calls.
+    from beamo_wipe import __version__
+    from beamo_wipe.build_identity import write_injected
+    from beamo_wipe.compat_story import SOURCE_STUB, inject_helper_html
+
     script = BUILD_ISO.read_text(encoding="utf-8")
     commands = [line.strip() for line in script.splitlines()
                 if line.strip().startswith('cp "$ROOT/helper/index.html" ')]
@@ -106,6 +111,7 @@ def test_helper_and_iso_start_here_are_identical(tmp_path):
         'cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"',
         'cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"',
     ]
+    assert "inject_helper_html" in script
     binary = tmp_path / "binary"
     share = tmp_path / "share"
     binary.mkdir()
@@ -115,8 +121,31 @@ def test_helper_and_iso_start_here_are_identical(tmp_path):
                             STAGE_SHARE=str(share)))
     assert HELPER.read_bytes() == (binary / "START-HERE.html").read_bytes()
     assert HELPER.read_bytes() == (share / "helper/index.html").read_bytes()
+    payload = write_injected(
+        tmp_path / "build-identity.json",
+        source_commit="a" * 40,
+        source_sha256="b" * 64,
+        build_id="12345678-1234-1234-1234-123456789abc",
+        source_dirty=False,
+    )
+    for dest in (binary / "START-HERE.html", share / "helper/index.html"):
+        dest.write_text(
+            inject_helper_html(
+                dest.read_text(encoding="utf-8"),
+                version=__version__,
+                injected=payload,
+                packaged=True,
+            ),
+            encoding="utf-8",
+        )
+    injected = (binary / "START-HERE.html").read_text(encoding="utf-8")
+    assert injected == (share / "helper/index.html").read_text(encoding="utf-8")
+    assert injected != HELPER.read_text(encoding="utf-8")
+    assert SOURCE_STUB not in injected
+    assert "12345678-1234-1234-1234-123456789abc" in injected
     if START_HERE.is_file():
-        assert HELPER.read_bytes() == START_HERE.read_bytes()
+        staged = START_HERE.read_text(encoding="utf-8")
+        assert "<!--BEAMO_BUILD_LABEL-->" in staged
 
 
 def test_helper_is_self_contained_for_offline_usb():
@@ -208,6 +237,8 @@ def test_desktop_help_matches_helper_paths():
     assert "BitLocker recovery key" in text
     assert "does not change Secure Boot or BitLocker" in text
     assert "START-HERE.html" in text
+    assert "This USB uses Debian's signed boot files" in text
+    assert "identity-label" in text
     lower = text.lower()
     for phrase in FORBIDDEN:
         assert phrase not in lower, phrase

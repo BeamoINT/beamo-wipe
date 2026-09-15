@@ -33,7 +33,10 @@ Do not write any of these:
 - This uses nwipe (open source). GPL-3.0-or-later for the wrapper; nwipe is GPL-2.0.
 - There is no warranty.
 - If the USB does not appear, you may need to allow USB boot in firmware settings.
-- Secure Boot: this image may be unsigned. We do not ship circumvention tools.
+- Secure Boot: this USB uses Debian's signed boot files. Whether a PC accepts
+  them depends on its firmware trust settings and revocation updates. We do
+  not ship circumvention tools. Older sticks may differ; read START-HERE.html
+  on the USB you are holding.
 - Overwrite is not a formal certificate. On an SSD the drive's controller decides
   what remains — see `docs/storage-and-controller-limits.md` for wear-leveling,
   hidden areas, encryption, RAID, and when to use the vendor's secure-erase

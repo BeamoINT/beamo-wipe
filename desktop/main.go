@@ -28,17 +28,26 @@ var sourceCommit = "unknown"
 var sourceDirty = "false"
 
 type view struct {
-	Checks    []readinessCheck `json:"checks"`
-	Technical string           `json:"technical"`
-	Ready     bool             `json:"ready"`
-	Preview   bool             `json:"preview"`
-	Title     string           `json:"title"`
-	Detail    string           `json:"detail"`
-	Version   string           `json:"version"`
+	Checks        []readinessCheck `json:"checks"`
+	Technical     string           `json:"technical"`
+	Ready         bool             `json:"ready"`
+	Preview       bool             `json:"preview"`
+	Title         string           `json:"title"`
+	Detail        string           `json:"detail"`
+	Version       string           `json:"version"`
+	IdentityLabel string           `json:"identity_label"`
+	BuildID       string           `json:"build_id"`
+	SourceCommit  string           `json:"source_commit"`
+	BuildStatus   string           `json:"build_status"`
+	Manufactured  bool             `json:"manufactured"`
 }
 
 func planView(p Plan, preview bool) view {
-	v := view{Ready: p.Direct, Preview: preview, Version: version, Title: "Ready for a guided restart", Detail: "Save your work and close your applications. Keep the Beamo USB connected. After restarting, choose and confirm the disk. Nothing is erased by this launcher."}
+	ident := usbIdentity
+	if preview {
+		ident = previewIdentity()
+	}
+	v := view{Ready: p.Direct, Preview: preview, Version: version, IdentityLabel: ident.Label, BuildID: ident.BuildID, SourceCommit: ident.Commit, BuildStatus: ident.Status, Manufactured: ident.Manufactured, Title: "Ready for a guided restart", Detail: "Save your work and close your applications. Keep the Beamo USB connected. After restarting, choose and confirm the disk. Nothing is erased by this launcher."}
 	if !p.Direct {
 		v.Title = "Use the computer's boot menu"
 		v.Detail = map[string]string{
@@ -218,12 +227,20 @@ func sendJSON(w http.ResponseWriter, value any) {
 
 func run() error {
 	preview := false
+	if len(os.Args) == 2 && os.Args[1] == "--preview" {
+		preview = true
+	}
+	if !preview && !(len(os.Args) == 2 && strings.HasPrefix(os.Args[1], "--restart-helper=")) {
+		usbIdentity = loadUSBIdentity(os.Args[0])
+	}
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Println(version, sourceCommit, "dirty="+sourceDirty)
+		fmt.Print(formatIdentity(usbIdentity))
 		return nil
 	}
 	if len(os.Args) == 2 && os.Args[1] == "--help" {
 		fmt.Println("Start Beamo Wipe [--preview | --check-json | --version]\nThis launcher never erases a disk. A guided restart needs confirmation.")
+		fmt.Print(formatIdentity(usbIdentity))
 		return nil
 	}
 	if len(os.Args) == 2 && strings.HasPrefix(os.Args[1], "--restart-helper=") {
@@ -261,7 +278,11 @@ func run() error {
 	if preview {
 		a.probe = func(context.Context) Snapshot { return Snapshot{} }
 	}
-	a.current = view{Preview: preview, Version: version, Title: "Check before restarting", Detail: "The check reads compatibility information. It does not erase anything or change boot settings."}
+	ident := usbIdentity
+	if preview {
+		ident = previewIdentity()
+	}
+	a.current = view{Preview: preview, Version: version, IdentityLabel: ident.Label, BuildID: ident.BuildID, SourceCommit: ident.Commit, BuildStatus: ident.Status, Manufactured: ident.Manufactured, Title: "Check before restarting", Detail: "The check reads compatibility information. It does not erase anything or change boot settings."}
 	if preview {
 		// Preview injects a plan without ever reading devices or firmware.
 		a.p = Plan{Direct: true, Fingerprint: strings.Repeat("0", 64)}
