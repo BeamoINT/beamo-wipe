@@ -72,6 +72,10 @@ def _pick_blocks(wizard: Wizard, width: int) -> list[tuple[object, list[str]]]:
         block.extend(_lines(f"  {view.id_label}: {view.id_value}", width))
         for note in view.notes:
             block.extend(_lines("  " + note, width))
+        nested = inventory.card_nesting_text(wizard.nested_components(disk))
+        if nested:
+            for line in nested.split("\n"):
+                block.extend(_lines("  " + line, width))
         blocks.append((disk, block))
     return blocks
 
@@ -459,6 +463,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(textwrap.fill(f"[{i}] {view.compact_line}", 76, break_long_words=True, break_on_hyphens=False))
                 for note in view.notes:
                     print(textwrap.fill("    " + note, 76, break_long_words=True, break_on_hyphens=False))
+                nested = inventory.card_nesting_text(wizard.nested_components(disk))
+                if nested:
+                    for line in nested.split("\n"):
+                        print(textwrap.fill("    " + line, 76, break_long_words=True, break_on_hyphens=False))
             print("U: " + C.DISK_HELP_BUTTON)
             choice = _answer(wizard, "Number of disk to erase, or U for help: ").strip()
             if choice.upper() == "U":

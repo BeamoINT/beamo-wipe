@@ -426,6 +426,60 @@ def parent_disk_path(
     return None
 
 
+def nesting_parent_path(
+    path: str,
+    node: Dict[str, Any],
+    parent: Optional[Dict[str, Any]],
+    blockdevices: Sequence[Dict[str, Any]],
+    by_name: Mapping[
+        str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]
+    ],
+) -> str:
+    """Physical disk/rom that owns this node for display nesting.
+
+    Empty when parentage is missing or ambiguous. Never infers a parent from
+    kernel-name patterns. Display-only; boot identity still uses
+    parent_disk_path.
+    """
+    try:
+        typ = _node_type(node)
+        if typ in {"disk", "rom"}:
+            return ""
+        owner = parent_disk_path(path, blockdevices)
+        if owner and owner != path:
+            return owner
+        seen: set[str] = set()
+        current = ""
+        if node.get("pkname") is not None:
+            current = _identity_text(node.get("pkname"), "pkname")
+        if not current and parent is not None and parent.get("name") is not None:
+            current = _identity_text(parent.get("name"), "name")
+        while current:
+            if current in seen:
+                return ""
+            seen.add(current)
+            ancestors = list(by_name.get(current) or ())
+            if len(ancestors) != 1:
+                return ""
+            ancestor, tree_parent = ancestors[0]
+            if _node_type(ancestor) in {"disk", "rom"}:
+                ap = node_path(ancestor)
+                return ap if ap and ap != path else ""
+            nxt = ""
+            if ancestor.get("pkname") is not None:
+                nxt = _identity_text(ancestor.get("pkname"), "pkname")
+            if (
+                not nxt
+                and tree_parent is not None
+                and tree_parent.get("name") is not None
+            ):
+                nxt = _identity_text(tree_parent.get("name"), "name")
+            current = nxt
+        return ""
+    except ValueError:
+        return ""
+
+
 def _first_descendant_field(node: Dict[str, Any], key: str) -> str:
     for child in node.get("children") or []:
         if not isinstance(child, dict):
@@ -1009,7 +1063,7 @@ def parse_lsblk_json(
     eligible_paths = {d.path for d in selectable}
     classified = {d.path: d for d in disks}
     excluded = []
-    for node, _parent in flatten_blockdevices(blockdevices):
+    for node, tree_parent in flatten_blockdevices(blockdevices):
         try:
             path = node_path(node)
             if path in eligible_paths:
@@ -1020,9 +1074,14 @@ def parse_lsblk_json(
                 extra = flat_mounts.get(inventory_disk.name, [])
                 if extra:
                     inventory_disk = replace(inventory_disk, mountpoints=tuple(dict.fromkeys((*inventory_disk.mountpoints, *extra))))
+            parent_path = nesting_parent_path(
+                path, node, tree_parent, blockdevices, by_name
+            )
             excluded.append(excluded_device(
                 inventory_disk, unsupported=should_hide(node, boot_path),
                 capacity_unknown=node.get("size") not in (0, "0") and inventory_disk.size_bytes <= 0,
+                parent_path=parent_path,
+                node_type=_node_type(node),
             ))
         except ValueError:
             excluded.append(ExcludedDevice("Device identity unavailable", ("identity could not be confirmed",)))

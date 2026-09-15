@@ -140,6 +140,12 @@ class ExcludedDevice:
     identity: str
     reasons: Tuple[str, ...]
     path: str = ""
+    # Display-only nesting. Empty parent_path means no known physical parent;
+    # callers must not invent one from kernel names.
+    parent_path: str = ""
+    kind_label: str = ""
+    summary: str = ""
+    children: Tuple["ExcludedDevice", ...] = ()
 
     @property
     def explanation(self) -> str:

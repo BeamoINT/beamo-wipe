@@ -2059,6 +2059,14 @@ class TkWizard:
                     wraplength=max(200, self.lay.wrap - 100)).pack(fill=tk.X, pady=(0, 6))
         self._disk_heading(title_col, disk, fill)
         self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(4, 0))
+        nested = inventory.card_nesting_text(self.w.nested_components(disk))
+        if nested:
+            nest = tk.Frame(title_col, bg=fill)
+            nest.pack(fill=tk.X, pady=(8, 0))
+            setattr(nest, "_beamo_nested", True)
+            self._wrapping_label(
+                nest, nested, font=self.font_s, bg=fill, fg=MUTED
+            )
         if disk.is_boot:
             return card
 

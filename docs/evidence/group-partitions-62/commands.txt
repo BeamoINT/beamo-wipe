@@ -1,0 +1,30 @@
+# Commands run for #62 (fake disks only)
+
+# Baseline (main 4c26217, before the change)
+PYTHONPATH=src python3  # discovery_for_scenario("happy") + adversarial partitioned
+# output: baseline-other-devices.txt
+
+# After
+PYTHONPATH=src python3  # same probes
+# output: after-other-devices.txt
+
+# Grouping regressions
+PYTHONPATH=src python3 -m pytest tests/test_group_partitions.py
+# 19 passed in 1.50s
+
+# Affected suites (72 DPI Xvfb)
+dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest \
+  tests/test_group_partitions.py tests/test_excluded_inventory.py \
+  tests/test_protected_boot_card.py tests/test_preview.py \
+  tests/test_console_parity.py tests/test_console_pick.py \
+  tests/test_accessible_runtime.py tests/test_tk_runtime.py \
+  tests/test_copy.py tests/test_discover.py tests/test_wizard_flow.py \
+  tests/test_ui_rework.py tests/test_rendered_visible_behavior.py \
+  tests/test_first_run_journey.py -q --tb=line
+# exit 0  (affected-suites.txt)
+
+# Full local pytest
+dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest -q --tb=line
+# exit 0  (full-pytest.txt)
+
+# Not run: ./scripts/ci-cloud.sh, ISO, QEMU, nwipe, physical disks

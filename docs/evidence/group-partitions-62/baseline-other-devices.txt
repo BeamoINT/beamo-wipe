@@ -1,0 +1,53 @@
+# Baseline captured on main 4c26217 before grouping (fake lsblk only)
+
+=== DEMO HAPPY other_devices ===
+selectable ['/dev/nvme0n1', '/dev/sda', '/dev/sdd']
+excluded count 7
+other_devices count 6
+Information only. These devices cannot be selected for erasure.
+
+Unknown model | 1 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+
+BEAMO_WIPE | 16 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+
+Unknown model | 1 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+
+Unknown model | 256 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+
+Unknown model | 1000 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+
+Unknown model | 256 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+--- paths ---
+'/dev/loop0' | Unknown model | 1 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/sdb1' | BEAMO_WIPE | 16 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/nvme0n1p1' | Unknown model | 1 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/nvme0n1p2' | Unknown model | 256 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/sda1' | Unknown model | 1000 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/sdd1' | Unknown model | 256 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+
+=== DEMO EMPTY ===
+selectable []
+Information only. These devices cannot be selected for erasure.
+
+BEAMO_WIPE | 16 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+
+Unknown model | 1 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+
+=== ADVERSARIAL PARTITIONED ===
+selectable ['/dev/sda', '/dev/nvme0n1', '/dev/mmcblk0']
+--- excluded paths ---
+'/dev/sdb' | Beamo Wipe | 16 GB | USB | Serial: BEAMOUSB001 | ('boot or system protected',)
+'/dev/sdb1' | BEAMO_WIPE | 16 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/sda1' | EFI | 1 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/sda2' | DATA | 1000 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/nvme0n1p1' | BEAMO_WIPE | 1 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/nvme0n1p2' | Unknown model | 256 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)
+'/dev/mmcblk0p1' | Unknown model | 31 GB | Connection unknown | Serial: Serial not reported | ('unsupported device',)

@@ -355,11 +355,17 @@ class Wizard:
 
     @property
     def protected_boot_text(self) -> str:
+        from beamo_wipe.inventory import card_nesting_text
+
         boot = self.protected_boot
         if boot is None:
             return ""
         title = BOOT_USB_BANNER if boot.bus == "USB" else BOOT_DISC_BANNER
-        return f"{title}\n{self.disk_view(boot).announcement}"
+        lines = [title, self.disk_view(boot).announcement]
+        nested = card_nesting_text(self.nested_components(boot))
+        if nested:
+            lines.append(nested)
+        return "\n".join(lines)
 
     @property
     def empty_detail(self) -> str:
@@ -388,6 +394,18 @@ class Wizard:
         from beamo_wipe.inventory import other_devices
 
         return other_devices(self.discovery)
+
+    def nested_components(self, disk: Optional[Disk]):
+        """Display-only children of a picker card. Never selectable."""
+        from beamo_wipe.inventory import nested_under
+
+        if (
+            disk is None
+            or not self.discovery.boot_identified
+            or self.discovery.error
+        ):
+            return ()
+        return nested_under(disk.path, self.discovery.excluded)
 
     def disk_view(self, disk: Optional[Disk] = None):
         from beamo_wipe.identity import present_disk

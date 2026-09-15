@@ -74,6 +74,13 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
             except SafetyError:
                 spec = None
         view = present_disk(disk, peers, compare_serials=True)
+        components = [
+            {
+                "heading": inventory.nested_heading(child),
+                "reason": "; ".join(child.reasons),
+            }
+            for child in inventory.nested_under(disk.path, result.excluded)
+        ]
         out.append(
             {
                 "path": disk.path,
@@ -98,6 +105,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "prompt": spec.prompt if spec else "",
                 "warning": "" if disk.is_boot else C.confirm_warning(disk),
                 "prepare": "" if disk.is_boot else C.prepare_selected(disk),
+                "components": components,
                 "contents": disk.contents,
                 "eraseLabel": "" if disk.is_boot else C.erase_now_label(disk, peers),
             }
@@ -126,6 +134,7 @@ def gallery_html() -> str:
         "compareIntro": inventory.COMPARE_INTRO,
         "comparison": inventory.comparison_entries(result.selectable, peers=listed_disks(result)),
         "otherTitle": inventory.TITLE,
+        "nestedIntro": inventory.NESTED_INTRO,
         "bootDisc": C.BOOT_DISC_BANNER,
         "otherDevices": {
             "happy": inventory.full_text(inventory.other_devices(result)),
@@ -501,6 +510,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .utilities:empty { display: none; }
   section[aria-label] h2 { font-size: 14px; margin: 8px 0 4px; }
   .inventory-reader { white-space: pre-wrap; overflow: auto; max-height: 78px; padding: 8px 12px; margin-bottom: 10px; font-size: 14px; line-height: 1.4; border: 1px solid var(--border); background: var(--surface-alt); }
+  .nested { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+  .nested-intro { font-weight: 600; margin-bottom: 4px; }
+  .nested-item { margin-top: 4px; padding-left: 12px; border-left: 2px solid var(--border); }
   .inventory-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
   .disktype { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 0; }
   .card .title, .card .meta { overflow-wrap: anywhere; }
@@ -727,6 +739,14 @@ function summaryCard(d) {
     ${metaLine(d)}
   </div>`;
 }
+function nestedComponents(d) {
+  const items = d.components || [];
+  if (!items.length) return "";
+  return `<div class="nested">
+    <div class="nested-intro">${esc(P.nestedIntro)}</div>
+    ${items.map(c => `<div class="nested-item"><div>${esc(c.heading)}</div><div>${esc(c.reason)}</div></div>`).join("")}
+  </div>`;
+}
 function diskCard(d) {
   const sel = selected && selected.path === d.path;
   const cls = d.isBoot ? "card boot" : ("card pickable" + (sel ? " sel" : ""));
@@ -741,6 +761,7 @@ function diskCard(d) {
           <div class="size">${esc(d.size)}</div>
         </div>
         ${metaLine(d)}
+        ${nestedComponents(d)}
       </div>
     </div>
   </div>`;

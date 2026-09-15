@@ -2,6 +2,7 @@
 """Display-only explanations; eligibility remains owned by safety.py."""
 
 import os
+from dataclasses import replace
 from typing import Iterable
 
 from beamo_wipe.models import Disk, DiscoveryResult, ExcludedDevice
@@ -9,15 +10,61 @@ from beamo_wipe.models import Disk, DiscoveryResult, ExcludedDevice
 
 TITLE = "Other detected devices"
 INTRO = "Information only. These devices cannot be selected for erasure."
+NESTED_INTRO = "On this disk (cannot be erased separately):"
 EMPTY_STEPS = (
     "No eligible disk is available. Review the reasons below. Keep the Beamo USB "
     "connected. Shut down before checking drive connections. If a disk remains "
     "unavailable or its identity is uncertain, contact support. Do not bypass protection."
 )
 
+_KIND_LABELS = {
+    "part": "Partition",
+    "crypt": "Encrypted volume",
+    "lvm": "Mapped volume",
+    "dm": "Mapped volume",
+    "loop": "Loop device",
+    "rom": "Optical disc",
+    "md": "RAID volume",
+    "mpath": "RAID volume",
+    "disk": "Disk",
+}
+
+
+def kind_label_for_type(node_type: str) -> str:
+    key = (node_type or "").lower().strip()
+    if key in _KIND_LABELS:
+        return _KIND_LABELS[key]
+    if key.startswith("raid"):
+        return "RAID volume"
+    return "Technical component"
+
+
+def component_summary(disk: Disk, kind_label: str) -> str:
+    """Plain nested label. Parent serial/model stay on the parent card."""
+    from beamo_wipe.identity import SYSTEM_PATH_NOTE, UNKNOWN_MODEL
+
+    heading = kind_label or "Technical component"
+    parts = [heading]
+    parts.append(disk.size_phrase)
+    label = (disk.label or "").strip()
+    title = (disk.model or "").strip()
+    extra = label
+    if not extra and title and title != UNKNOWN_MODEL:
+        extra = title
+    if extra and extra not in parts:
+        parts.append(extra)
+    elif not extra and (disk.path or "").strip():
+        parts.append(f"{SYSTEM_PATH_NOTE}: {disk.path}")
+    return " · ".join(parts)
+
 
 def excluded_device(
-    disk: Disk, *, unsupported: bool = False, capacity_unknown: bool = False
+    disk: Disk,
+    *,
+    unsupported: bool = False,
+    capacity_unknown: bool = False,
+    parent_path: str = "",
+    node_type: str = "",
 ) -> ExcludedDevice:
     from beamo_wipe.safety import (
         SafetyError,
@@ -53,24 +100,80 @@ def excluded_device(
         f"{view.title} | {view.capacity} | {view.connection} | "
         f"{view.id_label}: {view.id_value}"
     )
-    return ExcludedDevice(identity, tuple(reasons), path=disk.path)
+    kind = kind_label_for_type(node_type) if node_type else (
+        "Disk" if not parent_path else "Technical component"
+    )
+    return ExcludedDevice(
+        identity,
+        tuple(reasons),
+        path=disk.path,
+        parent_path=parent_path,
+        kind_label=kind,
+        summary=component_summary(disk, kind),
+    )
+
+
+def nested_heading(device: ExcludedDevice) -> str:
+    return device.summary or device.identity
+
+
+def nested_under(
+    parent_path: str, devices: Iterable[ExcludedDevice]
+) -> tuple[ExcludedDevice, ...]:
+    """Children whose known physical parent is parent_path. Display only."""
+    if not parent_path:
+        return ()
+    aliases = {parent_path}
+    try:
+        aliases.add(os.path.realpath(parent_path))
+    except OSError:
+        pass
+    return tuple(
+        device
+        for device in devices
+        if device.parent_path and device.parent_path in aliases
+    )
+
+
+def card_nesting_text(children: Iterable[ExcludedDevice]) -> str:
+    items = tuple(children)
+    if not items:
+        return ""
+    lines = [NESTED_INTRO]
+    for child in items:
+        lines.append(nested_heading(child))
+        if child.reasons:
+            lines.append("; ".join(child.reasons))
+    return "\n".join(lines)
+
+
+def _indent(text: str, prefix: str = "  ") -> str:
+    return "\n".join(prefix + line if line else line for line in text.split("\n"))
 
 
 def full_text(devices: tuple[ExcludedDevice, ...]) -> str:
-    return INTRO + "\n\n" + "\n\n".join(d.explanation for d in devices)
+    blocks = [INTRO]
+    for device in devices:
+        blocks.append(device.explanation)
+        nested = card_nesting_text(device.children)
+        if nested:
+            blocks.append(_indent(nested))
+    return "\n\n".join(blocks)
 
 
-def other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
-    """Display-only exclusions, with confirmed boot media presented separately."""
+def _path_aliases(path: str) -> set[str]:
+    aliases = {path}
+    try:
+        aliases.add(os.path.realpath(path))
+    except OSError:
+        pass
+    return aliases
+
+
+def _raw_other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
     from beamo_wipe.safety import selectable_disks
 
-    # Never display inventory when boot identity failed closed.
-    if not discovery.boot_identified or discovery.error or discovery.boot is None:
-        return ()
-    boot_paths = {
-        discovery.boot.path,
-        os.path.realpath(discovery.boot.path),
-    }
+    boot_paths = _path_aliases(discovery.boot.path)
     if discovery.excluded:
         return tuple(
             device
@@ -78,12 +181,55 @@ def other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
             if not device.path or device.path not in boot_paths
         )
     eligible = {d.path for d in selectable_disks(discovery)}
-    boot_paths = {discovery.boot.path, os.path.realpath(discovery.boot.path)}
     return tuple(
         excluded_device(d)
         for d in discovery.disks
         if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
     )
+
+
+def _known_parent_paths(
+    raw: tuple[ExcludedDevice, ...], discovery: DiscoveryResult
+) -> set[str]:
+    from beamo_wipe.safety import selectable_disks
+
+    known: set[str] = set()
+    for disk in selectable_disks(discovery):
+        known.update(_path_aliases(disk.path))
+    if discovery.boot is not None:
+        known.update(_path_aliases(discovery.boot.path))
+    for device in raw:
+        if device.path and not device.parent_path:
+            known.update(_path_aliases(device.path))
+    return known
+
+
+def _group_other_devices(
+    raw: tuple[ExcludedDevice, ...], discovery: DiscoveryResult
+) -> tuple[ExcludedDevice, ...]:
+    known = _known_parent_paths(raw, discovery)
+    roots = []
+    for device in raw:
+        if device.parent_path and device.parent_path in known:
+            continue
+        roots.append(device)
+    grouped = []
+    for device in roots:
+        kids = nested_under(device.path, raw) if device.path else ()
+        grouped.append(replace(device, children=kids) if kids else device)
+    return tuple(grouped)
+
+
+def other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
+    """Display-only exclusions, with confirmed boot media presented separately.
+
+    Children of a known physical parent are omitted here and shown on that
+    parent instead. Orphans with missing parentage stay visible.
+    """
+    # Never display inventory when boot identity failed closed.
+    if not discovery.boot_identified or discovery.error or discovery.boot is None:
+        return ()
+    return _group_other_devices(_raw_other_devices(discovery), discovery)
 
 
 def serial_comparison(disk: Disk, peers: tuple[Disk, ...]) -> tuple[int, int, str]:

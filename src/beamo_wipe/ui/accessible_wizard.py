@@ -284,6 +284,9 @@ class AccessibleWizard:
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {self.w.disk_view(disk).announcement}"
                 self.button(text, lambda path=disk.path: self._select(path), in_body=True)
+                nested = inventory.card_nesting_text(self.w.nested_components(disk))
+                if nested:
+                    self.label(nested, focusable=True)
             if len(self.w.selectable) > 1:
                 expander = Gtk.Expander.new(inventory.COMPARE_TITLE)
                 reader = Gtk.Label(label=inventory.comparison_text(self.w.selectable, peers=self.w.listed_disks))
