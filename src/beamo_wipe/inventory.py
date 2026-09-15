@@ -270,6 +270,62 @@ def other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
     return _group_other_devices(_raw_other_devices(discovery), discovery)
 
 
+UNKNOWN_COUNT = (
+    "Disk list could not be confirmed. No disk is available to erase."
+)
+USB_PROTECTED = "Beamo USB protected"
+DISC_PROTECTED = "Beamo boot disc protected"
+UNCERTAIN_NOTE = "Some devices could not be fully identified"
+_UNCERTAIN_REASONS = frozenset(
+    {
+        "capacity could not be confirmed",
+        "eligibility could not be confirmed",
+        "identity could not be confirmed",
+    }
+)
+
+
+def _join_count(parts: tuple[str, ...], *, spoken: bool) -> str:
+    if spoken:
+        text = ". ".join(parts)
+        return text if text.endswith(".") else text + "."
+    return " · ".join(parts)
+
+
+def _has_uncertain_reason(device: ExcludedDevice) -> bool:
+    if any(reason in _UNCERTAIN_REASONS for reason in device.reasons):
+        return True
+    return any(_has_uncertain_reason(child) for child in device.children)
+
+
+def count_summary(discovery: DiscoveryResult, *, spoken: bool = False) -> str:
+    """Concise hardware inventory. Display only; never changes eligibility."""
+    if not discovery.boot_identified or discovery.error or discovery.boot is None:
+        return UNKNOWN_COUNT
+    from beamo_wipe.safety import selectable_disks
+
+    eligible = len(selectable_disks(discovery))
+    if eligible == 0:
+        available = "No disks available to erase"
+    elif eligible == 1:
+        available = "1 disk available to erase"
+    else:
+        available = f"{eligible} disks available to erase"
+    parts = [available]
+    boot = discovery.boot
+    parts.append(USB_PROTECTED if boot.bus == "USB" else DISC_PROTECTED)
+    others = other_devices(discovery)
+    if others:
+        n = len(others)
+        if n == 1:
+            parts.append("1 other device not available")
+        else:
+            parts.append(f"{n} other devices not available")
+        if any(_has_uncertain_reason(device) for device in others):
+            parts.append(UNCERTAIN_NOTE)
+    return _join_count(tuple(parts), spoken=spoken)
+
+
 def serial_comparison(disk: Disk, peers: tuple[Disk, ...]) -> tuple[int, int, str]:
     """Display-only span (Python offsets) and spoken, one-based explanation.
 

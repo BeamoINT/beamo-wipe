@@ -746,6 +746,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             _print_recovery(
                 recovery_for_blocked(wizard.error, recovered=wizard._recovered)
             )
+            print(wizard.inventory_count)
             if error_needs_support(wizard.error):
                 print(C.support_text())
             ident = _support_identity_text(wizard)
@@ -757,6 +758,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen == Screen.PICK_EMPTY:
             print(C.TITLE_EMPTY)
             _print_recovery(recovery_for_empty())
+            print(wizard.inventory_count)
             print(C.support_text())
             ident = _support_identity_text(wizard)
             if ident:
@@ -770,6 +772,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
+            print(wizard.inventory_count)
             if wizard.protected_boot_text:
                 print(wizard.protected_boot_text)
             if len(wizard.selectable) > 1:
@@ -1183,6 +1186,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             intro: list[str] = []
             intro.extend(_lines(C.pick_subtitle(), w))
             intro.append("")
+            intro.extend(_lines(wizard.inventory_count, w))
+            intro.append("")
             if same_size_conflict(wizard.listed_disks):
                 intro.extend(_lines(f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}", w))
                 intro.append("")
@@ -1272,6 +1277,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     w,
                 )
             )
+            lines.extend(_lines(wizard.inventory_count, w))
             if error_needs_support(wizard.error):
                 lines.extend(_lines(C.support_text(), w))
             ident = _support_identity_text(wizard)
@@ -1285,6 +1291,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 ),
                 w,
             )
+            lines.extend(_lines(wizard.inventory_count, w))
             lines.extend(_lines(C.support_text(), w))
             ident = _support_identity_text(wizard)
             if ident:

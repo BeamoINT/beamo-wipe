@@ -1057,6 +1057,43 @@ def test_picker_select_buttons_say_serial_number(ui):
     assert wizard.selected is None and not wizard.runner.started
 
 
+@pytest.mark.parametrize(
+    "scenario,screen,expected",
+    [
+        (
+            "happy",
+            Screen.PICK,
+            "3 disks available to erase. Beamo USB protected. 1 other device not available.",
+        ),
+        (
+            "empty",
+            Screen.PICK_EMPTY,
+            "No disks available to erase. Beamo USB protected. 1 other device not available.",
+        ),
+        (
+            "blocked",
+            Screen.PICK_BLOCKED,
+            "Disk list could not be confirmed. No disk is available to erase.",
+        ),
+    ],
+)
+def test_inventory_count_is_announced_on_pick_screens(ui, scenario, screen, expected):
+    wizard = make_demo_wizard(scenario=scenario)
+    wizard.screen = screen
+    app = ui(wizard)
+    shown = text(app)
+    names = [w.get_accessible().get_name() or "" for w in widgets(app.window)]
+    assert expected in shown
+    assert expected in names
+    focusable = [
+        w for w in widgets(app.window)
+        if isinstance(w, Gtk.Label) and w.get_text() == expected and w.get_can_focus()
+    ]
+    assert len(focusable) == 1
+    assert focusable[0].get_accessible().get_name() == expected
+    assert wizard.selected is None and not wizard.runner.started
+
+
 def test_picker_protected_identity_is_reader_not_select_action(ui):
     wizard = make_demo_wizard()
     wizard.screen = Screen.PICK

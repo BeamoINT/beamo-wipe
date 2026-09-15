@@ -499,6 +499,18 @@ class Wizard:
 
         return other_devices(self.discovery)
 
+    @property
+    def inventory_count(self) -> str:
+        from beamo_wipe.inventory import count_summary
+
+        return count_summary(self.discovery)
+
+    @property
+    def inventory_count_announcement(self) -> str:
+        from beamo_wipe.inventory import count_summary
+
+        return count_summary(self.discovery, spoken=True)
+
     def nested_components(self, disk: Optional[Disk]):
         """Display-only children of a picker card. Never selectable."""
         from beamo_wipe.inventory import nested_under

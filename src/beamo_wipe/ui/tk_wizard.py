@@ -2469,13 +2469,17 @@ class TkWizard:
             self._panel(col, kind="info", text=C.REPORT_MEDIA_WANTED, compact=True).pack(fill=tk.X, pady=(0, 8))
         tools = tk.Frame(col, bg=BG)
         tools.pack(fill=tk.X, pady=(0, 4))
-        count = len(self.w.selectable)
-        selection = C.PICK_SELECTED_ONE if self.w.selected else C.PICK_CHOOSE
-        count_text = (C.PICK_COUNT_ONE if count == 1 else C.PICK_COUNT_MANY).format(count=count)
-        tk.Label(tools, text=f"{count_text} · {selection}",
-                 font=self.font_s, fg=MUTED, bg=BG).pack(side=tk.LEFT)
+        count = self._p(
+            tools,
+            self.w.inventory_count,
+            font=self.font_s,
+            fg=MUTED,
+            wraplength=max(160, self.lay.wrap - 160),
+        )
+        setattr(count, "_beamo_inventory_count", True)
+        count.pack(side=tk.LEFT, fill=tk.X, expand=True)
         more = tk.Frame(tools, bg=BG)
-        more.pack(side=tk.RIGHT)
+        more.pack(side=tk.RIGHT, anchor="n")
         self._more_link(more)
         list_wrap = tk.Frame(col, bg=BG)
         list_wrap.pack(fill=tk.BOTH, expand=True, pady=(2, 4))
@@ -2920,6 +2924,9 @@ class TkWizard:
         self._recovery_block(
             col, recovery_for_blocked(self.w.error, recovered=self.w._recovered)
         )
+        count = self._p(col, self.w.inventory_count, font=self.font_s, fg=MUTED)
+        setattr(count, "_beamo_inventory_count", True)
+        count.pack(fill=tk.X, pady=(8, 0))
         if error_needs_support(self.w.error):
             self._support_block(col)
         self._support_identity_block(col)
@@ -2933,6 +2940,9 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         _icon_badge(col, "info", 40).pack(anchor="w")
         self._title_block(col, C.TITLE_EMPTY)
+        count = self._p(col, self.w.inventory_count, font=self.font_s, fg=MUTED)
+        setattr(count, "_beamo_inventory_count", True)
+        count.pack(fill=tk.X, pady=(0, 8))
         region = tk.Frame(col, bg=BG)
         region.pack(fill=tk.BOTH, expand=True)
         canvas = tk.Canvas(region, bg=BG, highlightthickness=0)

@@ -80,6 +80,11 @@ again. Complete the entire confirmation flow again. A failed refresh leaves
 no stale target selectable. Refresh is unavailable once an erase is starting
 or running.
 
+The disk list opens with a short count such as **2 disks available to erase · Beamo USB protected**, so you can check that the expected disks were found.
+Zero, one, and several disks use ordinary English plurals. Other devices that
+cannot be erased are counted separately. If the list cannot be confirmed, the
+count says so and no disk is offered.
+
 **Beamo USB — protected, cannot be erased** appears separately above the disks
 you can choose, with its name, size and **Serial number** or hardware ID. The keyboard
 console shows its protected status; press B to read its full identity. If the
