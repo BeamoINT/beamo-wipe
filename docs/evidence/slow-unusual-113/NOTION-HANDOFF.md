@@ -13,6 +13,8 @@ Continued with **Grok 4.6 high** via the T3-wired Grok CLI. Jack asked for this 
 - Branch: `feat/slow-unusual-interactions` (independent from current main)
 - Product source: **unchanged**. The gap was missing explicit coverage, not a missing engine.
 - Implementation commit: `f78b360e19b3762ffc0d467d28cfacd5253b26b9` — `test: cover slow and unusual interaction scenarios`
+- Handoff commit: `62c3f5b017eb6e848a2612dd4f7e42afb9accb8b`
+- PR: https://github.com/BeamoINT/beamo-wipe/pull/42
 - Implementation: `tests/test_slow_unusual_interactions.py` plus `docs/evidence/slow-unusual-113/`
 
 ### What landed
