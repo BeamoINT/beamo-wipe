@@ -507,7 +507,7 @@ def test_live_tk_failure_returns_to_supervisor_before_console(monkeypatch):
     from beamo_wipe import app
 
     fake = SimpleNamespace(
-        wants_shutdown=False,
+        wants_shutdown=False, wants_new_session=False,
         dry_run=False,
         screen=Screen.WHAT,
         cancel_wipe=lambda: None,
@@ -537,10 +537,11 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
 
     cancelled = []
     fake = SimpleNamespace(
-        wants_shutdown=False,
+        wants_shutdown=False, wants_new_session=False,
         screen=Screen.WORKING,
         preview=False,
         progress=None,
+        power_text="Wall power: unknown.",
         progress_view=SimpleNamespace(status_text="Preparing. Elapsed: less than 1 minute"),
         evidence_warning="",
         evidence_error=None,
@@ -553,9 +554,14 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
         cancelled.append(True)
         fake.wants_shutdown = True
 
-    fake.cancel_wipe = cancel
+    fake.stop_confirmation = None
+    def request_stop():
+        fake.stop_confirmation = object()
+    fake.request_stop = request_stop
+    fake.keep_erasing = lambda: setattr(fake, "stop_confirmation", None)
+    fake.confirm_stop = lambda confirmation: cancel()
     monkeypatch.setattr(console_wizard.select, "select", lambda *_a: ([object()], [], []))
-    monkeypatch.setattr(console_wizard.sys, "stdin", io.StringIO("CANCEL\n"))
+    monkeypatch.setattr(console_wizard.sys, "stdin", io.StringIO("CANCEL\nCANCEL\nSTOP\n"))
     assert console_wizard._plain_loop_body(fake) == 0
     assert cancelled == [True]
 

@@ -186,7 +186,7 @@ def test_busy_states_keep_identity_or_status(ui, size, busy):  # noqa: F811
     shown = _texts(app.root)
     if busy == Screen.WORKING:
         assert wiz.selected.display_name in shown
-        assert "Cancel erase" in shown
+        assert "Stop erase" in shown
         _assert_actions_on_window(app)
     else:
         assert "Checking" in shown or "Stopping" in shown or "cleared" in shown.lower()

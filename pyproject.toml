@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "beamo-wipe"
-version = "0.2.8"
+version = "0.2.9"
 description = "Guided nwipe front-end and live USB for Beamo Wipe."
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
@@ -30,6 +30,6 @@ where = ["src"]
 beamo_wipe = ["demo_lsblk.json", "demo_empty.json", "demo_blocked.json", "assets/*.png", "assets/*.svg"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "developer_tests"]
 pythonpath = ["src"]
 addopts = "-q"

@@ -57,6 +57,16 @@ class DiskIdentityView:
     ambiguous_note: str
     system_path: str
     confirmable: bool
+    comparison_start: int = 0
+    comparison_end: int = 0
+    comparison_note: str = ""
+
+    @property
+    def marked_id(self) -> str:
+        if self.comparison_end <= self.comparison_start:
+            return self.id_value
+        a, b = self.comparison_start, self.comparison_end
+        return f"{self.id_value[:a]}[{self.id_value[a:b]}]{self.id_value[b:]}"
 
     @property
     def announcement(self) -> str:
@@ -66,9 +76,7 @@ class DiskIdentityView:
         if self.connection:
             parts.append(self.connection)
         parts.append(f"{self.id_label}: {self.id_value}")
-        for note in (self.missing_note, self.duplicate_note, self.ambiguous_note):
-            if note:
-                parts.append(note)
+        parts.extend(self.notes)
         return "; ".join(parts)
 
     @property
@@ -79,7 +87,7 @@ class DiskIdentityView:
     def notes(self) -> tuple[str, ...]:
         return tuple(
             note
-            for note in (self.missing_note, self.duplicate_note, self.ambiguous_note)
+            for note in (self.missing_note, self.duplicate_note, self.ambiguous_note, self.comparison_note)
             if note
         )
 
@@ -138,8 +146,12 @@ def duplicate_identifier(disk: Disk, peers: Sequence[Disk]) -> bool:
     return False
 
 
-def present_disk(disk: Disk, peers: Iterable[Disk] = ()) -> DiskIdentityView:
+def present_disk(
+    disk: Disk, peers: Iterable[Disk] = (), *, compare_serials: bool = False
+) -> DiskIdentityView:
+    """Present raw identity; pickers may opt into comparison guidance."""
     from beamo_wipe.safety import SafetyError, confirm_spec
+    from beamo_wipe.inventory import serial_comparison
 
     listed = tuple(peers)
     kind, value = strongest_identifier(disk)
@@ -156,7 +168,9 @@ def present_disk(disk: Disk, peers: Iterable[Disk] = ()) -> DiskIdentityView:
         missing = CONFIRM_HARDWARE_ID if (disk.serial or "").strip() else MISSING_SERIAL_HARDWARE_ID
     else:
         id_label, id_value, missing = SERIAL_LABEL, SERIAL_NOT_REPORTED, MISSING_SERIAL
+    start, end, comparison = serial_comparison(disk, listed) if compare_serials else (0, 0, "")
     confirmable = spec is not None
+
     return DiskIdentityView(
         title=display_title(disk),
         capacity=disk.size_phrase,
@@ -169,6 +183,9 @@ def present_disk(disk: Disk, peers: Iterable[Disk] = ()) -> DiskIdentityView:
         ambiguous_note="" if confirmable else AMBIGUOUS_IDENTITY,
         system_path=disk.path,
         confirmable=confirmable,
+        comparison_start=start,
+        comparison_end=end,
+        comparison_note=comparison,
     )
 
 

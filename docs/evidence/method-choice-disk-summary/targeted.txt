@@ -1,0 +1,78 @@
+.......................FF.....                                           [100%]
+=================================== FAILURES ===================================
+_________ test_method_identity_wraps_without_losing_values[True-False] _________
+
+ui = <function ui.<locals>.build at 0x7f6d29685300>, missing = False
+enlarged = True
+
+    @pytest.mark.parametrize("missing", [False, True])
+    @pytest.mark.parametrize("enlarged", [False, True])
+    def test_method_identity_wraps_without_losing_values(ui, missing, enlarged):
+        wiz, app = ui(size=(800, 600))
+        _drive_to(wiz, app, Screen.METHOD, size=(800, 600))
+        wiz.selected = replace(
+            wiz.selected,
+            model="" if missing else "LONGMODEL" * 18,
+            serial="" if missing else "LONGSERIAL" * 18,
+            bus="" if missing else "SATA",
+            path="/dev/" + "longpath" * 18,
+        )
+        if enlarged:
+            for name, font in vars(app).items():
+                if name.startswith("font_"):
+                    font.configure(size=round(int(font.cget("size")) * 1.5))
+        app._show_more = True
+        app._draw()
+        app.root.update()
+        # Soft line breaks may split unbroken hardware identifiers, never truncate.
+        packed = "".join(_label_text(app).split())
+        view = wiz.disk_view(wiz.selected)
+        for value in (view.title, view.capacity, view.id_value, view.connection,
+                      view.system_path, *view.notes):
+            assert "".join(value.split()) in packed
+        assert not _clipping_problems(app)
+>       assert not _off_window_problems(app)
+E       AssertionError: assert not ['off-window Frame at (0,486)', 'off-window Frame at (0,486)', 'off-window Canvas at (583,486)', 'off-window Frame at (0,528)', 'off-window Frame at (0,537)', 'off-window Frame at (718,537)', ...]
+E        +  where ['off-window Frame at (0,486)', 'off-window Frame at (0,486)', 'off-window Canvas at (583,486)', 'off-window Frame at (0,528)', 'off-window Frame at (0,537)', 'off-window Frame at (718,537)', ...] = _off_window_problems(<beamo_wipe.ui.tk_wizard.TkWizard object at 0x7f6d29653610>)
+
+tests/test_tk_runtime.py:1807: AssertionError
+_________ test_method_identity_wraps_without_losing_values[True-True] __________
+
+ui = <function ui.<locals>.build at 0x7f6d28eee480>, missing = True
+enlarged = True
+
+    @pytest.mark.parametrize("missing", [False, True])
+    @pytest.mark.parametrize("enlarged", [False, True])
+    def test_method_identity_wraps_without_losing_values(ui, missing, enlarged):
+        wiz, app = ui(size=(800, 600))
+        _drive_to(wiz, app, Screen.METHOD, size=(800, 600))
+        wiz.selected = replace(
+            wiz.selected,
+            model="" if missing else "LONGMODEL" * 18,
+            serial="" if missing else "LONGSERIAL" * 18,
+            bus="" if missing else "SATA",
+            path="/dev/" + "longpath" * 18,
+        )
+        if enlarged:
+            for name, font in vars(app).items():
+                if name.startswith("font_"):
+                    font.configure(size=round(int(font.cget("size")) * 1.5))
+        app._show_more = True
+        app._draw()
+        app.root.update()
+        # Soft line breaks may split unbroken hardware identifiers, never truncate.
+        packed = "".join(_label_text(app).split())
+        view = wiz.disk_view(wiz.selected)
+        for value in (view.title, view.capacity, view.id_value, view.connection,
+                      view.system_path, *view.notes):
+            assert "".join(value.split()) in packed
+        assert not _clipping_problems(app)
+>       assert not _off_window_problems(app)
+E       AssertionError: assert not ['off-window Frame at (0,486)', 'off-window Frame at (0,486)', 'off-window Canvas at (583,486)', 'off-window Frame at (0,528)', 'off-window Frame at (0,537)', 'off-window Frame at (718,537)', ...]
+E        +  where ['off-window Frame at (0,486)', 'off-window Frame at (0,486)', 'off-window Canvas at (583,486)', 'off-window Frame at (0,528)', 'off-window Frame at (0,537)', 'off-window Frame at (718,537)', ...] = _off_window_problems(<beamo_wipe.ui.tk_wizard.TkWizard object at 0x7f6d296539d0>)
+
+tests/test_tk_runtime.py:1807: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_tk_runtime.py::test_method_identity_wraps_without_losing_values[True-False]
+FAILED tests/test_tk_runtime.py::test_method_identity_wraps_without_losing_values[True-True]
+2 failed, 28 passed, 176 deselected in 25.36s

@@ -1,0 +1,3 @@
+127.0.0.1 - - [14/Sep/2026 21:51:15] "GET /web-preview/index.html HTTP/1.1" 200 -
+PASS: browser interaction assertions including completion while confirming.
+PASS: browser stop control, safe focus, keep erasing, stopping/stopped, completion while confirming; five renders at 1024px width (full page capture).

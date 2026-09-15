@@ -330,7 +330,8 @@ def test_plain_console_deduplicates_and_remains_cancellable(monkeypatch, capsys)
     from beamo_wipe.ui import console_wizard
 
     w = SimpleNamespace(
-        wants_shutdown=False,
+        power_text="Wall power: unknown.",
+        wants_shutdown=False, wants_new_session=False,
         screen=Screen.WORKING,
         preview=False,
         progress_view=ProgressView("Writing", 25, 120),
@@ -345,7 +346,8 @@ def test_plain_console_deduplicates_and_remains_cancellable(monkeypatch, capsys)
         calls.append(True)
         return ([object()] if len(calls) == 20 else [], [], [])
 
-    w.cancel_wipe = lambda: setattr(w, "wants_shutdown", True)
+    w.stop_confirmation = None
+    w.request_stop = lambda: setattr(w, "wants_shutdown", True)
     monkeypatch.setattr(console_wizard.select, "select", ready)
     monkeypatch.setattr(console_wizard.sys, "stdin", io.StringIO("CANCEL\n"))
     assert console_wizard._plain_loop_body(w) == 0

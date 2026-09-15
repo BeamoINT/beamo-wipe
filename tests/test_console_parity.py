@@ -182,6 +182,8 @@ def test_last_chance_and_done_keep_full_identity(method, monkeypatch):
         METHODS[method].overwrite_description.split(":")[0] in shown
         or METHODS[method].summary in shown
     )
+    assert "Check the selected disk and method." in shown
+    assert "it never starts erasure." in shown
     footer = _footer(term)
     assert "Enter to erase" in footer or "Wait" in footer
     wiz.wants_shutdown = False
@@ -281,6 +283,8 @@ def test_plain_fallback_methods_identity_and_busy(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
     console._plain_loop(wiz)
     text = capsys.readouterr().out
+    for value in (disk.model, disk.serial, disk.path, wiz.disk_view(disk).capacity):
+        assert value in text
     for spec in METHODS.values():
         assert spec.overwrite_description in text
         assert spec.verification_description in text

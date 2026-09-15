@@ -40,4 +40,42 @@ session recovery does not resume an erase, and unsaved evidence is lost.
 Source tests pin the files above. Hosted QEMU inspects the squashfs copies.
 Lid close and firmware power-button hold require physical hardware receipts
 and are not implied by QEMU. See
-[the dated receipts](evidence/live-session-power-20260910.md).
+[the dated receipts](evidence/live-session-power-20260910.md)
+and the still-untested physical rows in
+[physical acceptance #111](evidence/physical-acceptance-111/results/power.md).
+
+## Laptop guidance and power readings
+
+Keep wall power connected and keep the lid open. The introduction, final review,
+Checking, Working and Stopping screens show power information. The preview uses
+explicitly labelled fake readings; its Fake power selector lets reviewers change
+power during an operation without restarting it. The static offline helper cannot
+read power status. Console input prompts show the latest sampled status when
+printed; unlike Tk, GTK and the running console loop, a blocking plain-text input
+prompt does not update until input returns.
+
+The live wizard reads Linux `/sys/class/power_supply/*/uevent` in one background
+worker. Device-scoped supplies are excluded. AC is never inferred from battery
+charge or charging status. Percentages must be integers from 0 to 100 and the
+battery must report present. Missing, malformed or unreadable data stays unknown.
+Multiple batteries show the lowest available charge and disclose missing charge
+readings. No system battery reported does not certify that the computer lacks one.
+The driver may omit attributes; see the [Linux power supply documentation](https://docs.kernel.org/power/power_supply_class.html).
+
+Readings refresh every five seconds while the UI runs; after ten seconds without
+a timely sample the displayed information becomes unknown. A stalled driver
+cannot block the UI or create an unbounded number of workers. Failed reads replace
+old readings; a later successful read recovers without restarting the wizard.
+Reported charge at or below 20% shows a low-battery warning, including on AC.
+A charger can be connected but insufficient or faulty. These are reported
+readings, not a guarantee of available runtime or successful sleep inhibition.
+
+Power readings are advisory: they do not start, cancel, pause, resume, shut down,
+or change authorization or disk selection. Use Stop erase, confirm the stop, and wait for the
+result before shutting down. OS lid and short-button policy remains as above;
+keep the lid open even though logind is configured to ignore it. Firmware power
+cuts, physical lid behavior, thermal limits and real battery accuracy still need
+receipts from explicitly dedicated hardware. No such hardware claim follows from
+fixture, rendered, source-policy or QEMU tests.
+
+Stopping cannot restore files already erased. Keep erasing dismisses the stop confirmation. If the stop could not be confirmed, the erase may still be running; keep the disk and USB connected.

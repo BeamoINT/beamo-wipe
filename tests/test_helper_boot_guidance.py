@@ -10,6 +10,8 @@ from html.parser import HTMLParser
 import os
 from pathlib import Path
 import shutil
+import signal
+import time
 import subprocess
 import tempfile
 import urllib.error
@@ -260,22 +262,62 @@ def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
         tmp_path = Path(tmp)
         for width, height, name in ((360, 900, "small"), (1280, 900, "desktop")):
             shot = tmp_path / f"{name}.png"
-            dump = subprocess.check_output(
+            argv = (
                 [
                     chrome,
                     "--headless=new",
+                    # Keep pixel checks independent of an open personal
+                    # Chrome session and of other concurrent test runs.
+                    f"--user-data-dir={tmp_path / (name + '-profile')}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-background-networking",
+                    "--disable-component-update",
+                    "--disable-extensions",
+                    "--disable-sync",
+                    "--use-mock-keychain",
+                    "--password-store=basic",
                     "--disable-gpu",
                     "--hide-scrollbars",
                     f"--window-size={width},{height}",
                     f"--screenshot={shot}",
-                    "--virtual-time-budget=2000",
+                    "--timeout=10000",
                     "--dump-dom",
                     html,
-                ],
-                stderr=subprocess.STDOUT,
-                timeout=40,
+                ]
             )
-            dom = dump.decode("utf-8", "replace")
+            # Chrome may keep background services alive after completing both
+            # requested artifacts. Wait for those artifacts, then clean up the
+            # entire isolated process group; never reuse a personal profile.
+            with (tmp_path / f"{name}.log").open("w+b") as output:
+                proc = subprocess.Popen(argv, stdout=output, stderr=subprocess.STDOUT,
+                                        start_new_session=True)
+                try:
+                    deadline = time.monotonic() + 40
+                    dom = ""
+                    while time.monotonic() < deadline:
+                        dom = (tmp_path / f"{name}.log").read_text(errors="replace")
+                        code = proc.poll()
+                        if code is not None:
+                            assert code == 0, dom
+                            break
+                        if ("</html>" in dom and shot.is_file()
+                                and shot.stat().st_size > 2000
+                                and "bytes written to file" in dom):
+                            break
+                        time.sleep(0.1)
+                    else:
+                        pytest.fail(f"Chrome did not finish rendering within 40s: {dom}")
+                finally:
+                    try:
+                        os.killpg(proc.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        proc.wait(timeout=3)
             assert "Windows 11: start this USB from Settings" in dom
             assert "Windows 10: start this USB from Settings" in dom
             assert "BitLocker recovery key" in dom

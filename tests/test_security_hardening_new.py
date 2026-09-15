@@ -104,7 +104,7 @@ def test_gallery_escapes_html():
     txt = Path("src/beamo_wipe/gallery.py").read_text(encoding="utf-8")
     assert "function esc(s)" in txt
     assert 'replace(/&/g, "&amp;")' in txt
-    assert "esc(d.serial)" in txt
+    assert 'esc(screen === "pick" ? d.markedSerial || d.serial : d.serial)' in txt
     assert "esc(d.name)" in txt
     assert 'data-path="${esc(d.path)}"' in txt
 

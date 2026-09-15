@@ -100,9 +100,9 @@ def test_cancelled_working_and_result_keep_reachable_actions(ui):  # noqa: F811
     wiz.screen = Screen.WORKING
     app._draw()
     shown = _mapped_text(app)
-    assert "Cancel erase" in shown
+    assert "Stop erase" in shown
     cancel = next(
-        b for b in _buttons(app) if "Cancel" in b.itemcget(b._label, "text")
+        b for b in _buttons(app) if "Stop erase" in b.itemcget(b._label, "text")
     )
     assert cancel._enabled
     _assert_geometry(app)

@@ -1,7 +1,7 @@
 # Beamo Wipe — Evidence tiers, receipts, and revalidation
 
 > Historical snapshot: current release identity and executed gate results are carried
-> by the signed release manifest. See [0.2.8 release notes](release-0.2.8.md).
+> by the signed release manifest. See [0.2.9 release notes](release-0.2.9.md).
 
 > **Version 1.0 — 2026-09-11 | Owner: Accountable senior engineer (this checkout)**
 > Pinned wrapper `0.2.7` / `nwipe v0.42` commit `6082bde060091e66365d852a1877f2ee80c67105`
@@ -64,6 +64,11 @@ development or customer disk.
 Proves: the executed combination on that exact hardware and firmware.
 A Tier 3 receipt covers only its named configuration; it does not transfer
 to other models, firmware versions, or capacities.
+
+Operator scaffolding for those named-machine runs lives in
+[physical acceptance #111](evidence/physical-acceptance-111/README.md).
+It is a blank matrix (every cell **NOT TESTED**), not a receipt. QEMU and
+USB-lab evidence remain Tier 2.
 
 ## 2. Receipt schema
 
@@ -205,7 +210,10 @@ for their commits only.
 1. Every `FW-*` boot claim at 0.2.7 — no executed Tier 2 run on file.
 2. Every per-method Tier 2 journey at 0.2.7 (Everyday/Extra/Quick zero).
 3. Every Tier 3 physical claim — no physical destructive receipt exists in
-   this repository for any machine, target, or firmware.
+   this repository for any machine, target, or firmware. Blank operator
+   sheets: [physical acceptance #111](evidence/physical-acceptance-111/README.md).
+   Filling those sheets with Pass requires a named lab machine and a
+   manufactured-image SHA; this checkout does not provide either.
 4. Native Windows/macOS launcher execution, USB trust/UAC behavior, and
    firmware acceptance (cross-platform READMEs leave these open).
 5. Live Orca screen-reader session behavior.

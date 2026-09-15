@@ -2,7 +2,7 @@
 """User-facing strings. 8th-grade English. No forbidden claims."""
 
 from beamo_wipe.inventory import EMPTY_STEPS
-from beamo_wipe.outcomes import VIEWS
+from beamo_wipe.outcomes import VIEWS, STOP_WARNING
 from beamo_wipe.models import (
     CONTENTS_DATA,
     CONTENTS_SYSTEM,
@@ -32,7 +32,7 @@ TITLE_PICK = "Which disk should we erase?"
 TITLE_CONFIRM = "Make sure this is the right disk"
 TITLE_METHOD = "Choose an erase method"
 TITLE_ADVANCED = "Advanced"
-TITLE_LAST = "Last chance to stop"
+TITLE_LAST = "Review before erasing"
 TITLE_WORKING = "Erasing now"
 TITLE_DONE_OK = "Finished"
 TITLE_DONE_FAIL = "The erase did not finish"
@@ -72,7 +72,17 @@ WHAT_BULLETS = (
 
 POWER_REMINDER = (
     "If this computer has a battery, plug it into wall power before you erase. "
+    "Keep the lid open. "
     "A power cut stops the erase."
+)
+
+POWER_KEEP = "Laptop: keep wall power connected and keep the lid open."
+POWER_EVENTS = (
+    "This live USB asks Linux to ignore lid closure and a short power-button press, "
+    "and disables sleep. Firmware or a held power button can still stop the erase. "
+    "Use Stop erase to stop; wait for the result before shutting down. "
+    "A power cut can leave the disk partly erased and lose unsaved reports. "
+    "An interrupted erase does not resume automatically."
 )
 
 POWER_BLANKING = (
@@ -128,8 +138,8 @@ STARTUP_STILL_WORKING = (
 
 OWNER_LEAD = "Check the box, then continue."
 
-BOOT_USB_BANNER = "This is the Beamo USB — do not erase"
-BOOT_DISC_BANNER = "This is the Beamo boot disc — do not erase"
+BOOT_USB_BANNER = "Beamo USB — protected, cannot be erased"
+BOOT_DISC_BANNER = "Beamo boot disc — protected, cannot be erased"
 
 IDENTIFY_ERROR = (
     "We cannot tell which disk is this USB. Unplug extra USB sticks and start again."
@@ -143,6 +153,7 @@ SSD_FOOTER = OVERWRITE_LIMITS + " Not a formal certificate."
 
 WORKING_PULSE = (
     "Leave the USB in. Keep wall power connected if this computer has a battery. "
+    "Keep the lid open. "
     "Do not turn the PC off."
 )
 
@@ -172,12 +183,15 @@ CONFIRM_LEAD = "Type what we ask for, then continue."
 CONFIRM_MATCH_WAIT = "Type it exactly, then you can continue."
 CONFIRM_MATCH_OK = "That matches. You can continue."
 
-COUNTDOWN_CAPTION = "seconds until Erase is available. Nothing starts automatically."
+COUNTDOWN_CAPTION = "seconds until Erase is available."
 COUNTDOWN_READY = "Nothing has started. Choose Erase now to erase this disk."
 
 METHOD_LEAD = "Compare overwrite and read-back passes."
 
-LAST_LEAD = "If this is the wrong disk, go back."
+LAST_LEAD = (
+    "Check the selected disk and method. Reaching zero only enables Erase; "
+    "it never starts erasure."
+)
 AUTHORIZATION_STALE = "The disk or method changed. Confirm again."
 
 METHOD_CARDS = {
@@ -244,6 +258,12 @@ ADVANCED_LOG_NOTE = (
     "Leave the boot USB and selected disk connected. "
     + REPORT_VOLATILE + " Open Need a report? for requirements and safe removal."
 )
+
+
+ERASE_STATUS_TITLE = "Erase status"
+REPORT_STATUS_TITLE = "Report status"
+REPORT_STATUS_NOTICE = "Saving or checking a report does not change the erase result."
+REPORT_PREVIEW = "Preview only. No report was saved."
 
 
 def report_aftercare(*, can_save: bool, status: str, message: str) -> str:
@@ -352,3 +372,39 @@ def pick_subtitle() -> str:
         "Match the name, size and serial or hardware ID. "
         "Choose only the disk you intend to erase."
     )
+
+DISK_HELP_BUTTON = "I'm not sure which disk"
+DISK_HELP_TITLE = "Let's identify the disk first"
+DISK_HELP_STOP = "Stop and shut down"
+DISK_HELP_TEXT = """You do not need to choose now. No disk is selected while you read this help.
+
+The disk you want to erase may be inside this computer, an external disk, or a disk from another computer. Do not choose a disk just because it is listed here.
+
+Compare the name or model, capacity, and serial or hardware ID with a trusted label or record for the disk you intend to erase. Use Show more in the disk list for technical details where available.
+
+If disks look alike or have the same capacity, compare their serial or hardware ID. Size alone is not enough. If identity is missing, duplicated, or does not match your record, do not guess. Ask someone you trust to help identify the disk.
+
+Technical detail: names such as /dev/sda can change between starts. A USB connection can be an external target or the Beamo boot USB; the connection type alone does not identify a disk. The Beamo boot USB remains protected.
+
+Still unsure? Stop and shut down before checking labels or changing connections. Wait until the computer is fully off. Keep the Beamo boot USB for restarting. Do not disconnect hardware while this session is running.
+
+Back returns to the disk list with no disk selected. Continue only when you can identify the intended disk with confidence. You will still need to select it, type its confirmation, and wait through the final safety countdown."""
+
+STOP_TITLE = "Stop this erase?"
+STOP_ASK = "Stop erase"
+STOP_CONFIRM = "Yes, stop erasing"
+STOP_KEEP = "Keep erasing"
+STOP_LEAD = STOP_WARNING + " Files may still remain on the disk. The erase continues until you confirm."
+STOPPING_TEXT = "The disk may still be erasing. Keep the disk and Beamo USB connected while we confirm it has stopped."
+
+BTN_ERASE_ANOTHER = "Erase another disk"
+ANOTHER_TITLE = "Continue without saving this report?"
+ANOTHER_LOSS = (
+    "This report has not been saved to a report USB. Starting a new session "
+    "closes this result and its report controls. Keep this session open to save "
+    "the report, or continue without saving. You will need to choose a disk "
+    "and complete every confirmation again. Keep the Beamo USB connected."
+)
+ANOTHER_DISCARD = "Continue without saving"
+ANOTHER_HINT = "Remove the report USB first. Keep the Beamo USB connected."
+

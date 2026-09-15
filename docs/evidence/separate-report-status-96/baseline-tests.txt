@@ -1,0 +1,121 @@
+dbus-daemon[1766092]: [session uid=1000 pid=1766092 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=1766106 comm="python3 -m pytest" label="kernel")
+dbus-daemon[1766092]: [session uid=1000 pid=1766092 pidfd=5] Successfully activated service 'org.a11y.Bus'
+........................................................................ [  2%]
+.....dbus-daemon[1766116]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=1766106 comm="python3 -m pytest" label="kernel")
+dbus-daemon[1766116]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+................................................................... [  5%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+.......................F................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+.................................................................sss..s. [ 62%]
+ssssssss................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+.............................................ss......................... [ 85%]
+.........s.............................................................. [ 87%]
+........................................................................ [ 90%]
+..............s...........................................ssssssssssss.. [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+.................                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_helper_renders_both_windows_paths_on_small_and_desktop_displays _____
+
+    def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
+        chrome = _chrome()
+        if not chrome:
+            pytest.skip("Chrome is not installed for helper pixel checks")
+        html = HELPER.resolve().as_uri()
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            for width, height, name in ((360, 900, "small"), (1280, 900, "desktop")):
+                shot = tmp_path / f"{name}.png"
+                argv = (
+                    [
+                        chrome,
+                        "--headless=new",
+                        # Keep pixel checks independent of an open personal
+                        # Chrome session and of other concurrent test runs.
+                        f"--user-data-dir={tmp_path / (name + '-profile')}",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                        "--disable-background-networking",
+                        "--disable-component-update",
+                        "--disable-extensions",
+                        "--disable-sync",
+                        "--use-mock-keychain",
+                        "--password-store=basic",
+                        "--disable-gpu",
+                        "--hide-scrollbars",
+                        f"--window-size={width},{height}",
+                        f"--screenshot={shot}",
+                        "--timeout=10000",
+                        "--dump-dom",
+                        html,
+                    ]
+                )
+                # Chrome may keep background services alive after completing both
+                # requested artifacts. Wait for those artifacts, then clean up the
+                # entire isolated process group; never reuse a personal profile.
+                with (tmp_path / f"{name}.log").open("w+b") as output:
+                    proc = subprocess.Popen(argv, stdout=output, stderr=subprocess.STDOUT,
+                                            start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 40
+                        dom = ""
+                        while time.monotonic() < deadline:
+                            dom = (tmp_path / f"{name}.log").read_text(errors="replace")
+                            code = proc.poll()
+                            if code is not None:
+                                assert code == 0, dom
+                                break
+                            if ("</html>" in dom and shot.is_file()
+                                    and shot.stat().st_size > 2000
+                                    and "bytes written to file" in dom):
+                                break
+                            time.sleep(0.1)
+                        else:
+>                           pytest.fail(f"Chrome did not finish rendering within 40s: {dom}")
+E                           Failed: Chrome did not finish rendering within 40s: [1769153:1769177:0914/222618.501498:ERROR:base/files/file_path_watcher_inotify.cc:338] inotify_init() failed: Too many open files (24)
+E                           [1769153:1769178:0914/222618.501681:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1769153:1769178:0914/222618.507303:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1769153:1769178:0914/222618.507346:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1769210:1769214:0914/222618.578226:ERROR:base/files/file_path_watcher_inotify.cc:338] inotify_init() failed: Too many open files (24)
+E                           
+E                           (index.html:1769153): dbind-WARNING **: 22:26:18.643: Couldn't connect to accessibility bus: Failed to connect to socket /home/box/.cache/at-spi/bus_5: No such file or directory
+E                           [1769153:1769178:0914/222618.713542:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1769153:1769178:0914/222618.713620:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1769153:1769153:0914/222618.726357:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.Properties.GetAll: object_path= /org/freedesktop/UPower/devices/DisplayDevice: unknown error type: 
+E                           [0914/222618.958639:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+E                           [0914/222618.958763:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)
+E                           [1769153:1769180:0914/222621.545229:ERROR:google_apis/gcm/engine/registration_request.cc:275] Registration URL fetching failed.
+E                           [1769153:1769180:0914/222621.548152:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+E                           [1769153:1769180:0914/222621.624687:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+E                           Created TensorFlow Lite XNNPACK delegate for CPU.
+E                           [1769153:1769180:0914/222646.585403:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+
+tests/test_helper_boot_guidance.py:310: Failed
+=========================== short test summary info ============================
+FAILED tests/test_helper_boot_guidance.py::test_helper_renders_both_windows_paths_on_small_and_desktop_displays
+1 failed, 2508 passed, 28 skipped in 379.67s (0:06:19)

@@ -91,7 +91,7 @@ def test_hook_masks_sleep_units_and_does_not_overwrite_logind():
 
 def test_kiosk_restart_does_not_block_wizard_poweroff():
     text = KIOSK.read_text(encoding="utf-8")
-    assert "Restart=always" in text
+    assert "Restart=no" in text
     assert "ExecStart=/usr/local/sbin/beamo-wipe-kiosk" in text
 
 

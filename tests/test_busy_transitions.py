@@ -366,7 +366,7 @@ def test_stale_tk_callback_cannot_reactivate_same_named_screen():
 
     calls = []
     ui = SimpleNamespace(
-        w=SimpleNamespace(screen=Screen.LAST_CHANCE, wants_shutdown=False),
+        w=SimpleNamespace(screen=Screen.LAST_CHANCE, wants_shutdown=False, wants_new_session=False),
         _draw_generation=1,
         _draw=lambda: None,
         _teardown=lambda: None,
@@ -390,7 +390,7 @@ def test_unchanged_working_revision_does_not_rebuild_controls():
     ui.w = SimpleNamespace(
         screen=Screen.WORKING,
         report_view=SimpleNamespace(revision=7),
-        wants_shutdown=False,
+        wants_shutdown=False, wants_new_session=False,
         tick=lambda: None,
     )
     ui._body = SimpleNamespace(configure=lambda **kw: None)
@@ -398,6 +398,7 @@ def test_unchanged_working_revision_does_not_rebuild_controls():
     ui._pick_canvas = None
     ui.root = SimpleNamespace(after=lambda *args: 1)
     ui._clear = lambda *args: None
+    ui._prepare_body_host = lambda: None  # renderer stub; no actual Tk widgets
     ui._sync_chrome = lambda *args: None
     ui._draw_header = ui._draw_strip = ui._refresh_working = lambda: None
     ui._shown_report_revision = -1

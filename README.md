@@ -1,5 +1,7 @@
 # Beamo Wipe
 
+For development on Windows, macOS, or Linux, start with the [development guide](docs/development.md) and `python3 dev.py doctor` (`py -3 dev.py doctor` on Windows).
+
 A guided USB for **nwipe**.
 
 Beamo Wipe is a bootable x86_64 live USB UI that walks a first-time BIOS user
@@ -60,12 +62,26 @@ with Orca. Switching views clears all previous confirmations and checks disks
 again. Use Tab and Shift+Tab to move, Space to activate controls, and the
 standard Orca reading commands for text. See [screen-reader operation](docs/screen-reader.md).
 
+On the disk list, choose **I'm not sure which disk** for identification help,
+including external disks and disks from another computer. Help clears the
+selected disk and its confirmation. Back returns with nothing selected; your
+existing ownership acknowledgement is retained. **Stop and shut down** lets
+you stop before checking labels or connections. The console offers **U** for
+help, **Esc** to return and **S** to stop; the plain text fallback asks for
+`BACK` or `STOP`. Preview closes or shows a close-tab message instead of
+powering off this computer.
+
 Before erasure, **Check disks again** (F5, or `CHECK DISKS AGAIN` at a text
 prompt) reads the inventory again and identifies the boot device again. It
 clears the selected disk, ownership acknowledgement, typed confirmation,
 method, and countdown. Complete the entire confirmation flow again. A failed
 refresh leaves no stale target selectable. Refresh is unavailable once an
 erase is starting or running.
+
+**Beamo USB — protected, cannot be erased** appears separately above the disks
+you can choose, with its name, size and serial or hardware ID. The keyboard
+console shows its protected status; press B to read its full identity. If the
+boot device cannot be identified, no protected card or erase targets are shown.
 
 **Other detected devices** is information only: each row explains why the
 device cannot be selected. In the keyboard console, press O to read and scroll
@@ -110,7 +126,7 @@ emulation is not the ISO or QEMU verification gate.
 ./scripts/build-iso.sh
 ```
 
-The ISO lands in `dist/beamo-wipe-0.2.8-amd64.iso`. If Docker or live-build
+The ISO lands in `dist/beamo-wipe-0.2.9-amd64.iso`. If Docker or live-build
 packages are missing, the script prints the missing pieces and exits non-zero.
 
 `make iso` is the same command.
@@ -129,7 +145,7 @@ packages are missing, the script prints the missing pieces and exits non-zero.
 ```bash
 qemu-img create -f qcow2 /tmp/beamo-wipe-target.qcow2 10G
 qemu-system-x86_64 -m 2048 -enable-kvm \
-  -cdrom dist/beamo-wipe-0.2.8-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.9-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2 \
   -boot d
 ```
@@ -148,7 +164,7 @@ cp /usr/share/OVMF/OVMF_VARS.fd /tmp/beamo-ovmf-vars.fd
 qemu-system-x86_64 -m 2048 \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/beamo-ovmf-vars.fd \
-  -cdrom dist/beamo-wipe-0.2.8-amd64.iso \
+  -cdrom dist/beamo-wipe-0.2.9-amd64.iso \
   -drive file=/tmp/beamo-wipe-target.qcow2,if=virtio,format=qcow2
 # No vars template (older OVMF_CODE.fd-only layout): -bios /usr/share/OVMF/OVMF_CODE.fd
 ```
@@ -162,7 +178,7 @@ real Windows disk.
 
 ```bash
 # Linux (double-check the device name)
-sudo dd if=dist/beamo-wipe-0.2.8-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=dist/beamo-wipe-0.2.9-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
 
 # Or Raspberry Pi Imager / balenaEtcher: pick the ISO, pick the USB, flash.
 ```
@@ -193,7 +209,18 @@ used. Details: [docs/ci.md](docs/ci.md).
 
 1. Boot the live USB (UEFI or legacy BIOS, x86_64).
 2. The wizard is the first screen. There is no desktop and no raw nwipe TUI.
-3. Confirm you own the machine. Pick a disk by model, size, and serial.
+3. Confirm ownership or permission to erase. Identify the intended disk by
+   model, size, and serial. If unsure, open the identification help.
+   For same-size disks, square brackets mark the serial portion to compare
+   when a comparison is available. A text note also gives its character
+   positions. Always check the full ID and follow the confirmation prompt.
+   Duplicate or missing serials are not highlighted. With multiple disks, open
+   **Compare disks** to read their identities side by side (stacked on narrow
+   screens). Reading the comparison does not change your selection. In the
+   screen-reader view, expand **Compare disks**; in the console, press **C**,
+   then **Esc** to return. The plain console prints the same comparison before
+   the disk choices. If identity is uncertain, shut down and disconnect the
+   extra drives.
 4. The Beamo USB cannot be selected. If we cannot tell which disk is the USB,
    the app refuses to list disks.
 5. Type-to-confirm, five-second delay, then nwipe runs non-interactively.
@@ -237,6 +264,20 @@ flash areas and explains why additional overwrite passes do not fix those limits
 See [the full limits](docs/storage-and-controller-limits.md).
 
 When a wipe cannot start, use the separately labeled [diagnostic report](docs/startup-diagnostics.md) path. Diagnostic reports are not erase evidence.
+
+### Erasing another disk
+
+After an erase has stopped, choose **Erase another disk** on the result screen.
+Save the current report first, or choose **Continue without saving** when asked.
+**Keep session open** returns to the report. Remove the report USB before
+starting the new session; insert it again only when the next result offers report
+saving. A new session checks the disks again
+and requires ownership, disk selection, typed confirmation, method selection
+and the full five-second wait. Nothing starts automatically. Keep the Beamo USB
+connected; shut down before disconnecting disks.
+
+Console: type `ANOTHER` (or press `A` in the keyboard interface). See
+[session safety and verification](docs/evidence/erase-another-103/README.md).
 
 ### Planning to save a report
 

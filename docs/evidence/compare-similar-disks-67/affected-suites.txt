@@ -1,0 +1,14 @@
+dbus-daemon[1123945]: [session uid=1000 pid=1123945 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=1123961 comm="python3 -m pytest tests/test_compare_disks.py test" label="kernel")
+dbus-daemon[1123945]: [session uid=1000 pid=1123945 pidfd=5] Successfully activated service 'org.a11y.Bus'
+.......dbus-daemon[1123969]: Activating service name='org.a11y.atspi.Registry' requested by ':1.1' (uid=1000 pid=1124010 comm="/opt/google/chrome/chrome --disable-field-trial-co" label="kernel")
+dbus-daemon[1123969]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+................................................................. [ 13%]
+........................................................................ [ 27%]
+....................s................................................... [ 41%]
+........................................................................ [ 54%]
+.........................s.............................................. [ 68%]
+........................................................................ [ 82%]
+........................................................................ [ 96%]
+....................                                                     [100%]
+522 passed, 2 skipped in 267.72s (0:04:27)

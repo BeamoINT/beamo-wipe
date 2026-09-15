@@ -6,8 +6,8 @@ Conflicts=getty@tty1.service
 [Service]
 Type=simple
 ExecStart=/usr/local/sbin/beamo-wipe-kiosk
-Restart=always
-RestartSec=1
+# The supervisor owns its finite retry budget and stable recovery menu.
+Restart=no
 User=root
 Group=root
 WorkingDirectory=/
@@ -15,7 +15,8 @@ StandardInput=tty
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
-TTYVTDisallocate=yes
+# Preserve the recovery message even if terminal input closes.
+TTYVTDisallocate=no
 StandardOutput=tty
 StandardError=tty
 UMask=0077

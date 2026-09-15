@@ -14,7 +14,8 @@ os.environ["GTK_MODULES"] = "gail:atk-bridge"
 os.environ["NO_AT_BRIDGE"] = "0"
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
+gi.require_version("Atk", "1.0")
+from gi.repository import Atk, Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe import diagnostic_report as D, inventory, storage_limits  # noqa: E402
@@ -53,6 +54,7 @@ class AccessibleWizard:
             #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #244A73; box-shadow: none; }
             #beamo-accessible .erase-warning { background: #FBEBE9; color: #B3261E; padding: 10px; border-radius: 6px; }
             #beamo-accessible .screen-actions { border-top: 1px solid #D8DFE6; padding-top: 8px; }
+            #beamo-accessible .report-warning { background: #FFF3CD; color: #825600; padding: 8px; }
             #beamo-accessible .error-message { color: #B3261E; font-weight: bold; }
         """)
         # Size before the first show: a low-resolution live session may have
@@ -121,7 +123,7 @@ class AccessibleWizard:
             if generation != self.generation or not widget.get_sensitive():
                 return
             action()
-            if self.w.wants_shutdown:
+            if self.w.wants_shutdown or self.w.wants_new_session:
                 self.close()
             else:
                 self.render()
@@ -176,6 +178,7 @@ class AccessibleWizard:
         self.generation += 1
         self.actions = {}
         self.primary = self.progress_label = self.countdown_label = None
+        self.power_label = None
         self.shown = self.w.screen
         self.report_revision = self.w.report_view.revision
         old = self.window.get_child()
@@ -253,6 +256,7 @@ class AccessibleWizard:
             self.label("\n".join(C.WHAT_BULLETS))
             self.label(C.POWER_REMINDER)
             self.label(C.POWER_BLANKING)
+            self.label(C.POWER_EVENTS, focusable=True)
             self.button(C.BTN_CONTINUE, self.w.accept_what)
         elif screen == Screen.OWNER:
             heading.set_text(C.TITLE_OWNER)
@@ -271,13 +275,25 @@ class AccessibleWizard:
         elif screen == Screen.PICK:
             heading.set_text(C.TITLE_PICK)
             self.label(C.pick_subtitle())
+            self.button(C.DISK_HELP_BUTTON, self.w.open_disk_help, in_body=True)
             if same_size_conflict(self.w.listed_disks):
                 self.label(C.SAME_SIZE_HINT)
             if self.w.error:
                 self.label(self.w.error)
+            self._protected_boot()
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {self.w.disk_view(disk).announcement}"
                 self.button(text, lambda path=disk.path: self._select(path), in_body=True)
+            if len(self.w.selectable) > 1:
+                expander = Gtk.Expander.new(inventory.COMPARE_TITLE)
+                reader = Gtk.Label(label=inventory.comparison_text(self.w.selectable, peers=self.w.listed_disks))
+                reader.set_line_wrap(True)
+                reader.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                reader.set_max_width_chars(65)
+                reader.set_selectable(True)
+                reader.set_can_focus(True)
+                expander.add(reader)
+                self.body.pack_start(expander, False, False, 4)
             self._inventory()
         elif screen in (Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             heading.set_text(
@@ -288,8 +304,8 @@ class AccessibleWizard:
                 if screen == Screen.PICK_EMPTY
                 else (self.w.error or C.IDENTIFY_ERROR)
             )
-            if screen == Screen.PICK_EMPTY and self.w.empty_detail:
-                self.label(self.w.empty_detail)
+            if screen == Screen.PICK_EMPTY:
+                self._protected_boot()
             self._inventory()
             self.button("Shut down", self.w.shutdown)
         elif screen == Screen.CONFIRM:
@@ -330,6 +346,10 @@ class AccessibleWizard:
             self.button(storage_limits.BUTTON, self.w.open_limits, utility=True)
             self.button(C.BTN_ADVANCED, self.w.open_advanced, utility=True)
             self.button(C.BTN_CONTINUE, self.w.continue_method)
+        elif screen == Screen.DISK_HELP:
+            heading.set_text(C.DISK_HELP_TITLE)
+            self.reader(C.DISK_HELP_TEXT)
+            self.button(C.DISK_HELP_STOP, self.w.shutdown)
         elif screen == Screen.REPORT_HELP:
             heading.set_text(C.REPORT_HELP_TITLE)
             reader = self.reader(
@@ -403,19 +423,33 @@ class AccessibleWizard:
             self.label("Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.")
         elif screen == Screen.STOPPING:
             heading.set_text("Stopping erase")
-            self.label("Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.")
+            self.label(C.STOPPING_TEXT)
             self.progress_label = self.label("")
         elif screen == Screen.WORKING:
-            heading.set_text(C.WORKING_PULSE)
+            heading.set_text(C.VIEWS["stop_unconfirmed"].message
+                             if self.w.error == C.VIEWS["stop_unconfirmed"].announcement
+                             else C.WORKING_PULSE)
             self.identity()
             self.label(self.w.method_summary)
             self.progress_label = self.label("")
             if self.w.evidence_warning:
                 self.label(self.w.evidence_warning)
-            self.button("Cancel erase", self.w.begin_cancel)
+            if self.w.stop_confirmation is not None:
+                confirmation = self.w.stop_confirmation
+                heading.set_text(C.STOP_TITLE)
+                arrival = self.label(C.STOP_LEAD, focusable=True)
+                self.button(C.STOP_KEEP, self.w.keep_erasing)
+                self.button(C.STOP_CONFIRM, lambda: self.w.confirm_stop(confirmation))
+            else:
+                self.button(C.STOP_ASK, self.w.request_stop)
         elif screen == Screen.DONE:
             result = self.w.result_view
             heading.set_text(result.announcement)
+            heading.get_accessible().set_role(Atk.Role.HEADING)
+            erase_heading = self.label(C.ERASE_STATUS_TITLE)
+            erase_heading.get_accessible().set_role(Atk.Role.HEADING)
+            erase_heading.get_style_context().add_class("screen-heading")
+            self.body.reorder_child(erase_heading, self.body.get_children().index(heading))
             icon = Gtk.Image.new_from_icon_name(
                 {
                     "check": "emblem-ok-symbolic",
@@ -444,12 +478,19 @@ class AccessibleWizard:
             self.identity()
             self.label(self.w.method_summary)
             self.label(self.w.elapsed_text)
-            report = self.w.report_view
-            if report.evidence_error:
-                self.label(self.w.evidence_warning)
             self.label(self.w.result_view.next_step)
             for alert in self.w.check_alerts:
                 self.label(alert)
+            report = self.w.report_view
+            report_heading = self.label(C.REPORT_STATUS_TITLE, focusable=True)
+            report_heading.get_accessible().set_role(Atk.Role.HEADING)
+            report_heading.get_style_context().add_class("screen-heading")
+            report_summary = self.label(C.REPORT_PREVIEW if self.w.preview else report.headline, focusable=True)
+            if not self.w.preview and report.tone == "warn":
+                report_summary.get_style_context().add_class("report-warning")
+            self.label(C.REPORT_STATUS_NOTICE)
+            if report.evidence_error:
+                self.label(self.w.evidence_warning)
             if not self.w.preview and not report.evidence_error:
                 self.label(
                     C.report_aftercare(
@@ -469,20 +510,24 @@ class AccessibleWizard:
                     self.w.begin_report_export,
                     enabled=report.can_save,
                 )
+            if not self.w.preview:
+                self.label(C.ANOTHER_HINT)
+                self.button(C.BTN_ERASE_ANOTHER, self.w.erase_another_disk,
+                            enabled=self.w.can_erase_another)
             self.button(
                 "Close preview" if self.w.preview else "Shut down", self.w.shutdown,
                 enabled=not report.exporting and not report.saving_evidence,
             )
         elif screen == Screen.SHUTDOWN_CONFIRM:
-            heading.set_text(C.SHUTDOWN_TITLE)
-            self.label(C.SHUTDOWN_LOSS)
+            heading.set_text(self.w.exit_confirmation_title)
+            self.label(self.w.exit_confirmation_loss)
             self.label(C.SHUTDOWN_HINT)
             if self.w.report_recovery_warning:
                 self.label(self.w.report_recovery_warning)
             self.button(C.SHUTDOWN_KEEP, self.w.keep_report_session)
             generation = self.w.shutdown_generation
             self.button(
-                C.SHUTDOWN_DISCARD,
+                self.w.exit_confirmation_discard,
                 lambda: self.w.confirm_shutdown_without_saving(generation),
             )
         elif screen == Screen.DIAGNOSTIC:
@@ -526,9 +571,14 @@ class AccessibleWizard:
             Screen.LAST_CHANCE,
             Screen.LIMITS,
             Screen.REPORT_HELP,
+            Screen.DISK_HELP,
             Screen.ADVANCED,
         } or (screen == Screen.KEYBOARD and self.w._keyboard_from):
             self.button(C.BTN_BACK, self.w.back)
+        if screen in {Screen.WHAT, Screen.LAST_CHANCE, Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+            if screen != Screen.WHAT:
+                self.label(C.POWER_KEEP)
+            self.power_label = self.label(self.w.power_text, focusable=True)
         self._style_tree(self.window)
         self.window.show_all()
         if not self.utilities.get_children():
@@ -540,6 +590,10 @@ class AccessibleWizard:
         arrival.grab_focus()
         self.update_status()
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
+
+    def _protected_boot(self):
+        if self.w.protected_boot_text:
+            self.reader(self.w.protected_boot_text)
 
     def _inventory(self):
         if self.w.other_devices:
@@ -568,12 +622,16 @@ class AccessibleWizard:
         self.w.set_typing_check(text)
 
     def update_status(self):
+        if self.power_label and self.power_label.get_text() != self.w.power_text:
+            self.power_label.set_text(self.w.power_text)
         if self.countdown_label:
-            self.countdown_label.set_text(
-                f"Wait {self.w.countdown_display} seconds."
+            text = (
+                f"{self.w.countdown_display} {C.COUNTDOWN_CAPTION}"
                 if not self.w.erase_enabled
                 else C.COUNTDOWN_READY
             )
+            if self.countdown_label.get_text() != text:
+                self.countdown_label.set_text(text)
             self.primary.set_sensitive(self.w.erase_enabled)
         if self.progress_label:
             text = self.w.progress_view.status_text
@@ -590,7 +648,7 @@ class AccessibleWizard:
 
     def tick(self):
         self.w.tick()
-        if self.w.wants_shutdown:
+        if self.w.wants_shutdown or self.w.wants_new_session:
             self.close()
             return False
         if (
@@ -632,7 +690,10 @@ class AccessibleWizard:
             return True
         if key == Gdk.KEY_Escape:
             if self.w.screen == Screen.WORKING:
-                self.w.begin_cancel()
+                if self.w.stop_confirmation is not None:
+                    self.w.keep_erasing()
+                else:
+                    self.w.request_stop()
                 self.render()
                 return True
             self.w.back()
@@ -646,11 +707,11 @@ class AccessibleWizard:
 
     def _close(self, *_args):
         if self.w.screen == Screen.WORKING:
-            self.w.begin_cancel()
+            self.w.request_stop()
             self.render()
         else:
             self.w.shutdown()
-            if self.w.wants_shutdown:
+            if self.w.wants_shutdown or self.w.wants_new_session:
                 self.close()
             else:
                 self.render()

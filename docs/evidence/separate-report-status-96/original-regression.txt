@@ -1,0 +1,30 @@
+F
+=================================== FAILURES ===================================
+_______ test_report_state_never_changes_erase_or_receipt[idle-verified] ________
+
+case = ('verified', <MethodId.EVERYDAY: 'everyday'>, 0, '{name} | Erased |', False, False)
+status = 'idle'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4228edec40>
+capsys = <_pytest.capture.CaptureFixture object at 0x7f42297f7a10>
+
+    @pytest.mark.parametrize("case", CASES, ids=[c[0] for c in CASES])
+    @pytest.mark.parametrize("status", REPORT_STATES)
+    def test_report_state_never_changes_erase_or_receipt(case, status, monkeypatch, capsys):
+        w, ev, log = case_evidence(case)
+        before = copy.deepcopy(ev)
+        w.report_status = status
+        w.report_message = "Report copy detail."
+        expected = VIEWS[case[0]]
+        assert w.result_view == expected
+        monkeypatch.setattr("builtins.input", lambda _: (_ for _ in ()).throw(EOFError()))
+        console._plain_loop(w)
+        output = capsys.readouterr().out
+>       assert output.index("Erase status") < output.index("Report status")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: substring not found
+
+tests/test_separate_report_status.py:33: ValueError
+=========================== short test summary info ============================
+FAILED tests/test_separate_report_status.py::test_report_state_never_changes_erase_or_receipt[idle-verified]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.10s

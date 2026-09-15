@@ -106,10 +106,11 @@ def test_plain_console_has_distinct_unnumbered_inventory(monkeypatch, capsys):
 
 
 @pytest.mark.parametrize("screen", [Screen.PICK, Screen.PICK_EMPTY])
-def test_curses_80x24_inventory_keys_cannot_select_or_continue(monkeypatch, screen):
+@pytest.mark.parametrize("reader_key", ["o", "b"])
+def test_curses_80x24_inventory_keys_cannot_select_or_continue(monkeypatch, screen, reader_key):
     wiz = inventory_wizard()
     wiz.screen = screen
-    keys = iter([ord("o"), 10, ord("1"), console.curses.KEY_NPAGE, 27])
+    keys = iter([ord(reader_key), 10, ord("1"), console.curses.KEY_NPAGE, 27])
     frames = []
 
     class Terminal:
@@ -139,5 +140,5 @@ def test_curses_80x24_inventory_keys_cannot_select_or_continue(monkeypatch, scre
     monkeypatch.setattr(console.curses, "use_default_colors", lambda *a: None)
     console._loop(Terminal(), wiz)
     assert any("Read only." in text for text in frames)
-    assert any("Cannot erase:" in text for text in frames)
+    assert any(("Cannot erase:" if reader_key == "o" else "cannot be erased") in text for text in frames)
     assert not wiz.runner.started

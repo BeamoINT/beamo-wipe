@@ -1,0 +1,27 @@
+{
+  "base_commit": "9210aa32f1598936b752f4662ed926b1f3b60044",
+  "branch": "feat/launcher-readiness-checks",
+  "source_dirty": true,
+  "source_sha256": {
+    "desktop/boot.go": "3b0bf980dddcf224674a2277d2e2d24b3bcc9baa84613aa1175e335ffe19154c",
+    "desktop/main.go": "44144098bd84f8582207f34316d9ff20b1b036d2ef9725513e106fb8eca2c0c6",
+    "desktop/readiness.go": "6f86bcfb6dbd9912dcc0d620f50be57c33a454f7600cebfe92563717cde278f0",
+    "desktop/readiness_test.go": "6d58974a4130c5fcd4505a40cf551eb58a319efd8d8a22dc39a630fa7b2e0a8a",
+    "desktop/web/app.js": "92ffb9d072639a8ff441e1d96a7bfae36f061b4740db6f24fc48c6cb84a281cb",
+    "desktop/web/index.html": "e074ed5cb5de189c084608eb5d45838095168c4b530fcf503d269db56a00f524",
+    "desktop/web/style.css": "03bee1e7a4c19bc14301bbcd6a3042b7355e4dba9bdc8089d462eb73ccbf4388",
+    "helper/index.html": "4f8e6e41e79666e0d97fa6ad2c38a838a9b0300f370fbfb65c4a55c5204f4602",
+    "tests/test_launcher_readiness.py": "3d8e9e495643348762f1e7df8f97a15f2553323009cc134ad7b0379065908b47",
+    "docs/development.md": "bf4b8ad06b342ab69093e69c8b2dcb3dce5ab445c9bfe34e284e323c32c95f56"
+  },
+  "build": {
+    "files": {
+      "Start Beamo Wipe Linux": "24d875cb90b0026d338be196b9c36e135e8f886f38fc10e1659c3e5aeb9d1b2f",
+      "Start Beamo Wipe.exe": "cc63c0af27506094df4fb7b8eed2b775d3042b2c06919812c50e6210011122a8"
+    },
+    "go": "go1.26.8",
+    "source_commit": "9210aa32f1598936b752f4662ed926b1f3b60044",
+    "version": "0.2.9"
+  },
+  "build_version_output": "0.2.9 9210aa32f1598936b752f4662ed926b1f3b60044 dirty=true"
+}

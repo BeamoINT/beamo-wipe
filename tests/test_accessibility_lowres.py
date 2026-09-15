@@ -104,15 +104,14 @@ def test_last_chance_default_focus_is_back_not_erase():
 
 
 def test_working_screen_has_no_focusable_trap_and_blocks_close():
-    # Every screen except WORKING/DONE variants has a footer with buttons.
-    # WORKING intentionally has no buttons; _close must refuse WM_DELETE.
+    # Closing an active erase opens confirmation rather than exiting.
     close_src = inspect.getsource(tkui.TkWizard._close)
     assert 'Screen.WORKING' in close_src
     assert 'return' in close_src
     working_src = inspect.getsource(tkui.TkWizard._working)
-    # working builds no _Button; footer is hint-only
+    # Working exposes stop consent and a safe keep-erasing choice.
     assert 'HINT_WORKING' in working_src
-    assert '_primary_btn' not in working_src
+    assert 'C.STOP_KEEP' in working_src and 'C.STOP_CONFIRM' in working_src
 
 
 def test_footer_is_packed_last_so_actions_stay_reachable_on_small_windows():

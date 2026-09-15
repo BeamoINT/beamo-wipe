@@ -61,3 +61,9 @@ If you requested a report, an unsaved diagnostic requires the explicit
 diagnostic screen to save or retry. Only a verified diagnostic export for the
 current startup/discovery status removes this extra decision. It never
 qualifies as completed-wipe evidence. See [shutdown protection](report-shutdown.md).
+
+When the interfaces cannot stay open, the live supervisor now stops after three
+failed attempts and offers [stable kiosk recovery](kiosk-recovery.md), including
+manual retry, keyboard text screens, temporary technical details, and confirmed
+power choices. This remains available when Python imports fail; it cannot create
+an application diagnostic report or claim an erase result in that condition.

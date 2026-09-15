@@ -1,0 +1,128 @@
+dbus-daemon[1766959]: [session uid=1000 pid=1766959 pidfd=5] Cannot initialize inotify: Too many open files
+dbus-daemon[1766959]: [session uid=1000 pid=1766959 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=1766973 comm="python3 -m pytest" label="kernel")
+dbus-daemon[1766959]: [session uid=1000 pid=1766959 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[1766983]: Cannot initialize inotify: Too many open files
+........................................................................ [  2%]
+.....dbus-daemon[1766983]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=1766973 comm="python3 -m pytest" label="kernel")
+dbus-daemon[1766983]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+................................................................... [  5%]
+........................................................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+...................................................................F.... [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+.....................................sss..s.ssssssss.................... [ 57%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+...........................................ss........................... [ 85%]
+.......s................................................................ [ 87%]
+........................................................................ [ 90%]
+............s........................................................... [ 92%]
+............................ssssssssssss................................ [ 95%]
+........................................................................ [ 97%]
+...........................................................              [100%]
+=================================== FAILURES ===================================
+_____ test_helper_renders_both_windows_paths_on_small_and_desktop_displays _____
+
+    def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
+        chrome = _chrome()
+        if not chrome:
+            pytest.skip("Chrome is not installed for helper pixel checks")
+        html = HELPER.resolve().as_uri()
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            for width, height, name in ((360, 900, "small"), (1280, 900, "desktop")):
+                shot = tmp_path / f"{name}.png"
+                argv = (
+                    [
+                        chrome,
+                        "--headless=new",
+                        # Keep pixel checks independent of an open personal
+                        # Chrome session and of other concurrent test runs.
+                        f"--user-data-dir={tmp_path / (name + '-profile')}",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                        "--disable-background-networking",
+                        "--disable-component-update",
+                        "--disable-extensions",
+                        "--disable-sync",
+                        "--use-mock-keychain",
+                        "--password-store=basic",
+                        "--disable-gpu",
+                        "--hide-scrollbars",
+                        f"--window-size={width},{height}",
+                        f"--screenshot={shot}",
+                        "--timeout=10000",
+                        "--dump-dom",
+                        html,
+                    ]
+                )
+                # Chrome may keep background services alive after completing both
+                # requested artifacts. Wait for those artifacts, then clean up the
+                # entire isolated process group; never reuse a personal profile.
+                with (tmp_path / f"{name}.log").open("w+b") as output:
+                    proc = subprocess.Popen(argv, stdout=output, stderr=subprocess.STDOUT,
+                                            start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 40
+                        dom = ""
+                        while time.monotonic() < deadline:
+                            dom = (tmp_path / f"{name}.log").read_text(errors="replace")
+                            code = proc.poll()
+                            if code is not None:
+                                assert code == 0, dom
+                                break
+                            if ("</html>" in dom and shot.is_file()
+                                    and shot.stat().st_size > 2000
+                                    and "bytes written to file" in dom):
+                                break
+                            time.sleep(0.1)
+                        else:
+>                           pytest.fail(f"Chrome did not finish rendering within 40s: {dom}")
+E                           Failed: Chrome did not finish rendering within 40s: [1771073:1771097:0914/222711.812515:ERROR:base/files/file_path_watcher_inotify.cc:338] inotify_init() failed: Too many open files (24)
+E                           [1771073:1771098:0914/222711.813120:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1771073:1771098:0914/222711.818077:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1771073:1771098:0914/222711.818172:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1771130:1771134:0914/222711.897397:ERROR:base/files/file_path_watcher_inotify.cc:338] inotify_init() failed: Too many open files (24)
+E                           
+E                           (index.html:1771073): dbind-WARNING **: 22:27:11.970: Couldn't connect to accessibility bus: Failed to connect to socket /home/box/.cache/at-spi/bus_5: No such file or directory
+E                           [1771073:1771098:0914/222712.029909:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1771073:1771098:0914/222712.029931:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+E                           [1771073:1771073:0914/222712.040624:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.Properties.GetAll: object_path= /org/freedesktop/UPower/devices/DisplayDevice: unknown error type: 
+E                           [0914/222712.262285:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+E                           [0914/222712.262346:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)
+E                           [0914/222712.277857:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+E                           [0914/222712.277875:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)
+E                           [1771073:1771100:0914/222720.544966:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+E                           [1771073:1771100:0914/222720.545601:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+E                           Created TensorFlow Lite XNNPACK delegate for CPU.
+E                           [1771073:1771100:0914/222748.964596:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+
+tests/test_helper_boot_guidance.py:310: Failed
+=========================== short test summary info ============================
+FAILED tests/test_helper_boot_guidance.py::test_helper_renders_both_windows_paths_on_small_and_desktop_displays
+1 failed, 2838 passed, 28 skipped in 390.87s (0:06:30)

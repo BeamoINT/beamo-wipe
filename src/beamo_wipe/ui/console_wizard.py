@@ -14,6 +14,7 @@ from beamo_wipe import diagnostic_report as D
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
 from beamo_wipe.keyboard import CONSOLE_DEAD_KEYS, LAYOUT_ORDER, LAYOUTS
+from beamo_wipe.identity import SYSTEM_PATH_NOTE
 from beamo_wipe.methods import METHODS, MethodId
 from beamo_wipe.models import Screen
 from beamo_wipe.safety import same_size_conflict
@@ -154,12 +155,18 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     if screen == Screen.OWNER:
         return ["Space to check. Enter continues only when checked. Esc: back"]
     if screen == Screen.PICK:
-        lines = ["Up/Down then Enter. PgUp/PgDn page. Esc back."]
+        lines = ["Up/Down then Enter. PgUp/PgDn page. Esc back.", "U: " + C.DISK_HELP_BUTTON]
+        if len(wizard.selectable) > 1:
+            lines.insert(0, "Compare disks (C): read only.")
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
     if screen == Screen.PICK_EMPTY:
         lines = ["Enter: shut down    Esc: back"]
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
@@ -175,6 +182,8 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
             "L: limits. A: Advanced. 1/2/3: choose. Enter: continue.",
             "Up/Down: read more",
         ]
+    if screen == Screen.DISK_HELP:
+        return ["Arrows/Pg: read. Esc: back. S: " + C.DISK_HELP_STOP]
     if screen == Screen.LIMITS:
         return ["Up/Down, PgUp/PgDn: read. Esc: back."]
     if screen == Screen.REPORT_HELP:
@@ -187,7 +196,8 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
             "Esc: back    Up/Down: read more",
         ]
     if screen == Screen.WORKING:
-        return ["Esc: cancel erase (interrupted)"]
+        return (["K / Esc / Enter: keep erasing. S: confirm stop."]
+                if wizard.stop_confirmation is not None else ["Esc: stop erase (cancel)"])
     if screen == Screen.CHECKING:
         return ["Please wait. Controls are unavailable during this check."]
     if screen == Screen.STOPPING:
@@ -197,7 +207,7 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     if screen == Screen.SHUTDOWN_CONFIRM:
         return [
             "Enter/Esc: keep session open",
-            "D: shut down without saving (type confirmation)",
+            "D: " + wizard.exit_confirmation_discard + " (type confirmation)",
         ]
     if screen == Screen.DIAGNOSTIC:
         action = "save diagnostic report" if wizard._diagnostic_baseline else "prepare baseline"
@@ -212,6 +222,9 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
             action = "E: retry evidence save    Enter: shut down"
         else:
             action = "Enter: shut down"
+        if wizard.can_erase_another:
+            return ["Up/Down, PgUp/PgDn: read aftercare.", C.ANOTHER_HINT,
+                    action + "    A: erase another disk"]
         return ["Up/Down, PgUp/PgDn: read aftercare.", action]
     return ["Esc: back"]
 
@@ -301,34 +314,33 @@ def _plain_loop(wizard: Wizard) -> int:
             wizard.shutdown()
             if not wizard.wants_shutdown:
                 if wizard.screen == Screen.SHUTDOWN_CONFIRM:
-                    print(C.SHUTDOWN_TITLE)
-                    print(C.SHUTDOWN_LOSS)
+                    print(wizard.exit_confirmation_title)
+                    print(wizard.exit_confirmation_loss)
                 print("Console input unavailable. Shutdown was not authorized.")
                 return 3
             return 0
         except KeyboardInterrupt:
-            # Ctrl-C when SIGINT is not ignored (desktop fallback). A running
-            # wipe must be cancelled, never abandoned with nwipe still on disk;
-            # anywhere else it shuts down cleanly instead of a traceback.
+            # Ctrl-C opens consent while polling continues. Terminal loss
+            # above still requests a system stop rather than abandoning nwipe.
             if wizard.screen == Screen.WORKING:
                 try:
-                    wizard.cancel_wipe()
+                    wizard.request_stop()
                 except Exception:
                     pass
-                if wizard.wants_shutdown:
+                if wizard.wants_shutdown or wizard.wants_new_session:
                     return 0
                 continue
             if wizard.screen == Screen.SHUTDOWN_CONFIRM:
                 wizard.keep_report_session()
             else:
                 wizard.shutdown()
-            if wizard.wants_shutdown:
+            if wizard.wants_shutdown or wizard.wants_new_session:
                 return 0
 
 
 def _plain_loop_body(wizard: Wizard) -> int:
     last_working = None
-    while not wizard.wants_shutdown:
+    while not wizard.wants_shutdown and not wizard.wants_new_session:
         wizard.tick()
         screen = wizard.screen
         if screen != Screen.WORKING:
@@ -339,14 +351,14 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(C.PREVIEW_BANNER)
             print("=" * 60)
         if screen == Screen.SHUTDOWN_CONFIRM:
-            print(C.SHUTDOWN_TITLE)
-            print(textwrap.fill(C.SHUTDOWN_LOSS, 76))
+            print(wizard.exit_confirmation_title)
+            print(textwrap.fill(wizard.exit_confirmation_loss, 76))
             print(wizard.report_recovery_warning)
             generation = wizard.shutdown_generation
             answer = input(
-                "Type SHUT DOWN WITHOUT SAVING to discard; Enter keeps session open: "
+                f"Type {wizard.exit_confirmation_discard.upper()} to discard; Enter keeps session open: "
             )
-            if answer == "SHUT DOWN WITHOUT SAVING":
+            if answer == wizard.exit_confirmation_discard.upper():
                 wizard.confirm_shutdown_without_saving(generation)
             else:
                 wizard.keep_report_session()
@@ -402,6 +414,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(" -", b)
             print(C.POWER_REMINDER)
             print(C.POWER_BLANKING)
+            print(C.POWER_EVENTS)
+            print(wizard.power_text)
             _answer(wizard, "Press Enter to continue… ")
             wizard.accept_what()
             continue
@@ -419,8 +433,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
-            if wizard.empty_detail:
-                print(wizard.empty_detail)
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -428,6 +442,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
+            if len(wizard.selectable) > 1:
+                print(inventory.COMPARE_TITLE)
+                print(inventory.comparison_text(wizard.selectable, peers=wizard.listed_disks))
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -440,7 +459,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(textwrap.fill(f"[{i}] {view.compact_line}", 76, break_long_words=True, break_on_hyphens=False))
                 for note in view.notes:
                     print(textwrap.fill("    " + note, 76, break_long_words=True, break_on_hyphens=False))
-            choice = _answer(wizard, "Number of disk to erase: ").strip()
+            print("U: " + C.DISK_HELP_BUTTON)
+            choice = _answer(wizard, "Number of disk to erase, or U for help: ").strip()
+            if choice.upper() == "U":
+                wizard.open_disk_help()
+                continue
             try:
                 idx = int(choice) - 1
                 if idx < 0:
@@ -449,6 +472,15 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.continue_pick()
             except (ValueError, IndexError):
                 pass
+            continue
+        if screen == Screen.DISK_HELP:
+            print(C.DISK_HELP_TITLE)
+            print(C.DISK_HELP_TEXT)
+            answer = _answer(wizard, "BACK: disk list. STOP: " + C.DISK_HELP_STOP + ": ")
+            if answer.strip().upper() == "BACK":
+                wizard.back()
+            elif answer.strip().upper() == "STOP":
+                wizard.shutdown()
             continue
         if screen == Screen.CONFIRM:
             disk = wizard.selected
@@ -464,6 +496,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.METHOD:
             print(C.TITLE_METHOD)
+            if wizard.selected:
+                print(C.SELECTED_DISK)
+                _print_view(wizard.disk_view(wizard.selected))
+                print(f"{SYSTEM_PATH_NOTE}: {wizard.selected.path}")
             print(wizard.storage_notice)
             print(limits.BUTTON)
             for method, spec in METHODS.items():
@@ -498,18 +534,24 @@ def _plain_loop_body(wizard: Wizard) -> int:
             }
             messages = {
                 Screen.CHECKING: "Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.",
-                Screen.STOPPING: "Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.",
+                Screen.STOPPING: C.STOPPING_TEXT,
                 Screen.REFRESHING: "Previous selections and confirmations have been cleared.",
             }
             print(titles[screen])
+            if screen != Screen.REFRESHING:
+                print(C.POWER_KEEP)
+                print(wizard.power_text)
             if wizard.selected is not None:
                 _print_view(wizard.disk_view(wizard.selected))
             print(textwrap.fill(messages[screen], 76))
             time.sleep(0.2)
             continue
         if screen == Screen.LAST_CHANCE:
+            print(C.LAST_LEAD)
             if wizard.selected:
                 _print_view(wizard.disk_view(wizard.selected))
+            print(C.POWER_KEEP)
+            print(wizard.power_text)
             print(wizard.prepare_text())
             print(wizard.operation_summary)
             print(wizard.erase_label())
@@ -527,10 +569,17 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.back()
             continue
         if screen == Screen.WORKING:
-            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning)
+            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text, wizard.stop_confirmation)
             if status != last_working:
-                print(status[0], "  [type CANCEL then Enter to interrupt]")
-                for warning in status[1:]:
+                print(status[0])
+                if wizard.stop_confirmation is not None:
+                    print(C.STOP_TITLE, C.STOP_LEAD)
+                    print("Type STOP then Enter to confirm; KEEP then Enter to keep erasing.")
+                else:
+                    print(C.STOP_WARNING)
+                    print("Type CANCEL then Enter to review stopping.")
+
+                for warning in status[1:5]:
                     if warning:
                         print(warning)
                 if last_working is None and wizard.selected:
@@ -544,9 +593,15 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     typed = sys.stdin.readline()
                     if typed == "":
                         raise EOFError
-                    if typed.strip().casefold() == "cancel":
-                        print("Stopping erase. Waiting for process termination and cleanup.")
-                        wizard.cancel_wipe()
+                    command = typed.strip().casefold()
+                    if wizard.stop_confirmation is not None:
+                        if command == "stop":
+                            print("Stopping erase. " + C.STOPPING_TEXT)
+                            wizard.confirm_stop(wizard.stop_confirmation)
+                        elif command != "cancel":
+                            wizard.keep_erasing()
+                    elif command == "cancel":
+                        wizard.request_stop()
             except InterruptedError:
                 time.sleep(0.3)
             except (OSError, ValueError) as exc:
@@ -556,37 +611,46 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 raise EOFError from exc
             continue
         if screen == Screen.DONE:
+            print(C.ERASE_STATUS_TITLE)
             print(wizard.elapsed_text)
             report = wizard.report_view
             print(wizard.method_summary)
             print(wizard.method_result)
             if wizard.selected:
                 _print_view(wizard.disk_view(wizard.selected))
+            print(wizard.result_view.next_step)
+            for alert in wizard.check_alerts:
+                print(alert)
+            print(C.REPORT_STATUS_TITLE)
+            print(C.REPORT_PREVIEW if wizard.preview else report.headline)
+            print(C.REPORT_STATUS_NOTICE)
             if report.evidence_error:
                 print(wizard.evidence_warning)
             if wizard.preview:
-                print(wizard.result_view.next_step)
                 ans = _answer(wizard, "Enter to run again, or q to close… ").strip().lower()
                 if ans in ("q", "quit", "close"):
                     wizard.shutdown()
                 else:
                     wizard.reset_for_preview()
             else:
-                print(wizard.result_view.next_step)
-                for alert in wizard.check_alerts:
-                    print(alert)
-                print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
+                if not report.evidence_error:
+                    print(C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message))
                 if report.can_retry_evidence:
                     prompt = "Type RETRY to save evidence again, or SHUTDOWN: "
                 elif report.can_save:
                     prompt = "Type SAVE to save the report, or SHUTDOWN: "
                 else:
                     prompt = "Type SHUTDOWN: "
+                if wizard.can_erase_another:
+                    print(C.ANOTHER_HINT)
+                    prompt += "Or type ANOTHER to erase another disk: "
                 action = _answer(wizard, prompt).strip().upper()
                 if action == "RETRY" and report.can_retry_evidence:
                     wizard.retry_evidence_save()
                 elif action == "SAVE" and report.can_save:
                     wizard.save_report_to_usb()
+                elif action == "ANOTHER":
+                    wizard.erase_another_disk()
                 elif action == "SHUTDOWN":
                     wizard.shutdown()
             continue
@@ -635,9 +699,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
     enter_quiet_since = None
     limits_offset = 0
     inventory_open = False
+    comparison_open = False
+    inventory_boot = False
     inventory_offset = 0
     pick_offset = 0
-    while not wizard.wants_shutdown:
+    while not wizard.wants_shutdown and not wizard.wants_new_session:
         wizard.tick()
         stdscr.erase()
         h, w = stdscr.getmaxyx()
@@ -650,9 +716,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, 1, 0, C.PREVIEW_BANNER)
             y = min(3, y_max)
         if inventory_open:
-            _add(stdscr, y, 0, inventory.TITLE)
+            if comparison_open:
+                overlay_title = inventory.COMPARE_TITLE
+                overlay_text = inventory.comparison_text(
+                    wizard.selectable, peers=wizard.listed_disks
+                )
+            elif inventory_boot:
+                overlay_title = "Protected boot media"
+                overlay_text = wizard.protected_boot_text
+            else:
+                overlay_title = inventory.TITLE
+                overlay_text = inventory.full_text(wizard.other_devices)
+            _add(stdscr, y, 0, overlay_title)
             y += 1
-            lines = [line for paragraph in inventory.full_text(wizard.other_devices).split("\n")
+            lines = [line for paragraph in overlay_text.split("\n")
                      for line in _lines(paragraph, w)]
             page_size = max(1, y_max - y)
             inventory_offset = min(inventory_offset, max(0, len(lines) - page_size))
@@ -686,6 +763,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 lines.append("")
             lines.extend(_lines(C.POWER_REMINDER, w))
             lines.extend(_lines(C.POWER_BLANKING, w))
+            lines.extend(_lines(wizard.power_text, w))
+            lines.extend(_lines(C.POWER_EVENTS, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.OWNER:
             y = _wrap(stdscr, y, C.OWNER_CHECKBOX, w, y_max)
@@ -725,8 +804,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if need_below:
                 _add(stdscr, y_max - 1, 0, "More disks below. Use Up and Down.")
         elif wizard.screen == Screen.SHUTDOWN_CONFIRM:
-            y = _wrap(stdscr, y, C.SHUTDOWN_TITLE, w, y_max)
-            y = _wrap(stdscr, y, C.SHUTDOWN_LOSS, w, y_max)
+            y = _wrap(stdscr, y, wizard.exit_confirmation_title, w, y_max)
+            y = _wrap(stdscr, y, wizard.exit_confirmation_loss, w, y_max)
             _wrap(stdscr, y, wizard.report_recovery_warning, w, y_max)
         elif wizard.screen == Screen.DIAGNOSTIC:
             y = _wrap(stdscr, y, D.report_title(wizard.startup_error_code) + "\n" + D.NOTICE, w, y_max)
@@ -783,7 +862,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 wizard.set_confirm_input(wizard.confirm_input + chr(ch))
             continue
         elif wizard.screen == Screen.METHOD:
-            lines = _lines(wizard.storage_notice, w)
+            lines = []
+            if wizard.selected:
+                lines.extend(_lines(C.SELECTED_DISK, w))
+                lines.extend(_lines(_identity_text(wizard.disk_view(wizard.selected)), w))
+                lines.extend(_lines(f"{SYSTEM_PATH_NOTE}: {wizard.selected.path}", w))
+            lines.extend(_lines(wizard.storage_notice, w))
             lines.append("")
             for i, method in enumerate((MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO), 1):
                 star = ">" if wizard.method == method else " "
@@ -796,8 +880,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 )
                 lines.append("")
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
-        elif wizard.screen in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED}:
+        elif wizard.screen in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED, Screen.DISK_HELP}:
             content = limits.full_text() if wizard.screen == Screen.LIMITS else C.ADVANCED_LOG_NOTE
+            if wizard.screen == Screen.DISK_HELP:
+                content = C.DISK_HELP_TITLE + "\n\n" + C.DISK_HELP_TEXT
             if wizard.screen == Screen.REPORT_HELP:
                 if y < y_max:
                     _add(stdscr, y, 0, f"[{'X' if wizard.report_wanted else ' '}] {C.REPORT_WANTED}")
@@ -819,9 +905,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 _add(stdscr, y, 0, line)
                 y += 1
         elif wizard.screen == Screen.LAST_CHANCE:
+            y = _wrap(stdscr, y, C.LAST_LEAD, w, y_max)
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
             rest = []
+            rest.extend(_lines(C.POWER_KEEP, w))
+            rest.extend(_lines(wizard.power_text, w))
             rest.extend(_lines(wizard.prepare_text(), w))
             rest.extend(_lines(wizard.operation_summary, w))
             rest.extend(_lines(wizard.erase_label(), w))
@@ -830,13 +919,18 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 rest.extend(_lines(wizard.error, w))
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
         elif wizard.screen == Screen.WORKING:
+            if wizard.stop_confirmation is not None:
+                y = _wrap(stdscr, y, C.STOP_TITLE + " " + C.STOP_LEAD, w, y_max)
+            if wizard.error:
+                y = _wrap(stdscr, y, wizard.error, w, y_max)
             y = _wrap(stdscr, y, wizard.progress_view.status_text, w, y_max)
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            if wizard.error:
-                y = _wrap(stdscr, y, wizard.error, w, y_max)
-            if wizard.evidence_warning:
-                _wrap(stdscr, y, wizard.evidence_warning, w, y_max)
+            lines = []
+            for text in (wizard.evidence_warning, C.POWER_KEEP, wizard.power_text):
+                if text:
+                    lines.extend(_lines(text, w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen in {Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING}:
             titles = {
                 Screen.CHECKING: "Checking disk",
@@ -845,24 +939,31 @@ def _loop(stdscr, wizard: Wizard) -> int:
             }
             messages = {
                 Screen.CHECKING: "Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.",
-                Screen.STOPPING: "Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing.",
+                Screen.STOPPING: C.STOPPING_TEXT,
                 Screen.REFRESHING: "Previous selections and confirmations have been cleared.",
             }
             y = _wrap(stdscr, y, titles[wizard.screen], w, y_max)
             if wizard.selected is not None:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            _wrap(stdscr, y, messages[wizard.screen], w, y_max)
+            content = messages[wizard.screen]
+            if wizard.screen != Screen.REFRESHING:
+                content += "\n" + C.POWER_KEEP + "\n" + wizard.power_text
+            lines = [line for text in content.split("\n") for line in _lines(text, w)]
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.DONE:
             report = wizard.report_view
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
+            y = _wrap(stdscr, y, C.ERASE_STATUS_TITLE, w, y_max)
             y = _wrap(stdscr, y, wizard.method_result, w, y_max)
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
             content = wizard.elapsed_text + "\n" + wizard.result_view.next_step
             if wizard.check_alerts:
                 content += "\n" + "\n".join(wizard.check_alerts)
-            if not wizard.preview:
+            content += "\n" + C.REPORT_STATUS_TITLE + "\n" + (C.REPORT_PREVIEW if wizard.preview else report.headline)
+            content += "\n" + C.REPORT_STATUS_NOTICE
+            if not wizard.preview and not report.evidence_error:
                 content += "\n" + C.report_aftercare(can_save=report.can_save, status=report.status, message=report.message)
             if report.evidence_error:
                 content += "\n" + wizard.evidence_warning
@@ -899,7 +1000,21 @@ def _loop(stdscr, wizard: Wizard) -> int:
                          curses.KEY_PPAGE: -page_size, curses.KEY_NPAGE: page_size}[ch]
                 inventory_offset = max(0, inventory_offset + delta)
             continue
+        if wizard.screen == Screen.PICK and ch in (ord("c"), ord("C")) and len(wizard.selectable) > 1:
+            inventory_open = True
+            comparison_open = True
+            inventory_boot = False
+            inventory_offset = 0
+            continue
+        if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("b"), ord("B")) and wizard.protected_boot:
+            inventory_open = True
+            inventory_boot = True
+            comparison_open = False
+            inventory_offset = 0
+            continue
         if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("o"), ord("O")) and wizard.other_devices:
+            comparison_open = False
+            inventory_boot = False
             inventory_open = True
             inventory_offset = 0
             continue
@@ -933,7 +1048,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             enter_quiet_since = None
             continue
         _paged = {
+            Screen.WORKING, Screen.CHECKING, Screen.STOPPING,
             Screen.LIMITS,
+            Screen.DISK_HELP,
             Screen.REPORT_HELP,
             Screen.ADVANCED,
             Screen.DONE,
@@ -950,10 +1067,6 @@ def _loop(stdscr, wizard: Wizard) -> int:
             continue
         if wizard.screen not in _paged:
             limits_offset = 0
-        if wizard.screen == Screen.WORKING and ch == 27:
-            stdscr.erase()
-            _wrap(stdscr, 0, "Stopping erase. Waiting for process termination and cleanup. The disk may still be erasing.", w)
-            stdscr.refresh()
         _handle(wizard, ch)
     return 0
 
@@ -1001,11 +1114,11 @@ def _confirm_report_discard(stdscr, wizard: Wizard) -> None:
     _curses_opt("echo")
     _curses_opt("curs_set", 1)
     try:
-        _add(stdscr, h - 2, 0, "Type SHUT DOWN WITHOUT SAVING; anything else returns:")
+        _add(stdscr, h - 2, 0, f"Type {wizard.exit_confirmation_discard.upper()}; anything else returns:")
         _add(stdscr, h - 1, 0, " " * 55)
         stdscr.refresh()
         answer = stdscr.getstr(h - 1, 0, 32).decode("ascii", errors="replace")
-        if answer == "SHUT DOWN WITHOUT SAVING":
+        if answer == wizard.exit_confirmation_discard.upper():
             wizard.confirm_shutdown_without_saving(generation)
         else:
             wizard.keep_report_session()
@@ -1055,6 +1168,9 @@ def _handle(wizard: Wizard, ch: int) -> None:
             wizard.back()
             return
         return
+    if wizard.screen == Screen.DONE and ch in (ord("a"), ord("A")):
+        wizard.erase_another_disk()
+        return
     if wizard.screen == Screen.DONE and ch in (ord("e"), ord("E")):
         wizard.begin_evidence_retry()
         return
@@ -1064,6 +1180,15 @@ def _handle(wizard: Wizard, ch: int) -> None:
         return
     if wizard.can_open_report_help and ch in (ord("r"), ord("R")):
         wizard.open_report_help()
+        return
+    if wizard.screen == Screen.PICK and ch in (ord("u"), ord("U")):
+        wizard.open_disk_help()
+        return
+    if wizard.screen == Screen.DISK_HELP:
+        if ch == 27:
+            wizard.back()
+        elif ch in (ord("s"), ord("S")):
+            wizard.shutdown()
         return
     if wizard.screen == Screen.REPORT_HELP:
         if ch == ord(" "):
@@ -1085,17 +1210,14 @@ def _handle(wizard: Wizard, ch: int) -> None:
     if wizard.screen == Screen.SPLASH:
         wizard.skip_splash()
         return
-    if wizard.screen == Screen.WORKING and ch == 27:
-        # Esc on WORKING now cancels visibly instead of being ignored
-        try:
-            wizard.cancel_wipe()
-        except Exception as exc:
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("ui", "console_cancel_failed", type(exc).__name__)
-            except Exception:
-                pass
+    if wizard.screen == Screen.WORKING:
+        if wizard.stop_confirmation is not None:
+            if ch in (ord("s"), ord("S")):
+                wizard.confirm_stop(wizard.stop_confirmation)
+            elif ch in (27, 10, 13, ord("k"), ord("K")):
+                wizard.keep_erasing()
+        elif ch == 27:
+            wizard.request_stop()
         return
     if ch == 27:
         wizard.back()
