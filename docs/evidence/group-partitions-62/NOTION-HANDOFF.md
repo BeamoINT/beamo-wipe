@@ -14,6 +14,8 @@ MCP Notion tools were not available in this session. Paste this block into Ref #
 - Starting `main`: `4c26217877047abe244bd3ef9266a1ced1db5491` — `fix: gallery HTML-escape pin matches boot-card serial rendering`
 - Branch: `feat/group-partitions-under-disks` (independent from current main; PRs #42, #43, #44 not merged)
 - Implementation: `834312a1a623548100fd72cad61010000a062478` — `feat: nest partitions under physical disks in the picker (#62)`
+- Handoff commit: `cfd97eb`
+- PR: https://github.com/BeamoINT/beamo-wipe/pull/45
 - Evidence: `docs/evidence/group-partitions-62/`
 
 On 4c26217 the happy-demo picker listed 6 Other detected devices as unrelated unsupported rows, including the boot USB partition and every NVMe/SATA/USB partition (`Unknown model | … | Connection unknown`). See `baseline-other-devices.txt`.
