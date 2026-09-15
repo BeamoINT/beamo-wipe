@@ -1,0 +1,14 @@
+FAILED tests/test_accessible_runtime.py::test_orca_announces_every_result - A...
+FAILED tests/test_compare_disks.py::test_comparison_retains_complete_identity_and_uncertainty
+FAILED tests/test_compare_disks.py::test_comparison_is_fail_closed_and_does_not_authorize
+FAILED tests/test_compare_disks.py::test_tk_comparison_reflow_keyboard_and_continuity[2-900-2]
+FAILED tests/test_compare_disks.py::test_tk_comparison_reflow_keyboard_and_continuity[7-900-2]
+FAILED tests/test_compare_disks.py::test_tk_comparison_reflow_keyboard_and_continuity[7-500-1]
+FAILED tests/test_compare_disks.py::test_console_offers_read_only_comparison
+FAILED tests/test_compare_disks.py::test_console_comparison_scroll_and_escape_preserve_selection
+FAILED tests/test_compare_disks.py::test_browser_comparison_keyboard_reflow_and_selection[1100-2]
+FAILED tests/test_compare_disks.py::test_browser_comparison_keyboard_reflow_and_selection[390-1]
+FAILED tests/test_compare_disks.py::test_gtk_comparison_disclosure_is_read_only
+FAILED tests/test_helper_boot_guidance.py::test_helper_renders_both_windows_paths_on_small_and_desktop_displays
+FAILED tests/test_ui_rework.py::test_review_keeps_full_long_disk_identity_and_safe_default
+13 failed, 2504 passed, 30 skipped in 378.85s (0:06:18)

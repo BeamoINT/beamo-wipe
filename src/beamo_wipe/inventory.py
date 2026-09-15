@@ -2,6 +2,7 @@
 """Display-only explanations; eligibility remains owned by safety.py."""
 
 import os
+from typing import Iterable
 
 from beamo_wipe.models import Disk, DiscoveryResult, ExcludedDevice
 
@@ -117,3 +118,45 @@ def serial_comparison(disk: Disk, peers: tuple[Disk, ...]) -> tuple[int, int, st
     position = (f"character {start + 1}" if end == start + 1
                 else f"characters {start + 1} to {end}")
     return start, end, f"Compare serial {position}: {serial[start:end]}. {reminder}"
+
+
+COMPARE_TITLE = "Compare disks"
+COMPARE_INTRO = (
+    "Read only. Compare model, capacity, serial and connection before choosing. "
+    "Your selection stays unchanged. If identity is uncertain, do not guess."
+)
+
+
+def comparison_entries(
+    disks: Iterable[Disk], *, peers: Iterable[Disk] | None = None
+) -> tuple[str, ...]:
+    """Accept only the caller's eligible snapshot; never discover or select."""
+    from beamo_wipe.identity import present_disk, SERIAL_NOT_REPORTED
+
+    candidates = tuple(disks)
+    identity_peers = tuple(peers) if peers is not None else candidates
+    entries = []
+    numbered = enumerate(sorted(candidates, key=lambda d: d.path), 1)
+    # Keep equal-capacity candidates adjacent while retaining picker numbers.
+    ordered = sorted(
+        numbered, key=lambda item: (item[1].size_bytes, (item[1].model or "").casefold(), item[0])
+    )
+    for number, disk in ordered:
+        view = present_disk(disk, identity_peers)
+        lines = [
+            f"Disk {number}",
+            f"Model: {view.title}",
+            f"Capacity: {view.capacity}",
+            f"Serial: {(disk.serial or '').strip() or SERIAL_NOT_REPORTED}",
+            f"Connection: {view.connection}",
+        ]
+        if view.id_label != "Serial":
+            lines.append(f"{view.id_label}: {view.id_value}")
+        lines.extend(view.notes)
+        entries.append("\n".join(lines))
+    return tuple(entries)
+
+
+def comparison_text(disks: Iterable[Disk], *, peers: Iterable[Disk] | None = None) -> str:
+    return COMPARE_INTRO + "\n\n" + "\n\n".join(comparison_entries(disks, peers=peers))
+

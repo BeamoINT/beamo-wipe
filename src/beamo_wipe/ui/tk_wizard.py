@@ -2117,6 +2117,7 @@ class TkWizard:
                 for child in widget.winfo_children():
                     boot_wheel(child)
             boot_wheel(boot_card)
+        self._comparison(cards)
         items: List = sorted(self.w.selectable, key=lambda d: d.path)
         for disk in items:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
@@ -2164,12 +2165,78 @@ class TkWizard:
         # action when a disk is chosen, otherwise the safe way out.
         (self._primary if can and self._primary is not None else back).focus_set()
 
+    def _comparison(self, parent) -> None:
+        entries = inventory.comparison_entries(self.w.selectable, peers=self.w.listed_disks)
+        if len(entries) < 2:
+            return
+        section = tk.Frame(parent, bg=BG)
+        section.pack(fill=tk.X, pady=(0, 10))
+        content = tk.Frame(section, bg=BG)
+        opened = tk.BooleanVar(value=False)
+        def toggle():
+            if opened.get():
+                content.pack(fill=tk.X)
+            else:
+                content.pack_forget()
+        toggle_button = tk.Checkbutton(
+            section, text=inventory.COMPARE_TITLE, variable=opened,
+            command=toggle, bg=BG, fg=INK, font=self.font_s_bold,
+            takefocus=True, highlightcolor=FOCUS,
+        )
+        toggle_button.pack(anchor="w")
+        for key in ("Return", "KP_Enter"):
+            toggle_button.bind(f"<{key}>", lambda e: (toggle_button.invoke(), "break")[1])
+        intro = self._p(content, inventory.COMPARE_INTRO, font=self.font_s)
+        intro.pack(fill=tk.X)
+        content.bind("<Configure>", lambda e: intro.configure(wraplength=max(1, e.width - 12)))
+        grid = tk.Frame(content, bg=BG)
+        grid.pack(fill=tk.X)
+        cells = []
+        for entry in entries:
+            cell = tk.Frame(grid, bg=BG)
+            cells.append(cell)
+            reader = tk.Text(cell, height=8, width=1, wrap=tk.CHAR,
+                             font=self.font_s, bg=SURFACE_ALT, fg=INK,
+                             takefocus=True, padx=10, pady=8,
+                             highlightcolor=FOCUS, highlightthickness=1)
+            reader.insert("1.0", entry)
+            reader.configure(state=tk.DISABLED)
+            scrollbar = tk.Scrollbar(cell, command=reader.yview, takefocus=False)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            reader.configure(yscrollcommand=scrollbar.set)
+            reader.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            setattr(reader, "_beamo_comparison", True)
+            for key, delta in (("Up", -1), ("Down", 1), ("Prior", -6), ("Next", 6)):
+                reader.bind(f"<{key}>", lambda e, r=reader, d=delta: (r.yview_scroll(d, "units"), "break")[1])
+            for key in ("Return", "KP_Enter", "space"):
+                reader.bind(f"<{key}>", lambda e: "break")
+            reader.bind("<Tab>", lambda e: (e.widget.tk_focusNext().focus_set(), "break")[1])
+            reader.bind("<Shift-Tab>", lambda e: (e.widget.tk_focusPrev().focus_set(), "break")[1])
+            def reveal(event):
+                canvas = self._pick_canvas
+                if canvas is not None and str(event.widget).startswith(str(canvas)):
+                    self._pick_restore_pending = False
+                    bounds = canvas.bbox("all")
+                    if bounds:
+                        top = event.widget.winfo_rooty() - canvas.winfo_rooty()
+                        if top < 0 or top + event.widget.winfo_height() > canvas.winfo_height():
+                            canvas.yview_moveto((canvas.canvasy(0) + top) / max(1, bounds[3]))
+            reader.bind("<FocusIn>", reveal)
+        def reflow(event):
+            columns = 2 if event.width >= 700 else 1
+            for column in range(2):
+                grid.columnconfigure(column, weight=1 if column < columns else 0, uniform="compare")
+            for i, cell in enumerate(cells):
+                cell.grid(row=i // columns, column=i % columns, sticky="nsew", padx=3, pady=3)
+        grid.bind("<Configure>", reflow)
+
     def _protected_boot(self, parent):
         if self.w.protected_boot is not None:
             card = self._disk_row(parent, self.w.protected_boot, False)
             setattr(card, "_beamo_protected_boot", True)
             return card
         return None
+
 
     def _other_devices(self, col, *, before=None) -> None:
         if not self.w.other_devices:
@@ -3283,7 +3350,8 @@ class TkWizard:
             self._owner_var.set(1 if self.w.owner_ok else 0)
             self._draw()
             return "break"
-        if getattr(self.root.focus_get(), "_beamo_inventory", False):
+        if any(getattr(self.root.focus_get(), marker, False)
+               for marker in ("_beamo_inventory", "_beamo_comparison")):
             return None
         if self.w.screen == Screen.PICK and event.keysym in ("Up", "Down"):
             self._pick_ensure_visible = True
