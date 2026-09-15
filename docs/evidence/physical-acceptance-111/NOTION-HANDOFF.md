@@ -14,6 +14,8 @@ Continued with **Grok 4.6 high** via the T3-wired Grok CLI after Codex GPT-6 Ast
 - Starting `main`: `9210aa3` — `Merge verified laptop power guidance into current main`
 - Branch: `feat/physical-acceptance-111` (independent from current main; no other feature branches merged)
 - Implementation commit: `5ebcb8c3504ed15ab7c7fab4ed81532401dc3db0` — `docs: physical acceptance matrix scaffolding (#111)`
+- Handoff commit: `6d1a49b2818a57fabaf42ae6e2843db3ec72c27d`
+- Draft PR (prep-only, physical still blocked): https://github.com/BeamoINT/beamo-wipe/pull/31
 
 ### What landed
 
