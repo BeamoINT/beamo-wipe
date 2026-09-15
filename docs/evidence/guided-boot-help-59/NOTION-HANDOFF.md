@@ -9,7 +9,7 @@ Continued with **Grok 4.6 high** via the T3-wired Grok CLI. Branched from curren
 - Repo: `beamo-wipe`
 - Starting `main`: `4c26217877047abe244bd3ef9266a1ced1db5491` — `fix: gallery HTML-escape pin matches boot-card serial rendering`
 - Branch: `feat/guided-boot-troubleshooting`
-- Implementation commit: `bd70113fe846cda7cbffa93022e67135e6aa5b30` — `feat: guide USB, boot-key, firmware, and launcher failures`
+- Implementation commit: `5a69ae5970233e1cd933411759f7ad3e49a188ae` — `feat: guide USB, boot-key, firmware, and launcher failures`
 - Helper tests on that SHA before product edits: 14 passed (`tests/test_helper_boot_guidance.py`)
 - Acceptance criteria were written in `docs/evidence/guided-boot-help-59/README.md` before coding
 
