@@ -14,6 +14,7 @@ from beamo_wipe import diagnostic_report as D
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
 from beamo_wipe.keyboard import CONSOLE_DEAD_KEYS, LAYOUT_ORDER, LAYOUTS
+from beamo_wipe.identity import SYSTEM_PATH_NOTE
 from beamo_wipe.methods import METHODS, MethodId
 from beamo_wipe.models import Screen
 from beamo_wipe.safety import same_size_conflict
@@ -492,6 +493,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.METHOD:
             print(C.TITLE_METHOD)
+            if wizard.selected:
+                print(C.SELECTED_DISK)
+                _print_view(wizard.disk_view(wizard.selected))
+                print(f"{SYSTEM_PATH_NOTE}: {wizard.selected.path}")
             print(wizard.storage_notice)
             print(limits.BUTTON)
             for method, spec in METHODS.items():
@@ -831,7 +836,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 wizard.set_confirm_input(wizard.confirm_input + chr(ch))
             continue
         elif wizard.screen == Screen.METHOD:
-            lines = _lines(wizard.storage_notice, w)
+            lines = []
+            if wizard.selected:
+                lines.extend(_lines(C.SELECTED_DISK, w))
+                lines.extend(_lines(_identity_text(wizard.disk_view(wizard.selected)), w))
+                lines.extend(_lines(f"{SYSTEM_PATH_NOTE}: {wizard.selected.path}", w))
+            lines.extend(_lines(wizard.storage_notice, w))
             lines.append("")
             for i, method in enumerate((MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO), 1):
                 star = ">" if wizard.method == method else " "

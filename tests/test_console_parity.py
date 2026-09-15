@@ -281,6 +281,8 @@ def test_plain_fallback_methods_identity_and_busy(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
     console._plain_loop(wiz)
     text = capsys.readouterr().out
+    for value in (disk.model, disk.serial, disk.path, wiz.disk_view(disk).capacity):
+        assert value in text
     for spec in METHODS.values():
         assert spec.overwrite_description in text
         assert spec.verification_description in text

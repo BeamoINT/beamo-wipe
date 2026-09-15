@@ -1156,7 +1156,7 @@ class TkWizard:
     def _prepare_body_host(self) -> None:
         self._body_inner = None
         self._body_canvas = None
-        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE}):
+        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE}):
             return
         if self.w.screen in {
             Screen.PICK,
@@ -1665,7 +1665,7 @@ class TkWizard:
         return meta
 
     def _disk_summary(self, parent: tk.Widget, disk: Disk) -> _Box:
-        """The selected disk, shown the same way on confirm, working, and done."""
+        """The selected disk, shared across confirmation, method, and result screens."""
         box = _Box(
             parent, radius=RADIUS, fill=PRIMARY_TINT, outline=PRIMARY, ow=1,
             padx=20, pady=12, shadow=False,
@@ -1691,10 +1691,29 @@ class TkWizard:
         tools = tk.Frame(col, bg=BG)
         tools.pack(fill=tk.X, pady=(0, 4))
 
-        def utility(text: str, command: Callable[[], None]) -> None:
-            _Button(tools, text=text, font=self.font_s, command=command,
-                    variant="ghost", compact=True).pack(side=tk.LEFT, padx=(0, 4))
+        tool_row = tk.Frame(tools, bg=BG)
+        tool_row.pack(anchor="w")
+        tool_width = 0
 
+        def utility(text: str, command: Callable[[], None]) -> None:
+            nonlocal tool_row, tool_width
+            button = _Button(tool_row, text=text, font=self.font_s, command=command,
+                             variant="ghost", compact=True)
+            width = button.winfo_reqwidth() + 4
+            # Enlarged fonts must not expand the fixed footer beyond the
+            # window. Keep every utility available in compact stacked rows.
+            if tool_width and tool_width + width > self.lay.content_w:
+                button.destroy()
+                tool_row = tk.Frame(tools, bg=BG)
+                tool_row.pack(anchor="w")
+                tool_width = 0
+                button = _Button(tool_row, text=text, font=self.font_s, command=command,
+                                 variant="ghost", compact=True)
+            button.pack(side=tk.LEFT, padx=(0, 4))
+            tool_width += width
+
+        if self.w.screen == Screen.METHOD:
+            utility(C.BTN_ADVANCED, self._nav(self.w.open_advanced))
         if self.w.can_open_keyboard and self.w.screen != Screen.KEYBOARD:
             utility(C.KEYBOARD_UTILITY, self._nav(self.w.open_keyboard))
         if self.w.can_refresh:
@@ -1715,8 +1734,15 @@ class TkWizard:
         right.pack(side=tk.RIGHT)
         mid = tk.Frame(row, bg=BG)
         mid.pack(fill=tk.BOTH, expand=True)
-        self._hint = self._hint_bar(mid, hint)
-        self._hint.pack(fill=tk.BOTH, expand=True)
+        if self.lay.short:
+            # A separate wrapping hint leaves the full action row available
+            # to Back and Continue at small sizes and enlarged text.
+            self._hint = self._p(col, hint, font=self.font_s, fg=MUTED,
+                                 wraplength=self.lay.content_w - 8)
+            self._hint.pack(fill=tk.X, before=row, pady=(4, 0))
+        else:
+            self._hint = self._hint_bar(mid, hint)
+            self._hint.pack(fill=tk.BOTH, expand=True)
         row._left = left  # type: ignore[attr-defined]
         row._right = right  # type: ignore[attr-defined]
         return row
@@ -2621,9 +2647,12 @@ class TkWizard:
 
     def _method(self) -> None:
         col = self._column(self._body, fill_height=True)
-        # Tightest screen in the wizard: keep the whole column inside the
-        # 1024x740 minimum window with the footer fully visible.
+        # Identity is informational only; method changes keep the bound target.
+        # The shared scrolling body accommodates long identities and small screens.
         self._title_block(col, C.TITLE_METHOD, C.METHOD_LEAD, compact=True)
+        if self.w.selected:
+            self._disk_summary(col, self.w.selected).pack(fill=tk.X)
+            self._more_link(col)
         self._p(col, self.w.storage_notice, font=self.font_s, fg=INK).pack(fill=tk.X)
         _Button(
             col, text=limits.BUTTON, command=self._nav(self.w.open_limits),
@@ -2632,15 +2661,6 @@ class TkWizard:
         zone = self._center_zone(col)
         for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
             self._method_card(zone, method)
-        adv = _Button(
-            zone,
-            text=C.BTN_ADVANCED,
-            command=self._nav(self.w.open_advanced),
-            font=self.font_s_bold,
-            variant="ghost",
-            compact=True,
-        )
-        adv.pack(anchor="w", pady=(2, 0))
         row = self._footer_shell(C.HINT_METHOD)
         self._back_btn(row)
         self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_method)

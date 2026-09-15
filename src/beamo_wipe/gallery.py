@@ -892,7 +892,7 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p><p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
@@ -908,6 +908,7 @@ function draw() {
     });
     html += `<button class="linkbtn" id="adv">${P.buttons.advanced}</button></div></div>`;
     main.innerHTML = html;
+    bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => { method = el.dataset.id; draw(); };
       el.onclick = pick;
