@@ -27,9 +27,11 @@ def test_full_device_identity_wraps_in_rows_and_summaries(ui, size):  # noqa: F8
     summary.pack(fill='x')
     for _ in range(5):
         app.root.update()
+    view = wiz.disk_view(disk)
+    assert view.id_value == disk.serial
     for container in (row, summary):
         labels = [w for w in descendants(container) if w.winfo_class() == 'Label'
-                  and str(w.cget('text')).replace('\n', '') in (disk.display_name, disk.serial)]
+                  and str(w.cget('text')).replace('\n', '') in (disk.display_name, view.marked_id)]
         assert len(labels) == 2
         for label in labels:
             assert label.winfo_ismapped()
@@ -112,7 +114,8 @@ def test_device_path_is_visible_without_expanding_details(ui, screen):  # noqa: 
     view = wiz.disk_view(wiz.selected)
     texts = [w.cget('text') for w in descendants(app.root) if w.winfo_class() == 'Label']
     assert view.title in texts
-    assert view.id_value in texts
+    assert view.marked_id in texts
+    assert view.id_value == wiz.selected.serial
     assert any(view.connection in (text or '') for text in texts)
     assert wiz.selected.path not in texts
     assert view.system_path == wiz.selected.path
@@ -122,7 +125,12 @@ def test_countdown_ready_still_explains_nothing_started(ui):  # noqa: F811
     from test_tk_runtime import _button_named
     wiz, app = ui(size=(1024, 740))
     _drive_to(wiz, app, Screen.LAST_CHANCE)
-    assert 'Nothing starts automatically' in app._countdown_label.cget('text')
+    assert any(
+        widget.winfo_class() == 'Label' and widget.cget('text') == C.LAST_LEAD
+        for widget in descendants(app.root)
+    )
+    assert 'never starts erasure' in C.LAST_LEAD
+    assert app._countdown_label.cget('text') == C.COUNTDOWN_CAPTION
     wiz._erase_until = 0
     app._refresh_last_chance()
     assert 'Nothing has started' in app._countdown_label.cget('text')
@@ -138,7 +146,7 @@ def test_wheel_over_disk_identity_scrolls_without_selecting(ui):  # noqa: F811
     canvas.yview_moveto(0)
     selected = wiz.selected
     label = next(w for w in descendants(app._pick_cards[selected.path])
-                 if w.winfo_class() == 'Label' and w.cget('text') == selected.serial)
+                 if w.winfo_class() == 'Label' and w.cget('text') == wiz.disk_view(selected).marked_id)
     before = canvas.yview()[0]
     label.event_generate('<MouseWheel>', delta=-120)
     app.root.update()

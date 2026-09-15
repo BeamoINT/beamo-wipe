@@ -32,7 +32,7 @@ TITLE_PICK = "Which disk should we erase?"
 TITLE_CONFIRM = "Make sure this is the right disk"
 TITLE_METHOD = "Choose an erase method"
 TITLE_ADVANCED = "Advanced"
-TITLE_LAST = "Last chance to stop"
+TITLE_LAST = "Review before erasing"
 TITLE_WORKING = "Erasing now"
 TITLE_DONE_OK = "Finished"
 TITLE_DONE_FAIL = "The erase did not finish"
@@ -138,8 +138,8 @@ STARTUP_STILL_WORKING = (
 
 OWNER_LEAD = "Check the box, then continue."
 
-BOOT_USB_BANNER = "This is the Beamo USB — do not erase"
-BOOT_DISC_BANNER = "This is the Beamo boot disc — do not erase"
+BOOT_USB_BANNER = "Beamo USB — protected, cannot be erased"
+BOOT_DISC_BANNER = "Beamo boot disc — protected, cannot be erased"
 
 IDENTIFY_ERROR = (
     "We cannot tell which disk is this USB. Unplug extra USB sticks and start again."
@@ -183,12 +183,15 @@ CONFIRM_LEAD = "Type what we ask for, then continue."
 CONFIRM_MATCH_WAIT = "Type it exactly, then you can continue."
 CONFIRM_MATCH_OK = "That matches. You can continue."
 
-COUNTDOWN_CAPTION = "seconds until Erase is available. Nothing starts automatically."
+COUNTDOWN_CAPTION = "seconds until Erase is available."
 COUNTDOWN_READY = "Nothing has started. Choose Erase now to erase this disk."
 
 METHOD_LEAD = "Compare overwrite and read-back passes."
 
-LAST_LEAD = "If this is the wrong disk, go back."
+LAST_LEAD = (
+    "Check the selected disk and method. Reaching zero only enables Erase; "
+    "it never starts erasure."
+)
 AUTHORIZATION_STALE = "The disk or method changed. Confirm again."
 
 METHOD_CARDS = {
@@ -364,9 +367,27 @@ def pick_subtitle() -> str:
         "Choose only the disk you intend to erase."
     )
 
+DISK_HELP_BUTTON = "I'm not sure which disk"
+DISK_HELP_TITLE = "Let's identify the disk first"
+DISK_HELP_STOP = "Stop and shut down"
+DISK_HELP_TEXT = """You do not need to choose now. No disk is selected while you read this help.
+
+The disk you want to erase may be inside this computer, an external disk, or a disk from another computer. Do not choose a disk just because it is listed here.
+
+Compare the name or model, capacity, and serial or hardware ID with a trusted label or record for the disk you intend to erase. Use Show more in the disk list for technical details where available.
+
+If disks look alike or have the same capacity, compare their serial or hardware ID. Size alone is not enough. If identity is missing, duplicated, or does not match your record, do not guess. Ask someone you trust to help identify the disk.
+
+Technical detail: names such as /dev/sda can change between starts. A USB connection can be an external target or the Beamo boot USB; the connection type alone does not identify a disk. The Beamo boot USB remains protected.
+
+Still unsure? Stop and shut down before checking labels or changing connections. Wait until the computer is fully off. Keep the Beamo boot USB for restarting. Do not disconnect hardware while this session is running.
+
+Back returns to the disk list with no disk selected. Continue only when you can identify the intended disk with confidence. You will still need to select it, type its confirmation, and wait through the final safety countdown."""
+
 STOP_TITLE = "Stop this erase?"
 STOP_ASK = "Stop erase"
 STOP_CONFIRM = "Yes, stop erasing"
 STOP_KEEP = "Keep erasing"
 STOP_LEAD = STOP_WARNING + " Files may still remain on the disk. The erase continues until you confirm."
 STOPPING_TEXT = "The disk may still be erasing. Keep the disk and Beamo USB connected while we confirm it has stopped."
+

@@ -1,0 +1,197 @@
+dbus-daemon[1298348]: [session uid=1000 pid=1298348 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=1298363 comm="python3 -m pytest" label="kernel")
+dbus-daemon[1298348]: [session uid=1000 pid=1298348 pidfd=5] Successfully activated service 'org.a11y.Bus'
+........................................................................ [  2%]
+.....dbus-daemon[1298375]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=1298363 comm="python3 -m pytest" label="kernel")
+dbus-daemon[1298375]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+................................................................... [  5%]
+......................................................FFF............... [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+.....................................................................F.. [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+.................................................................sss..s. [ 62%]
+ssssssss................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+.............................................ss......................... [ 84%]
+.........s.............................................................. [ 87%]
+........................................................................ [ 90%]
+..............s..................................................sssssss [ 93%]
+sssss................................................................... [ 96%]
+........................................................................ [ 99%]
+........................                                                 [100%]
+=================================== FAILURES ===================================
+___________ test_every_walkable_screen_keeps_actions_and_copy[size0] ___________
+
+ui = <function ui.<locals>.build at 0x7f223678e480>, size = (800, 600)
+
+    @pytest.mark.parametrize("size", SIZES)
+    def test_every_walkable_screen_keeps_actions_and_copy(ui, size):  # noqa: F811
+        for screen in WALK_SCREENS:
+            wiz, app = ui(size=size)
+            app.root.minsize(*MIN_SIZE)
+            app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+            app.root.update_idletasks()
+            app.root.update()
+            _show(wiz, app, screen)
+            app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+            app.root.update_idletasks()
+            app.root.update()
+            assert wiz.screen == screen
+            shown = _texts(app.root)
+>           _assert_actions_on_window(app)
+
+tests/test_adaptive_layout.py:138:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+app = <beamo_wipe.ui.tk_wizard.TkWizard object at 0x7f22367420d0>
+
+    def _assert_actions_on_window(app):
+        app.root.update_idletasks()
+        ww = app.root.winfo_width()
+        wh = app.root.winfo_height()
+        buttons = [b for b in _buttons(app) if b.winfo_ismapped()]
+        assert buttons, "no mapped actions"
+        for btn in buttons:
+            x = btn.winfo_rootx() - app.root.winfo_rootx()
+            y = btn.winfo_rooty() - app.root.winfo_rooty()
+            assert y >= -2
+>           assert y + btn.winfo_height() <= wh + 2
+E           assert (675 + 31) <= (600 + 2)
+E            +  where 31 = winfo_height()
+E            +    where winfo_height = <beamo_wipe.ui.tk_wizard._Button object .!frame3.!frame3.!canvas.!frame.!frame.!frame.!frame.!_button>.winfo_height
+
+tests/test_adaptive_layout.py:88: AssertionError
+___________ test_every_walkable_screen_keeps_actions_and_copy[size1] ___________
+
+ui = <function ui.<locals>.build at 0x7f223678e020>, size = (1024, 600)
+
+    @pytest.mark.parametrize("size", SIZES)
+    def test_every_walkable_screen_keeps_actions_and_copy(ui, size):  # noqa: F811
+        for screen in WALK_SCREENS:
+            wiz, app = ui(size=size)
+            app.root.minsize(*MIN_SIZE)
+            app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+            app.root.update_idletasks()
+            app.root.update()
+            _show(wiz, app, screen)
+            app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+            app.root.update_idletasks()
+            app.root.update()
+            assert wiz.screen == screen
+            shown = _texts(app.root)
+>           _assert_actions_on_window(app)
+
+tests/test_adaptive_layout.py:138:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+app = <beamo_wipe.ui.tk_wizard.TkWizard object at 0x7f2236743750>
+
+    def _assert_actions_on_window(app):
+        app.root.update_idletasks()
+        ww = app.root.winfo_width()
+        wh = app.root.winfo_height()
+        buttons = [b for b in _buttons(app) if b.winfo_ismapped()]
+        assert buttons, "no mapped actions"
+        for btn in buttons:
+            x = btn.winfo_rootx() - app.root.winfo_rootx()
+            y = btn.winfo_rooty() - app.root.winfo_rooty()
+            assert y >= -2
+>           assert y + btn.winfo_height() <= wh + 2
+E           assert (660 + 31) <= (600 + 2)
+E            +  where 31 = winfo_height()
+E            +    where winfo_height = <beamo_wipe.ui.tk_wizard._Button object .!frame3.!frame3.!canvas.!frame.!frame.!frame.!frame.!_button>.winfo_height
+
+tests/test_adaptive_layout.py:88: AssertionError
+___________ test_every_walkable_screen_keeps_actions_and_copy[size2] ___________
+
+ui = <function ui.<locals>.build at 0x7f223678c860>, size = (1024, 740)
+
+    @pytest.mark.parametrize("size", SIZES)
+    def test_every_walkable_screen_keeps_actions_and_copy(ui, size):  # noqa: F811
+        for screen in WALK_SCREENS:
+            wiz, app = ui(size=size)
+            app.root.minsize(*MIN_SIZE)
+            app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+            app.root.update_idletasks()
+            app.root.update()
+            _show(wiz, app, screen)
+            app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+            app.root.update_idletasks()
+            app.root.update()
+            assert wiz.screen == screen
+            shown = _texts(app.root)
+>           _assert_actions_on_window(app)
+
+tests/test_adaptive_layout.py:138:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+app = <beamo_wipe.ui.tk_wizard.TkWizard object at 0x7f22354ecb90>
+
+    def _assert_actions_on_window(app):
+        app.root.update_idletasks()
+        ww = app.root.winfo_width()
+        wh = app.root.winfo_height()
+        buttons = [b for b in _buttons(app) if b.winfo_ismapped()]
+        assert buttons, "no mapped actions"
+        for btn in buttons:
+            x = btn.winfo_rootx() - app.root.winfo_rootx()
+            y = btn.winfo_rooty() - app.root.winfo_rooty()
+            assert y >= -2
+>           assert y + btn.winfo_height() <= wh + 2
+E           assert (721 + 33) <= (740 + 2)
+E            +  where 33 = winfo_height()
+E            +    where winfo_height = <beamo_wipe.ui.tk_wizard._Button object .!frame3.!frame2.!canvas.!frame.!frame.!frame.!frame.!_button>.winfo_height
+
+tests/test_adaptive_layout.py:88: AssertionError
+____________________ test_staged_chroot_package_matches_src ____________________
+
+    def test_staged_chroot_package_matches_src():
+        src = ROOT / "src/beamo_wipe"
+        staged = (
+            ROOT
+            / "packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe"
+        )
+        if not staged.is_dir():
+            return
+        for path in src.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix == ".pyc" or "__pycache__" in path.parts:
+                continue
+            rel = path.relative_to(src)
+            other = staged / rel
+            assert other.is_file(), f"missing staged copy of {rel}"
+>           assert other.read_bytes() == path.read_bytes(), f"staged copy drifted: {rel}"
+E           AssertionError: staged copy drifted: wizard.py
+E           assert b'# SPDX-Lice..., **kwargs)\n' == b'# SPDX-Lice..., **kwargs)\n'
+E
+E             At index 462 diff: b'B' != b'R'
+E             Use -v to get more diff
+
+tests/test_live_image.py:193: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_adaptive_layout.py::test_every_walkable_screen_keeps_actions_and_copy[size0]
+FAILED tests/test_adaptive_layout.py::test_every_walkable_screen_keeps_actions_and_copy[size1]
+FAILED tests/test_adaptive_layout.py::test_every_walkable_screen_keeps_actions_and_copy[size2]
+FAILED tests/test_live_image.py::test_staged_chroot_package_matches_src - Ass...
+4 failed, 2512 passed, 28 skipped in 355.24s (0:05:55)

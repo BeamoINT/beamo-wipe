@@ -28,6 +28,8 @@ type Snapshot struct {
 }
 
 type Plan struct {
+	checks      []readinessCheck
+	technical   string
 	Direct      bool
 	Entry       uint16
 	Fingerprint string
@@ -122,6 +124,12 @@ func parseBootOption(data []byte) (string, error) {
 }
 
 func makePlan(s Snapshot) Plan {
+	p := restartPlan(s)
+	p.checks, p.technical = explainReadiness(s, p)
+	return p
+}
+
+func restartPlan(s Snapshot) Plan {
 	p := Plan{Problem: s.Problem}
 	if p.Problem != "" {
 		return p

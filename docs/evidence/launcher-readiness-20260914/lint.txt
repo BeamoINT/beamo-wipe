@@ -1,0 +1,12 @@
+[ci-hosted] blocking syntax, shell and security lint
+All checks passed!
+3 files already formatted
+All checks passed!
+All checks passed!
+[ci-hosted] advisory full lint and type report
+All checks passed!
+src/beamo_wipe/session_recovery.py:91: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+Success: no issues found in 41 source files
+src/beamo_wipe/release_manifest.py:37:PLACEHOLDER_RE = re.compile(r"PLACEHOLDER|TODO|XXX|CHANGEME", re.I)
+[ci-hosted] warning: untracked TODO found; use 'TODO(#issue):' form
+[ci-hosted] PASS phase=lint

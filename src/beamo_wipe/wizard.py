@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from beamo_wipe.copy import (
     AUTHORIZATION_STALE,
+    BOOT_USB_BANNER,
+    BOOT_DISC_BANNER,
     REDISCOVER_ERROR,
     confirm_warning,
     erase_now_label,
@@ -323,6 +325,21 @@ class Wizard:
         return self._clock()
 
     @property
+    def protected_boot(self):
+        """Confirmed boot identity for display only; never an erase target."""
+        if not self.discovery.boot_identified or self.discovery.error:
+            return None
+        return self.discovery.boot
+
+    @property
+    def protected_boot_text(self) -> str:
+        boot = self.protected_boot
+        if boot is None:
+            return ""
+        title = BOOT_USB_BANNER if boot.bus == "USB" else BOOT_DISC_BANNER
+        return f"{title}\n{self.disk_view(boot).announcement}"
+
+    @property
     def empty_detail(self) -> str:
         """Read-only boot-device line for the empty screen.
 
@@ -346,27 +363,9 @@ class Wizard:
 
     @property
     def other_devices(self):
-        # Never display inventory when boot identity failed closed.
-        if not self.discovery.boot_identified or self.discovery.error or self.discovery.boot is None:
-            return ()
-        boot_paths = {
-            self.discovery.boot.path,
-            os.path.realpath(self.discovery.boot.path),
-        }
-        if self.discovery.excluded:
-            return tuple(
-                device
-                for device in self.discovery.excluded
-                if not device.path or device.path not in boot_paths
-            )
-        from beamo_wipe.inventory import excluded_device
-        eligible = {d.path for d in self.selectable}
-        boot_paths = {self.discovery.boot.path, os.path.realpath(self.discovery.boot.path)}
-        return tuple(
-            excluded_device(d)
-            for d in self.discovery.disks
-            if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
-        )
+        from beamo_wipe.inventory import other_devices
+
+        return other_devices(self.discovery)
 
     def disk_view(self, disk: Optional[Disk] = None):
         from beamo_wipe.identity import present_disk
@@ -374,7 +373,9 @@ class Wizard:
         target = disk if disk is not None else self.selected
         if target is None:
             raise SafetyError("No disk is selected.")
-        return present_disk(target, self.listed_disks)
+        return present_disk(
+            target, self.listed_disks, compare_serials=self.screen == Screen.PICK
+        )
 
     @property
     def confirm(self) -> Optional[ConfirmSpec]:
@@ -619,6 +620,7 @@ class Wizard:
                 Screen.ADVANCED,
                 Screen.LIMITS,
                 Screen.REPORT_HELP,
+                Screen.DISK_HELP,
             }
             and self._wipe_request is None
             and not self.wants_shutdown
@@ -900,7 +902,7 @@ class Wizard:
         return self.screen in {
             Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.PICK_EMPTY,
             Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD,
-            Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP,
+            Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP, Screen.DISK_HELP,
         } and self._wipe_request is None and not self.wants_shutdown and not self._startup_blocked and not self._diagnostic_busy
 
     def begin_refresh(self) -> Optional[int]:
@@ -1019,6 +1021,16 @@ class Wizard:
             and self._authorized_operation is not None
             and key == self._authorized_operation
         )
+
+    def open_disk_help(self) -> None:
+        """Reading identification help revokes the target, never authorizes it."""
+        with self._lock:
+            if self.screen != Screen.PICK or self.wants_shutdown:
+                return
+            self._clear_authorization_locked()
+            self.selected = None
+            self.error = None
+            self.screen = Screen.DISK_HELP
 
     def select_disk(self, path: str) -> None:
         with self._lock:
@@ -2277,6 +2289,7 @@ class Wizard:
                 return
             mapping = {
                 Screen.OWNER: Screen.WHAT,
+                Screen.DISK_HELP: Screen.PICK,
                 Screen.PICK: Screen.OWNER,
                 Screen.PICK_EMPTY: Screen.OWNER,
                 Screen.PICK_BLOCKED: Screen.OWNER,

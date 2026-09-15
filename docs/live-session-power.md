@@ -40,7 +40,9 @@ session recovery does not resume an erase, and unsaved evidence is lost.
 Source tests pin the files above. Hosted QEMU inspects the squashfs copies.
 Lid close and firmware power-button hold require physical hardware receipts
 and are not implied by QEMU. See
-[the dated receipts](evidence/live-session-power-20260910.md).
+[the dated receipts](evidence/live-session-power-20260910.md)
+and the still-untested physical rows in
+[physical acceptance #111](evidence/physical-acceptance-111/results/power.md).
 
 ## Laptop guidance and power readings
 
