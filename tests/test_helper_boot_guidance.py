@@ -44,6 +44,25 @@ FORBIDDEN = (
     "impossible to recover",
 )
 
+RISKY_FIRMWARE = FORBIDDEN + (
+    "clear cmos",
+    "reset cmos",
+    "clear the cmos",
+    "reset bios",
+    "flash bios",
+    "cmos battery",
+    "disable secure boot forever",
+    "turn secure boot off",
+    "secure boot off",
+)
+
+GUIDED_BRANCHES = (
+    ("trouble-usb", "The USB is missing or not listed"),
+    ("trouble-key", "The boot-menu key does nothing"),
+    ("trouble-firmware", "The computer refused the USB"),
+    ("trouble-launcher", "The launcher failed"),
+)
+
 
 class _Doc(HTMLParser):
     def __init__(self) -> None:
@@ -213,6 +232,89 @@ def test_desktop_help_matches_helper_paths():
         assert phrase not in lower, phrase
 
 
+def _guide_section(html: str) -> str:
+    start = html.index('id="guide"')
+    end = html.find('id="screen-reader"', start)
+    return html[start:] if end == -1 else html[start:end]
+
+
+def test_helper_and_desktop_guide_the_four_startup_problems():
+    helper = _html()
+    desktop = DESKTOP.read_text(encoding="utf-8")
+    desktop_css = (ROOT / "desktop/web/style.css").read_text(encoding="utf-8")
+    for html, css, phone_query in (
+        (helper, helper.split("<style>", 1)[1].split("</style>", 1)[0], "@media (max-width: 600px)"),
+        (desktop, desktop_css, "@media (max-width: 580px)"),
+    ):
+        guide = _guide_section(html)
+        assert "Choose what you see" in guide
+        assert 'aria-label="Startup problems"' in guide
+        if html is helper:
+            assert html.index('id="guide"') < html.index("Start from your desktop")
+        for branch_id, title in GUIDED_BRANCHES:
+            assert f'id="{branch_id}"' in guide, branch_id
+            assert f'href="#{branch_id}"' in guide
+            assert title in guide
+            assert f'id="{branch_id}" tabindex="-1"' in guide
+        assert guide.count("<figure") >= 4
+        assert guide.count("<figcaption>") >= 4
+        assert guide.count("<ol>") >= 4
+        assert "overflow-wrap: anywhere" in css
+        assert "min-height: 2.75em" in css
+        assert "white-space: nowrap" not in css
+        assert "overflow: hidden" not in css
+        media = css.split(phone_query, 1)[1]
+        assert ".chooser { grid-template-columns: 1fr; }" in media
+        assert ".illustration { width: 100%; }" in media
+
+
+def test_guided_branches_use_plain_language_and_safe_recovery():
+    helper = _html()
+    usb = helper.split('id="trouble-usb"', 1)[1].split('id="trouble-key"', 1)[0]
+    key = helper.split('id="trouble-key"', 1)[1].split('id="trouble-firmware"', 1)[0]
+    firmware = helper.split('id="trouble-firmware"', 1)[1].split('id="trouble-launcher"', 1)[0]
+    launcher = helper.split('id="trouble-launcher"', 1)[1].split("Start from your desktop", 1)[0]
+    assert "keyboard, monitor, or hub" in usb
+    assert "Use a device" in usb
+    assert "another direct USB port" in usb or "different port" in usb
+    assert "as soon as you restart" in key
+    assert "Windows Settings steps instead of changing firmware" in key
+    assert firmware.lower().index("bitlocker") < firmware.lower().index("manufacturer")
+    assert "does not change Secure Boot" in firmware
+    assert "does not mean an erase has started" in firmware
+    assert "does not erase" in launcher.lower()
+    assert "Start Beamo Wipe.exe" in launcher
+    assert "kiosk-recovery" in launcher
+    desktop = DESKTOP.read_text(encoding="utf-8")
+    desktop_fw = desktop.split('id="trouble-firmware"', 1)[1].split('id="trouble-launcher"', 1)[0]
+    assert desktop_fw.lower().index("bitlocker") < desktop_fw.lower().index("manufacturer")
+    assert "does not run on macOS" in desktop
+    assert "Not Apple Silicon" in desktop
+    # Intel Mac Option key is helper-only; the launcher does not run on macOS.
+    assert "Option (⌥)" in helper
+    assert "Option (⌥)" not in desktop
+    for blob in (helper.lower(), desktop.lower()):
+        for phrase in RISKY_FIRMWARE:
+            assert phrase not in blob, phrase
+
+
+def test_helper_guide_stays_offline_and_keyboard_operable():
+    doc = _parse()
+    html = _html()
+    assert doc.external_assets == []
+    assert "<script" not in html
+    assert "<form" not in html
+    assert "summary:focus-visible" in html
+    assert ".chooser a:focus-visible" in html
+    guide = _guide_section(html)
+    assert "<details>" in guide and "<summary>Technical detail</summary>" in guide
+    assert "No internet is required" in guide
+    desktop = DESKTOP.read_text(encoding="utf-8")
+    assert "<form" not in desktop
+    assert 'src="/app.js"' in desktop
+    assert "START-HERE.html" in desktop
+
+
 @pytest.mark.parametrize("url", MICROSOFT_SOURCES)
 def test_cited_microsoft_sources_are_current(url):
     request = urllib.request.Request(url, headers={"User-Agent": "BeamoWipeHelperCheck/1.0"})
@@ -322,4 +424,78 @@ def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
             assert "Windows 10: start this USB from Settings" in dom
             assert "BitLocker recovery key" in dom
             assert "Skip to instructions" in dom
+            assert "If something is not working" in dom
+            for _branch_id, title in GUIDED_BRANCHES:
+                assert title in dom
             assert shot.is_file() and shot.stat().st_size > 2000
+
+
+def _render_helper(chrome: str, tmp_path: Path, name: str, url: str, width: int, height: int) -> str:
+    shot = tmp_path / f"{name}.png"
+    argv = [
+        chrome,
+        "--headless=new",
+        f"--user-data-dir={tmp_path / (name + '-profile')}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-extensions",
+        "--disable-sync",
+        "--use-mock-keychain",
+        "--password-store=basic",
+        "--disable-gpu",
+        "--hide-scrollbars",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        f"--window-size={width},{height}",
+        f"--screenshot={shot}",
+        "--timeout=10000",
+        "--dump-dom",
+        url,
+    ]
+    with (tmp_path / f"{name}.log").open("w+b") as output:
+        proc = subprocess.Popen(argv, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            deadline = time.monotonic() + 40
+            dom = ""
+            while time.monotonic() < deadline:
+                dom = (tmp_path / f"{name}.log").read_text(errors="replace")
+                code = proc.poll()
+                if code is not None:
+                    assert code == 0, dom
+                    break
+                if "</html>" in dom and shot.is_file() and shot.stat().st_size > 2000:
+                    break
+                time.sleep(0.1)
+            else:
+                pytest.fail(f"Chrome did not finish rendering {name} within 40s: {dom}")
+        finally:
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait(timeout=3)
+    assert shot.is_file() and shot.stat().st_size > 2000
+    return dom
+
+
+def test_guided_branches_render_on_a_phone_width():
+    chrome = _chrome()
+    if not chrome:
+        pytest.skip("Chrome is not installed for helper pixel checks")
+    html = HELPER.resolve().as_uri()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        overview = _render_helper(chrome, tmp_path, "guide-360", html, 360, 900)
+        assert "If something is not working" in overview
+        for branch_id, title in GUIDED_BRANCHES:
+            dom = _render_helper(
+                chrome, tmp_path, branch_id, html + "#" + branch_id, 360, 900
+            )
+            assert title in dom
+            assert "Back to problems" in dom

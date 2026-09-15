@@ -145,7 +145,9 @@ on a personal development computer. Use only controlled fixtures.
 For launcher browser development, run `go run . --preview` inside `desktop/`.
 That uses fake readiness and cannot reboot. Test UI behavior in the host browser;
 Windows/Linux runtime and firmware tests remain separate. The offline helper is
-`helper/index.html`; it provides boot guidance and never erases disks.
+`helper/index.html`; it provides boot guidance, including a guided chooser for
+USB missing, an ineffective boot-menu key, firmware refusal, and launcher
+failure, and never erases disks.
 
 ## Full build and handoff
 
