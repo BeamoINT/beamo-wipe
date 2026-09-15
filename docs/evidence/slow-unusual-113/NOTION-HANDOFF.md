@@ -12,6 +12,7 @@ Continued with **Grok 4.6 high** via the T3-wired Grok CLI. Jack asked for this 
 - Starting `main`: `4c26217` — `fix: gallery HTML-escape pin matches boot-card serial rendering`
 - Branch: `feat/slow-unusual-interactions` (independent from current main)
 - Product source: **unchanged**. The gap was missing explicit coverage, not a missing engine.
+- Implementation commit: `f78b360e19b3762ffc0d467d28cfacd5253b26b9` — `test: cover slow and unusual interaction scenarios`
 - Implementation: `tests/test_slow_unusual_interactions.py` plus `docs/evidence/slow-unusual-113/`
 
 ### What landed

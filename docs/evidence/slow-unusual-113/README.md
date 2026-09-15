@@ -5,6 +5,7 @@
 - Repo: `beamo-wipe`
 - Starting `main`: `4c26217` — `fix: gallery HTML-escape pin matches boot-card serial rendering`
 - Branch: `feat/slow-unusual-interactions` (independent from current main)
+- Implementation commit: `f78b360e19b3762ffc0d467d28cfacd5253b26b9`
 - Inspection: `src/beamo_wipe/ui/tk_wizard.py`, `src/beamo_wipe/progress.py`,
   `src/beamo_wipe/support_export.py`, plus wizard/console/gallery/copy paths
   that share the same contracts.
