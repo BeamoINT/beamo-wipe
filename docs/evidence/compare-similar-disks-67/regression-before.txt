@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_comparison_retains_complete_identity_and_uncertainty ___________
+
+    def test_comparison_retains_complete_identity_and_uncertainty():
+        w = make_demo_wizard()
+        disk = w.selectable[0]
+        peers = (
+            replace(disk, serial="LONG" * 100),
+            replace(disk, path="/dev/sdz", model="", label="", serial="", wwn="WWN123", bus=""),
+            replace(disk, path="/dev/sdy", serial="", wwn=""),
+        )
+>       text = inventory.comparison_text(peers)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'beamo_wipe.inventory' has no attribute 'comparison_text'
+
+tests/test_compare_disks.py:20: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_compare_disks.py::test_comparison_retains_complete_identity_and_uncertainty
+1 failed, 9 deselected in 0.22s

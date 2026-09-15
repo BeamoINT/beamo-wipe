@@ -14,6 +14,7 @@ from beamo_wipe import diagnostic_report as D
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
 from beamo_wipe.keyboard import CONSOLE_DEAD_KEYS, LAYOUT_ORDER, LAYOUTS
+from beamo_wipe.identity import SYSTEM_PATH_NOTE
 from beamo_wipe.methods import METHODS, MethodId
 from beamo_wipe.models import Screen
 from beamo_wipe.safety import same_size_conflict
@@ -154,12 +155,18 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     if screen == Screen.OWNER:
         return ["Space to check. Enter continues only when checked. Esc: back"]
     if screen == Screen.PICK:
-        lines = ["Up/Down then Enter. PgUp/PgDn page. Esc back."]
+        lines = ["Up/Down then Enter. PgUp/PgDn page. Esc back.", "U: " + C.DISK_HELP_BUTTON]
+        if len(wizard.selectable) > 1:
+            lines.insert(0, "Compare disks (C): read only.")
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
     if screen == Screen.PICK_EMPTY:
         lines = ["Enter: shut down    Esc: back"]
+        if wizard.protected_boot:
+            lines.insert(0, wizard.protected_boot_text.splitlines()[0] + " (B: identity)")
         if wizard.other_devices:
             lines.insert(0, "Other detected devices (O): read reasons; not selectable.")
         return lines
@@ -175,6 +182,8 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
             "L: limits. A: Advanced. 1/2/3: choose. Enter: continue.",
             "Up/Down: read more",
         ]
+    if screen == Screen.DISK_HELP:
+        return ["Arrows/Pg: read. Esc: back. S: " + C.DISK_HELP_STOP]
     if screen == Screen.LIMITS:
         return ["Up/Down, PgUp/PgDn: read. Esc: back."]
     if screen == Screen.REPORT_HELP:
@@ -421,8 +430,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
-            if wizard.empty_detail:
-                print(wizard.empty_detail)
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -430,6 +439,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK:
+            if wizard.protected_boot_text:
+                print(wizard.protected_boot_text)
+            if len(wizard.selectable) > 1:
+                print(inventory.COMPARE_TITLE)
+                print(inventory.comparison_text(wizard.selectable, peers=wizard.listed_disks))
             if wizard.other_devices:
                 print(inventory.TITLE)
                 print(inventory.full_text(wizard.other_devices))
@@ -442,7 +456,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(textwrap.fill(f"[{i}] {view.compact_line}", 76, break_long_words=True, break_on_hyphens=False))
                 for note in view.notes:
                     print(textwrap.fill("    " + note, 76, break_long_words=True, break_on_hyphens=False))
-            choice = _answer(wizard, "Number of disk to erase: ").strip()
+            print("U: " + C.DISK_HELP_BUTTON)
+            choice = _answer(wizard, "Number of disk to erase, or U for help: ").strip()
+            if choice.upper() == "U":
+                wizard.open_disk_help()
+                continue
             try:
                 idx = int(choice) - 1
                 if idx < 0:
@@ -451,6 +469,15 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.continue_pick()
             except (ValueError, IndexError):
                 pass
+            continue
+        if screen == Screen.DISK_HELP:
+            print(C.DISK_HELP_TITLE)
+            print(C.DISK_HELP_TEXT)
+            answer = _answer(wizard, "BACK: disk list. STOP: " + C.DISK_HELP_STOP + ": ")
+            if answer.strip().upper() == "BACK":
+                wizard.back()
+            elif answer.strip().upper() == "STOP":
+                wizard.shutdown()
             continue
         if screen == Screen.CONFIRM:
             disk = wizard.selected
@@ -466,6 +493,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.METHOD:
             print(C.TITLE_METHOD)
+            if wizard.selected:
+                print(C.SELECTED_DISK)
+                _print_view(wizard.disk_view(wizard.selected))
+                print(f"{SYSTEM_PATH_NOTE}: {wizard.selected.path}")
             print(wizard.storage_notice)
             print(limits.BUTTON)
             for method, spec in METHODS.items():
@@ -643,6 +674,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
     enter_quiet_since = None
     limits_offset = 0
     inventory_open = False
+    comparison_open = False
+    inventory_boot = False
     inventory_offset = 0
     pick_offset = 0
     while not wizard.wants_shutdown:
@@ -658,9 +691,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _add(stdscr, 1, 0, C.PREVIEW_BANNER)
             y = min(3, y_max)
         if inventory_open:
-            _add(stdscr, y, 0, inventory.TITLE)
+            if comparison_open:
+                overlay_title = inventory.COMPARE_TITLE
+                overlay_text = inventory.comparison_text(
+                    wizard.selectable, peers=wizard.listed_disks
+                )
+            elif inventory_boot:
+                overlay_title = "Protected boot media"
+                overlay_text = wizard.protected_boot_text
+            else:
+                overlay_title = inventory.TITLE
+                overlay_text = inventory.full_text(wizard.other_devices)
+            _add(stdscr, y, 0, overlay_title)
             y += 1
-            lines = [line for paragraph in inventory.full_text(wizard.other_devices).split("\n")
+            lines = [line for paragraph in overlay_text.split("\n")
                      for line in _lines(paragraph, w)]
             page_size = max(1, y_max - y)
             inventory_offset = min(inventory_offset, max(0, len(lines) - page_size))
@@ -793,7 +837,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 wizard.set_confirm_input(wizard.confirm_input + chr(ch))
             continue
         elif wizard.screen == Screen.METHOD:
-            lines = _lines(wizard.storage_notice, w)
+            lines = []
+            if wizard.selected:
+                lines.extend(_lines(C.SELECTED_DISK, w))
+                lines.extend(_lines(_identity_text(wizard.disk_view(wizard.selected)), w))
+                lines.extend(_lines(f"{SYSTEM_PATH_NOTE}: {wizard.selected.path}", w))
+            lines.extend(_lines(wizard.storage_notice, w))
             lines.append("")
             for i, method in enumerate((MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO), 1):
                 star = ">" if wizard.method == method else " "
@@ -806,8 +855,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 )
                 lines.append("")
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
-        elif wizard.screen in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED}:
+        elif wizard.screen in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED, Screen.DISK_HELP}:
             content = limits.full_text() if wizard.screen == Screen.LIMITS else C.ADVANCED_LOG_NOTE
+            if wizard.screen == Screen.DISK_HELP:
+                content = C.DISK_HELP_TITLE + "\n\n" + C.DISK_HELP_TEXT
             if wizard.screen == Screen.REPORT_HELP:
                 if y < y_max:
                     _add(stdscr, y, 0, f"[{'X' if wizard.report_wanted else ' '}] {C.REPORT_WANTED}")
@@ -917,7 +968,21 @@ def _loop(stdscr, wizard: Wizard) -> int:
                          curses.KEY_PPAGE: -page_size, curses.KEY_NPAGE: page_size}[ch]
                 inventory_offset = max(0, inventory_offset + delta)
             continue
+        if wizard.screen == Screen.PICK and ch in (ord("c"), ord("C")) and len(wizard.selectable) > 1:
+            inventory_open = True
+            comparison_open = True
+            inventory_boot = False
+            inventory_offset = 0
+            continue
+        if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("b"), ord("B")) and wizard.protected_boot:
+            inventory_open = True
+            inventory_boot = True
+            comparison_open = False
+            inventory_offset = 0
+            continue
         if wizard.screen in (Screen.PICK, Screen.PICK_EMPTY) and ch in (ord("o"), ord("O")) and wizard.other_devices:
+            comparison_open = False
+            inventory_boot = False
             inventory_open = True
             inventory_offset = 0
             continue
@@ -953,6 +1018,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
         _paged = {
             Screen.WORKING, Screen.CHECKING, Screen.STOPPING,
             Screen.LIMITS,
+            Screen.DISK_HELP,
             Screen.REPORT_HELP,
             Screen.ADVANCED,
             Screen.DONE,
@@ -1083,6 +1149,15 @@ def _handle(wizard: Wizard, ch: int) -> None:
         return
     if wizard.can_open_report_help and ch in (ord("r"), ord("R")):
         wizard.open_report_help()
+        return
+    if wizard.screen == Screen.PICK and ch in (ord("u"), ord("U")):
+        wizard.open_disk_help()
+        return
+    if wizard.screen == Screen.DISK_HELP:
+        if ch == 27:
+            wizard.back()
+        elif ch in (ord("s"), ord("S")):
+            wizard.shutdown()
         return
     if wizard.screen == Screen.REPORT_HELP:
         if ch == ord(" "):
