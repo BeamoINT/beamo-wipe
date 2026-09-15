@@ -32,5 +32,5 @@ def test_finished_row_documents_report_actions():
     assert "Retry evidence save" in row
     assert C.BTN_RUN_AGAIN in row  # "Run again"
     assert C.BTN_CLOSE_PREVIEW in row  # "Close preview"
-    assert "Finished" in row and "Erase result" in row
+    assert C.ERASE_STATUS_TITLE in row and C.REPORT_STATUS_TITLE in row
     assert "verification was not performed" in row

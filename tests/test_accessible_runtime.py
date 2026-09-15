@@ -978,3 +978,20 @@ def test_review_countdown_announces_only_changed_text(ui):
     assert app.window.get_focus() == focus
     assert wizard.screen == Screen.LAST_CHANCE
     assert not wizard.runner.started
+
+@pytest.mark.parametrize("case", CASES, ids=[case[0] for case in CASES])
+@pytest.mark.parametrize("status", ["idle", "saving", "saved", "error"])
+def test_separate_erase_and_report_headings(ui, case, status):
+    from gi.repository import Atk
+    from beamo_wipe import copy as C
+    wizard, _, _ = case_evidence(case)
+    wizard.report_status = status
+    app = ui(wizard)
+    headings = {
+        widget.get_accessible().get_name()
+        for widget in widgets(app.window)
+        if widget.get_accessible().get_role() == Atk.Role.HEADING
+    }
+    assert {C.ERASE_STATUS_TITLE, C.REPORT_STATUS_TITLE} <= headings
+    assert wizard.report_view.headline in text(app)
+    assert wizard.result_view == VIEWS[case[0]]

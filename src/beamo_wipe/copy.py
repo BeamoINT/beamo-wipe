@@ -260,6 +260,12 @@ ADVANCED_LOG_NOTE = (
 )
 
 
+ERASE_STATUS_TITLE = "Erase status"
+REPORT_STATUS_TITLE = "Report status"
+REPORT_STATUS_NOTICE = "Saving or checking a report does not change the erase result."
+REPORT_PREVIEW = "Preview only. No report was saved."
+
+
 def report_aftercare(*, can_save: bool, status: str, message: str) -> str:
     """No insertion prompt unless the existing evidence gate allows saving."""
     if status == "saved":

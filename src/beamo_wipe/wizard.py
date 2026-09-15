@@ -92,6 +92,25 @@ class ReportView:
     retries_remaining: int = 0
     evidence_status: str = "unknown"
 
+    @property
+    def headline(self) -> str:
+        if self.saving_evidence:
+            return "Preparing the report"
+        if self.evidence_error:
+            return "Report preparation could not be confirmed"
+        return {
+            "idle": "Report not saved to USB",
+            "saving": "Saving and checking the report copy",
+            "saved": "Report copy saved and checked",
+            "error": "Report copy could not be saved and checked",
+        }.get(self.status, "Report status could not be confirmed")
+
+    @property
+    def tone(self) -> str:
+        # Report warnings never reuse the red erase-failure badge or green
+        # erase-success check. Words identify saved copies explicitly.
+        return "warn" if self.evidence_error or self.status == "error" else "info"
+
 
 @dataclass(frozen=True)
 class DiagnosticView:
@@ -2187,9 +2206,9 @@ class Wizard:
             elif inputs.get("interrupted"):
                 message = "The erase was interrupted"
             elif self.wipe_result.ok:
-                message = "The erase process reported completion; report evidence is not saved"
+                message = "The erase process reported completion; the result could not be confirmed"
             else:
-                message = "The erase did not finish; report evidence is not saved"
+                message = "The erase did not finish"
             view = replace(view, message=message)
         if self._recovered:
             from dataclasses import replace
