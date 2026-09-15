@@ -83,3 +83,37 @@ def other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]:
         for d in discovery.disks
         if d.path not in eligible and os.path.realpath(d.path) not in boot_paths
     )
+
+
+def serial_comparison(disk: Disk, peers: tuple[Disk, ...]) -> tuple[int, int, str]:
+    """Display-only span (Python offsets) and spoken, one-based explanation.
+
+    Compare the existing warning's displayed-capacity group. Strip only a
+    common prefix/suffix, so the remaining portion preserves every difference.
+    Case-only differences cannot establish identity. Missing serials prevent a
+    complete comparison; duplicate serials never receive a distinguishing span.
+    """
+    serial = (disk.serial or "").strip()
+    others = [d for d in peers if d.path != disk.path
+              and d.size_gb_label == disk.size_gb_label]
+    values = [serial, *((d.serial or "").strip() for d in others)]
+    if (disk.is_boot or not others or not all(values)
+            or any(serial.casefold() == (other.serial or "").strip().casefold()
+                   for other in peers if other.path != disk.path)):
+        return 0, 0, ""
+    start = 0
+    shortest = min(map(len, values))
+    while start < shortest and len({v[start].casefold() for v in values}) == 1:
+        start += 1
+    suffix = 0
+    while (suffix < shortest - start
+           and len({v[-suffix - 1].casefold() for v in values}) == 1):
+        suffix += 1
+    end = len(serial) - suffix
+    reminder = "Check the full ID before choosing."
+    if start == end:
+        unit = "character" if len(serial) == 1 else "characters"
+        return 0, 0, f"Serial has {len(serial)} {unit}; other serials are longer. {reminder}"
+    position = (f"character {start + 1}" if end == start + 1
+                else f"characters {start + 1} to {end}")
+    return start, end, f"Compare serial {position}: {serial[start:end]}. {reminder}"

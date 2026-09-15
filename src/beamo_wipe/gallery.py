@@ -73,7 +73,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 spec = confirm_spec(disk, peers)
             except SafetyError:
                 spec = None
-        view = present_disk(disk, peers)
+        view = present_disk(disk, peers, compare_serials=True)
         out.append(
             {
                 "path": disk.path,
@@ -84,6 +84,8 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "storageNotice": limits.notice(disk.kind),
                 "bus": view.connection,
                 "serial": view.id_value,
+                "markedSerial": view.marked_id,
+                "comparisonNote": view.comparison_note,
                 "idLabel": view.id_label,
                 "connection": view.connection,
                 "missingNote": view.missing_note,
@@ -338,7 +340,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .identity-label { color: var(--primary); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
   .serialpair { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   .serialpair .ser { min-width: 0; }
-  .serial-label { font-size: 12px; color: var(--muted); }
+  .serial-label { flex-shrink: 0; font-size: 12px; color: var(--muted); }
   .splash-roadmap { font-size: 14px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
   .pick-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 8px; }
   .pick-tools .morelink { margin-top: 0; }
@@ -686,10 +688,10 @@ function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function metaLine(d) {
-  const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote].filter(Boolean)
+  const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
     .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
   const extra = showMore ? `<div class="small muted">System name (not a stable identity): ${esc(d.path)}</div>` : "";
-  return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(d.serial)}</span></span>
+  return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(screen === "pick" ? d.markedSerial || d.serial : d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
     <div class="connection"><span>${esc(d.connection || d.bus)}</span></div>${notes}${extra}</div>`;
 }

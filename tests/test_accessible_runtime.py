@@ -871,3 +871,14 @@ def test_picker_protected_identity_is_reader_not_select_action(ui):
     assert wizard.discovery.boot.serial in protected[0].get_accessible().get_name()
     assert not any(name.startswith("Select ") and wizard.discovery.boot.serial in name for name in app.actions)
     assert wizard.selected is None and not wizard.runner.started
+
+
+def test_serial_comparison_is_in_accessible_disk_name(ui):
+    from test_serial_comparison import comparison_wizard
+    wizard = comparison_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    names = [w.get_accessible().get_name() or "" for w in widgets(app.window)]
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        assert any(view.id_value in name and view.comparison_note in name for name in names)

@@ -1646,7 +1646,7 @@ class TkWizard:
                  fg=MUTED, bg=bg).pack(side=tk.LEFT, anchor="n", padx=(0, 8), pady=2)
         value = tk.Frame(identity, bg=bg)
         value.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self._wrapping_label(value, view.id_value, font=self.font_mono_bold, bg=bg)
+        self._wrapping_label(value, view.marked_id, font=self.font_mono_bold, bg=bg)
         for note in view.notes:
             self._wrapping_label(value, note, font=self.font_s, fg=MUTED, bg=bg)
         if self._show_more:
