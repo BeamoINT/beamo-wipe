@@ -1,0 +1,38 @@
+- main:
+  - heading "Use the computer's boot menu" [level=1]
+  - paragraph: Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.
+  - region "Before you restart":
+    - heading "Before you restart" [level=2]
+    - list:
+      - listitem:
+        - heading "Original USB detection" [level=3]
+        - paragraph: Not confirmed. The original USB could not be safely accepted.
+        - paragraph: Open the launcher from the original Beamo USB, not a copied application. Try a direct USB port, then choose Check again.
+      - listitem:
+        - heading "Startup-settings readability" [level=3]
+        - paragraph: Not verified. The check did not establish that startup settings could be read.
+        - paragraph: Resolve the earlier check, then choose Check again. You can also use the boot instructions below.
+      - listitem:
+        - heading "Supported restart route" [level=3]
+        - paragraph: Not verified. A guided restart is not available from these results.
+        - paragraph: Use the boot instructions below, or resolve the other checks and choose Check again.
+  - group: Technical details
+  - status: Readiness checks complete.
+  - button "Check again"
+  - paragraph: This version restarts before erasing any drive. After startup, you choose the disk and confirm the erase. You can keep working by closing this window.
+  - group:
+    - text: Need help starting from the USB?
+    - paragraph: Keep the USB connected. Restart, then press the boot-menu key for your PC and choose the USB. Those keys vary by manufacturer; they are not universal.
+    - term: Dell, Lenovo, Acer
+    - definition: F12
+    - term: HP
+    - definition: Esc, then F9
+    - term: ASUS
+    - definition: F8 or Esc
+    - term: MSI, Gigabyte
+    - definition: F11 (MSI), F12 (Gigabyte)
+    - paragraph: "Windows 11: Settings → System → Recovery → Advanced startup → Restart now → Use a device. Windows 10: Settings → Update & Security → Recovery → Advanced startup → Restart now → Use a device. Use a device is for UEFI PCs."
+    - paragraph: If you might start this Windows installation again, confirm you can reach the BitLocker recovery key before changing firmware, boot order, or Secure Boot. Those changes can trigger recovery. This launcher does not change Secure Boot or BitLocker. If the USB is missing, try a direct USB port. See START-HERE.html on the USB for the full offline steps.
+    - paragraph: Not Apple Silicon. Not Chromebooks. Intel Mac booting is best-effort and this desktop launcher does not run on macOS.
+  - paragraph: Powered by nwipe, free software. Read-back verification checks exposed storage; SSD hidden areas may retain data. Treat erasure as permanent.
+  - text: Version development · Runs locally on this computer

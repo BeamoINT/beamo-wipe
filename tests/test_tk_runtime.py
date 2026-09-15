@@ -1755,6 +1755,41 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
 
 
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("scenario", ["happy", "empty"])
+@pytest.mark.parametrize("long_identity", [False, True])
+def test_protected_boot_card_is_separate_and_never_clickable(ui, size, scenario, long_identity):
+    wiz, app = ui(scenario=scenario, size=size)
+    screen = Screen.PICK if scenario == "happy" else Screen.PICK_EMPTY
+    if long_identity:
+        boot = replace(wiz.discovery.boot, model="VeryLongBootModel" * 12,
+                       raw_model="VeryLongBootModel" * 12, serial="BOOTIDENTITY" * 24)
+        wiz.discovery = replace(wiz.discovery, boot=boot,
+                                disks=tuple(boot if d.path == boot.path else d for d in wiz.discovery.disks))
+    wiz.screen = screen
+    app._draw()
+    app.root.update()
+    def descendants(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from descendants(child)
+    cards = [w for w in descendants(app.root) if getattr(w, "_beamo_protected_boot", False)]
+    assert len(cards) == 1
+    card = cards[0]
+    labels = " ".join(str(w.cget("text")) for w in descendants(card) if isinstance(w, tk.Label))
+    assert "Beamo USB" in labels and "protected, cannot be erased" in labels
+    assert wiz.discovery.boot.serial in labels.replace("\u200b", "").replace("\n", "")
+    assert card.winfo_ismapped()
+    for widget in descendants(card):
+        assert not widget.bind("<Button-1>")
+    assert wiz.discovery.boot.path not in app._pick_cards
+    before = wiz.selected
+    wiz.select_disk(wiz.discovery.boot.path)
+    assert wiz.selected == before and not wiz.runner.started
+    assert not _off_window_problems(app)
+    assert not _clipping_problems(app)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 @pytest.mark.parametrize("long", [False, True])
 def test_serial_comparison_markers_wrap_and_leave_controls_visible(size, long):
     from test_serial_comparison import comparison_wizard

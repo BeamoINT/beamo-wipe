@@ -3,6 +3,8 @@
 <body><a class="skip" href="#main">Skip to instructions</a><header><strong>Beamo Wipe</strong><button id="close" class="quiet">Close</button></header>
 <main id="main"><p id="preview" class="notice" hidden>Preview — nothing on this computer will change.</p>
 <section id="check"><h1 id="title" tabindex="-1">Checking this computer…</h1><p id="detail">Reading compatibility information. Nothing is changed during this check.</p>
+<section id="readiness" aria-labelledby="checks-title" aria-busy="true"><h2 id="checks-title">Before you restart</h2><ul id="checks"><li>Checking the original USB, startup settings, and restart route…</li></ul></section>
+<details id="technical" hidden><summary>Technical details</summary><pre id="technical-detail"></pre></details>
 <p id="status" tabindex="-1" role="status" aria-live="polite"></p>
 <button id="inspect" class="primary" hidden>Check again</button>
 <div id="confirm" hidden><h2>Save your work first</h2><p>Close your applications. Keep the Beamo USB and the drive you intend to erase connected.</p><label class="ack"><input id="saved" type="checkbox"> I’ve saved my work. After restarting I will still choose and confirm the disk before anything is erased.</label><button id="restart" class="primary" disabled>Restart into Beamo Wipe</button></div>

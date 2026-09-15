@@ -2019,19 +2019,13 @@ class TkWizard:
         icon.pack(side=tk.LEFT, anchor="n", pady=1)
         title_col = tk.Frame(top, bg=fill)
         title_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        if disk.is_boot:
+            banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
+            self._p(title_col, banner, font=self.font_s_bold, bg=fill,
+                    wraplength=max(200, self.lay.wrap - 100)).pack(fill=tk.X, pady=(0, 6))
         self._disk_heading(title_col, disk, fill)
         self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(4, 0))
         if disk.is_boot:
-            banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
-            pill = _Box(
-                inner, radius=PILL, fill=DANGER_TINT, outline=DANGER_BORDER,
-                ow=1, padx=11, pady=3,
-            )
-            tk.Label(
-                pill.inner, text=banner, font=self.font_s_bold, fg=DANGER, bg=DANGER_TINT
-            ).pack()
-            pill.fit_now()
-            pill.pack(anchor="w", pady=(10, 0), padx=(36, 0))
             return card
 
         def _click(_e, p=disk.path):
@@ -2115,6 +2109,14 @@ class TkWizard:
             widget.bind("<Button-5>", _wheel)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
+        boot_card = self._protected_boot(cards)
+        if boot_card is not None:
+            def boot_wheel(widget):
+                for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                    widget.bind(sequence, _wheel)
+                for child in widget.winfo_children():
+                    boot_wheel(child)
+            boot_wheel(boot_card)
         items: List = sorted(self.w.selectable, key=lambda d: d.path)
         for disk in items:
             selected = self.w.selected is not None and disk.path == self.w.selected.path
@@ -2161,6 +2163,13 @@ class TkWizard:
         # Always land keyboard focus somewhere sensible: the obvious next
         # action when a disk is chosen, otherwise the safe way out.
         (self._primary if can and self._primary is not None else back).focus_set()
+
+    def _protected_boot(self, parent):
+        if self.w.protected_boot is not None:
+            card = self._disk_row(parent, self.w.protected_boot, False)
+            setattr(card, "_beamo_protected_boot", True)
+            return card
+        return None
 
     def _other_devices(self, col, *, before=None) -> None:
         if not self.w.other_devices:
@@ -2311,11 +2320,20 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         _icon_badge(col, "info", 40).pack(anchor="w")
         msg = C.EMPTY_DISKS
-        detail = self.w.empty_detail
-        if detail:
-            msg = f"{msg}\n\n{detail}"
         self._title_block(col, C.TITLE_EMPTY, msg)
-        self._other_devices(col)
+        region = tk.Frame(col, bg=BG)
+        region.pack(fill=tk.BOTH, expand=True)
+        canvas = tk.Canvas(region, bg=BG, highlightthickness=0)
+        cards = tk.Frame(canvas, bg=BG)
+        window = canvas.create_window((0, 0), window=cards, anchor="nw")
+        cards.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda _e: canvas.itemconfigure(window, width=canvas.winfo_width()))
+        scroll = tk.Scrollbar(region, command=canvas.yview, takefocus=True)
+        canvas.configure(yscrollcommand=scroll.set)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._protected_boot(cards)
+        self._other_devices(cards)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)

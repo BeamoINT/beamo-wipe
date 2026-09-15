@@ -119,9 +119,10 @@ def gallery_html() -> str:
             "failed": preview_view(False).payload(),
         },
         "otherTitle": inventory.TITLE,
+        "bootDisc": C.BOOT_DISC_BANNER,
         "otherDevices": {
-            "happy": inventory.full_text(result.excluded),
-            "empty": inventory.full_text(discovery_for_scenario("empty").excluded),
+            "happy": inventory.full_text(inventory.other_devices(result)),
+            "empty": inventory.full_text(inventory.other_devices(discovery_for_scenario("empty"))),
         },
         "limitsTitle": limits.TITLE,
         "reportHelpTitle": C.REPORT_HELP_TITLE,
@@ -386,7 +387,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .sel .radio::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--primary); }
   .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; background: var(--surface-alt); color: var(--muted); border-radius: 999px; vertical-align: 2px; }
   .chip.ok { color: var(--ok); background: var(--ok-tint); }
-  .bootbanner { display: inline-block; margin-top: 10px; margin-left: 36px; color: var(--danger); font-weight: 700; font-size: 14px; background: var(--danger-tint); border: 1px solid var(--danger-border); border-radius: 999px; padding: 3px 11px; }
+  .bootbanner { margin-bottom: 6px; color: var(--ink); font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
   .panel { display: flex; gap: 12px; align-items: flex-start; border: 1px solid; border-radius: 8px; padding: 13px 16px; font-size: 16px; line-height: 1.4; }
   .panel svg { flex: none; margin-top: 1px; }
   .panel.warn { background: var(--warn-bg); border-color: var(--warn-border); }
@@ -706,15 +707,15 @@ function diskCard(d) {
   const cls = d.isBoot ? "card boot" : ("card pickable" + (sel ? " sel" : ""));
   const icon = d.isBoot ? `<span class="radio" style="border:0;background:none">${ICON_NO}</span>` : `<span class="radio"></span>`;
   // Use esc for attribute to prevent `"` breakout
-  return `<div class="${cls}" data-path="${esc(d.path)}" ${d.isBoot ? "" : `tabindex="0" role="button" aria-pressed="${!!sel}"`}>
+  return `<div class="${cls}" data-path="${esc(d.path)}" ${d.isBoot ? `role="region" aria-label="${esc(d.bus === "USB" ? P.bootUsb : P.bootDisc)}"` : `tabindex="0" role="button" aria-pressed="${!!sel}"`}>
     <div class="row">${icon}
       <div class="grow">
+        ${d.isBoot ? `<div class="bootbanner">${esc(d.bus === "USB" ? P.bootUsb : P.bootDisc)}</div>` : ""}
         <div class="row" style="align-items:flex-start">
           <div class="title grow">${esc(d.name)}</div>
           <div class="size">${esc(d.size)}</div>
         </div>
         ${metaLine(d)}
-        ${d.isBoot ? `<div class="bootbanner">${esc(P.bootUsb)}</div>` : ""}
       </div>
     </div>
   </div>`;
@@ -825,6 +826,7 @@ function draw() {
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd, true)}</div>`;
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
+    disks().filter(d => d.isBoot).forEach(d => { html += diskCard(d); });
     selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
