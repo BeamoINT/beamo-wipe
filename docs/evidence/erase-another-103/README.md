@@ -125,11 +125,20 @@ Tk/GTK, console and browser checks use fake inventory. Prior results remain as
 volatile evidence files, but their UI cannot be reopened after continuing;
 users must save reports first if they need them.
 
-Hosted results at handoff: **2640 passed, 14 skipped** in the Python gate
-(270.73 seconds). Desktop launchers, blocking lint and preview passed. The
-negative-test stage was still running; ISO build and QEMU verification were
-queued. These remaining hosted stages are not claimed as passed. Cloud Build
-manages the disposable build environment; no separate VM was created.
+Initial hosted results: **2640 passed, 14 skipped** in the Python gate
+(270.73 seconds). Desktop launchers, blocking lint, preview and negative tests
+passed. The ISO stage then stopped with `production image refuses dirty source`:
+this first submission was made before the requested feature commit. It did not
+build an ISO or reach QEMU, and is not claimed as a passing overall build.
+
+After committing and pushing `21494c36f635e68608adbc9769707636efb8cabf`,
+`git status --porcelain` was empty and `./scripts/ci-cloud.sh` was submitted again.
+Clean-source verification build
+[`12b67b54-b4e6-4d70-aa17-caeb838cba5d`](https://console.cloud.google.com/cloud-build/builds/12b67b54-b4e6-4d70-aa17-caeb838cba5d?project=368895881889)
+is pending at handoff; ISO/QEMU success is not claimed. This documentation-only
+follow-up does not change the tested application source. Cloud Build manages
+the disposable environment; no separate VM was created. Release publication
+remains disabled for both submissions.
 
 The final diff and staged paths were reviewed. Only the feature, its regression
 tests, customer documentation and this evidence are included; no ISO or secrets
