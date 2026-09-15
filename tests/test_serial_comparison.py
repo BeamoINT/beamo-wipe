@@ -45,7 +45,7 @@ def test_comparison_preserves_all_differences_and_raw_identity(serials, spans):
             assert f"character{'s' if end-start > 1 else ''} {start+1}" in view.comparison_note
         else:
             assert view.marked_id == disk.serial
-            assert f"Serial has {len(disk.serial)} character" in view.comparison_note
+            assert f"Serial number has {len(disk.serial)} character" in view.comparison_note
         assert "Check the full ID before choosing" in view.comparison_note
     assert [confirm_spec(d, peers) for d in peers] == before
 
@@ -112,7 +112,7 @@ def test_gallery_and_console_share_comparison(monkeypatch):
         assert item['serial'] == disk.serial
         assert item['markedSerial'] == view.marked_id
         assert item['comparisonNote'] == view.comparison_note
-        assert "Compare serial character 6:" in lines
+        assert "Compare serial number character 6:" in lines
     html = gallery.gallery_html()
     assert 'esc(screen === "pick" && !d.isBoot ? d.markedSerial || d.serial : d.serial)' in html
     assert 'd.comparisonNote' in html

@@ -4,7 +4,7 @@ Report checksum: b5db7209ac0e2cb81230769a95cf3117ab8e7695242e4dcc1b0c0a8a34dba2a
 Disk: Samsung SSD 970 EVO
 Capacity: 256 GB
 Connection: NVMe
-Serial: withheld
+Serial number: withheld
 Hardware ID: withheld
 Method: Everyday. One overwrite, followed by verification.
 Overwrites: 1

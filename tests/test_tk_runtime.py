@@ -1896,6 +1896,25 @@ def test_connection_is_visible_on_pick_without_show_more(ui, size):
     assert not wiz.runner.started
 
 
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, (800, 600)])
+def test_serial_number_label_is_visible_without_show_more(ui, size):
+    from beamo_wipe.identity import SERIAL_LABEL
+
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.PICK
+    app._show_more = False
+    app._draw()
+    app.root.update()
+    shown = _label_text(app)
+    assert SERIAL_LABEL in shown
+    assert "S4EVNX0N123456" in shown
+    assert "BEAMOUSB001" in shown
+    assert not app._show_more
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert not wiz.runner.started
+
+
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 @pytest.mark.parametrize("scenario", ["happy", "empty"])
 @pytest.mark.parametrize("long_identity", [False, True])

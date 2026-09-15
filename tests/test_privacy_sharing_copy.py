@@ -202,6 +202,6 @@ def test_result_summary_from_sharing_copy_preserves_outcome():
     text = build_result_summary(sharing, evidence_sha256="a" * 64)
     assert ev["presentation"]["message"] in text
     assert NOTICE in text.splitlines()[0]
-    assert "Serial: withheld" in text
+    assert "Serial number: withheld" in text
     assert "Hardware ID: withheld" in text
     assert UNSUITABLE in text

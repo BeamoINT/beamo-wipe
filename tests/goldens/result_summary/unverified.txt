@@ -4,7 +4,7 @@ Report checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 Disk: Samsung SSD 970 EVO
 Capacity: 256 GB
 Connection: NVMe
-Serial: S4EVNX0N123456
+Serial number: S4EVNX0N123456
 Hardware ID: unavailable
 Method: Quick zero. One overwrite. Verification is not performed.
 Overwrites: 1
