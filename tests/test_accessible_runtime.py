@@ -968,4 +968,3 @@ def test_review_countdown_announces_only_changed_text(ui):
     assert app.window.get_focus() == focus
     assert wizard.screen == Screen.LAST_CHANCE
     assert not wizard.runner.started
->>>>>>> origin/main

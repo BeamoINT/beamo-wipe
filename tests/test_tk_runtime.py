@@ -1934,4 +1934,3 @@ def test_review_timer_is_secondary_and_completion_preserves_focus(ui, size):
     assert wiz.screen == Screen.LAST_CHANCE
     assert not wiz.runner.started
     assert app._countdown_label.cget("text") == C.COUNTDOWN_READY
->>>>>>> origin/main
