@@ -1,0 +1,5 @@
+Beamo Wipe 0.2.9
+This session is not a manufactured USB image.
+Release build: not packaged
+Source: not packaged
+Build status: not a manufactured image

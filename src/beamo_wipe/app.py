@@ -9,7 +9,8 @@ import signal
 import sys
 from pathlib import Path
 
-from beamo_wipe import NWIPE_PINNED_VERSION, __version__
+from beamo_wipe import NWIPE_PINNED_VERSION
+from beamo_wipe.compat_story import version_report
 from beamo_wipe.demo import Scenario, make_demo_wizard
 from beamo_wipe.discover import discover, load_lsblk_json_text
 from beamo_wipe.nwipe_runner import DryRunRunner, NwipeRunner
@@ -20,6 +21,11 @@ from beamo_wipe.wizard import Wizard
 
 def project_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+class _VersionAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.exit(status=0, message=version_report())
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -82,7 +88,7 @@ def _parser() -> argparse.ArgumentParser:
         "--boot-device",
         help="Override live-medium path. Test only; ignored on the live USB.",
     )
-    p.add_argument("--version", action="version", version=f"Beamo Wipe {__version__}")
+    p.add_argument("--version", action=_VersionAction, nargs=0, help="Show version and USB image identity.")
     return p
 
 

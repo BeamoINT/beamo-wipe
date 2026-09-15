@@ -1959,7 +1959,10 @@ class TkWizard:
         self._power_notice(zone, reminder=False)
         if self._more_link(zone):
             self._panel(
-                zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE + " " + C.POWER_EVENTS
+                zone,
+                kind="info",
+                text=C.this_usb_line(),
+                extra=C.SECURE_BOOT_HINT + " " + C.ENGINE_LINE + " " + C.POWER_EVENTS,
             ).pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self._click_shutdown)

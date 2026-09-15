@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from beamo_wipe import copy
+from beamo_wipe.compat_story import PLATFORMS, SECURE_BOOT_HINT as STORY_SECURE_BOOT
 from beamo_wipe.gallery import gallery_html
 
 FORBIDDEN = (
@@ -131,6 +132,8 @@ def test_what_screen_is_plain_prepare_bullets():
     assert "operating system" in blob
     assert "recovery partitions" in blob
     assert "not apple silicon" in blob
+    assert copy.WHAT_BULLETS[-1] == PLATFORMS
+    assert copy.SECURE_BOOT_HINT == STORY_SECURE_BOOT
     assert "wall power" in copy.POWER_REMINDER.lower()
     assert "not sleep" in copy.POWER_BLANKING.lower()
     assert "nwipe" not in blob
