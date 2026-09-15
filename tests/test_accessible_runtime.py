@@ -164,7 +164,8 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     wait_transition(app)
     assert wizard.screen == Screen.WORKING and wizard.runner.started
     assert "Check disks again (F5)" not in app.actions
-    app.actions["Cancel erase"].clicked()
+    app.actions["Stop erase"].clicked()
+    app.actions["Yes, stop erasing"].clicked()
     wait_transition(app)
     assert wizard.screen == Screen.DONE
 
@@ -227,7 +228,7 @@ def test_last_chance_enter_without_erase_focus_never_erases(ui):
     assert wizard.screen == Screen.WORKING and wizard.runner.started
 
 
-def test_escape_cancels_working_erase(ui):
+def test_escape_requests_stop_confirmation(ui):
     from types import SimpleNamespace
 
     wizard = make_demo_wizard()
@@ -245,6 +246,14 @@ def test_escape_cancels_working_erase(ui):
     app = ui(wizard)
     assert wizard.screen == Screen.WORKING
     assert app._key_press(app.window, SimpleNamespace(keyval=Gdk.KEY_Escape))
+    assert wizard.screen == Screen.WORKING and wizard.stop_confirmation is not None
+    assert not wizard.runner.cancelled
+    from beamo_wipe import copy as C
+    assert C.STOP_KEEP in app.actions and C.STOP_CONFIRM in app.actions
+    app.actions[C.STOP_KEEP].clicked()
+    assert wizard.stop_confirmation is None and not wizard.runner.cancelled
+    app.actions[C.STOP_ASK].clicked()
+    app.actions[C.STOP_CONFIRM].clicked()
     wait_transition(app)
     assert wizard.screen == Screen.DONE
     assert not wizard.runner.started or wizard.wipe_result is not None
@@ -753,7 +762,7 @@ def test_accessible_evidence_failure_retry(ui, tmp_path, monkeypatch):
     w, clock = start(tmp_path, monkeypatch)
     app = ui(w)
     assert w.evidence_warning in text(app)
-    assert app.actions['Cancel erase'].get_sensitive()
+    assert app.actions['Stop erase'].get_sensitive()
     assert 'Retry evidence save' not in app.actions
     complete(w, clock)
     app.render()
@@ -819,7 +828,8 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
             barrier.wait()
             original()
         monkeypatch.setattr(w.runner, "cancel", slow)
-        stale = app.actions["Cancel erase"]
+        app.actions["Stop erase"].clicked()
+        stale = app.actions["Yes, stop erasing"]
         stale.clicked()
     try:
         assert barrier.entered.wait(2)

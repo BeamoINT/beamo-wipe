@@ -1407,6 +1407,7 @@ def test_busy_transition_renders_and_pumps_events(ui, monkeypatch, tmp_path, pha
             original()
         monkeypatch.setattr(w.runner, "cancel", slow)
         app._click_cancel()
+        app._primary._command()
     try:
         assert barrier.entered.wait(2)
         beats = []
@@ -1457,7 +1458,7 @@ def test_working_timer_keeps_cancel_control_until_revision_changes(ui, monkeypat
         for child in widget.winfo_children():
             yield from walk(child)
     cancel = next(v for v in walk(app.root) if isinstance(v, _Button)
-                  and v.itemcget(v._label, "text") == "Cancel erase")
+                  and v.itemcget(v._label, "text") == "Stop erase")
     app._tick()
     app._tick()
     assert app._draw_generation == generation and cancel.winfo_exists()
@@ -1934,3 +1935,32 @@ def test_review_timer_is_secondary_and_completion_preserves_focus(ui, size):
     assert wiz.screen == Screen.LAST_CHANCE
     assert not wiz.runner.started
     assert app._countdown_label.cget("text") == C.COUNTDOWN_READY
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_stop_confirmation_is_deliberate_and_fits(ui, monkeypatch, tmp_path, size):
+    from beamo_wipe import copy as C
+    w, app = ui(size=size)
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
+    w.runner._clock = lambda: 0
+    _drive_to(w, app, Screen.LAST_CHANCE)
+    w._erase_until = 0
+    w.confirm_erase()
+    app._draw()
+    app._on_escape()
+    app.root.update()
+    assert w.screen == Screen.WORKING and w.stop_confirmation is not None
+    assert not w.runner.cancelled
+    assert _clipping_problems(app) == []
+    assert _off_window_problems(app) == []
+    assert app.root.focus_get().itemcget(app.root.focus_get()._label, "text") == C.STOP_KEEP
+    stale = app._primary._command
+    app._on_escape()
+    stale()
+    assert not w.runner.cancelled and w.stop_confirmation is None
+    app._close()
+    assert not w.runner.cancelled and w.stop_confirmation is not None
+    app._primary._command()
+    _wait_transition(w, app)
+    assert w.runner.cancelled

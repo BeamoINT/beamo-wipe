@@ -421,16 +421,25 @@ class AccessibleWizard:
             self.label("Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.")
         elif screen == Screen.STOPPING:
             heading.set_text("Stopping erase")
-            self.label("Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.")
+            self.label(C.STOPPING_TEXT)
             self.progress_label = self.label("")
         elif screen == Screen.WORKING:
-            heading.set_text(C.WORKING_PULSE)
+            heading.set_text(C.VIEWS["stop_unconfirmed"].message
+                             if self.w.error == C.VIEWS["stop_unconfirmed"].announcement
+                             else C.WORKING_PULSE)
             self.identity()
             self.label(self.w.method_summary)
             self.progress_label = self.label("")
             if self.w.evidence_warning:
                 self.label(self.w.evidence_warning)
-            self.button("Cancel erase", self.w.begin_cancel)
+            if self.w.stop_confirmation is not None:
+                confirmation = self.w.stop_confirmation
+                heading.set_text(C.STOP_TITLE)
+                arrival = self.label(C.STOP_LEAD, focusable=True)
+                self.button(C.STOP_KEEP, self.w.keep_erasing)
+                self.button(C.STOP_CONFIRM, lambda: self.w.confirm_stop(confirmation))
+            else:
+                self.button(C.STOP_ASK, self.w.request_stop)
         elif screen == Screen.DONE:
             result = self.w.result_view
             heading.set_text(result.announcement)
@@ -663,7 +672,10 @@ class AccessibleWizard:
             return True
         if key == Gdk.KEY_Escape:
             if self.w.screen == Screen.WORKING:
-                self.w.begin_cancel()
+                if self.w.stop_confirmation is not None:
+                    self.w.keep_erasing()
+                else:
+                    self.w.request_stop()
                 self.render()
                 return True
             self.w.back()
@@ -677,7 +689,7 @@ class AccessibleWizard:
 
     def _close(self, *_args):
         if self.w.screen == Screen.WORKING:
-            self.w.begin_cancel()
+            self.w.request_stop()
             self.render()
         else:
             self.w.shutdown()

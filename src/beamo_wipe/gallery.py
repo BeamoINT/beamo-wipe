@@ -192,6 +192,10 @@ def gallery_html() -> str:
         "sameSize": C.SAME_SIZE_HINT,
         "sameSizeConflict": same_size_conflict(listed_disks(result)),
         "working": C.WORKING_PULSE,
+        "stop": {"title": C.STOP_TITLE, "lead": C.STOP_LEAD, "ask": C.STOP_ASK,
+                 "keep": C.STOP_KEEP, "confirm": C.STOP_CONFIRM, "stopping": C.STOPPING_TEXT,
+                 "stopped": C.VIEWS["cancelled"].payload(),
+                 "unconfirmed": C.VIEWS["stop_unconfirmed"].payload()},
         "doneOk": C.DONE_OK_PREVIEW,
         "doneFail": C.DONE_FAIL_PREVIEW,
         "pickSubtitle": C.pick_subtitle(),
@@ -661,6 +665,9 @@ function stepInfo() {
     pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
     confirm:[4,"Step 4 of 8",P.titles.confirm], method:[5,"Step 5 of 8",P.titles.method],
     disk_help:[3,P.diskHelpTitle,P.diskHelpTitle], limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
+    stop_confirm:[7,"Step 7 of 8",P.stop.title], stopping:[7,"Step 7 of 8","Stopping erase"],
+    stop_unconfirmed:[7,"Step 7 of 8",P.stop.unconfirmed.message], stopped:[8,"Step 8 of 8",P.stop.stopped.message],
+
     working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk]};
   return map[screen] || [0,"",""];
 }
@@ -990,7 +997,40 @@ function draw() {
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
       <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p><p class="small muted">${m.summary}</p></div></div></div>`;
     bindMore();
+    btnsL.append(btn(P.stop.ask, () => {
+      if (screen === "working") { screen = "stop_confirm"; draw(); }
+    }));
     renderHint(P.hints.working);
+  } else if (["stop_confirm", "stopping", "stopped", "stop_unconfirmed"].includes(screen)) {
+    const result = screen === "stopped" ? P.stop.stopped : P.stop.unconfirmed;
+    const title = screen === "stop_confirm" ? P.stop.title : screen === "stopping" ? "Stopping erase" : result.message;
+    const detail = screen === "stop_confirm" ? P.stop.lead : screen === "stopping" ? P.stop.stopping : result.next_step;
+    main.innerHTML = `<h1 tabindex="-1" id="stop-heading">${title}</h1>
+      <p role="status" aria-live="polite">${detail}</p>
+      <p>Preview only. Nothing on this computer was erased.</p>
+      ${selected ? summaryCard(selected) : ""}`;
+    renderHint("Keep the disk and Beamo USB connected.");
+    if (screen === "stop_confirm") {
+      const confirmation = main.firstElementChild;
+      const keep = btn(P.stop.keep, () => {
+        if (screen !== "stop_confirm" || main.firstElementChild !== confirmation) return;
+        screen = "working"; draw();
+      }, "primary");
+      btnsL.append(keep);
+      btnsR.append(btn(P.stop.confirm, () => {
+        if (screen !== "stop_confirm" || main.firstElementChild !== confirmation) return;
+        if (timer) clearInterval(timer);
+        screen = "stopping"; draw();
+        timer = setTimeout(() => { screen = "stopped"; draw(); }, 1500);
+      }, "danger"));
+      keep.focus();
+    } else {
+      main.querySelector("#stop-heading").focus();
+      if (screen === "stop_unconfirmed")
+        btnsL.append(btn("Review stop again (preview)", () => { screen = "stop_confirm"; draw(); }));
+      if (screen === "stopped")
+        btnsR.append(btn(P.buttons.runAgain, () => boot(mode), "primary"));
+    }
   } else if (screen === "done") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
@@ -1008,7 +1048,7 @@ function draw() {
   if (["what", "method", "advanced"].includes(screen)) {
     utilities.append(btn(P.reportHelpTitle, () => { reportHelpFrom = screen; screen = "report_help"; draw(); }, "ghost"));
   }
-  if (!["working", "done", "splash", "shutdown_confirm"].includes(screen)) {
+  if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
     utilities.prepend(btn("Check disks again (F5)", refreshPreview, "ghost"));
   }
   if (screen === "last") {
@@ -1019,6 +1059,14 @@ function draw() {
   renderedScreen = screen;
 }
 document.addEventListener("keydown", e => {
+  if (["working", "stop_confirm"].includes(screen) && e.key === "Escape") {
+    e.preventDefault();
+    if (!e.repeat) { screen = screen === "working" ? "stop_confirm" : "working"; draw(); }
+    return;
+  }
+  if (screen === "stop_confirm" && e.repeat && ["Enter", " "].includes(e.key)) {
+    e.preventDefault(); return;
+  }
   if (screen === "shutdown_confirm" && ["Escape", "Enter"].includes(e.key)) {
     e.preventDefault(); screen = shutdownFrom; draw(); return;
   }
@@ -1028,7 +1076,7 @@ document.addEventListener("keydown", e => {
   if (screen === "report_help" && e.key === "Escape") {
     e.preventDefault(); screen = reportHelpFrom; draw(); return;
   }
-  if (e.key === "F5" && !["working", "done", "splash", "shutdown_confirm"].includes(screen)) {
+  if (e.key === "F5" && !["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
     e.preventDefault(); refreshPreview(); return;
   }
   if (screen === "method" && e.key.toLowerCase() === "l") {

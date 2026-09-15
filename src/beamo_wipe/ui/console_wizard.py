@@ -196,7 +196,8 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
             "Esc: back    Up/Down: read more",
         ]
     if screen == Screen.WORKING:
-        return ["Esc: cancel erase (interrupted)"]
+        return (["K / Esc / Enter: keep erasing. S: confirm stop."]
+                if wizard.stop_confirmation is not None else ["Esc: stop erase (cancel)"])
     if screen == Screen.CHECKING:
         return ["Please wait. Controls are unavailable during this check."]
     if screen == Screen.STOPPING:
@@ -316,12 +317,11 @@ def _plain_loop(wizard: Wizard) -> int:
                 return 3
             return 0
         except KeyboardInterrupt:
-            # Ctrl-C when SIGINT is not ignored (desktop fallback). A running
-            # wipe must be cancelled, never abandoned with nwipe still on disk;
-            # anywhere else it shuts down cleanly instead of a traceback.
+            # Ctrl-C opens consent while polling continues. Terminal loss
+            # above still requests a system stop rather than abandoning nwipe.
             if wizard.screen == Screen.WORKING:
                 try:
-                    wizard.cancel_wipe()
+                    wizard.request_stop()
                 except Exception:
                     pass
                 if wizard.wants_shutdown:
@@ -531,7 +531,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             }
             messages = {
                 Screen.CHECKING: "Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.",
-                Screen.STOPPING: "Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.",
+                Screen.STOPPING: C.STOPPING_TEXT,
                 Screen.REFRESHING: "Previous selections and confirmations have been cleared.",
             }
             print(titles[screen])
@@ -566,10 +566,17 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 wizard.back()
             continue
         if screen == Screen.WORKING:
-            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text)
+            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text, wizard.stop_confirmation)
             if status != last_working:
-                print(status[0], "  [type CANCEL then Enter to interrupt]")
-                for warning in status[1:]:
+                print(status[0])
+                if wizard.stop_confirmation is not None:
+                    print(C.STOP_TITLE, C.STOP_LEAD)
+                    print("Type STOP then Enter to confirm; KEEP then Enter to keep erasing.")
+                else:
+                    print(C.STOP_WARNING)
+                    print("Type CANCEL then Enter to review stopping.")
+
+                for warning in status[1:5]:
                     if warning:
                         print(warning)
                 if last_working is None and wizard.selected:
@@ -583,9 +590,15 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     typed = sys.stdin.readline()
                     if typed == "":
                         raise EOFError
-                    if typed.strip().casefold() == "cancel":
-                        print("Stopping erase. Waiting for process termination and cleanup.")
-                        wizard.cancel_wipe()
+                    command = typed.strip().casefold()
+                    if wizard.stop_confirmation is not None:
+                        if command == "stop":
+                            print("Stopping erase. " + C.STOPPING_TEXT)
+                            wizard.confirm_stop(wizard.stop_confirmation)
+                        elif command != "cancel":
+                            wizard.keep_erasing()
+                    elif command == "cancel":
+                        wizard.request_stop()
             except InterruptedError:
                 time.sleep(0.3)
             except (OSError, ValueError) as exc:
@@ -894,11 +907,15 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 rest.extend(_lines(wizard.error, w))
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
         elif wizard.screen == Screen.WORKING:
+            if wizard.stop_confirmation is not None:
+                y = _wrap(stdscr, y, C.STOP_TITLE + " " + C.STOP_LEAD, w, y_max)
+            if wizard.error:
+                y = _wrap(stdscr, y, wizard.error, w, y_max)
             y = _wrap(stdscr, y, wizard.progress_view.status_text, w, y_max)
             if wizard.selected:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
             lines = []
-            for text in (wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text):
+            for text in (wizard.evidence_warning, C.POWER_KEEP, wizard.power_text):
                 if text:
                     lines.extend(_lines(text, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
@@ -910,7 +927,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             }
             messages = {
                 Screen.CHECKING: "Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.",
-                Screen.STOPPING: "Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing.",
+                Screen.STOPPING: C.STOPPING_TEXT,
                 Screen.REFRESHING: "Previous selections and confirmations have been cleared.",
             }
             y = _wrap(stdscr, y, titles[wizard.screen], w, y_max)
@@ -1035,10 +1052,6 @@ def _loop(stdscr, wizard: Wizard) -> int:
             continue
         if wizard.screen not in _paged:
             limits_offset = 0
-        if wizard.screen == Screen.WORKING and ch == 27:
-            stdscr.erase()
-            _wrap(stdscr, 0, "Stopping erase. Waiting for process termination and cleanup. The disk may still be erasing.", w)
-            stdscr.refresh()
         _handle(wizard, ch)
     return 0
 
@@ -1179,17 +1192,14 @@ def _handle(wizard: Wizard, ch: int) -> None:
     if wizard.screen == Screen.SPLASH:
         wizard.skip_splash()
         return
-    if wizard.screen == Screen.WORKING and ch == 27:
-        # Esc on WORKING now cancels visibly instead of being ignored
-        try:
-            wizard.cancel_wipe()
-        except Exception as exc:
-            try:
-                from beamo_wipe.diagnostics import log_diag
-
-                log_diag("ui", "console_cancel_failed", type(exc).__name__)
-            except Exception:
-                pass
+    if wizard.screen == Screen.WORKING:
+        if wizard.stop_confirmation is not None:
+            if ch in (ord("s"), ord("S")):
+                wizard.confirm_stop(wizard.stop_confirmation)
+            elif ch in (27, 10, 13, ord("k"), ord("K")):
+                wizard.keep_erasing()
+        elif ch == 27:
+            wizard.request_stop()
         return
     if ch == 27:
         wizard.back()
