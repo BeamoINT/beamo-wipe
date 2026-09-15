@@ -1,7 +1,8 @@
 # #60 — Match compatibility guidance to the USB build
 
 **Status:** In progress (implementation follows this baseline).
-**Branch:** `feat/match-compat-to-usb-build` off `origin/main` `4c26217877047abe244bd3ef9266a1ced1db5491`
+**Branch:** `feat/match-compat-to-usb-build` @ `0f9208111b2dd02b7237a9f133932dc01f546b36` off `origin/main` `4c26217877047abe244bd3ef9266a1ced1db5491`
+**PR:** https://github.com/BeamoINT/beamo-wipe/pull/44
 **Date (UTC):** 2026-09-15
 **Safety:** Fake disks / dry-run only. No `nwipe` against a real disk. No manufactured ISO in this session.
 

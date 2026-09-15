@@ -9,6 +9,8 @@ Continued with **Grok 4.6 high** via the T3-wired Grok CLI.
 - Repo: `beamo-wipe`
 - Starting `main`: `4c26217877047abe244bd3ef9266a1ced1db5491` — `fix: gallery HTML-escape pin matches boot-card serial rendering`
 - Branch: `feat/match-compat-to-usb-build` (independent from current main; #42/#113 and #43/#59 left alone)
+- Implementation commit: `0f9208111b2dd02b7237a9f133932dc01f546b36` — `feat: match compatibility guidance to the USB build (#60)`
+- PR: https://github.com/BeamoINT/beamo-wipe/pull/44
 - Focused baseline: 186 passed, 12 skipped (`docs/evidence/compat-build-identity-60/baseline-pytest.txt`); desktop `go test` ok
 
 ### What landed
