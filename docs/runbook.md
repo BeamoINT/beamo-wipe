@@ -165,13 +165,13 @@ consistent method/verification facts, and no conflicting failure or interruption
 | `open_failed` | The disk could not be opened. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `geometry_unusable` | The disk could not be used safely. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `verification_failed` | Read-back verification failed. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
-| `interrupted` | The erase was interrupted. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
-| `cancelled` | Stopped by you. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `interrupted` | The erase was interrupted. Stopping cannot restore files already erased. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
+| `cancelled` | Stopped by you. Stopping cannot restore files already erased. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `completion_missing` | Erase completion could not be confirmed. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `process_failed` | The erase did not finish. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `engine_failed` | The disk reported an erase error. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
 | `indeterminate` | The result could not be confirmed. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting. |
-| `stop_unconfirmed` | The erase may still be running. Keep the disk and Beamo USB connected. Do not start another erase. Contact support. |
+| `stop_unconfirmed` | Stop could not be confirmed. The erase may still be running. Keep the disk and Beamo USB connected. Do not start another erase. Contact support. |
 
 Diagnostic markers include `is reported as IN USE`, `Nwipe was aborted by the user`,
 `Unable to open device`, `No sane device geometry`, `>>> FAILURE! <<<`, and the

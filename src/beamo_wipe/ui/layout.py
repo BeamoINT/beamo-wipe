@@ -67,7 +67,7 @@ def layout_for(width: int, height: int) -> Layout:
         cap = MAX_CONTENT
         gutter = 16
         header_h = 48
-        ring = 96 if short or narrow else 144
+        ring = 64
         title_top = 8
         title_bottom = 6
         footer_pad_y = 8
@@ -76,7 +76,7 @@ def layout_for(width: int, height: int) -> Layout:
         cap = LARGE_CONTENT
         gutter = 48
         header_h = 56
-        ring = 144
+        ring = 64
         title_top = 24
         title_bottom = 14
         footer_pad_y = 16
@@ -85,7 +85,7 @@ def layout_for(width: int, height: int) -> Layout:
         cap = MAX_CONTENT
         gutter = 40
         header_h = 56
-        ring = 144
+        ring = 64
         title_top = 24
         title_bottom = 14
         footer_pad_y = 16

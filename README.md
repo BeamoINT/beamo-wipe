@@ -62,12 +62,26 @@ with Orca. Switching views clears all previous confirmations and checks disks
 again. Use Tab and Shift+Tab to move, Space to activate controls, and the
 standard Orca reading commands for text. See [screen-reader operation](docs/screen-reader.md).
 
+On the disk list, choose **I'm not sure which disk** for identification help,
+including external disks and disks from another computer. Help clears the
+selected disk and its confirmation. Back returns with nothing selected; your
+existing ownership acknowledgement is retained. **Stop and shut down** lets
+you stop before checking labels or connections. The console offers **U** for
+help, **Esc** to return and **S** to stop; the plain text fallback asks for
+`BACK` or `STOP`. Preview closes or shows a close-tab message instead of
+powering off this computer.
+
 Before erasure, **Check disks again** (F5, or `CHECK DISKS AGAIN` at a text
 prompt) reads the inventory again and identifies the boot device again. It
 clears the selected disk, ownership acknowledgement, typed confirmation,
 method, and countdown. Complete the entire confirmation flow again. A failed
 refresh leaves no stale target selectable. Refresh is unavailable once an
 erase is starting or running.
+
+**Beamo USB — protected, cannot be erased** appears separately above the disks
+you can choose, with its name, size and serial or hardware ID. The keyboard
+console shows its protected status; press B to read its full identity. If the
+boot device cannot be identified, no protected card or erase targets are shown.
 
 **Other detected devices** is information only: each row explains why the
 device cannot be selected. In the keyboard console, press O to read and scroll
@@ -195,7 +209,18 @@ used. Details: [docs/ci.md](docs/ci.md).
 
 1. Boot the live USB (UEFI or legacy BIOS, x86_64).
 2. The wizard is the first screen. There is no desktop and no raw nwipe TUI.
-3. Confirm you own the machine. Pick a disk by model, size, and serial.
+3. Confirm ownership or permission to erase. Identify the intended disk by
+   model, size, and serial. If unsure, open the identification help.
+   For same-size disks, square brackets mark the serial portion to compare
+   when a comparison is available. A text note also gives its character
+   positions. Always check the full ID and follow the confirmation prompt.
+   Duplicate or missing serials are not highlighted. With multiple disks, open
+   **Compare disks** to read their identities side by side (stacked on narrow
+   screens). Reading the comparison does not change your selection. In the
+   screen-reader view, expand **Compare disks**; in the console, press **C**,
+   then **Esc** to return. The plain console prints the same comparison before
+   the disk choices. If identity is uncertain, shut down and disconnect the
+   extra drives.
 4. The Beamo USB cannot be selected. If we cannot tell which disk is the USB,
    the app refuses to list disks.
 5. Type-to-confirm, five-second delay, then nwipe runs non-interactively.

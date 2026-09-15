@@ -554,9 +554,14 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
         cancelled.append(True)
         fake.wants_shutdown = True
 
-    fake.cancel_wipe = cancel
+    fake.stop_confirmation = None
+    def request_stop():
+        fake.stop_confirmation = object()
+    fake.request_stop = request_stop
+    fake.keep_erasing = lambda: setattr(fake, "stop_confirmation", None)
+    fake.confirm_stop = lambda confirmation: cancel()
     monkeypatch.setattr(console_wizard.select, "select", lambda *_a: ([object()], [], []))
-    monkeypatch.setattr(console_wizard.sys, "stdin", io.StringIO("CANCEL\n"))
+    monkeypatch.setattr(console_wizard.sys, "stdin", io.StringIO("CANCEL\nCANCEL\nSTOP\n"))
     assert console_wizard._plain_loop_body(fake) == 0
     assert cancelled == [True]
 

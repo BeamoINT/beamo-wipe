@@ -1,0 +1,7 @@
+.......dbus-daemon[1113715]: [session uid=1000 pid=1113715 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.1' (uid=1000 pid=1113879 comm="/opt/google/chrome/chrome --disable-field-trial-co" label="kernel")
+dbus-daemon[1113715]: [session uid=1000 pid=1113715 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[1113970]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=1113879 comm="/opt/google/chrome/chrome --disable-field-trial-co" label="kernel")
+dbus-daemon[1113970]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+......                                                            [100%]
+13 passed in 7.23s

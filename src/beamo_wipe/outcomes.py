@@ -23,6 +23,8 @@ class ResultView:
         return {**asdict(self), "announcement": self.announcement}
 
 
+STOP_WARNING = "Stopping cannot restore files already erased."
+
 SUPPORT = (
     "Files may still be on the disk. Save the report if available and contact support. "
     "Shut down before disconnecting."
@@ -82,9 +84,9 @@ VIEWS = {
         "danger",
     ),
     "interrupted": ResultView(
-        "interrupted", "The erase was interrupted", SUPPORT, "warn", "warn"
+        "interrupted", "The erase was interrupted", STOP_WARNING + " " + SUPPORT, "warn", "warn"
     ),
-    "cancelled": ResultView("cancelled", "Stopped by you", SUPPORT, "warn", "warn"),
+    "cancelled": ResultView("cancelled", "Stopped by you", STOP_WARNING + " " + SUPPORT, "warn", "warn"),
     "completion_missing": ResultView(
         "completion_missing",
         "Erase completion could not be confirmed",
@@ -103,8 +105,8 @@ VIEWS = {
     ),
     "stop_unconfirmed": ResultView(
         "stop_unconfirmed",
-        "The erase may still be running",
-        "Keep the disk and Beamo USB connected. Do not start another erase. Contact support.",
+        "Stop could not be confirmed",
+        "The erase may still be running. Keep the disk and Beamo USB connected. Do not start another erase. Contact support.",
         "danger",
         "danger",
     ),

@@ -1,0 +1,7 @@
+FAILED tests/test_accessible_runtime.py::test_atspi_exposes_quick_zero_result_to_external_client
+FAILED tests/test_compare_disks.py::test_equal_capacity_candidates_are_adjacent_without_renumbering_picker
+FAILED tests/test_helper_boot_guidance.py::test_helper_renders_both_windows_paths_on_small_and_desktop_displays
+FAILED tests/test_live_image.py::test_staged_chroot_package_matches_src - Ass...
+FAILED tests/test_tk_runtime.py::test_other_devices_read_only_and_keyboard_isolated[size0]
+FAILED tests/test_tk_runtime.py::test_other_devices_read_only_and_keyboard_isolated[size1]
+6 failed, 2515 passed, 28 skipped in 399.70s (0:06:39)

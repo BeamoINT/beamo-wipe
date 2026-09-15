@@ -135,8 +135,8 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     app.actions["Continue"].clicked()
     app.actions["Continue"].clicked()
     assert wizard.screen == Screen.LAST_CHANCE
-    assert "Last chance to stop" in text(app)
-    assert "If this is the wrong disk, go back." in text(app)
+    assert "Review before erasing" in text(app)
+    assert "Reaching zero only enables Erase; it never starts erasure." in text(app)
     assert not app.actions["Erase now"].get_sensitive()
     stale_erase = app.actions["Erase now"]
     app.actions["Check disks again (F5)"].clicked()
@@ -164,7 +164,8 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     wait_transition(app)
     assert wizard.screen == Screen.WORKING and wizard.runner.started
     assert "Check disks again (F5)" not in app.actions
-    app.actions["Cancel erase"].clicked()
+    app.actions["Stop erase"].clicked()
+    app.actions["Yes, stop erasing"].clicked()
     wait_transition(app)
     assert wizard.screen == Screen.DONE
 
@@ -177,11 +178,13 @@ def test_excluded_devices_are_read_only_and_no_selection(ui):
     wizard.continue_owner()
     app = ui(wizard)
     assert wizard.screen == Screen.PICK_EMPTY
-    assert "not erasable" in text(app).lower()
-    assert wizard.discovery.boot.display_name in text(app)
-    assert wizard.discovery.boot.path not in text(app)
-    assert "Other detected devices" in text(app)
     readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
+    protected = [w for w in readers if w.get_accessible().get_name() == wizard.protected_boot_text]
+    assert len(protected) == 1
+    assert "protected, cannot be erased" in protected[0].get_accessible().get_name()
+    assert wizard.discovery.boot.display_name in protected[0].get_accessible().get_name()
+    assert wizard.discovery.boot.path not in protected[0].get_accessible().get_name()
+    assert "Other detected devices" in text(app)
     assert readers and all(not w.get_editable() for w in readers)
     assert all(w.get_allocation().height >= 180 for w in readers)
     assert not any(name.startswith("Select ") for name in app.actions)
@@ -225,7 +228,7 @@ def test_last_chance_enter_without_erase_focus_never_erases(ui):
     assert wizard.screen == Screen.WORKING and wizard.runner.started
 
 
-def test_escape_cancels_working_erase(ui):
+def test_escape_requests_stop_confirmation(ui):
     from types import SimpleNamespace
 
     wizard = make_demo_wizard()
@@ -243,6 +246,14 @@ def test_escape_cancels_working_erase(ui):
     app = ui(wizard)
     assert wizard.screen == Screen.WORKING
     assert app._key_press(app.window, SimpleNamespace(keyval=Gdk.KEY_Escape))
+    assert wizard.screen == Screen.WORKING and wizard.stop_confirmation is not None
+    assert not wizard.runner.cancelled
+    from beamo_wipe import copy as C
+    assert C.STOP_KEEP in app.actions and C.STOP_CONFIRM in app.actions
+    app.actions[C.STOP_KEEP].clicked()
+    assert wizard.stop_confirmation is None and not wizard.runner.cancelled
+    app.actions[C.STOP_ASK].clicked()
+    app.actions[C.STOP_CONFIRM].clicked()
     wait_transition(app)
     assert wizard.screen == Screen.DONE
     assert not wizard.runner.started or wizard.wipe_result is not None
@@ -546,6 +557,22 @@ sys.exit(entry['main']())
         app.render()
         wait_for(wizard.erase_label(), since=checkpoint)
         assert not wizard.runner.started
+        from beamo_wipe import copy as C
+        wizard.back(); wizard.back(); wizard.back()
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.render()
+        wait_for(C.TITLE_PICK, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.actions[C.DISK_HELP_BUTTON].grab_focus()
+        wait_for(C.DISK_HELP_BUTTON, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        app.actions[C.DISK_HELP_BUTTON].clicked()
+        wait_for(C.DISK_HELP_TITLE, since=checkpoint)
+        checkpoint = len(logfile.read_text(errors="replace"))
+        help_reader = next(item for item in widgets(app.window) if isinstance(item, Gtk.TextView))
+        help_reader.grab_focus()
+        wait_for("You do not need to choose now", since=checkpoint)
+        assert wizard.selected is None and not wizard.runner.started
         app.close()
     finally:
         reader.terminate()
@@ -735,7 +762,7 @@ def test_accessible_evidence_failure_retry(ui, tmp_path, monkeypatch):
     w, clock = start(tmp_path, monkeypatch)
     app = ui(w)
     assert w.evidence_warning in text(app)
-    assert app.actions['Cancel erase'].get_sensitive()
+    assert app.actions['Stop erase'].get_sensitive()
     assert 'Retry evidence save' not in app.actions
     complete(w, clock)
     app.render()
@@ -801,7 +828,8 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
             barrier.wait()
             original()
         monkeypatch.setattr(w.runner, "cancel", slow)
-        stale = app.actions["Cancel erase"]
+        app.actions["Stop erase"].clicked()
+        stale = app.actions["Yes, stop erasing"]
         stale.clicked()
     try:
         assert barrier.entered.wait(2)
@@ -858,6 +886,115 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
 
+
+def test_picker_protected_identity_is_reader_not_select_action(ui):
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    readers = [w for w in widgets(app.window) if isinstance(w, Gtk.TextView)]
+    protected = [w for w in readers if w.get_accessible().get_name() == wizard.protected_boot_text]
+    assert len(protected) == 1 and not protected[0].get_editable()
+    assert wizard.discovery.boot.serial in protected[0].get_accessible().get_name()
+    assert not any(name.startswith("Select ") and wizard.discovery.boot.serial in name for name in app.actions)
+    assert wizard.selected is None and not wizard.runner.started
+
+
+def test_serial_comparison_is_in_accessible_disk_name(ui):
+    from test_serial_comparison import comparison_wizard
+    wizard = comparison_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    names = [w.get_accessible().get_name() or "" for w in widgets(app.window)]
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        assert any(view.id_value in name and view.comparison_note in name for name in names)
+
+@pytest.mark.parametrize('size', [(800, 600), (1280, 820)])
+def test_unsure_disk_accessible_reader_and_return(ui, size):
+    from beamo_wipe import copy as C
+    w = make_demo_wizard()
+    w.skip_intro()
+    w.accept_what()
+    w.set_owner(True)
+    w.continue_owner()
+    w.select_disk(w.selectable[0].path)
+    app = ui(w, size=size)
+    action = app.actions[C.DISK_HELP_BUTTON]
+    assert action.get_accessible().get_name() == C.DISK_HELP_BUTTON
+    action.grab_focus()
+    action.activate()
+    drain()
+    # GtkButton activation animates before emitting clicked.
+    deadline = time.monotonic() + 1
+    while w.screen == Screen.PICK and time.monotonic() < deadline:
+        drain()
+        time.sleep(.01)
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+    reader = next(x for x in widgets(app.window) if isinstance(x, Gtk.TextView))
+    assert reader.get_accessible().get_name() == C.DISK_HELP_TEXT
+    assert reader.get_can_focus() and not reader.get_editable()
+    reader.grab_focus()
+    drain()
+    assert reader.has_focus()
+    app.actions[C.BTN_BACK].clicked()
+    drain()
+    assert w.screen == Screen.PICK and w.selected is None
+    app.actions[C.DISK_HELP_BUTTON].clicked()
+    drain()
+    w.report_wanted = True
+    app.actions[C.DISK_HELP_STOP].clicked()
+    drain()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM and not w.wants_shutdown
+    w.back()
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+
+def test_review_countdown_announces_only_changed_text(ui):
+    from beamo_wipe import copy as C
+    wizard = make_demo_wizard()
+    wizard.skip_intro()
+    wizard.accept_what()
+    wizard.set_owner(True)
+    wizard.continue_owner()
+    wizard.select_disk(wizard.selectable[0].path)
+    wizard.continue_pick()
+    wizard.set_confirm_input(wizard.confirm.token)
+    wizard.continue_confirm()
+    wizard.continue_method()
+    app = ui(wizard)
+    changes = []
+    app.countdown_label.connect("notify::label", lambda *args: changes.append(1))
+    app.update_status()
+    changes.clear()
+    app.update_status()
+    app.update_status()
+    assert changes == []
+    focus = app.window.get_focus()
+    wizard._erase_until = 0
+    app.update_status()
+    assert changes == [1]
+    assert app.countdown_label.get_text() == C.COUNTDOWN_READY
+    app.update_status()
+    assert changes == [1]
+    assert app.window.get_focus() == focus
+    assert wizard.screen == Screen.LAST_CHANCE
+    assert not wizard.runner.started
+
+@pytest.mark.parametrize("case", CASES, ids=[case[0] for case in CASES])
+@pytest.mark.parametrize("status", ["idle", "saving", "saved", "error"])
+def test_separate_erase_and_report_headings(ui, case, status):
+    from gi.repository import Atk
+    from beamo_wipe import copy as C
+    wizard, _, _ = case_evidence(case)
+    wizard.report_status = status
+    app = ui(wizard)
+    headings = {
+        widget.get_accessible().get_name()
+        for widget in widgets(app.window)
+        if widget.get_accessible().get_role() == Atk.Role.HEADING
+    }
+    assert {C.ERASE_STATUS_TITLE, C.REPORT_STATUS_TITLE} <= headings
+    assert wizard.report_view.headline in text(app)
+    assert wizard.result_view == VIEWS[case[0]]
 
 def test_accessible_erase_another_guard(ui):
     from beamo_wipe import copy as C

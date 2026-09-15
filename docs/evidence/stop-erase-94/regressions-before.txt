@@ -1,0 +1,183 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+__________ test_stop_requires_fresh_consent_and_keep_does_not_cancel ___________
+
+ready = <beamo_wipe.wizard.Wizard object at 0x7ff6caae6cf0>
+
+    def test_stop_requires_fresh_consent_and_keep_does_not_cancel(ready):
+        w = ready
+        w.confirm_erase()
+>       w.request_stop()
+        ^^^^^^^^^^^^^^
+E       AttributeError: 'Wizard' object has no attribute 'request_stop'
+
+tests/test_stop_confirmation.py:13: AttributeError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_________________ test_completion_while_confirmation_open_wins _________________
+
+ready = <beamo_wipe.wizard.Wizard object at 0x7ff6ca976fd0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ff6ca9ec2b0>
+
+    def test_completion_while_confirmation_open_wins(ready, monkeypatch):
+        w = ready
+        w.confirm_erase()
+>       w.request_stop()
+        ^^^^^^^^^^^^^^
+E       AttributeError: 'Wizard' object has no attribute 'request_stop'
+
+tests/test_stop_confirmation.py:32: AttributeError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+____________________ test_failed_stop_never_claims_stopped _____________________
+
+ready = <beamo_wipe.wizard.Wizard object at 0x7ff6ca0d0050>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ff6ca9e6330>
+
+    def test_failed_stop_never_claims_stopped(ready, monkeypatch):
+        w = ready
+        w.confirm_erase()
+>       w.request_stop()
+        ^^^^^^^^^^^^^^
+E       AttributeError: 'Wizard' object has no attribute 'request_stop'
+
+tests/test_stop_confirmation.py:45: AttributeError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+______________ test_curses_repeat_escape_and_enter_never_confirm _______________
+
+ready = <beamo_wipe.wizard.Wizard object at 0x7ff6ca977110>
+
+    def test_curses_repeat_escape_and_enter_never_confirm(ready):
+        w = ready
+        w.confirm_erase()
+        for key in (27, 27, 27, 10):
+            console_wizard._handle(w, key)
+>           assert not w.runner.cancelled
+E           assert not True
+E            +  where True = <beamo_wipe.nwipe_runner.DryRunRunner object at 0x7ff6ca9ec2b0>.cancelled
+E            +    where <beamo_wipe.nwipe_runner.DryRunRunner object at 0x7ff6ca9ec2b0> = <beamo_wipe.wizard.Wizard object at 0x7ff6ca977110>.runner
+
+tests/test_stop_confirmation.py:62: AssertionError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+________________ test_interruption_warning_is_shared[cancelled] ________________
+
+code = 'cancelled'
+
+    @pytest.mark.parametrize("code", ["cancelled", "interrupted"])
+    def test_interruption_warning_is_shared(code):
+>       assert C.STOP_WARNING in C.VIEWS[code].announcement
+               ^^^^^^^^^^^^^^
+E       AttributeError: module 'beamo_wipe.copy' has no attribute 'STOP_WARNING'
+
+tests/test_stop_confirmation.py:71: AttributeError
+_______________ test_interruption_warning_is_shared[interrupted] _______________
+
+code = 'interrupted'
+
+    @pytest.mark.parametrize("code", ["cancelled", "interrupted"])
+    def test_interruption_warning_is_shared(code):
+>       assert C.STOP_WARNING in C.VIEWS[code].announcement
+               ^^^^^^^^^^^^^^
+E       AttributeError: module 'beamo_wipe.copy' has no attribute 'STOP_WARNING'
+
+tests/test_stop_confirmation.py:71: AttributeError
+_______ test_plain_confirmation_polls_and_repeated_cancel_does_not_stop ________
+
+ready = <beamo_wipe.wizard.Wizard object at 0x7ff6ca977250>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ff6ca9ab850>
+capsys = <_pytest.capture.CaptureFixture object at 0x7ff6ca0ec2f0>
+
+    def test_plain_confirmation_polls_and_repeated_cancel_does_not_stop(ready, monkeypatch, capsys):
+        w = ready
+        w.confirm_erase()
+        commands = iter(["CANCEL\n", "CANCEL\n", "KEEP\n", "CANCEL\n", "STOP\n"])
+        polls = []
+        original_tick = w.tick
+        def tick():
+            polls.append(w.stop_confirmation)
+            original_tick()
+        class Input:
+            def readline(self):
+                return next(commands)
+        monkeypatch.setattr(w, "tick", tick)
+        monkeypatch.setattr("builtins.input", lambda *_: "SHUTDOWN")
+        monkeypatch.setattr(console_wizard.sys, "stdin", Input())
+        monkeypatch.setattr(console_wizard.select, "select", lambda *_: ([1], [], []))
+        # Exercise consent through the actual controller; deterministic worker.
+>       original_confirm = w.confirm_stop
+                           ^^^^^^^^^^^^^^
+E       AttributeError: 'Wizard' object has no attribute 'confirm_stop'
+
+tests/test_stop_confirmation.py:92: AttributeError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+_______________ test_ctrl_c_opens_confirmation_without_stopping ________________
+
+ready = <beamo_wipe.wizard.Wizard object at 0x7ff6ca977610>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ff6cab0fe30>
+
+    def test_ctrl_c_opens_confirmation_without_stopping(ready, monkeypatch):
+        w = ready
+        w.confirm_erase()
+        calls = []
+        def body(wizard):
+            calls.append(True)
+            if len(calls) == 1:
+                raise KeyboardInterrupt
+            assert wizard.stop_confirmation is not None
+            assert not wizard.runner.cancelled and wizard.screen == Screen.WORKING
+            return 0
+        monkeypatch.setattr(console_wizard, "_plain_loop_body", body)
+>       assert console_wizard._plain_loop(w) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_stop_confirmation.py:113:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/beamo_wipe/ui/console_wizard.py:295: in _plain_loop
+    return _plain_loop_body(wizard)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+wizard = <beamo_wipe.wizard.Wizard object at 0x7ff6ca977610>
+
+    def body(wizard):
+        calls.append(True)
+        if len(calls) == 1:
+            raise KeyboardInterrupt
+>       assert wizard.stop_confirmation is not None
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Wizard' object has no attribute 'stop_confirmation'
+
+tests/test_stop_confirmation.py:109: AttributeError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_stop_confirmation.py::test_stop_requires_fresh_consent_and_keep_does_not_cancel
+FAILED tests/test_stop_confirmation.py::test_completion_while_confirmation_open_wins
+FAILED tests/test_stop_confirmation.py::test_failed_stop_never_claims_stopped
+FAILED tests/test_stop_confirmation.py::test_curses_repeat_escape_and_enter_never_confirm
+FAILED tests/test_stop_confirmation.py::test_interruption_warning_is_shared[cancelled]
+FAILED tests/test_stop_confirmation.py::test_interruption_warning_is_shared[interrupted]
+FAILED tests/test_stop_confirmation.py::test_plain_confirmation_polls_and_repeated_cancel_does_not_stop
+FAILED tests/test_stop_confirmation.py::test_ctrl_c_opens_confirmation_without_stopping
+8 failed in 0.15s

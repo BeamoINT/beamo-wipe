@@ -73,7 +73,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 spec = confirm_spec(disk, peers)
             except SafetyError:
                 spec = None
-        view = present_disk(disk, peers)
+        view = present_disk(disk, peers, compare_serials=True)
         out.append(
             {
                 "path": disk.path,
@@ -84,6 +84,8 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "storageNotice": limits.notice(disk.kind),
                 "bus": view.connection,
                 "serial": view.id_value,
+                "markedSerial": view.marked_id,
+                "comparisonNote": view.comparison_note,
                 "idLabel": view.id_label,
                 "connection": view.connection,
                 "missingNote": view.missing_note,
@@ -107,6 +109,10 @@ def gallery_html() -> str:
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
+        "eraseStatusTitle": C.ERASE_STATUS_TITLE,
+        "reportStatusTitle": C.REPORT_STATUS_TITLE,
+        "reportPreview": C.REPORT_PREVIEW,
+        "reportStatusNotice": C.REPORT_STATUS_NOTICE,
         "journey": C.JOURNEY_LABELS,
         "selectedDisk": C.SELECTED_DISK,
         "serialLabel": C.SERIAL_LABEL,
@@ -116,11 +122,19 @@ def gallery_html() -> str:
             "ok": preview_view(True).payload(),
             "failed": preview_view(False).payload(),
         },
+        "compareTitle": inventory.COMPARE_TITLE,
+        "compareIntro": inventory.COMPARE_INTRO,
+        "comparison": inventory.comparison_entries(result.selectable, peers=listed_disks(result)),
         "otherTitle": inventory.TITLE,
+        "bootDisc": C.BOOT_DISC_BANNER,
         "otherDevices": {
-            "happy": inventory.full_text(result.excluded),
-            "empty": inventory.full_text(discovery_for_scenario("empty").excluded),
+            "happy": inventory.full_text(inventory.other_devices(result)),
+            "empty": inventory.full_text(inventory.other_devices(discovery_for_scenario("empty"))),
         },
+        "diskHelpButton": C.DISK_HELP_BUTTON,
+        "diskHelpTitle": C.DISK_HELP_TITLE,
+        "diskHelpText": C.DISK_HELP_TEXT,
+        "diskHelpStop": C.DISK_HELP_STOP,
         "limitsTitle": limits.TITLE,
         "reportHelpTitle": C.REPORT_HELP_TITLE,
         "reportHelpText": C.REPORT_HELP_TEXT,
@@ -186,6 +200,10 @@ def gallery_html() -> str:
         "sameSize": C.SAME_SIZE_HINT,
         "sameSizeConflict": same_size_conflict(listed_disks(result)),
         "working": C.WORKING_PULSE,
+        "stop": {"title": C.STOP_TITLE, "lead": C.STOP_LEAD, "ask": C.STOP_ASK,
+                 "keep": C.STOP_KEEP, "confirm": C.STOP_CONFIRM, "stopping": C.STOPPING_TEXT,
+                 "stopped": C.VIEWS["cancelled"].payload(),
+                 "unconfirmed": C.VIEWS["stop_unconfirmed"].payload()},
         "doneOk": C.DONE_OK_PREVIEW,
         "doneFail": C.DONE_FAIL_PREVIEW,
         "pickSubtitle": C.pick_subtitle(),
@@ -341,7 +359,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .identity-label { color: var(--primary); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
   .serialpair { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   .serialpair .ser { min-width: 0; }
-  .serial-label { font-size: 12px; color: var(--muted); }
+  .serial-label { flex-shrink: 0; font-size: 12px; color: var(--muted); }
   .splash-roadmap { font-size: 14px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
   .pick-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 8px; }
   .pick-tools .morelink { margin-top: 0; }
@@ -388,7 +406,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .sel .radio::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--primary); }
   .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; background: var(--surface-alt); color: var(--muted); border-radius: 999px; vertical-align: 2px; }
   .chip.ok { color: var(--ok); background: var(--ok-tint); }
-  .bootbanner { display: inline-block; margin-top: 10px; margin-left: 36px; color: var(--danger); font-weight: 700; font-size: 14px; background: var(--danger-tint); border: 1px solid var(--danger-border); border-radius: 999px; padding: 3px 11px; }
+  .bootbanner { margin-bottom: 6px; color: var(--ink); font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
   .panel { display: flex; gap: 12px; align-items: flex-start; border: 1px solid; border-radius: 8px; padding: 13px 16px; font-size: 16px; line-height: 1.4; }
   .panel svg { flex: none; margin-top: 1px; }
   .panel.warn { background: var(--warn-bg); border-color: var(--warn-border); }
@@ -453,7 +471,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .cbox { flex: none; width: 28px; height: 28px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: #fff; font-size: 18px; font-weight: 700; line-height: 24px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
   .ringwrap { display: flex; flex-direction: column; align-items: center; }
-  .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 56px; font-weight: 700; }
+  .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
   .countcap { font-size: 16px; color: var(--muted); margin-top: 12px; }
   .countcap.ready { color: var(--ink); font-weight: 600; }
   .advrow { font-size: 13px; margin: 0; padding: 7px 0; }
@@ -656,7 +674,10 @@ function stepInfo() {
   const map = {splash:[0,"",""], keyboard:[0,"",P.titles.keyboard], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
     pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
     confirm:[4,"Step 4 of 8",P.titles.confirm], method:[5,"Step 5 of 8",P.titles.method],
-    limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
+    disk_help:[3,P.diskHelpTitle,P.diskHelpTitle], limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
+    stop_confirm:[7,"Step 7 of 8",P.stop.title], stopping:[7,"Step 7 of 8","Stopping erase"],
+    stop_unconfirmed:[7,"Step 7 of 8",P.stop.unconfirmed.message], stopped:[8,"Step 8 of 8",P.stop.stopped.message],
+
     working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk]};
   return map[screen] || [0,"",""];
 }
@@ -692,10 +713,10 @@ function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function metaLine(d) {
-  const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote].filter(Boolean)
+  const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
     .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
   const extra = showMore ? `<div class="small muted">System name (not a stable identity): ${esc(d.path)}</div>` : "";
-  return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(d.serial)}</span></span>
+  return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(screen === "pick" ? d.markedSerial || d.serial : d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
     <div class="connection"><span>${esc(d.connection || d.bus)}</span></div>${notes}${extra}</div>`;
 }
@@ -711,15 +732,15 @@ function diskCard(d) {
   const cls = d.isBoot ? "card boot" : ("card pickable" + (sel ? " sel" : ""));
   const icon = d.isBoot ? `<span class="radio" style="border:0;background:none">${ICON_NO}</span>` : `<span class="radio"></span>`;
   // Use esc for attribute to prevent `"` breakout
-  return `<div class="${cls}" data-path="${esc(d.path)}" ${d.isBoot ? "" : `tabindex="0" role="button" aria-pressed="${!!sel}"`}>
+  return `<div class="${cls}" data-path="${esc(d.path)}" ${d.isBoot ? `role="region" aria-label="${esc(d.bus === "USB" ? P.bootUsb : P.bootDisc)}"` : `tabindex="0" role="button" aria-pressed="${!!sel}"`}>
     <div class="row">${icon}
       <div class="grow">
+        ${d.isBoot ? `<div class="bootbanner">${esc(d.bus === "USB" ? P.bootUsb : P.bootDisc)}</div>` : ""}
         <div class="row" style="align-items:flex-start">
           <div class="title grow">${esc(d.name)}</div>
           <div class="size">${esc(d.size)}</div>
         </div>
         ${metaLine(d)}
-        ${d.isBoot ? `<div class="bootbanner">${esc(P.bootUsb)}</div>` : ""}
       </div>
     </div>
   </div>`;
@@ -830,13 +851,24 @@ function draw() {
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd, true)}</div>`;
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
+    disks().filter(d => d.isBoot).forEach(d => { html += diskCard(d); });
+    if (selectable().length > 1) html += `<details><summary>${esc(P.compareTitle)}</summary><p>${esc(P.compareIntro)}</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px">${P.comparison.map(text => `<pre tabindex="0" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;padding:12px;border:1px solid #ccd3dc">${esc(text)}</pre>`).join("")}</div></details>`;
     selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
+    const unsure = btn(P.diskHelpButton, () => {
+      if (screen !== "pick") return;
+      selected = null; token = ""; tLeft = 5;
+      if (timer) clearInterval(timer);
+      timer = null; screen = "disk_help"; draw();
+    }, "ghost");
+    unsure.id = "unsure-disk";
+    main.querySelector(".subtitle").after(unsure);
     renderOtherDevices();
     bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => {
+        if (screen !== "pick") return;
         selected = disks().find(d => d.path === el.dataset.path);
         draw();
         Array.from(main.querySelectorAll(".card.pickable"))
@@ -878,7 +910,7 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p><p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
@@ -894,6 +926,7 @@ function draw() {
     });
     html += `<button class="linkbtn" id="adv">${P.buttons.advanced}</button></div></div>`;
     main.innerHTML = html;
+    bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
       const pick = () => { method = el.dataset.id; draw(); };
       el.onclick = pick;
@@ -921,6 +954,13 @@ function draw() {
     main.querySelector("#report-wanted").onchange = e => { reportWanted = e.target.checked; };
     btnsL.append(btn(P.buttons.back, () => { screen = reportHelpFrom; draw(); }));
     renderHint("Nothing is saved here. Esc returns.");
+  } else if (screen === "disk_help") {
+    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" role="region" aria-label="Identify the disk" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
+    main.querySelector("#disk-help-text").textContent = P.diskHelpText;
+    main.querySelector("#disk-help-text").focus();
+    btnsL.append(btn(P.buttons.back, () => { screen = "pick"; draw(); main.querySelector("#unsure-disk").focus(); }));
+    btnsR.append(btn(P.diskHelpStop, closePreview));
+    renderHint("Esc returns with no disk selected.");
   } else if (screen === "limits") {
     main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" role="region" aria-label="Supported storage limits" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
     main.querySelector("#limits-text").textContent = P.limitsText;
@@ -944,8 +984,8 @@ function draw() {
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p class="small" style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:144px;height:144px">
-        <svg width="144" height="144" viewBox="0 0 190 190">
+      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
+        <svg width="64" height="64" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :
             `<circle cx="95" cy="95" r="81" fill="none" stroke="${ringColor}" stroke-width="11" stroke-linecap="round"
@@ -971,15 +1011,52 @@ function draw() {
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
       <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p><p class="small muted">${m.summary}</p></div></div></div>`;
     bindMore();
+    btnsL.append(btn(P.stop.ask, () => {
+      if (screen === "working") { screen = "stop_confirm"; draw(); }
+    }));
     renderHint(P.hints.working);
+  } else if (["stop_confirm", "stopping", "stopped", "stop_unconfirmed"].includes(screen)) {
+    const result = screen === "stopped" ? P.stop.stopped : P.stop.unconfirmed;
+    const title = screen === "stop_confirm" ? P.stop.title : screen === "stopping" ? "Stopping erase" : result.message;
+    const detail = screen === "stop_confirm" ? P.stop.lead : screen === "stopping" ? P.stop.stopping : result.next_step;
+    main.innerHTML = `<h1 tabindex="-1" id="stop-heading">${title}</h1>
+      <p role="status" aria-live="polite">${detail}</p>
+      <p>Preview only. Nothing on this computer was erased.</p>
+      ${selected ? summaryCard(selected) : ""}`;
+    renderHint("Keep the disk and Beamo USB connected.");
+    if (screen === "stop_confirm") {
+      const confirmation = main.firstElementChild;
+      const keep = btn(P.stop.keep, () => {
+        if (screen !== "stop_confirm" || main.firstElementChild !== confirmation) return;
+        screen = "working"; draw();
+      }, "primary");
+      btnsL.append(keep);
+      btnsR.append(btn(P.stop.confirm, () => {
+        if (screen !== "stop_confirm" || main.firstElementChild !== confirmation) return;
+        if (timer) clearInterval(timer);
+        screen = "stopping"; draw();
+        timer = setTimeout(() => { screen = "stopped"; draw(); }, 1500);
+      }, "danger"));
+      keep.focus();
+    } else {
+      main.querySelector("#stop-heading").focus();
+      if (screen === "stop_unconfirmed")
+        btnsL.append(btn("Review stop again (preview)", () => { screen = "stop_confirm"; draw(); }));
+      if (screen === "stopped")
+        btnsR.append(btn(P.buttons.runAgain, () => boot(mode), "primary"));
+    }
   } else if (screen === "done") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
     const result = P.previewResults[ok ? "ok" : "failed"];
     main.innerHTML = `<div class="centerstage"><div class="status" aria-hidden="true"><div class="core">i</div></div>
-      <h1>${result.message}</h1>
+      <section aria-labelledby="erase-status-heading"><h1 id="erase-status-heading">${P.eraseStatusTitle}</h1>
+      <p class="statustext">${result.message}</p>
       <p class="statustext" style="color:var(--ink)">${result.next_step}</p>
       <p>${P.methods[method].summary}</p><p role="status" aria-live="polite">${result.announcement}</p>
+      </section><section aria-labelledby="report-status-heading">
+      <h2 id="report-status-heading">${P.reportStatusTitle}</h2>
+      <p>${P.reportPreview}</p><p class="small">${P.reportStatusNotice}</p></section>
       <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div>
       ${moreLink()}</div>`;
     bindMore();
@@ -993,7 +1070,7 @@ function draw() {
   if (["what", "method", "advanced"].includes(screen)) {
     utilities.append(btn(P.reportHelpTitle, () => { reportHelpFrom = screen; screen = "report_help"; draw(); }, "ghost"));
   }
-  if (!["working", "done", "splash", "shutdown_confirm"].includes(screen)) {
+  if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
     utilities.prepend(btn("Check disks again (F5)", refreshPreview, "ghost"));
   }
   if (screen === "last") {
@@ -1004,13 +1081,24 @@ function draw() {
   renderedScreen = screen;
 }
 document.addEventListener("keydown", e => {
+  if (["working", "stop_confirm"].includes(screen) && e.key === "Escape") {
+    e.preventDefault();
+    if (!e.repeat) { screen = screen === "working" ? "stop_confirm" : "working"; draw(); }
+    return;
+  }
+  if (screen === "stop_confirm" && e.repeat && ["Enter", " "].includes(e.key)) {
+    e.preventDefault(); return;
+  }
   if (screen === "shutdown_confirm" && ["Escape", "Enter"].includes(e.key)) {
     e.preventDefault(); screen = shutdownFrom; draw(); return;
+  }
+  if (screen === "disk_help" && e.key === "Escape") {
+    e.preventDefault(); screen = "pick"; draw(); main.querySelector("#unsure-disk").focus(); return;
   }
   if (screen === "report_help" && e.key === "Escape") {
     e.preventDefault(); screen = reportHelpFrom; draw(); return;
   }
-  if (e.key === "F5" && !["working", "done", "splash", "shutdown_confirm"].includes(screen)) {
+  if (e.key === "F5" && !["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
     e.preventDefault(); refreshPreview(); return;
   }
   if (screen === "method" && e.key.toLowerCase() === "l") {
@@ -1071,6 +1159,7 @@ function applyHash() {
   if (q.get("pct")) demoPct = parseInt(q.get("pct"), 10);
   reportWanted = q.get("report") === "1";
   const s = q.get("s");
+  if (s === "disk_help") { selected = null; token = ""; tLeft = 5; }
   if (s) { screen = s; draw(); }
 }
 if (location.hash) applyHash(); else boot("happy");

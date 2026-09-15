@@ -1407,6 +1407,7 @@ def test_busy_transition_renders_and_pumps_events(ui, monkeypatch, tmp_path, pha
             original()
         monkeypatch.setattr(w.runner, "cancel", slow)
         app._click_cancel()
+        app._primary._command()
     try:
         assert barrier.entered.wait(2)
         beats = []
@@ -1457,7 +1458,7 @@ def test_working_timer_keeps_cancel_control_until_revision_changes(ui, monkeypat
         for child in widget.winfo_children():
             yield from walk(child)
     cancel = next(v for v in walk(app.root) if isinstance(v, _Button)
-                  and v.itemcget(v._label, "text") == "Cancel erase")
+                  and v.itemcget(v._label, "text") == "Stop erase")
     app._tick()
     app._tick()
     assert app._draw_generation == generation and cancel.winfo_exists()
@@ -1753,6 +1754,237 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
 
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("scenario", ["happy", "empty"])
+@pytest.mark.parametrize("long_identity", [False, True])
+def test_protected_boot_card_is_separate_and_never_clickable(ui, size, scenario, long_identity):
+    wiz, app = ui(scenario=scenario, size=size)
+    screen = Screen.PICK if scenario == "happy" else Screen.PICK_EMPTY
+    if long_identity:
+        boot = replace(wiz.discovery.boot, model="VeryLongBootModel" * 12,
+                       raw_model="VeryLongBootModel" * 12, serial="BOOTIDENTITY" * 24)
+        wiz.discovery = replace(wiz.discovery, boot=boot,
+                                disks=tuple(boot if d.path == boot.path else d for d in wiz.discovery.disks))
+    wiz.screen = screen
+    app._draw()
+    app.root.update()
+    def descendants(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from descendants(child)
+    cards = [w for w in descendants(app.root) if getattr(w, "_beamo_protected_boot", False)]
+    assert len(cards) == 1
+    card = cards[0]
+    labels = " ".join(str(w.cget("text")) for w in descendants(card) if isinstance(w, tk.Label))
+    assert "Beamo USB" in labels and "protected, cannot be erased" in labels
+    assert wiz.discovery.boot.serial in labels.replace("\u200b", "").replace("\n", "")
+    assert card.winfo_ismapped()
+    for widget in descendants(card):
+        assert not widget.bind("<Button-1>")
+    assert wiz.discovery.boot.path not in app._pick_cards
+    before = wiz.selected
+    wiz.select_disk(wiz.discovery.boot.path)
+    assert wiz.selected == before and not wiz.runner.started
+    assert not _off_window_problems(app)
+    assert not _clipping_problems(app)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("long", [False, True])
+def test_serial_comparison_markers_wrap_and_leave_controls_visible(size, long):
+    from test_serial_comparison import comparison_wizard
+    _needs_display()
+    serials = ("A" * 240 + "X" + "Z" * 80, "A" * 240 + "Y" + "Z" * 80) if long else ("ABC123XYZ", "ABC124XYZ")
+    wiz = comparison_wizard(serials)
+    app = TkWizard(wiz)
+    try:
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        _drive_to(wiz, app, Screen.PICK, size=size)
+        for disk in wiz.selectable:
+            labels = []
+            def visit(widget):
+                if isinstance(widget, tk.Label):
+                    labels.append(widget)
+                for child in widget.winfo_children():
+                    visit(child)
+            visit(app._pick_cards[disk.path])
+            view = wiz.disk_view(disk)
+            assert any(str(label.cget('text')).replace('\n', '') == view.marked_id for label in labels)
+            assert any(view.comparison_note == str(label.cget('text')) for label in labels)
+            for label in labels:
+                assert label.winfo_reqwidth() <= label.winfo_width() + 2
+                assert label.winfo_reqheight() <= label.winfo_height() + 2
+        assert not _off_window_problems(app)
+        assert not _clipping_problems(app)
+    finally:
+        app._teardown()
+
+
+@pytest.mark.parametrize('size', [WINDOW, MIN_WINDOW])
+def test_unsure_disk_keyboard_return_and_reader(ui, size):
+    from beamo_wipe import copy as C
+    w, app = ui(size=size)
+    w.skip_intro()
+    w.accept_what()
+    w.set_owner(True)
+    w.continue_owner()
+    w.select_disk(w.selectable[0].path)
+    app._draw()
+    app.root.update()
+    def descendants(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from descendants(child)
+    unsure = next(x for x in descendants(app.root) if isinstance(x, _Button) and x.itemcget(x._label, "text") == C.DISK_HELP_BUTTON)
+    unsure.focus_set()
+    app.root.update()
+    unsure.event_generate('<Return>')
+    app.root.update()
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+    reader = next(x for x in descendants(app.root) if isinstance(x, tk.Text))
+    assert C.DISK_HELP_TEXT == reader.get('1.0', 'end-1c')
+    assert app.root.focus_get() == reader
+    reader.event_generate('<Next>')
+    reader.event_generate('<Return>')
+    app.root.update()
+    assert w.screen == Screen.DISK_HELP and w.selected is None
+    for x in descendants(app.root):
+        if isinstance(x, _Button) and x.winfo_ismapped():
+            assert x.winfo_rooty() + x.winfo_height() <= app.root.winfo_rooty() + size[1]
+    reader.event_generate('<Escape>')
+    app.root.update()
+    assert w.screen == Screen.PICK and w.selected is None
+    assert not w.runner.started
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, (800, 600)])
+def test_method_keeps_selected_disk_identity(ui, size):
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, Screen.METHOD, size=size)
+    selected = wiz.selected
+    view = wiz.disk_view(selected)
+    text = _label_text(app)
+    for value in (view.title, view.capacity, view.id_value, view.connection):
+        assert value in text
+    app._more_button._command()
+    app.root.update()
+    assert selected.path in _label_text(app)
+    for method in METHODS:
+        app._choose_method(method)
+        app.root.update()
+        assert wiz.selected is selected
+        assert view.id_value in _label_text(app)
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    wiz.continue_method()
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert wiz.selected is selected
+
+
+@pytest.mark.parametrize("missing", [False, True])
+@pytest.mark.parametrize("enlarged", [False, True])
+def test_method_identity_wraps_without_losing_values(ui, missing, enlarged):
+    wiz, app = ui(size=(800, 600))
+    _drive_to(wiz, app, Screen.METHOD, size=(800, 600))
+    wiz.selected = replace(
+        wiz.selected,
+        model="" if missing else "LONGMODEL" * 18,
+        serial="" if missing else "LONGSERIAL" * 18,
+        bus="" if missing else "SATA",
+        path="/dev/" + "longpath" * 18,
+    )
+    if enlarged:
+        for name, font in vars(app).items():
+            if name.startswith("font_"):
+                font.configure(size=round(int(font.cget("size")) * 1.5))
+    app._show_more = True
+    app._draw()
+    app.root.update()
+    # Soft line breaks may split unbroken hardware identifiers, never truncate.
+    packed = "".join(_label_text(app).split())
+    view = wiz.disk_view(wiz.selected)
+    for value in (view.title, view.capacity, view.id_value, view.connection,
+                  view.system_path, *view.notes):
+        assert "".join(value.split()) in packed
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert app._body_canvas is not None
+    app._body_canvas.yview_moveto(1)
+    app.root.update()
+    assert app._body_canvas.yview()[1] == 1.0
+
+@pytest.mark.parametrize("size", [(800, 600), MIN_WINDOW, WINDOW, (1600, 1000)])
+def test_review_timer_is_secondary_and_completion_preserves_focus(ui, size):
+    from tkinter import font
+    from beamo_wipe import copy as C
+
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    app.root.update()
+    focus = app.root.focus_get()
+    assert app._countdown_ring.winfo_width() <= 64
+    numeral = font.Font(root=app.root, font=app._countdown_num.cget("font"))
+    assert abs(numeral.cget("size")) <= abs(app.font_bold.cget("size"))
+    assert "selected disk and method" in C.LAST_LEAD
+    assert "never starts erasure" in C.LAST_LEAD
+    wiz._erase_until = 0
+    app._refresh_last_chance()
+    app.root.update()
+    assert app.root.focus_get() == focus
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not wiz.runner.started
+    assert app._countdown_label.cget("text") == C.COUNTDOWN_READY
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_stop_confirmation_is_deliberate_and_fits(ui, monkeypatch, tmp_path, size):
+    from beamo_wipe import copy as C
+    w, app = ui(size=size)
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
+    w.runner._clock = lambda: 0
+    _drive_to(w, app, Screen.LAST_CHANCE)
+    w._erase_until = 0
+    w.confirm_erase()
+    app._draw()
+    app._on_escape()
+    app.root.update()
+    assert w.screen == Screen.WORKING and w.stop_confirmation is not None
+    assert not w.runner.cancelled
+    assert _clipping_problems(app) == []
+    assert _off_window_problems(app) == []
+    assert app.root.focus_get().itemcget(app.root.focus_get()._label, "text") == C.STOP_KEEP
+    stale = app._primary._command
+    app._on_escape()
+    stale()
+    assert not w.runner.cancelled and w.stop_confirmation is None
+    app._close()
+    assert not w.runner.cancelled and w.stop_confirmation is not None
+    app._primary._command()
+    _wait_transition(w, app)
+    assert w.runner.cancelled
+
+@pytest.mark.parametrize("case", RESULT_CASES, ids=[case[0] for case in RESULT_CASES])
+@pytest.mark.parametrize("status", ["idle", "saving", "saved", "error"])
+def test_done_separates_report_status_at_minimum_size(ui, case, status):
+    from beamo_wipe import copy as C
+    _, app = ui(size=MIN_WINDOW)
+    app.w, _, _ = case_evidence(case)
+    app.w.report_status = status
+    app._draw()
+    app.root.update()
+    def walk(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from walk(child)
+    labels = {widget.cget("text"): widget for widget in walk(app.root) if isinstance(widget, tk.Label)}
+    assert C.ERASE_STATUS_TITLE in labels
+    assert C.REPORT_STATUS_TITLE in labels
+    assert app.w.report_view.headline in labels
+    assert labels[C.ERASE_STATUS_TITLE].winfo_rooty() < labels[C.REPORT_STATUS_TITLE].winfo_rooty()
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
 
 @pytest.mark.parametrize("evidence_failed", [False, True])
 def test_erase_another_report_guard_and_layout(ui, evidence_failed):
