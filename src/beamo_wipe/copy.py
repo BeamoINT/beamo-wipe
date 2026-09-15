@@ -357,10 +357,10 @@ def confirm_warning(disk: Disk) -> str:
     )
 
 
-def erase_now_label(disk: Disk) -> str:
+def erase_now_label(disk: Disk, peers=()) -> str:
     from beamo_wipe.identity import present_disk
 
-    view = present_disk(disk)
+    view = present_disk(disk, peers)
     return (
         f"This will erase {view.title}, {view.capacity}, {view.id_value}. "
         "You cannot get the files back."

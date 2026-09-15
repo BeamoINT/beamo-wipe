@@ -92,6 +92,7 @@ class Disk:
 class ConfirmSpec:
     token: str
     prompt: str
+    identity_field: str = "size"
 
 
 @dataclass(frozen=True)

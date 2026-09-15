@@ -24,6 +24,7 @@ MISSING_SERIAL = (
 MISSING_SERIAL_HARDWARE_ID = (
     "This disk did not report a serial number. The hardware ID is shown instead."
 )
+CONFIRM_HARDWARE_ID = "Use the hardware ID shown here to identify this disk."
 DUPLICATE_ID = (
     "Two disks report the same serial or hardware ID. "
     "If you cannot tell them apart, shut down and disconnect the extra drives."
@@ -149,18 +150,27 @@ def present_disk(
     disk: Disk, peers: Iterable[Disk] = (), *, compare_serials: bool = False
 ) -> DiskIdentityView:
     """Present raw identity; pickers may opt into comparison guidance."""
+    from beamo_wipe.safety import SafetyError, confirm_spec
+    from beamo_wipe.inventory import serial_comparison
+
     listed = tuple(peers)
     kind, value = strongest_identifier(disk)
+    try:
+        spec = confirm_spec(disk, listed)
+    except SafetyError:
+        spec = None
+    if spec is not None and spec.identity_field == "wwn":
+        kind, value = "wwn", (disk.wwn or "").strip()
     if kind == "serial":
         id_label, id_value, missing = SERIAL_LABEL, value, ""
     elif kind == "wwn":
-        id_label, id_value, missing = HARDWARE_ID_LABEL, value, MISSING_SERIAL_HARDWARE_ID
+        id_label, id_value = HARDWARE_ID_LABEL, value
+        missing = CONFIRM_HARDWARE_ID if (disk.serial or "").strip() else MISSING_SERIAL_HARDWARE_ID
     else:
         id_label, id_value, missing = SERIAL_LABEL, SERIAL_NOT_REPORTED, MISSING_SERIAL
-    from beamo_wipe.inventory import serial_comparison
-
     start, end, comparison = serial_comparison(disk, listed) if compare_serials else (0, 0, "")
-    confirmable = identity_confirmable(disk, listed)
+    confirmable = spec is not None
+
     return DiskIdentityView(
         title=display_title(disk),
         capacity=disk.size_phrase,
