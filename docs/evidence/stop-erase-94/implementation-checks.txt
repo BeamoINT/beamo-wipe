@@ -1,0 +1,812 @@
+dbus-daemon[1690867]: [session uid=1000 pid=1690867 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=1690881 comm="python3 -m pytest --deselect tests/test_helper_boo" label="kernel")
+dbus-daemon[1690867]: [session uid=1000 pid=1690867 pidfd=5] Successfully activated service 'org.a11y.Bus'
+........F............................................................... [  2%]
+.....dbus-daemon[1690891]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=1690881 comm="python3 -m pytest --deselect tests/test_helper_boo" label="kernel")
+
+(at-spi2-registryd:1691200): dbind-WARNING **: 21:42:46.076: Couldn't connect to accessibility bus: Failed to connect to socket /home/box/.cache/at-spi/bus_5: No such file or directory
+....................F....F......................................... [  5%]
+............F.F......................................................... [  8%]
+............FFFFF....................................................... [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+....................................................F................... [ 25%]
+...................dbus-daemon[1690891]: Failed to activate service 'org.a11y.atspi.Registry': timed out (service_start_timeout=120000ms)
+..................................................... [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+.............................................................FF......... [ 39%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+...F.................................................................... [ 59%]
+...............................................................sss..s.ss [ 62%]
+ssssss.................................................F................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+..........................FF............................................ [ 73%]
+....................................F................................... [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+...........................................ss........................... [ 84%]
+........F....s.......................................................... [ 87%]
+........................................................................ [ 90%]
+..................s.............................................ssssssss [ 93%]
+ssss.................................................................... [ 96%]
+........................................................................ [ 99%]
+.......................                                                  [100%]
+=================================== FAILURES ===================================
+__________ test_working_screen_has_no_focusable_trap_and_blocks_close __________
+
+    def test_working_screen_has_no_focusable_trap_and_blocks_close():
+        # Every screen except WORKING/DONE variants has a footer with buttons.
+        # WORKING intentionally has no buttons; _close must refuse WM_DELETE.
+        close_src = inspect.getsource(tkui.TkWizard._close)
+        assert 'Screen.WORKING' in close_src
+        assert 'return' in close_src
+        working_src = inspect.getsource(tkui.TkWizard._working)
+        # working builds no _Button; footer is hint-only
+        assert 'HINT_WORKING' in working_src
+>       assert '_primary_btn' not in working_src
+E       AssertionError: assert '_primary_btn' not in '    def _wo..._working()\n'
+E
+E         '_primary_btn' is contained here:
+E                self._primary_btn(row, C.STOP_CONFIRM, lambda: self.w.confirm_stop(confirmation), danger=True)
+E         ?           ++++++++++++
+E                       keep.focus_set()
+E                       return
+E                   self._title_block(col, C.TITLE_WORKING)...
+E
+E         ...Full output truncated (39 lines hidden), use '-vv' to show
+
+tests/test_accessibility_lowres.py:115: AssertionError
+______________ test_accessible_refresh_requires_full_confirmation ______________
+
+ui = <function ui.<locals>.build at 0x7f657f5168e0>
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-145/test_accessible_refresh_requir0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f657f91f930>
+
+    def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch):
+        monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+        app = ui()
+        wizard = app.w
+        wizard.skip_intro()
+        app.render()
+        app.actions["Continue"].clicked()
+        check = next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton))
+        assert not app.actions["Continue"].get_sensitive()
+        check.set_active(True)
+        app.actions["Continue"].clicked()
+        assert wizard.selected is None
+        select = next(v for k, v in app.actions.items() if k.startswith("Select "))
+        select.clicked()
+        entry = next(w for w in widgets(app.window) if isinstance(w, Gtk.Entry))
+        entry.set_text("WRONG")
+        assert not app.actions["Continue"].get_sensitive()
+        entry.set_text(wizard.confirm.token)
+        app.actions["Continue"].clicked()
+        app.actions["Continue"].clicked()
+        assert wizard.screen == Screen.LAST_CHANCE
+        assert "Last chance to stop" in text(app)
+        assert "If this is the wrong disk, go back." in text(app)
+        assert not app.actions["Erase now"].get_sensitive()
+        stale_erase = app.actions["Erase now"]
+        app.actions["Check disks again (F5)"].clicked()
+        assert wizard.screen == Screen.WHAT
+        assert wizard.selected is None and not wizard.owner_ok and not wizard.confirm_input
+        # A queued action from the previous screen never starts a wipe.
+        stale_erase.emit("clicked")
+        assert not wizard.runner.started
+        app.actions["Continue"].clicked()
+        next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton)).set_active(
+            True
+        )
+        app.actions["Continue"].clicked()
+        next(v for k, v in app.actions.items() if k.startswith("Select ")).clicked()
+        next(w for w in widgets(app.window) if isinstance(w, Gtk.Entry)).set_text(
+            wizard.confirm.token
+        )
+        app.actions["Continue"].clicked()
+        wizard.set_method(MethodId.QUICK_ZERO)
+        app.actions["Continue"].clicked()
+        wizard._erase_until = 0
+        app.update_status()
+        assert app.actions["Erase now"].get_sensitive()
+        app.actions["Erase now"].clicked()
+        wait_transition(app)
+        assert wizard.screen == Screen.WORKING and wizard.runner.started
+        assert "Check disks again (F5)" not in app.actions
+>       app.actions["Cancel erase"].clicked()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'Cancel erase'
+
+tests/test_accessible_runtime.py:167: KeyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+___________ test_atspi_exposes_quick_zero_result_to_external_client ____________
+
+ui = <function ui.<locals>.build at 0x7f657f514680>
+
+    def test_atspi_exposes_quick_zero_result_to_external_client(ui):
+        pytest.importorskip("pyatspi")
+        if not os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+            pytest.fail("AT-SPI check requires dbus-run-session")
+        wizard, _, _ = case_evidence(CASES[1])
+        app = ui(wizard)
+        script = """import json, time, pyatspi
+    names=[]
+    def walk(node):
+        if node.name: names.append(node.name)
+        for child in node: walk(child)
+    for attempt in range(30):
+        names=[]
+        walk(pyatspi.Registry.getDesktop(0))
+        if any("verification was not performed" in name for name in names): break
+        time.sleep(0.1)
+    print(json.dumps(names))
+    """
+        proc = subprocess.Popen(
+            [sys.executable, "-c", script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        deadline = time.monotonic() + 10
+        while proc.poll() is None and time.monotonic() < deadline:
+            drain()
+            time.sleep(0.01)
+        if proc.poll() is None:
+            proc.kill()
+        output, errors = proc.communicate(timeout=2)
+>       assert proc.returncode == 0, errors
+E       AssertionError:
+E         (process:1691218): dbind-WARNING **: 21:42:47.341: Couldn't connect to accessibility bus: Failed to connect to socket /home/box/.cache/at-spi/bus_5: No such file or directory
+E
+E         (process:1691218): dbind-ERROR **: 21:42:47.341: AT-SPI: Couldn't connect to accessibility bus. Is at-spi-bus-launcher running?
+E
+E       assert -5 == 0
+E        +  where -5 = <Popen: returncode: -5 args: ['/usr/bin/python3', '-c', 'import json, time, ...>.returncode
+
+tests/test_accessible_runtime.py:303: AssertionError
+____________________ test_accessible_evidence_failure_retry ____________________
+
+ui = <function ui.<locals>.build at 0x7f657c1927a0>
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-145/test_accessible_evidence_failu0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f657f945a20>
+
+    def test_accessible_evidence_failure_retry(ui, tmp_path, monkeypatch):
+        from beamo_wipe import evidence
+        from test_evidence_retry import start, complete, fail
+        writer = evidence.write_evidence_atomic
+        monkeypatch.setattr(evidence, 'write_evidence_atomic', fail)
+        w, clock = start(tmp_path, monkeypatch)
+        app = ui(w)
+        assert w.evidence_warning in text(app)
+>       assert app.actions['Cancel erase'].get_sensitive()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'Cancel erase'
+
+tests/test_accessible_runtime.py:746: KeyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+____________ test_busy_accessible_view_remains_responsive[stopping] ____________
+
+ui = <function ui.<locals>.build at 0x7f657c1916c0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f657f91faf0>
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-145/test_busy_accessible_view_rema1')
+phase = 'stopping'
+
+    @pytest.mark.parametrize("phase", ["checking", "stopping"])
+    def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phase):
+        from test_busy_transitions import Barrier
+        w = make_demo_wizard()
+        w.preview = False
+        monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+        monkeypatch.setattr(w, "_write_evidence", lambda **kw: None)
+        w.runner._clock = lambda: 0
+        w.skip_intro()
+        w.accept_what()
+        w.set_owner(True)
+        w.continue_owner()
+        w.select_disk(w.selectable[0].path)
+        w.continue_pick()
+        w.set_confirm_input(w.confirm.token)
+        w.continue_confirm()
+        w.continue_method()
+        w._erase_until = 0
+        barrier = Barrier()
+        if phase == "stopping":
+            w.confirm_erase()
+        app = ui(w)
+        if phase == "checking":
+            original = w.runner.start
+            def slow(request):
+                barrier.wait()
+                original(request)
+            monkeypatch.setattr(w.runner, "start", slow)
+            stale = app.actions["Erase now"]
+            stale.clicked()
+        else:
+            original = w.runner.cancel
+            def slow():
+                barrier.wait()
+                original()
+            monkeypatch.setattr(w.runner, "cancel", slow)
+>           stale = app.actions["Cancel erase"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'Cancel erase'
+
+tests/test_accessible_runtime.py:812: KeyError
+----------------------------- Captured stderr call -----------------------------
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+beamo-wipe [safety] rdev_check_skipped: FileNotFoundError
+___________ test_busy_states_keep_identity_or_status[working-size0] ____________
+
+ui = <function ui.<locals>.build at 0x7f6575cfb7e0>, size = (800, 600)
+busy = <Screen.WORKING: 'working'>
+
+    @pytest.mark.parametrize("size", SIZES)
+    @pytest.mark.parametrize("busy", [Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING, Screen.WORKING])
+    def test_busy_states_keep_identity_or_status(ui, size, busy):  # noqa: F811
+        wiz, app = ui(size=size)
+        app.root.minsize(*MIN_SIZE)
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz.selected = wiz.selectable[0]
+        wiz.screen = busy
+        app._draw()
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        app.root.update()
+        shown = _texts(app.root)
+        if busy == Screen.WORKING:
+            assert wiz.selected.display_name in shown
+>           assert "Cancel erase" in shown
+E           AssertionError: assert 'Cancel erase' in 'PREVIEW on this computer — fake disks — nothing is erased\nBeamo Wipe\nStep 7 of 8\nStop erase\nLeave this USB in unt...navailable\nEveryday: 1 overwrite pass: random data. 1 separate read-back verification pass after the final overwrite.'
+
+tests/test_adaptive_layout.py:189: AssertionError
+___________ test_busy_states_keep_identity_or_status[working-size1] ____________
+
+ui = <function ui.<locals>.build at 0x7f6575cf80e0>, size = (1024, 600)
+busy = <Screen.WORKING: 'working'>
+
+    @pytest.mark.parametrize("size", SIZES)
+    @pytest.mark.parametrize("busy", [Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING, Screen.WORKING])
+    def test_busy_states_keep_identity_or_status(ui, size, busy):  # noqa: F811
+        wiz, app = ui(size=size)
+        app.root.minsize(*MIN_SIZE)
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz.selected = wiz.selectable[0]
+        wiz.screen = busy
+        app._draw()
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        app.root.update()
+        shown = _texts(app.root)
+        if busy == Screen.WORKING:
+            assert wiz.selected.display_name in shown
+>           assert "Cancel erase" in shown
+E           AssertionError: assert 'Cancel erase' in 'PREVIEW on this computer — fake disks — nothing is erased\nBeamo Wipe\n1\nStart\n2\nOwner\n3\nDisk\n4\nConfirm\n5\nMe...navailable\nEveryday: 1 overwrite pass: random data. 1 separate read-back verification pass after the final overwrite.'
+
+tests/test_adaptive_layout.py:189: AssertionError
+___________ test_busy_states_keep_identity_or_status[working-size2] ____________
+
+ui = <function ui.<locals>.build at 0x7f6575cf8900>, size = (1024, 740)
+busy = <Screen.WORKING: 'working'>
+
+    @pytest.mark.parametrize("size", SIZES)
+    @pytest.mark.parametrize("busy", [Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING, Screen.WORKING])
+    def test_busy_states_keep_identity_or_status(ui, size, busy):  # noqa: F811
+        wiz, app = ui(size=size)
+        app.root.minsize(*MIN_SIZE)
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz.selected = wiz.selectable[0]
+        wiz.screen = busy
+        app._draw()
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        app.root.update()
+        shown = _texts(app.root)
+        if busy == Screen.WORKING:
+            assert wiz.selected.display_name in shown
+>           assert "Cancel erase" in shown
+E           AssertionError: assert 'Cancel erase' in 'PREVIEW on this computer — fake disks — nothing is erased\nBeamo Wipe\n1\nStart\n2\nOwner\n3\nDisk\n4\nConfirm\n5\nMe...navailable\nEveryday: 1 overwrite pass: random data. 1 separate read-back verification pass after the final overwrite.'
+
+tests/test_adaptive_layout.py:189: AssertionError
+___________ test_busy_states_keep_identity_or_status[working-size3] ____________
+
+ui = <function ui.<locals>.build at 0x7f6575cfb880>, size = (1280, 820)
+busy = <Screen.WORKING: 'working'>
+
+    @pytest.mark.parametrize("size", SIZES)
+    @pytest.mark.parametrize("busy", [Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING, Screen.WORKING])
+    def test_busy_states_keep_identity_or_status(ui, size, busy):  # noqa: F811
+        wiz, app = ui(size=size)
+        app.root.minsize(*MIN_SIZE)
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz.selected = wiz.selectable[0]
+        wiz.screen = busy
+        app._draw()
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        app.root.update()
+        shown = _texts(app.root)
+        if busy == Screen.WORKING:
+            assert wiz.selected.display_name in shown
+>           assert "Cancel erase" in shown
+E           AssertionError: assert 'Cancel erase' in 'PREVIEW on this computer — fake disks — nothing is erased\nBeamo Wipe\n1\nStart\n2\nOwner\n3\nDisk\n4\nConfirm\n5\nMe...navailable\nEveryday: 1 overwrite pass: random data. 1 separate read-back verification pass after the final overwrite.'
+
+tests/test_adaptive_layout.py:189: AssertionError
+___________ test_busy_states_keep_identity_or_status[working-size4] ____________
+
+ui = <function ui.<locals>.build at 0x7f6575c5d580>, size = (1600, 1000)
+busy = <Screen.WORKING: 'working'>
+
+    @pytest.mark.parametrize("size", SIZES)
+    @pytest.mark.parametrize("busy", [Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING, Screen.WORKING])
+    def test_busy_states_keep_identity_or_status(ui, size, busy):  # noqa: F811
+        wiz, app = ui(size=size)
+        app.root.minsize(*MIN_SIZE)
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz.selected = wiz.selectable[0]
+        wiz.screen = busy
+        app._draw()
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        app.root.update()
+        shown = _texts(app.root)
+        if busy == Screen.WORKING:
+            assert wiz.selected.display_name in shown
+>           assert "Cancel erase" in shown
+E           AssertionError: assert 'Cancel erase' in 'PREVIEW on this computer — fake disks — nothing is erased\nBeamo Wipe\n1\nStart\n2\nOwner\n3\nDisk\n4\nConfirm\n5\nMe...navailable\nEveryday: 1 overwrite pass: random data. 1 separate read-back verification pass after the final overwrite.'
+
+tests/test_adaptive_layout.py:189: AssertionError
+_______________ test_plain_working_hint_does_not_promise_typing ________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x7f65750fe0d0>
+
+    def test_plain_working_hint_does_not_promise_typing(capsys):
+        """WORKING must not tell the owner to 'type cancel + Enter': the plain
+        loop never reads stdin on WORKING, so the instruction is unexecutable."""
+        from beamo_wipe.ui import console_wizard as C
+
+        import inspect
+
+        src = inspect.getsource(C._plain_loop_body)
+>       working = src.split("if screen == Screen.WORKING:", 1)[1].split("Screen.DONE", 1)[0]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests/test_console_pick.py:145: IndexError
+______________ test_tk_wizard_working_has_cancel_and_escape_wires ______________
+
+    def test_tk_wizard_working_has_cancel_and_escape_wires():
+        text = Path("src/beamo_wipe/ui/tk_wizard.py").read_text(encoding="utf-8")
+>       assert "Cancel erase" in text
+E       assert 'Cancel erase' in '# SPDX-License-Identifier: GPL-3.0-or-later\n"""Fullscreen Tk wizard with a quiet, consistent utility design.\n\nWhit...ot.after(100, poll)\n    root.mainloop()\n    if outcome:\n        return outcome[0]\n    return ("abandoned", None)\n'
+
+tests/test_failure_visibility_regression.py:385: AssertionError
+____________________ test_console_working_shows_cancel_hint ____________________
+
+    def test_console_working_shows_cancel_hint():
+        text = Path("src/beamo_wipe/ui/console_wizard.py").read_text(encoding="utf-8")
+>       assert "Esc: cancel erase" in text
+E       assert 'Esc: cancel erase' in '# SPDX-License-Identifier: GPL-3.0-or-later\n"""Keyboard console fallback when X/Tk is unavailable. Same wizard, larg...f _wrap_view(stdscr, y, view, width, y_max) -> int:\n    return _wrap(stdscr, y, _identity_text(view), width, y_max)\n'
+
+tests/test_failure_visibility_regression.py:396: AssertionError
+___________ test_plain_console_deduplicates_and_remains_cancellable ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f657f6a1b70>
+capsys = <_pytest.capture.CaptureFixture object at 0x7f657ec7aed0>
+
+    def test_plain_console_deduplicates_and_remains_cancellable(monkeypatch, capsys):
+        import io
+        from types import SimpleNamespace
+        from beamo_wipe.ui import console_wizard
+
+        w = SimpleNamespace(
+            power_text="Wall power: unknown.",
+            wants_shutdown=False,
+            screen=Screen.WORKING,
+            preview=False,
+            progress_view=ProgressView("Writing", 25, 120),
+            error=None,
+            evidence_warning="",
+            selected=None,
+            tick=lambda: None,
+        )
+        calls = []
+
+        def ready(*_):
+            calls.append(True)
+            return ([object()] if len(calls) == 20 else [], [], [])
+
+        w.cancel_wipe = lambda: setattr(w, "wants_shutdown", True)
+        monkeypatch.setattr(console_wizard.select, "select", ready)
+        monkeypatch.setattr(console_wizard.sys, "stdin", io.StringIO("CANCEL\n"))
+>       assert console_wizard._plain_loop_body(w) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_progress_timing.py:352:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+wizard = namespace(power_text='Wall power: unknown.', wants_shutdown=False, screen=<Screen.WORKING: 'working'>, preview=False, ...0>, cancel_wipe=<function test_plain_console_deduplicates_and_remains_cancellable.<locals>.<lambda> at 0x7f6576bac5e0>)
+
+    last_working = None
+    while not wizard.wants_shutdown:
+        wizard.tick()
+        screen = wizard.screen
+        if screen != Screen.WORKING:
+            print("\n" + "=" * 60)
+            print(C.APP_NAME, screen.value)
+            last_working = None
+            if wizard.preview:
+                print(C.PREVIEW_BANNER)
+            print("=" * 60)
+        if screen == Screen.SHUTDOWN_CONFIRM:
+            print(C.SHUTDOWN_TITLE)
+            print(textwrap.fill(C.SHUTDOWN_LOSS, 76))
+            print(wizard.report_recovery_warning)
+            generation = wizard.shutdown_generation
+            answer = input(
+                "Type SHUT DOWN WITHOUT SAVING to discard; Enter keeps session open: "
+            )
+            if answer == "SHUT DOWN WITHOUT SAVING":
+                wizard.confirm_shutdown_without_saving(generation)
+            else:
+                wizard.keep_report_session()
+            continue
+        if screen == Screen.DIAGNOSTIC:
+            print(D.report_title(wizard.startup_error_code))
+            print(D.NOTICE)
+            print(D.PREPARE)
+            print(wizard.diagnostic_message)
+            action = "SAVE" if wizard._diagnostic_baseline else "PREPARE"
+            answer = input(f"Type {action}, BACK, or SHUTDOWN: ").strip().upper()
+            if answer == action:
+                wizard.diagnostic_action()
+            elif answer == "BACK":
+                wizard.close_diagnostic()
+            elif answer == "SHUTDOWN":
+                wizard.shutdown()
+            continue
+        if screen == Screen.SPLASH:
+            print(C.SPLASH_TAGLINE)
+            _answer(wizard, "Press Enter… ")
+            wizard.skip_splash()
+            continue
+        if screen == Screen.KEYBOARD:
+            print(C.TITLE_KEYBOARD)
+            print(C.KEYBOARD_LEAD)
+            print(C.KEYBOARD_LIMITS)
+            print(CONSOLE_DEAD_KEYS)
+            for i, layout_id in enumerate(LAYOUT_ORDER, 1):
+                layout_spec = LAYOUTS[layout_id]
+                mark = ">" if wizard.keyboard_layout == layout_id else " "
+                print(f"{mark} {i} {layout_spec.title}")
+                print(layout_spec.note)
+            if wizard.keyboard_message:
+                print(wizard.keyboard_message)
+            elif wizard.error:
+                print(wizard.error)
+            print(C.KEYBOARD_CHECK_LABEL)
+            typed = input("> ")
+            key = typed.strip()
+            keyboard_mapping = {"1": "us", "2": "fr", "3": "de"}
+            if key in keyboard_mapping:
+                wizard.set_keyboard_layout(keyboard_mapping[key])
+            elif key.upper() == "K":
+                pass
+            elif key == "":
+                wizard.accept_keyboard()
+            else:
+                wizard.set_typing_check(typed)
+            continue
+        if screen == Screen.WHAT:
+            for b in C.WHAT_BULLETS:
+                print(" -", b)
+            print(C.POWER_REMINDER)
+            print(C.POWER_BLANKING)
+            print(C.POWER_EVENTS)
+            print(wizard.power_text)
+            _answer(wizard, "Press Enter to continue… ")
+            wizard.accept_what()
+            continue
+        if screen == Screen.OWNER:
+            print(C.OWNER_CHECKBOX)
+            ans = _answer(wizard, "Type YES if that is true: ").strip()
+            wizard.set_owner(ans.upper() == "YES")
+            if wizard.owner_ok:
+                wizard.continue_owner()
+            continue
+        if screen == Screen.PICK_BLOCKED:
+            print(wizard.error or C.IDENTIFY_ERROR)
+            _answer(wizard, "Press Enter to shut down… ")
+            wizard.shutdown()
+            continue
+        if screen == Screen.PICK_EMPTY:
+            print(C.EMPTY_DISKS)
+            if wizard.empty_detail:
+                print(wizard.empty_detail)
+            if wizard.other_devices:
+                print(inventory.TITLE)
+                print(inventory.full_text(wizard.other_devices))
+            _answer(wizard, "Press Enter to shut down… ")
+            wizard.shutdown()
+            continue
+        if screen == Screen.PICK:
+            if wizard.other_devices:
+                print(inventory.TITLE)
+                print(inventory.full_text(wizard.other_devices))
+            print("Eligible disks")
+            if same_size_conflict(wizard.listed_disks):
+                print(C.SAME_SIZE_HINT)
+            numbered = sorted(wizard.selectable, key=lambda d: d.path)
+            for i, disk in enumerate(numbered, 1):
+                view = wizard.disk_view(disk)
+                print(textwrap.fill(f"[{i}] {view.compact_line}", 76, break_long_words=True, break_on_hyphens=False))
+                for note in view.notes:
+                    print(textwrap.fill("    " + note, 76, break_long_words=True, break_on_hyphens=False))
+            choice = _answer(wizard, "Number of disk to erase: ").strip()
+            try:
+                idx = int(choice) - 1
+                if idx < 0:
+                    raise IndexError
+                wizard.select_disk(numbered[idx].path)
+                wizard.continue_pick()
+            except (ValueError, IndexError):
+                pass
+            continue
+        if screen == Screen.CONFIRM:
+            disk = wizard.selected
+            confirm_spec = wizard.confirm
+            if disk:
+                _print_view(wizard.disk_view(disk))
+            print(textwrap.fill(wizard.warning_text(), 76, break_long_words=True, break_on_hyphens=False))
+            print(confirm_spec.prompt if confirm_spec else "")
+            typed = _answer(wizard, "> ")
+            wizard.set_confirm_input(typed)
+            if wizard.token_ok:
+                wizard.continue_confirm()
+            continue
+        if screen == Screen.METHOD:
+            print(C.TITLE_METHOD)
+            print(wizard.storage_notice)
+            print(limits.BUTTON)
+            for method, spec in METHODS.items():
+                card = C.METHOD_CARDS[method]
+                # One logical line so overwrite + verification stay a contiguous description.
+                # The TTY wraps at its own width; pre-fill would split spec.description.
+                print(
+                    f"{card['key']} {spec.title}: "
+                    f"{spec.overwrite_description} {spec.verification_description}"
+                )
+            choice = _answer(wizard, "Choice [1], L for storage limits, A for Advanced: ").strip()
+            if choice.lower() == "a":
+                wizard.open_advanced()
+                continue
+            if choice.lower() == "l":
+                wizard.open_limits()
+                continue
+            mapping = {"1": MethodId.EVERYDAY, "2": MethodId.EXTRA, "3": MethodId.QUICK_ZERO}
+            if not choice:
+                wizard.continue_method()
+                continue
+            if choice not in mapping:
+                continue
+            wizard.set_method(mapping[choice])
+            wizard.continue_method()
+            continue
+        if screen in {Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING}:
+            titles = {
+                Screen.CHECKING: "Checking disk",
+                Screen.STOPPING: "Stopping erase",
+                Screen.REFRESHING: "Checking disks again",
+            }
+            messages = {
+                Screen.CHECKING: "Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.",
+                Screen.STOPPING: C.STOPPING_TEXT,
+                Screen.REFRESHING: "Previous selections and confirmations have been cleared.",
+            }
+            print(titles[screen])
+            if screen != Screen.REFRESHING:
+                print(C.POWER_KEEP)
+                print(wizard.power_text)
+            if wizard.selected is not None:
+                _print_view(wizard.disk_view(wizard.selected))
+            print(textwrap.fill(messages[screen], 76))
+            time.sleep(0.2)
+            continue
+        if screen == Screen.LAST_CHANCE:
+            if wizard.selected:
+                _print_view(wizard.disk_view(wizard.selected))
+            print(C.POWER_KEEP)
+            print(wizard.power_text)
+            print(wizard.prepare_text())
+            print(wizard.operation_summary)
+            print(wizard.erase_label())
+            print(wizard.method_summary)
+            if wizard.error:
+                print(wizard.error)
+            while wizard.countdown_left > 0:
+                wizard.tick()
+                print(f"Wait {wizard.countdown_display}…")
+                time.sleep(0.4)
+            ans = _answer(wizard, "Type ERASE to start: ").strip()
+            if ans.upper() == "ERASE":
+                wizard.confirm_erase()
+            else:
+                wizard.back()
+            continue
+        if screen == Screen.WORKING:
+            status = (wizard.progress_view.status_text, wizard.error, wizard.evidence_warning, C.POWER_KEEP, wizard.power_text, wizard.stop_confirmation)
+>           if status != last_working:
+
+E           AttributeError: 'types.SimpleNamespace' object has no attribute 'stop_confirmation'
+
+src/beamo_wipe/ui/console_wizard.py:538: AttributeError
+___________ test_cancelled_working_and_result_keep_reachable_actions ___________
+
+ui = <function ui.<locals>.build at 0x7f6576996fc0>
+
+    def test_cancelled_working_and_result_keep_reachable_actions(ui):  # noqa: F811
+        wiz, app = ui(size=MIN_SIZE)
+        app.root.minsize(*MIN_SIZE)
+        _drive_to(wiz, app, Screen.LAST_CHANCE, size=MIN_SIZE)
+        wiz.screen = Screen.WORKING
+        app._draw()
+        shown = _mapped_text(app)
+>       assert "Cancel erase" in shown
+E       AssertionError: assert 'Cancel erase' in 'PREVIEW on this computer — fake disks — nothing is erased\nBeamo Wipe\nStep 7 of 8\nStop erase\nLeave this USB in unt...navailable\nEveryday: 1 overwrite pass: random data. 1 separate read-back verification pass after the final overwrite.'
+
+tests/test_rendered_visible_behavior.py:103: AssertionError
+__________ test_every_outcome_summary_matches_ui_wording[interrupted] __________
+
+case = ('interrupted', <MethodId.EVERYDAY: 'everyday'>, 143, '', True, False)
+
+    @pytest.mark.parametrize("case", CASES, ids=[c[0] for c in CASES])
+    def test_every_outcome_summary_matches_ui_wording(case):
+        _, ev, _ = case_evidence(case)
+        digest = "a" * 64
+        text = build_result_summary(ev, evidence_sha256=digest)
+        view = present_evidence(ev)
+        assert view == VIEWS[case[0]]
+        assert f"Result: {view.message}" in text
+        assert f"Limitations: {view.next_step}" in text
+        assert "Beamo Wipe result" in text.splitlines()[0]
+        assert f"Report checksum: {digest}" in text
+        assert "clock not verified" in text
+        if view.code == "verified":
+            assert "Verification: Read-back verification passed" in text
+        elif view.code == "unverified":
+            assert "Verification: Verification was not performed" in text
+        elif view.code == "verification_failed":
+            assert f"Verification: {view.message}" in text
+        else:
+            assert f"Verification: {UNAVAILABLE}" in text
+            assert "Read-back verification did not pass" not in text
+>       _assert_golden(f"{case[0]}.txt", text)
+
+tests/test_result_summary.py:55:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'interrupted.txt'
+text = 'Beamo Wipe result\nReport file: unavailable\nReport checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...77f2ee80c67105\nClock: unavailable\nStarted (clock not verified): unavailable\nEnded (clock not verified): unavailable'
+
+    def _assert_golden(name: str, text: str) -> None:
+        path = GOLDENS / name
+        assert path.is_file(), f"missing golden {name}"
+>       assert path.read_text(encoding="utf-8") == text
+E       AssertionError: assert 'Beamo Wipe r...: unavailable' == 'Beamo Wipe r...: unavailable'
+E
+E         Skipping 834 identical leading characters in diff, use -v to show
+E         - itations: Stopping cannot restore files already erased. Files may still remain on the disk. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
+E         + itations: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
+E           Application: Beamo Wipe 0.2.9
+E           Wrapper commit: unavailable
+E           Release build: unavailable...
+E
+E         ...Full output truncated (6 lines hidden), use '-vv' to show
+
+tests/test_result_summary.py:31: AssertionError
+___________ test_every_outcome_summary_matches_ui_wording[cancelled] ___________
+
+case = ('cancelled', <MethodId.EVERYDAY: 'everyday'>, 143, '', True, True)
+
+    @pytest.mark.parametrize("case", CASES, ids=[c[0] for c in CASES])
+    def test_every_outcome_summary_matches_ui_wording(case):
+        _, ev, _ = case_evidence(case)
+        digest = "a" * 64
+        text = build_result_summary(ev, evidence_sha256=digest)
+        view = present_evidence(ev)
+        assert view == VIEWS[case[0]]
+        assert f"Result: {view.message}" in text
+        assert f"Limitations: {view.next_step}" in text
+        assert "Beamo Wipe result" in text.splitlines()[0]
+        assert f"Report checksum: {digest}" in text
+        assert "clock not verified" in text
+        if view.code == "verified":
+            assert "Verification: Read-back verification passed" in text
+        elif view.code == "unverified":
+            assert "Verification: Verification was not performed" in text
+        elif view.code == "verification_failed":
+            assert f"Verification: {view.message}" in text
+        else:
+            assert f"Verification: {UNAVAILABLE}" in text
+            assert "Read-back verification did not pass" not in text
+>       _assert_golden(f"{case[0]}.txt", text)
+
+tests/test_result_summary.py:55:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'cancelled.txt'
+text = 'Beamo Wipe result\nReport file: unavailable\nReport checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...77f2ee80c67105\nClock: unavailable\nStarted (clock not verified): unavailable\nEnded (clock not verified): unavailable'
+
+    def _assert_golden(name: str, text: str) -> None:
+        path = GOLDENS / name
+        assert path.is_file(), f"missing golden {name}"
+>       assert path.read_text(encoding="utf-8") == text
+E       AssertionError: assert 'Beamo Wipe r...: unavailable' == 'Beamo Wipe r...: unavailable'
+E
+E         Skipping 823 identical leading characters in diff, use -v to show
+E         - itations: Stopping cannot restore files already erased. Files may still remain on the disk. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
+E         + itations: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
+E           Application: Beamo Wipe 0.2.9
+E           Wrapper commit: unavailable
+E           Release build: unavailable...
+E
+E         ...Full output truncated (6 lines hidden), use '-vv' to show
+
+tests/test_result_summary.py:31: AssertionError
+_______________ test_working_row_documents_cancel_interactivity ________________
+
+    def test_working_row_documents_cancel_interactivity():
+        row = _row("Working")
+>       assert "Cancel erase" in row
+E       AssertionError: assert 'Cancel erase' in '| Working | Keep device identity, the method summary, and progress visible. Remind the owner to leave the USB in and ...ercent text plus bar plus an indeterminate slide before the engine reports a number; percent never shows 100% early. |'
+
+tests/test_screens_report_actions.py:23: AssertionError
+________ test_active_support_docs_match_canonical_methods_and_outcomes _________
+
+    def test_active_support_docs_match_canonical_methods_and_outcomes():
+        from beamo_wipe.methods import METHODS
+        from beamo_wipe.outcomes import VIEWS
+
+        screens = _read("docs/screens.md")
+        runbook = _read("docs/runbook.md")
+        for spec in METHODS.values():
+            assert spec.summary in screens
+        for view in VIEWS.values():
+>           assert view.announcement in runbook
+E           AssertionError: assert 'The erase was interrupted. Stopping cannot restore files already erased. Files may still remain on the disk. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.' in '# Beamo Wipe — Production support and incident runbook\n\n> **Version 1.7 — 2026-09-13 | Owner: Accountable senior en...e-boot recovery: see [session recovery](session-recovery.md). Retry saves only evidence and cannot restart an erase.\n'
+E            +  where 'The erase was interrupted. Stopping cannot restore files already erased. Files may still remain on the disk. Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.' = ResultView(code='interrupted', message='The erase was interrupted', next_step='Stopping cannot restore files already e...the report if available and contact support. Shut down before disconnecting.', tone='warn', icon='warn', success=False).announcement
+
+tests/test_storage_limits.py:274: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_accessibility_lowres.py::test_working_screen_has_no_focusable_trap_and_blocks_close
+FAILED tests/test_accessible_runtime.py::test_accessible_refresh_requires_full_confirmation
+FAILED tests/test_accessible_runtime.py::test_atspi_exposes_quick_zero_result_to_external_client
+FAILED tests/test_accessible_runtime.py::test_accessible_evidence_failure_retry
+FAILED tests/test_accessible_runtime.py::test_busy_accessible_view_remains_responsive[stopping]
+FAILED tests/test_adaptive_layout.py::test_busy_states_keep_identity_or_status[working-size0]
+FAILED tests/test_adaptive_layout.py::test_busy_states_keep_identity_or_status[working-size1]
+FAILED tests/test_adaptive_layout.py::test_busy_states_keep_identity_or_status[working-size2]
+FAILED tests/test_adaptive_layout.py::test_busy_states_keep_identity_or_status[working-size3]
+FAILED tests/test_adaptive_layout.py::test_busy_states_keep_identity_or_status[working-size4]
+FAILED tests/test_console_pick.py::test_plain_working_hint_does_not_promise_typing
+FAILED tests/test_failure_visibility_regression.py::test_tk_wizard_working_has_cancel_and_escape_wires
+FAILED tests/test_failure_visibility_regression.py::test_console_working_shows_cancel_hint
+FAILED tests/test_progress_timing.py::test_plain_console_deduplicates_and_remains_cancellable
+FAILED tests/test_rendered_visible_behavior.py::test_cancelled_working_and_result_keep_reachable_actions
+FAILED tests/test_result_summary.py::test_every_outcome_summary_matches_ui_wording[interrupted]
+FAILED tests/test_result_summary.py::test_every_outcome_summary_matches_ui_wording[cancelled]
+FAILED tests/test_screens_report_actions.py::test_working_row_documents_cancel_interactivity
+FAILED tests/test_storage_limits.py::test_active_support_docs_match_canonical_methods_and_outcomes
+19 failed, 2496 passed, 28 skipped, 2 deselected in 340.40s (0:05:40)

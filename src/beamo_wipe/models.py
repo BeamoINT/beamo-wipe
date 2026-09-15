@@ -36,6 +36,7 @@ class Screen(str, Enum):
     WHAT = "what"
     OWNER = "owner"
     PICK = "pick"
+    DISK_HELP = "disk_help"
     PICK_BLOCKED = "pick_blocked"
     PICK_EMPTY = "pick_empty"
     CONFIRM = "confirm"

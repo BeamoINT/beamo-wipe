@@ -275,13 +275,25 @@ class AccessibleWizard:
         elif screen == Screen.PICK:
             heading.set_text(C.TITLE_PICK)
             self.label(C.pick_subtitle())
+            self.button(C.DISK_HELP_BUTTON, self.w.open_disk_help, in_body=True)
             if same_size_conflict(self.w.listed_disks):
                 self.label(C.SAME_SIZE_HINT)
             if self.w.error:
                 self.label(self.w.error)
+            self._protected_boot()
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {self.w.disk_view(disk).announcement}"
                 self.button(text, lambda path=disk.path: self._select(path), in_body=True)
+            if len(self.w.selectable) > 1:
+                expander = Gtk.Expander.new(inventory.COMPARE_TITLE)
+                reader = Gtk.Label(label=inventory.comparison_text(self.w.selectable, peers=self.w.listed_disks))
+                reader.set_line_wrap(True)
+                reader.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                reader.set_max_width_chars(65)
+                reader.set_selectable(True)
+                reader.set_can_focus(True)
+                expander.add(reader)
+                self.body.pack_start(expander, False, False, 4)
             self._inventory()
         elif screen in (Screen.PICK_EMPTY, Screen.PICK_BLOCKED):
             heading.set_text(
@@ -292,8 +304,8 @@ class AccessibleWizard:
                 if screen == Screen.PICK_EMPTY
                 else (self.w.error or C.IDENTIFY_ERROR)
             )
-            if screen == Screen.PICK_EMPTY and self.w.empty_detail:
-                self.label(self.w.empty_detail)
+            if screen == Screen.PICK_EMPTY:
+                self._protected_boot()
             self._inventory()
             self.button("Shut down", self.w.shutdown)
         elif screen == Screen.CONFIRM:
@@ -334,6 +346,10 @@ class AccessibleWizard:
             self.button(storage_limits.BUTTON, self.w.open_limits, utility=True)
             self.button(C.BTN_ADVANCED, self.w.open_advanced, utility=True)
             self.button(C.BTN_CONTINUE, self.w.continue_method)
+        elif screen == Screen.DISK_HELP:
+            heading.set_text(C.DISK_HELP_TITLE)
+            self.reader(C.DISK_HELP_TEXT)
+            self.button(C.DISK_HELP_STOP, self.w.shutdown)
         elif screen == Screen.REPORT_HELP:
             heading.set_text(C.REPORT_HELP_TITLE)
             reader = self.reader(
@@ -407,16 +423,25 @@ class AccessibleWizard:
             self.label("Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.")
         elif screen == Screen.STOPPING:
             heading.set_text("Stopping erase")
-            self.label("Waiting for the erase process to exit and cleanup to finish. The disk may still be erasing. Keep this USB connected.")
+            self.label(C.STOPPING_TEXT)
             self.progress_label = self.label("")
         elif screen == Screen.WORKING:
-            heading.set_text(C.WORKING_PULSE)
+            heading.set_text(C.VIEWS["stop_unconfirmed"].message
+                             if self.w.error == C.VIEWS["stop_unconfirmed"].announcement
+                             else C.WORKING_PULSE)
             self.identity()
             self.label(self.w.method_summary)
             self.progress_label = self.label("")
             if self.w.evidence_warning:
                 self.label(self.w.evidence_warning)
-            self.button("Cancel erase", self.w.begin_cancel)
+            if self.w.stop_confirmation is not None:
+                confirmation = self.w.stop_confirmation
+                heading.set_text(C.STOP_TITLE)
+                arrival = self.label(C.STOP_LEAD, focusable=True)
+                self.button(C.STOP_KEEP, self.w.keep_erasing)
+                self.button(C.STOP_CONFIRM, lambda: self.w.confirm_stop(confirmation))
+            else:
+                self.button(C.STOP_ASK, self.w.request_stop)
         elif screen == Screen.DONE:
             result = self.w.result_view
             heading.set_text(result.announcement)
@@ -542,6 +567,7 @@ class AccessibleWizard:
             Screen.LAST_CHANCE,
             Screen.LIMITS,
             Screen.REPORT_HELP,
+            Screen.DISK_HELP,
             Screen.ADVANCED,
         } or (screen == Screen.KEYBOARD and self.w._keyboard_from):
             self.button(C.BTN_BACK, self.w.back)
@@ -560,6 +586,10 @@ class AccessibleWizard:
         arrival.grab_focus()
         self.update_status()
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
+
+    def _protected_boot(self):
+        if self.w.protected_boot_text:
+            self.reader(self.w.protected_boot_text)
 
     def _inventory(self):
         if self.w.other_devices:
@@ -591,11 +621,13 @@ class AccessibleWizard:
         if self.power_label and self.power_label.get_text() != self.w.power_text:
             self.power_label.set_text(self.w.power_text)
         if self.countdown_label:
-            self.countdown_label.set_text(
-                f"Wait {self.w.countdown_display} seconds."
+            text = (
+                f"{self.w.countdown_display} {C.COUNTDOWN_CAPTION}"
                 if not self.w.erase_enabled
                 else C.COUNTDOWN_READY
             )
+            if self.countdown_label.get_text() != text:
+                self.countdown_label.set_text(text)
             self.primary.set_sensitive(self.w.erase_enabled)
         if self.progress_label:
             text = self.w.progress_view.status_text
@@ -654,7 +686,10 @@ class AccessibleWizard:
             return True
         if key == Gdk.KEY_Escape:
             if self.w.screen == Screen.WORKING:
-                self.w.begin_cancel()
+                if self.w.stop_confirmation is not None:
+                    self.w.keep_erasing()
+                else:
+                    self.w.request_stop()
                 self.render()
                 return True
             self.w.back()
@@ -668,7 +703,7 @@ class AccessibleWizard:
 
     def _close(self, *_args):
         if self.w.screen == Screen.WORKING:
-            self.w.begin_cancel()
+            self.w.request_stop()
             self.render()
         else:
             self.w.shutdown()
