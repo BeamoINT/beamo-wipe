@@ -8,7 +8,10 @@ The PR gate passed at `1ccac62`, but skips QEMU; direct full-gate submission
 remains blocked by Cloud Build bucket access. Evaluate subsequent commits using
 their own check results. Historical rows below do not prove current firmware
 boot or wipe behavior. Native Windows/macOS runtime and physical acceptance
-remain separate requirements.
+remain separate requirements. The operator matrix for manufactured media on
+named machines is [physical acceptance #111](evidence/physical-acceptance-111/README.md);
+every physical cell there is **NOT TESTED**. USB-lab and QEMU rows in this
+document are not Tier 3 receipts.
 
 **Desktop-entry development update (2026-09-06):** the release matrix below
 records the earlier v0.2.6 configuration. The new launcher, FAT32 USB image,
