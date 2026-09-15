@@ -1,0 +1,238 @@
+{
+   "blockdevices": [
+      {
+         "name": "loop0",
+         "path": "/dev/loop0",
+         "size": 412000000,
+         "type": "loop",
+         "tran": null,
+         "rota": false,
+         "model": null,
+         "serial": null
+      },
+      {
+         "name": "sr0",
+         "path": "/dev/sr0",
+         "size": 734003200,
+         "type": "rom",
+         "tran": "sata",
+         "rota": false,
+         "model": "DVD-RW",
+         "serial": "OPTICAL01"
+      },
+      {
+         "name": "sdb",
+         "path": "/dev/sdb",
+         "size": 16000000000,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "Beamo Wipe",
+         "serial": "BEAMOUSB001",
+         "children": [
+            {
+               "name": "sdb1",
+               "path": "/dev/sdb1",
+               "size": 15500000000,
+               "type": "part",
+               "label": "BEAMO_WIPE"
+            }
+         ]
+      },
+      {
+         "name": "sda",
+         "path": "/dev/sda",
+         "size": 1000204886016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "WDC WD10EZEX-00WN4A0",
+         "serial": "WD-WCC6Y1234567",
+         "children": [
+            {
+               "name": "sda1",
+               "path": "/dev/sda1",
+               "size": 536870912,
+               "type": "part",
+               "label": "EFI"
+            },
+            {
+               "name": "sda2",
+               "path": "/dev/sda2",
+               "size": 500000000000,
+               "type": "part",
+               "label": "DATA",
+               "children": [
+                  {
+                     "name": "cryptroot",
+                     "path": "/dev/mapper/cryptroot",
+                     "size": 499000000000,
+                     "type": "crypt",
+                     "label": "root"
+                  }
+               ]
+            }
+         ]
+      },
+      {
+         "name": "nvme0n1",
+         "path": "/dev/nvme0n1",
+         "size": 512110190592,
+         "type": "disk",
+         "tran": "nvme",
+         "rota": false,
+         "model": "Samsung SSD 970 EVO",
+         "serial": "S4EVNX0N123456",
+         "children": [
+            {
+               "name": "nvme0n1p1",
+               "path": "/dev/nvme0n1p1",
+               "size": 104857600,
+               "type": "part",
+               "label": "EFI"
+            },
+            {
+               "name": "nvme0n1p2",
+               "path": "/dev/nvme0n1p2",
+               "size": 16777216,
+               "type": "part",
+               "label": "MSR"
+            },
+            {
+               "name": "nvme0n1p3",
+               "path": "/dev/nvme0n1p3",
+               "size": 268435456000,
+               "type": "part",
+               "label": "Windows"
+            },
+            {
+               "name": "nvme0n1p4",
+               "path": "/dev/nvme0n1p4",
+               "size": 536870912,
+               "type": "part",
+               "label": "Recovery"
+            },
+            {
+               "name": "nvme0n1p5",
+               "path": "/dev/nvme0n1p5",
+               "size": 107374182400,
+               "type": "part",
+               "label": "Data"
+            },
+            {
+               "name": "nvme0n1p6",
+               "path": "/dev/nvme0n1p6",
+               "size": 32212254720,
+               "type": "part"
+            },
+            {
+               "name": "nvme0n1p7",
+               "path": "/dev/nvme0n1p7",
+               "size": 21474836480,
+               "type": "part"
+            },
+            {
+               "name": "nvme0n1p8",
+               "path": "/dev/nvme0n1p8",
+               "size": 10737418240,
+               "type": "part",
+               "label": "Scratch"
+            }
+         ]
+      },
+      {
+         "name": "sdc",
+         "path": "/dev/sdc",
+         "size": 500107862016,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "rm": true,
+         "hotplug": true,
+         "model": "USB SATA Bridge",
+         "serial": "BRIDGE001",
+         "children": [
+            {
+               "name": "sdc1",
+               "path": "/dev/sdc1",
+               "size": 500107862016,
+               "type": "part",
+               "label": "BACKUP"
+            }
+         ]
+      },
+      {
+         "name": "sdd",
+         "path": "/dev/sdd",
+         "size": 32017047552,
+         "type": "disk",
+         "tran": "usb",
+         "rota": true,
+         "model": "SanDisk Ultra",
+         "serial": "USBDATA001",
+         "children": [
+            {
+               "name": "sdd1",
+               "path": "/dev/sdd1",
+               "size": 32017047552,
+               "type": "part",
+               "label": "PHOTOS"
+            }
+         ]
+      },
+      {
+         "name": "sde",
+         "path": "/dev/sde",
+         "size": 256060514304,
+         "type": "disk",
+         "tran": "sata",
+         "rota": false,
+         "model": "Crucial MX500",
+         "serial": "MX500FLAT01"
+      },
+      {
+         "name": "sde1",
+         "path": "/dev/sde1",
+         "size": 256060514304,
+         "type": "part",
+         "pkname": "sde",
+         "label": "FLATPART"
+      },
+      {
+         "name": "cryptflat",
+         "path": "/dev/mapper/cryptflat",
+         "size": 255000000000,
+         "type": "crypt",
+         "pkname": "sde1",
+         "label": "vault"
+      },
+      {
+         "name": "mystery1",
+         "path": "/dev/mystery1",
+         "size": 1073741824,
+         "type": "part",
+         "label": "ORPHAN"
+      },
+      {
+         "name": "sdf",
+         "path": "/dev/sdf",
+         "size": 128035676160,
+         "type": "disk",
+         "tran": "sata",
+         "rota": true,
+         "model": "Mounted Disk",
+         "serial": "MOUNTED001",
+         "mountpoints": ["/media/data"],
+         "children": [
+            {
+               "name": "sdf1",
+               "path": "/dev/sdf1",
+               "size": 128035676160,
+               "type": "part",
+               "label": "FILES",
+               "mountpoints": ["/media/data"]
+            }
+         ]
+      }
+   ]
+}

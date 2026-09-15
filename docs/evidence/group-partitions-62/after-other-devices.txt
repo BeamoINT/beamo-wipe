@@ -1,0 +1,17 @@
+# After grouping on feat/group-partitions-under-disks (fake lsblk only)
+
+=== DEMO HAPPY AFTER ===
+selectable ['/dev/nvme0n1', '/dev/sda', '/dev/sdd']
+other_devices [('/dev/loop0', 'Loop device', '')]
+Information only. These devices cannot be selected for erasure.
+
+Unknown model | 1 GB | Connection unknown | Serial: Serial not reported
+Cannot erase: unsupported device.
+--- nested nvme ---
+/dev/nvme0n1p1 Partition · 1 GB · System name (not a stable identity): /dev/nvme0n1p1 ('unsupported device',) /dev/nvme0n1
+/dev/nvme0n1p2 Partition · 256 GB · System name (not a stable identity): /dev/nvme0n1p2 ('unsupported device',) /dev/nvme0n1
+--- nested boot ---
+/dev/sdb1 Partition · 16 GB · BEAMO_WIPE ('unsupported device',)
+
+Happy-demo Other detected devices dropped from 6 sibling rows to 1 (the loop
+device). Partitions of NVMe/SATA/USB/boot nest under their parent cards.

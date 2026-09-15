@@ -1,0 +1,14 @@
+dbus-daemon[3560306]: [session uid=1000 pid=3560306 pidfd=4] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=3560320 comm="python3 -m pytest tests/test_group_partitions.py t" label="kernel")
+dbus-daemon[3560306]: [session uid=1000 pid=3560306 pidfd=4] Successfully activated service 'org.a11y.Bus'
+........................................................................ [ 11%]
+.......................dbus-daemon[3560328]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=3560320 comm="python3 -m pytest tests/test_group_partitions.py t" label="kernel")
+dbus-daemon[3560328]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+................................................. [ 23%]
+........................................................................ [ 35%]
+..............s......................................................... [ 47%]
+........................................................................ [ 59%]
+...................s.................................................... [ 71%]
+........................................................................ [ 83%]
+........................................................................ [ 94%]
+...............................                                          [100%]

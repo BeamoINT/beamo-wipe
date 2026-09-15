@@ -38,6 +38,8 @@ F5 checks disks again before erasure. Escape goes back where allowed. Full
 **Beamo USB — protected, cannot be erased** has its own focusable, read-only
 identity text before the disk-selection buttons. It is never a Select button.
 **Other detected devices** is read-only text; it never offers an erase action.
+Partitions and other technical components of a known parent are read-only
+nested text on that disk (or on the protected USB), never a Select button.
 
 On the disk list, **I'm not sure which disk** opens identification guidance
 for internal or external targets. Tab to the read-only text and use normal
