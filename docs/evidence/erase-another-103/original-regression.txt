@@ -1,0 +1,35 @@
+F
+=================================== FAILURES ===================================
+________________ test_outcomes_and_reports[not_wanted-verified] ________________
+
+case = ('verified', <MethodId.EVERYDAY: 'everyday'>, 0, '{name} | Erased |', False, False)
+report = 'not_wanted'
+
+    @pytest.mark.parametrize('case', CASES, ids=lambda c: c[0])
+    @pytest.mark.parametrize('report', ['not_wanted', 'wanted', 'failed', 'saved',
+                                       'stale_saved', 'evidence_failed'])
+    def test_outcomes_and_reports(case, report):
+        w, _, _ = case_evidence(case)
+        w.owner_ok = True
+        w.confirm_input = 'OLD TOKEN'
+        w._authorized_operation = ('old',)
+        w._erase_until = 0
+        if report != 'not_wanted':
+            w.report_wanted = True
+        if report in {'saved', 'stale_saved'}:
+            saved(w)
+            if report == 'stale_saved':
+                w._evidence_write_seq += 1
+        if report == 'failed':
+            w.report_status = 'error'
+        if report == 'evidence_failed':
+            w.evidence_error = 'Could not save'
+>       assert w.can_erase_another
+               ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Wizard' object has no attribute 'can_erase_another'
+
+tests/test_erase_another.py:42: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_erase_another.py::test_outcomes_and_reports[not_wanted-verified]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 36 deselected in 0.27s

@@ -1752,3 +1752,33 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert C.prepare_selected(wiz.selected) in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
+
+
+@pytest.mark.parametrize("evidence_failed", [False, True])
+def test_erase_another_report_guard_and_layout(ui, evidence_failed):
+    from beamo_wipe import copy as C
+    from test_result_presentations import CASES, case_evidence
+    w, app = ui(size=MIN_WINDOW)
+    completed, evidence, _ = case_evidence(CASES[0])
+    w.preview = False
+    w.screen = Screen.DONE
+    w.selected = completed.selected
+    w.wipe_result = completed.wipe_result
+    w.evidence = evidence
+    if evidence_failed:
+        w.evidence_error = "Temporary storage is not writable."
+    app._draw()
+    app.root.update()
+    assert not _off_window_problems(app)
+    assert not _clipping_problems(app)
+    button = _button_named(app, C.BTN_ERASE_ANOTHER)
+    assert button.winfo_ismapped()
+    button._command()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM
+    app.root.update()
+    assert _button_named(app, C.SHUTDOWN_KEEP).winfo_ismapped()
+    _button_named(app, C.SHUTDOWN_KEEP)._command()
+    assert w.screen == Screen.DONE
+    _button_named(app, C.BTN_ERASE_ANOTHER)._command()
+    _button_named(app, C.ANOTHER_DISCARD)._command()
+    assert w.wants_new_session and not w.wants_shutdown

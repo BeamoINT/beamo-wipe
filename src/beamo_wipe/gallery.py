@@ -125,6 +125,10 @@ def gallery_html() -> str:
         "reportHelpTitle": C.REPORT_HELP_TITLE,
         "reportHelpText": C.REPORT_HELP_TEXT,
         "reportWanted": C.REPORT_WANTED,
+        "anotherTitle": C.ANOTHER_TITLE,
+        "anotherLoss": C.ANOTHER_LOSS,
+        "anotherDiscard": C.ANOTHER_DISCARD,
+        "eraseAnother": C.BTN_ERASE_ANOTHER,
         "shutdownTitle": C.SHUTDOWN_TITLE,
         "shutdownLoss": C.SHUTDOWN_LOSS,
         "shutdownKeep": C.SHUTDOWN_KEEP,
@@ -561,6 +565,7 @@ let renderedScreen = null;
 let reportWanted = false;
 let reportHelpFrom = "what";
 let shutdownFrom = "what";
+let anotherPending = false;
 let owner = false;
 let selected = null;
 let token = "";
@@ -620,6 +625,7 @@ function renderHint(text) {
 }
 
 function boot(m) {
+  anotherPending = false;
   reportWanted = false;
   reportHelpFrom = "what";
   mode = m;
@@ -663,6 +669,7 @@ function btn(label, fn, cls, disabled) {
   return b;
 }
 function closePreview() {
+  anotherPending = false;
   if (reportWanted && screen !== "shutdown_confirm") {
     shutdownFrom = screen; screen = "shutdown_confirm"; draw(); return;
   }
@@ -898,8 +905,11 @@ function draw() {
     btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
     btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
   } else if (screen === "shutdown_confirm") {
-    main.innerHTML = `<h1>${P.shutdownTitle}</h1><p>${P.shutdownLoss}</p>`;
-    btnsL.append(btn(P.shutdownDiscard, () => alert("Preview only. Close this tab when you are done.")));
+    main.innerHTML = `<h1>${anotherPending ? P.anotherTitle : P.shutdownTitle}</h1><p>${anotherPending ? P.anotherLoss : P.shutdownLoss}</p>`;
+    btnsL.append(btn(anotherPending ? P.anotherDiscard : P.shutdownDiscard, () => {
+      if (anotherPending) { anotherPending = false; boot(fail ? "fail" : mode); }
+      else alert("Preview only. Close this tab when you are done.");
+    }));
     const keep = btn(P.shutdownKeep, () => { screen = shutdownFrom; draw(); }, "primary");
     btnsR.append(keep);
     renderHint(P.shutdownHint);
@@ -973,6 +983,10 @@ function draw() {
       <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div>
       ${moreLink()}</div>`;
     bindMore();
+    utilities.append(btn(P.eraseAnother, () => {
+      if (screen !== "done") return;
+      anotherPending = true; shutdownFrom = "done"; screen = "shutdown_confirm"; draw();
+    }, "secondary"));
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
   }

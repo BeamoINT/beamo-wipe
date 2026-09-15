@@ -1208,7 +1208,7 @@ class TkWizard:
             if self.w.screen != expected_screen or generation != getattr(self, "_draw_generation", 0):
                 return
             fn()
-            if self.w.wants_shutdown:
+            if self.w.wants_shutdown or self.w.wants_new_session:
                 self._teardown()
                 return
             self._arm_shutdown_enter_if_idle()
@@ -1252,7 +1252,7 @@ class TkWizard:
             self.w.tick()
             if self.w.screen != prev:
                 self._arm_shutdown_enter_if_idle()
-            if self.w.wants_shutdown:
+            if self.w.wants_shutdown or self.w.wants_new_session:
                 self._teardown()
                 return
             if self.w.screen != prev:
@@ -1700,6 +1700,9 @@ class TkWizard:
                 utility(C.REPORT_HELP_TITLE, self._nav(self.w.open_report_help))
             if sys.platform.startswith("linux"):
                 utility("Screen-reader view (F8)", self._click_accessible)
+        if self.w.screen == Screen.DONE and not self.w.preview:
+            tk.Label(tools, text=C.ANOTHER_HINT, font=self.font_s, bg=BG,
+                     fg=MUTED, wraplength=600, justify=tk.LEFT).pack(side=tk.LEFT, padx=12)
         if self.w.can_open_diagnostic:
             utility("Diagnostic report", self._nav(self.w.open_diagnostic))
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
@@ -2559,7 +2562,7 @@ class TkWizard:
 
     def _shutdown_confirm(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, C.SHUTDOWN_TITLE, C.SHUTDOWN_LOSS)
+        self._title_block(col, self.w.exit_confirmation_title, self.w.exit_confirmation_loss)
         if self.w.report_recovery_warning:
             self._p(col, self.w.report_recovery_warning, font=self.font_s).pack(
                 fill=tk.X
@@ -2568,7 +2571,7 @@ class TkWizard:
         generation = self.w.shutdown_generation
         self._secondary_btn(
             row,
-            C.SHUTDOWN_DISCARD,
+            self.w.exit_confirmation_discard,
             lambda: self.w.confirm_shutdown_without_saving(generation),
         )
         self._primary_btn(row, C.SHUTDOWN_KEEP, self.w.keep_report_session)
@@ -2907,6 +2910,10 @@ class TkWizard:
                 self._click_save_report,
                 enabled=report.can_save,
             )
+            _Button(row._left, text=C.BTN_ERASE_ANOTHER,
+                    command=self._nav(self.w.erase_another_disk),
+                    font=self.font_s_bold, variant="ghost", compact=True,
+                    enabled=self.w.can_erase_another).pack(side=tk.LEFT)
             self._primary_btn(
                 row,
                 C.BTN_SHUTDOWN,
@@ -3152,7 +3159,7 @@ class TkWizard:
                 self.w.close_limits()
             elif screen in (Screen.PICK_BLOCKED, Screen.PICK_EMPTY):
                 self.w.accept_done_keyboard()
-        if self.w.wants_shutdown:
+        if self.w.wants_shutdown or self.w.wants_new_session:
             self._teardown()
             return "break"
         # Fixed, identifier-free pre-render state for the isolated QEMU gate.
@@ -3319,7 +3326,7 @@ class TkWizard:
             self._draw()
             return
         self.w.shutdown()
-        if self.w.wants_shutdown:
+        if self.w.wants_shutdown or self.w.wants_new_session:
             self._teardown()
         else:
             self._draw()

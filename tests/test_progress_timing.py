@@ -331,7 +331,7 @@ def test_plain_console_deduplicates_and_remains_cancellable(monkeypatch, capsys)
 
     w = SimpleNamespace(
         power_text="Wall power: unknown.",
-        wants_shutdown=False,
+        wants_shutdown=False, wants_new_session=False,
         screen=Screen.WORKING,
         preview=False,
         progress_view=ProgressView("Writing", 25, 120),

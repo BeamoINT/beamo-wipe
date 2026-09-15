@@ -240,6 +240,20 @@ See [the full limits](docs/storage-and-controller-limits.md).
 
 When a wipe cannot start, use the separately labeled [diagnostic report](docs/startup-diagnostics.md) path. Diagnostic reports are not erase evidence.
 
+### Erasing another disk
+
+After an erase has stopped, choose **Erase another disk** on the result screen.
+Save the current report first, or choose **Continue without saving** when asked.
+**Keep session open** returns to the report. Remove the report USB before
+starting the new session; insert it again only when the next result offers report
+saving. A new session checks the disks again
+and requires ownership, disk selection, typed confirmation, method selection
+and the full five-second wait. Nothing starts automatically. Keep the Beamo USB
+connected; shut down before disconnecting disks.
+
+Console: type `ANOTHER` (or press `A` in the keyboard interface). See
+[session safety and verification](docs/evidence/erase-another-103/README.md).
+
 ### Planning to save a report
 
 Open **Need a report?** before choosing an erase target (also available at method

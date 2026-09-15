@@ -121,7 +121,7 @@ class AccessibleWizard:
             if generation != self.generation or not widget.get_sensitive():
                 return
             action()
-            if self.w.wants_shutdown:
+            if self.w.wants_shutdown or self.w.wants_new_session:
                 self.close()
             else:
                 self.render()
@@ -471,20 +471,24 @@ class AccessibleWizard:
                     self.w.begin_report_export,
                     enabled=report.can_save,
                 )
+            if not self.w.preview:
+                self.label(C.ANOTHER_HINT)
+                self.button(C.BTN_ERASE_ANOTHER, self.w.erase_another_disk,
+                            enabled=self.w.can_erase_another)
             self.button(
                 "Close preview" if self.w.preview else "Shut down", self.w.shutdown,
                 enabled=not report.exporting and not report.saving_evidence,
             )
         elif screen == Screen.SHUTDOWN_CONFIRM:
-            heading.set_text(C.SHUTDOWN_TITLE)
-            self.label(C.SHUTDOWN_LOSS)
+            heading.set_text(self.w.exit_confirmation_title)
+            self.label(self.w.exit_confirmation_loss)
             self.label(C.SHUTDOWN_HINT)
             if self.w.report_recovery_warning:
                 self.label(self.w.report_recovery_warning)
             self.button(C.SHUTDOWN_KEEP, self.w.keep_report_session)
             generation = self.w.shutdown_generation
             self.button(
-                C.SHUTDOWN_DISCARD,
+                self.w.exit_confirmation_discard,
                 lambda: self.w.confirm_shutdown_without_saving(generation),
             )
         elif screen == Screen.DIAGNOSTIC:
@@ -598,7 +602,7 @@ class AccessibleWizard:
 
     def tick(self):
         self.w.tick()
-        if self.w.wants_shutdown:
+        if self.w.wants_shutdown or self.w.wants_new_session:
             self.close()
             return False
         if (
@@ -658,7 +662,7 @@ class AccessibleWizard:
             self.render()
         else:
             self.w.shutdown()
-            if self.w.wants_shutdown:
+            if self.w.wants_shutdown or self.w.wants_new_session:
                 self.close()
             else:
                 self.render()

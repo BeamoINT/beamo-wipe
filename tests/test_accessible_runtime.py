@@ -857,3 +857,22 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     app.render()
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
+
+
+def test_accessible_erase_another_guard(ui):
+    from beamo_wipe import copy as C
+    w, _, _ = case_evidence(CASES[0])
+    app = ui(w)
+    app.actions[C.BTN_ERASE_ANOTHER].clicked()
+    drain()
+    assert w.screen == Screen.SHUTDOWN_CONFIRM
+    assert C.ANOTHER_LOSS in text(app)
+    stale = app.actions[C.ANOTHER_DISCARD]
+    app.actions[C.SHUTDOWN_KEEP].clicked()
+    drain()
+    assert w.screen == Screen.DONE
+    app.actions[C.BTN_ERASE_ANOTHER].clicked()
+    stale.clicked()
+    assert not w.wants_new_session
+    app.actions[C.ANOTHER_DISCARD].clicked()
+    assert w.wants_new_session and app.closed
