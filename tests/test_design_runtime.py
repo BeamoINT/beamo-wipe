@@ -125,7 +125,12 @@ def test_countdown_ready_still_explains_nothing_started(ui):  # noqa: F811
     from test_tk_runtime import _button_named
     wiz, app = ui(size=(1024, 740))
     _drive_to(wiz, app, Screen.LAST_CHANCE)
-    assert 'Nothing starts automatically' in app._countdown_label.cget('text')
+    assert any(
+        widget.winfo_class() == 'Label' and widget.cget('text') == C.LAST_LEAD
+        for widget in descendants(app.root)
+    )
+    assert 'never starts erasure' in C.LAST_LEAD
+    assert app._countdown_label.cget('text') == C.COUNTDOWN_CAPTION
     wiz._erase_until = 0
     app._refresh_last_chance()
     assert 'Nothing has started' in app._countdown_label.cget('text')

@@ -90,9 +90,9 @@ SHADOW_H = 8
 HALO_INSET = 5  # canvas margin a haloed _Box reserves for its glow
 
 # Countdown ring on the last-chance screen.
-RING_SIZE = 144
-RING_PAD = 14
-RING_W = 11
+RING_SIZE = 64
+RING_PAD = 6
+RING_W = 4
 
 _STEP_ORDER = {
     Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
@@ -2802,7 +2802,7 @@ class TkWizard:
                 wraplength=max(200, self.lay.wrap - 120),
             ).pack(fill=tk.X, pady=(8, 0))
         self._wrapping_label(
-            details, self.w.operation_summary, font=self.font_b, bg=BG
+            details, self.w.operation_summary, font=self.font_bold, bg=BG
         ).pack_configure(pady=(12, 0))
         self._wrapping_label(details, self.w.erase_label(), font=self.font_bold,
                              bg=BG, fg=DANGER).pack_configure(pady=(16, 8))
@@ -2820,9 +2820,9 @@ class TkWizard:
         ring.pack()
         self._countdown_ring = ring
         self._countdown_num = tk.Label(
-            ring, text="", font=self.font_stat, fg=INK, bg=BG, anchor="center"
+            ring, text="", font=self.font_bold, fg=INK, bg=BG, anchor="center"
         )
-        ring.create_window(ring_px / 2, ring_px / 2 - 3, window=self._countdown_num)
+        ring.create_window(ring_px / 2, ring_px / 2, window=self._countdown_num)
         self._countdown_label = tk.Label(
             zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center",
             justify=tk.CENTER, wraplength=max(120, ring_px + 40),
@@ -2866,7 +2866,7 @@ class TkWizard:
             tip = math.radians(90 + extent)
             tx = center + radius * math.cos(tip)
             ty = center - radius * math.sin(tip)
-            ring.create_oval(tx - 6.5, ty - 6.5, tx + 6.5, ty + 6.5, fill=PRIMARY, outline="", tags="arc")
+            ring.create_oval(tx - 2, ty - 2, tx + 2, ty + 2, fill=PRIMARY, outline="", tags="arc")
             if self._countdown_num is not None:
                 self._countdown_num.configure(text=str(left), fg=INK)
             self._countdown_label.configure(text=C.COUNTDOWN_CAPTION, fg=MUTED)

@@ -1912,3 +1912,26 @@ def test_method_identity_wraps_without_losing_values(ui, missing, enlarged):
     app._body_canvas.yview_moveto(1)
     app.root.update()
     assert app._body_canvas.yview()[1] == 1.0
+
+@pytest.mark.parametrize("size", [(800, 600), MIN_WINDOW, WINDOW, (1600, 1000)])
+def test_review_timer_is_secondary_and_completion_preserves_focus(ui, size):
+    from tkinter import font
+    from beamo_wipe import copy as C
+
+    wiz, app = ui(size=size)
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    app.root.update()
+    focus = app.root.focus_get()
+    assert app._countdown_ring.winfo_width() <= 64
+    numeral = font.Font(root=app.root, font=app._countdown_num.cget("font"))
+    assert abs(numeral.cget("size")) <= abs(app.font_bold.cget("size"))
+    assert "selected disk and method" in C.LAST_LEAD
+    assert "never starts erasure" in C.LAST_LEAD
+    wiz._erase_until = 0
+    app._refresh_last_chance()
+    app.root.update()
+    assert app.root.focus_get() == focus
+    assert wiz.screen == Screen.LAST_CHANCE
+    assert not wiz.runner.started
+    assert app._countdown_label.cget("text") == C.COUNTDOWN_READY
+>>>>>>> origin/main

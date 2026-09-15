@@ -459,7 +459,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .cbox { flex: none; width: 28px; height: 28px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: #fff; font-size: 18px; font-weight: 700; line-height: 24px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
   .ringwrap { display: flex; flex-direction: column; align-items: center; }
-  .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 56px; font-weight: 700; }
+  .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
   .countcap { font-size: 16px; color: var(--muted); margin-top: 12px; }
   .countcap.ready { color: var(--ink); font-weight: 600; }
   .advrow { font-size: 13px; margin: 0; padding: 7px 0; }
@@ -963,8 +963,8 @@ function draw() {
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p class="small" style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:144px;height:144px">
-        <svg width="144" height="144" viewBox="0 0 190 190">
+      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
+        <svg width="64" height="64" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :
             `<circle cx="95" cy="95" r="81" fill="none" stroke="${ringColor}" stroke-width="11" stroke-linecap="round"

@@ -32,7 +32,7 @@ TITLE_PICK = "Which disk should we erase?"
 TITLE_CONFIRM = "Make sure this is the right disk"
 TITLE_METHOD = "Choose an erase method"
 TITLE_ADVANCED = "Advanced"
-TITLE_LAST = "Last chance to stop"
+TITLE_LAST = "Review before erasing"
 TITLE_WORKING = "Erasing now"
 TITLE_DONE_OK = "Finished"
 TITLE_DONE_FAIL = "The erase did not finish"
@@ -183,12 +183,15 @@ CONFIRM_LEAD = "Type what we ask for, then continue."
 CONFIRM_MATCH_WAIT = "Type it exactly, then you can continue."
 CONFIRM_MATCH_OK = "That matches. You can continue."
 
-COUNTDOWN_CAPTION = "seconds until Erase is available. Nothing starts automatically."
+COUNTDOWN_CAPTION = "seconds until Erase is available."
 COUNTDOWN_READY = "Nothing has started. Choose Erase now to erase this disk."
 
 METHOD_LEAD = "Compare overwrite and read-back passes."
 
-LAST_LEAD = "If this is the wrong disk, go back."
+LAST_LEAD = (
+    "Check the selected disk and method. Reaching zero only enables Erase; "
+    "it never starts erasure."
+)
 AUTHORIZATION_STALE = "The disk or method changed. Confirm again."
 
 METHOD_CARDS = {
