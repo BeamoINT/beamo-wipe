@@ -249,6 +249,7 @@ TEXT_PAIRS = (
     ("INK", "PRIMARY_TINT"),
     ("MUTED", "BG"),
     ("MUTED", "SURFACE"),
+    ("MUTED", "SURFACE_ALT"),
     ("MUTED", "PRIMARY_TINT"),
     ("NAVY_MUTED", "NAVY"),
     ("PRIMARY", "SURFACE"),
@@ -301,6 +302,47 @@ def test_light_surfaces_do_not_wrap_the_logo_in_a_navy_tile():
     helper = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
     chip = re.search(r"header \.brandchip\s*\{[^}]+\}", helper)
     assert chip and "background: var(--navy)" not in chip.group(0)
+
+
+def test_modern_visual_system_replaces_utility_chrome():
+    """Shared surfaces use the quieter palette, 12px corners, and pill actions.
+
+    Would fail on the previous utility chrome: RADIUS 8, PRIMARY #244A73,
+    FOCUS #1A3FA0, squared helper cards, and Tk buttons drawn with RADIUS.
+    """
+    assert tkui.RADIUS == 12
+    assert tkui.PILL >= 999
+    assert tkui.PRIMARY == "#1C4A73"
+    assert tkui.FOCUS == "#2563EB"
+    assert tkui.BORDER_STRONG == "#6E7C8A"
+    assert tkui.INK == "#12202E"
+    assert tkui.SURFACE_ALT == "#F4F6F8"
+    button = inspect.getsource(tkui._Button._draw)
+    assert "PILL" in button
+    html = gallery_html()
+    assert "--radius: 12px" in html
+    assert "--pill: 999px" in html
+    assert "--primary: #1C4A73" in html
+    assert "border-radius: var(--pill)" in html
+    assert ".journey .done .number" in html
+    helper = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
+    assert "--radius: 12px" in helper
+    assert "--primary: #1C4A73" in helper
+    assert "box-shadow: var(--shadow)" in helper
+    gtk = (ROOT / "src" / "beamo_wipe" / "ui" / "accessible_wizard.py").read_text(
+        encoding="utf-8"
+    )
+    assert "border-radius: 999px" in gtk
+    assert "#1C4A73" in gtk
+    matrix = (ROOT / "docs" / "accessibility-lowres-matrix.md").read_text(encoding="utf-8")
+    assert "FOCUS #2563EB" in matrix
+    assert "BORDER_STRONG #6E7C8A" in matrix
+    assert "#1A3FA0" not in matrix
+    assert "#74839F" not in matrix
+    for old in ("#244A73", "#1A3FA0", "#182635", "#758292"):
+        assert old.lower() not in html.lower(), old
+        assert old.lower() not in helper.lower(), old
+        assert old not in inspect.getsource(tkui), old
 
 
 def test_logo_pngs_are_rgba_with_alpha():

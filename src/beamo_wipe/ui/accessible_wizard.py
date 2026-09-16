@@ -41,20 +41,20 @@ class AccessibleWizard:
         self.window.set_name("beamo-accessible")
         self._style = Gtk.CssProvider()
         self._style.load_from_data(b"""
-            #beamo-accessible { background: #FFFFFF; color: #182635; }
+            #beamo-accessible { background: #FFFFFF; color: #12202E; }
             #beamo-accessible label { font-size: 16px; }
-            #beamo-accessible .screen-heading { font-size: 26px; font-weight: bold; color: #0A1B34; }
-            #beamo-accessible .preview-notice { background: #E8A317; color: #0A1B34; padding: 8px; }
-            #beamo-accessible .disk-identity { background: #EDF3F8; color: #182635; padding: 12px; border: 1px solid #244A73; border-radius: 8px; }
-            #beamo-accessible button { padding: 8px 12px; border-radius: 6px; }
-            #beamo-accessible button.primary-action { background-image: none; background-color: #244A73; color: #FFFFFF; }
+            #beamo-accessible .screen-heading { font-size: 26px; font-weight: bold; color: #12202E; }
+            #beamo-accessible .preview-notice { background: #E6A817; color: #0A1B34; padding: 8px; }
+            #beamo-accessible .disk-identity { background: #F0F5FA; color: #12202E; padding: 16px 20px; border: 1px solid #1C4A73; border-radius: 12px; }
+            #beamo-accessible button { padding: 10px 20px; border-radius: 999px; }
+            #beamo-accessible button.primary-action { background-image: none; background-color: #1C4A73; color: #FFFFFF; }
             #beamo-accessible button.destructive-action { background-image: none; background-color: #B3261E; color: #FFFFFF; }
-            #beamo-accessible button:disabled { background-image: none; background-color: #E4E8EF; color: #4C5B6B; }
-            #beamo-accessible button:focus { outline: 3px solid #1A3FA0; outline-offset: 2px; }
-            #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #244A73; box-shadow: none; }
-            #beamo-accessible .erase-warning { background: #FBEBE9; color: #B3261E; padding: 10px; border-radius: 6px; }
-            #beamo-accessible .screen-actions { border-top: 1px solid #D8DFE6; padding-top: 8px; }
-            #beamo-accessible .report-warning { background: #FFF3CD; color: #825600; padding: 8px; }
+            #beamo-accessible button:disabled { background-image: none; background-color: #E8ECF1; color: #6E7989; }
+            #beamo-accessible button:focus { outline: 3px solid #2563EB; outline-offset: 2px; }
+            #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #1C4A73; box-shadow: none; }
+            #beamo-accessible .erase-warning { background: #FBEBE9; color: #B3261E; padding: 12px 16px; border-radius: 12px; }
+            #beamo-accessible .screen-actions { border-top: 1px solid #E3E8EE; padding-top: 12px; }
+            #beamo-accessible .report-warning { background: #FBF1D5; color: #7A5200; padding: 10px 14px; border-radius: 12px; }
             #beamo-accessible .error-message { color: #B3261E; font-weight: bold; }
         """)
         # Size before the first show: a low-resolution live session may have
@@ -465,10 +465,10 @@ class AccessibleWizard:
             icon.get_accessible().set_name(result.message)
             css = Gtk.CssProvider()
             color = {
-                "ok": "#176b38",
-                "warn": "#825600",
-                "danger": "#ae2020",
-                "info": "#245789",
+                "ok": "#17703F",
+                "warn": "#7A5200",
+                "danger": "#B3261E",
+                "info": "#1C4A73",
             }[result.tone]
             css.load_from_data(f"image {{ color: {color}; }}".encode())
             icon.get_style_context().add_provider(

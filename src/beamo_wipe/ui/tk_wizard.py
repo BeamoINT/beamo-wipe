@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Fullscreen Tk wizard with a quiet, consistent utility design.
 
-White canvas, navy identity, amber step progress, and restrained blue actions.
-Flat surfaces and modest corners keep attention on disk identity and the next
-step. Red is reserved for destructive actions and failures. Keyboard focus
-always has a visible ring; details use the same controls as navigation.
+White canvas, navy identity, amber accent, and restrained blue actions.
+Rounded surfaces and pill buttons keep attention on disk identity and the
+next step. Red is reserved for destructive actions and failures. Keyboard
+focus always has a visible ring; details use the same controls as navigation.
 The web gallery and offline helper mirror these tokens. Native system fonts
 keep the live USB self-contained and readable without network dependencies.
 """
@@ -44,21 +44,21 @@ from beamo_wipe.wizard import COUNTDOWN_S, ReportView, Wizard, format_progress_p
 # comes from spacing, type, and the navy/amber brand accents, not tint.
 BG = "#FFFFFF"
 SURFACE = "#FFFFFF"
-SURFACE_ALT = "#F3F5F7"
-INK = "#182635"
-MUTED = "#4C5B6B"
-BORDER = "#D8DFE6"
+SURFACE_ALT = "#F4F6F8"
+INK = "#12202E"
+MUTED = "#4A5A6A"
+BORDER = "#E3E8EE"
 # Strong border: also the unchecked radio/checkbox/key-cap outline, so it
 # must stay >= 3:1 on every surface (WCAG non-text contrast).
-BORDER_STRONG = "#758292"
+BORDER_STRONG = "#6E7C8A"
 NAVY = "#0A1B34"
 NAVY_SOFT = "#16315C"
 NAVY_MUTED = "#C9D6E8"
 NAVY_DEEP = "#071426"  # fallback emblem platter
-PRIMARY = "#244A73"
-PRIMARY_DARK = "#1B395B"
-PRIMARY_PRESS = "#122A45"
-PRIMARY_TINT = "#EDF3F8"
+PRIMARY = "#1C4A73"
+PRIMARY_DARK = "#163A5C"
+PRIMARY_PRESS = "#102A44"
+PRIMARY_TINT = "#F0F5FA"
 DANGER = "#B3261E"
 DANGER_DARK = "#8E1D16"
 DANGER_PRESS = "#6E1510"
@@ -69,22 +69,22 @@ OK_TINT = "#E7F2EB"
 WARN = "#7A5200"
 WARN_BG = "#FBF1D5"
 WARN_BORDER = "#E3CE96"
-USB_BG = "#F4EFE3"
+USB_BG = "#F7F1E6"
 USB_BORDER = "#D9CEB5"
-FOCUS = "#1A3FA0"
-ACCENT = "#E8A317"
-DISABLED_BG = "#E4E8EF"
+FOCUS = "#2563EB"
+ACCENT = "#E6A817"
+DISABLED_BG = "#E8ECF1"
 DISABLED_FG = "#6E7989"
-TRACK = "#DFE5EF"
+TRACK = "#E4E9EF"
 # One soft shadow layer. Tk has no blur, so the single rounded rect is
 # offset down a few pixels in a cool gray that stays quiet on BG.
-SHADOW = "#D7DEEB"
-PREVIEW_BG = "#E8A317"
+SHADOW = "#D5DCE6"
+PREVIEW_BG = "#E6A817"
 PREVIEW_FG = "#0A1B34"
 
 CONTENT_W = 940
 WRAP = CONTENT_W - 72
-RADIUS = 8
+RADIUS = 12
 PILL = 999  # _rr_points clamps to half the shape: fully rounded ends
 SHADOW_H = 8
 HALO_INSET = 5  # canvas margin a haloed _Box reserves for its glow
@@ -194,7 +194,7 @@ def _icon_check_box(parent: tk.Widget, checked: bool, size: int = 28) -> tk.Canv
     pad = 2
     if checked:
         _round_rect(
-            cv, pad, pad, size - pad, size - pad, 7,
+            cv, pad, pad, size - pad, size - pad, 8,
             fill=PRIMARY, outline=PRIMARY, width=2,
         )
         cv.create_line(
@@ -211,7 +211,7 @@ def _icon_check_box(parent: tk.Widget, checked: bool, size: int = 28) -> tk.Canv
         )
     else:
         _round_rect(
-            cv, pad, pad, size - pad, size - pad, 7,
+            cv, pad, pad, size - pad, size - pad, 8,
             fill=SURFACE, outline=BORDER_STRONG, width=2,
         )
     return cv
@@ -582,8 +582,8 @@ class _Button(tk.Canvas):
     _VARIANTS = {
         "primary": (PRIMARY, "#FFFFFF", PRIMARY_DARK, PRIMARY_PRESS, None, FOCUS),
         "danger": (DANGER, "#FFFFFF", DANGER_DARK, DANGER_PRESS, None, FOCUS),
-        "secondary": (SURFACE, INK, SURFACE_ALT, "#E6EAF0", BORDER_STRONG, FOCUS),
-        "ghost": (None, PRIMARY, PRIMARY_TINT, "#D9E5F8", None, FOCUS),
+        "secondary": (SURFACE, INK, SURFACE_ALT, "#E2E8EE", BORDER_STRONG, FOCUS),
+        "ghost": (None, PRIMARY, PRIMARY_TINT, "#D7E4F2", None, FOCUS),
     }
 
     _RING_GAP = 4  # canvas room below the pill so the focus ring never clips
@@ -657,11 +657,11 @@ class _Button(tk.Canvas):
         body_bottom = self._bh - 1 - self._RING_GAP
         if self._focused and self._enabled:
             _round_rect(
-                self, 1, 1, self._bw - 1, body_bottom + 2, RADIUS + 2,
+                self, 1, 1, self._bw - 1, body_bottom + 2, PILL,
                 fill=ring, outline="", tags="rr",
             )
         _round_rect(
-            self, 3, 3, self._bw - 3, body_bottom, RADIUS,
+            self, 3, 3, self._bw - 3, body_bottom, PILL,
             fill=fill or "", outline=outline or "", width=1 if outline else 0,
             tags="rr",
         )
@@ -972,7 +972,7 @@ class TkWizard:
         )
         self._header.pack(fill=tk.X)
         self._header.bind("<Configure>", lambda _e: self._draw_header())
-        self._strip = tk.Canvas(self.root, height=3, bg=TRACK, highlightthickness=0)
+        self._strip = tk.Canvas(self.root, height=2, bg=TRACK, highlightthickness=0)
         self._strip.pack(fill=tk.X)
         self._strip.bind("<Configure>", lambda _e: self._draw_strip())
         # Pack the footer first: when a small screen cannot fit everything,
@@ -1102,15 +1102,21 @@ class TkWizard:
         for index, name in enumerate(C.JOURNEY_LABELS, 1):
             cx = start + gap * (index - 0.5)
             active = index == step
+            done = index < step
             if index < len(C.JOURNEY_LABELS):
-                cv.create_line(cx + 13, 18, cx + gap - 13, 18, fill=BORDER, width=1)
-            cv.create_oval(cx - 10, 8, cx + 10, 28,
-                           fill=PRIMARY if active else SURFACE_ALT,
-                           outline=PRIMARY if active else BORDER_STRONG)
-            cv.create_text(cx, 18, text=str(index), font=self.font_tiny,
-                           fill=SURFACE if active else MUTED)
-            cv.create_text(cx, 42, text=name, font=self.font_meta,
-                           fill=PRIMARY if active else MUTED)
+                cv.create_line(
+                    cx + 13, 18, cx + gap - 13, 18,
+                    fill=PRIMARY_TINT if index < step else BORDER, width=1,
+                )
+            if active:
+                fill, outline, nfill, lfill = PRIMARY, PRIMARY, SURFACE, INK
+            elif done:
+                fill, outline, nfill, lfill = PRIMARY_TINT, PRIMARY, PRIMARY, MUTED
+            else:
+                fill, outline, nfill, lfill = SURFACE, BORDER_STRONG, MUTED, MUTED
+            cv.create_oval(cx - 10, 8, cx + 10, 28, fill=fill, outline=outline)
+            cv.create_text(cx, 18, text=str(index), font=self.font_tiny, fill=nfill)
+            cv.create_text(cx, 42, text=name, font=self.font_meta, fill=lfill)
 
     def _draw_strip(self) -> None:
         cv = self._strip
@@ -1124,7 +1130,7 @@ class TkWizard:
         frac = step / 8.0
         if frac > 0:
             # The progress fill is the brand beam, not the action color.
-            _round_rect(cv, 0, 0, max(4.0, width * frac), 3, 1.5, fill=ACCENT, outline="")
+            _round_rect(cv, 0, 0, max(4.0, width * frac), 2, 1, fill=ACCENT, outline="")
 
     def _sync_chrome(self, splash: bool) -> None:
         """The splash drops the header and progress strip so the first
@@ -1464,7 +1470,7 @@ class TkWizard:
 
     def _kbd(self, parent: tk.Widget, text: str) -> _Box:
         """A quiet keyboard key-cap. Makes keyboard affordances scannable."""
-        cap = _Box(parent, radius=6, fill=SURFACE_ALT, outline=BORDER, ow=1, padx=7, pady=1)
+        cap = _Box(parent, radius=8, fill=SURFACE_ALT, outline=BORDER_STRONG, ow=1, padx=8, pady=2)
         tk.Label(cap.inner, text=text, font=self.font_tiny, fg=INK, bg=SURFACE_ALT).pack()
         cap.fit_now()
         return cap
@@ -1670,7 +1676,7 @@ class TkWizard:
         """The selected disk, shared across confirmation, method, and result screens."""
         box = _Box(
             parent, radius=RADIUS, fill=PRIMARY_TINT, outline=PRIMARY, ow=1,
-            padx=20, pady=12, shadow=False,
+            padx=22, pady=16, shadow=False,
         )
         inner = box.inner
         tk.Label(inner, text=C.SELECTED_DISK, font=self.font_tiny,
@@ -2039,7 +2045,7 @@ class TkWizard:
             fill, outline, ow = SURFACE, BORDER, 1
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=ow,
-            padx=18, pady=10, halo=False,
+            padx=20, pady=12, halo=False,
         )
         card.pack(fill=tk.X, pady=(0, 10), padx=4)
         inner = card.inner
@@ -2595,9 +2601,9 @@ class TkWizard:
         outline = PRIMARY if selected else BORDER
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
-            padx=18, pady=9, halo=False,
+            padx=20, pady=12, halo=False,
         )
-        card.pack(fill=tk.X, pady=(0, 8), padx=4)
+        card.pack(fill=tk.X, pady=(0, 10), padx=4)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
