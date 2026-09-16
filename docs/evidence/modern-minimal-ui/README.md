@@ -11,6 +11,8 @@ warnings remain fully visible.
 - Header names only the current step (`Confirm · Step 4 of 8`)
 - Confirm/method/last-check leads in plain language
 - One power panel, method limits as a quiet note, no repeated last-check line
+- Pick cards nest partitions without kernel paths; working keeps one progress card
+- Done preview no longer repeats the announcement line
 - Helper opens with the same three-step path as the wizard
 - WCAG 2.1 AA text and non-text contrast still pass
 

@@ -304,6 +304,23 @@ def test_light_surfaces_do_not_wrap_the_logo_in_a_navy_tile():
     assert chip and "background: var(--navy)" not in chip.group(0)
 
 
+def test_done_preview_does_not_repeat_the_announcement():
+    """Would fail when gallery done printed message, next_step, and announcement."""
+    html = gallery_html()
+    assert "${result.message}" in html
+    assert "${result.next_step}" in html
+    assert "${result.announcement}" not in html
+
+
+def test_nested_pick_headings_do_not_use_kernel_paths():
+    """Would fail when unlabeled partitions showed /dev/ names on the pick card."""
+    from beamo_wipe import inventory as inv
+
+    source = inspect.getsource(inv.component_summary)
+    assert "SYSTEM_PATH_NOTE" not in source
+    assert "disk.path" not in source
+
+
 def test_last_chance_does_not_repeat_the_check_line():
     """Would fail when Last chance printed LAST_LEAD and REVIEW_CHECK together."""
     last = inspect.getsource(tkui.TkWizard._last)

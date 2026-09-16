@@ -2906,7 +2906,6 @@ class TkWizard:
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
             self._more_link(col)
-        self._power_notice(col)
         card_copy = C.METHOD_CARDS[self.w.method]
         container = self._center_zone(col)
         progress_card = _Box(container, radius=RADIUS, fill=SURFACE_ALT,
@@ -2927,6 +2926,7 @@ class TkWizard:
             zone, f"{card_copy['title']}.  {C.WORKING_PULSE}", fg=MUTED, font=self.font_b, bg=SURFACE_ALT
         )
         self._progress_label.pack(fill=tk.X, pady=(14, 0))
+        self._power_notice(zone, reminder=False, bg=SURFACE_ALT)
         self._p(zone, self.w.method_summary, font=self.font_s,
                 fg=MUTED, bg=SURFACE_ALT).pack(fill=tk.X, pady=(10, 0))
         if self.w.evidence_warning:

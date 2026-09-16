@@ -41,7 +41,7 @@ def kind_label_for_type(node_type: str) -> str:
 
 def component_summary(disk: Disk, kind_label: str) -> str:
     """Plain nested label. Parent serial/model stay on the parent card."""
-    from beamo_wipe.identity import SYSTEM_PATH_NOTE, UNKNOWN_MODEL
+    from beamo_wipe.identity import UNKNOWN_MODEL
 
     heading = kind_label or "Technical component"
     parts = [heading]
@@ -53,8 +53,6 @@ def component_summary(disk: Disk, kind_label: str) -> str:
         extra = title
     if extra and extra not in parts:
         parts.append(extra)
-    elif not extra and (disk.path or "").strip():
-        parts.append(f"{SYSTEM_PATH_NOTE}: {disk.path}")
     return " · ".join(parts)
 
 

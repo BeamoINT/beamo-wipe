@@ -1026,12 +1026,13 @@ function draw() {
     main.innerHTML = `<h1>${P.titles.working}</h1>
       ${summaryCard(selected)}
       ${moreLink()}
-      ${powerPanel()}
       <div class="cz"><div class="czc">
       <div class="progress-card"><div class="progress-label">Erase progress</div>
       <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
-      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p><p class="small muted">${m.summary}</p></div></div></div>`;
+      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p>
+      <div id="power-status" role="status" aria-live="polite" class="small muted">${powerText()}</div>
+      <p class="small muted">${m.summary}</p></div></div></div>`;
     bindMore();
     btnsL.append(btn(P.stop.ask, () => {
       if (screen === "working") { screen = "stop_confirm"; draw(); }
@@ -1075,7 +1076,7 @@ function draw() {
       <section aria-labelledby="erase-status-heading"><h1 id="erase-status-heading">${P.eraseStatusTitle}</h1>
       <p class="statustext">${result.message}</p>
       <p class="statustext" style="color:var(--ink)">${result.next_step}</p>
-      <p>${P.methods[method].summary}</p><p role="status" aria-live="polite">${result.announcement}</p>
+      <p>${P.methods[method].summary}</p>
       </section><section aria-labelledby="report-status-heading">
       <h2 id="report-status-heading">${P.reportStatusTitle}</h2>
       <p>${P.reportPreview}</p><p class="small">${P.reportStatusNotice}</p></section>
