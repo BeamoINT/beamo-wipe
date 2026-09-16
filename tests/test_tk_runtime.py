@@ -20,7 +20,7 @@ from beamo_wipe.models import Screen
 from beamo_wipe.methods import METHODS
 try:
     import tkinter as tk
-    from beamo_wipe.ui.tk_wizard import TkWizard, _Button
+    from beamo_wipe.ui.tk_wizard import TkWizard, _Button, _CheckRow
 except ImportError:
     pytest.skip("tkinter not available", allow_module_level=True)
 
@@ -1188,7 +1188,7 @@ def test_report_help_rendered_preference_and_layout(ui, wanted, size, origin):
     app.root.update_idletasks()
     reader = next(w for w in widgets(app.root) if isinstance(w, tk.Text))
     assert reader.get('1.0', 'end-1c') == C.REPORT_HELP_TEXT
-    checkbox = next(w for w in widgets(app.root) if isinstance(w, tk.Checkbutton))
+    checkbox = next(w for w in widgets(app.root) if isinstance(w, _CheckRow))
     assert not wiz.report_wanted
     if wanted:
         checkbox.invoke()

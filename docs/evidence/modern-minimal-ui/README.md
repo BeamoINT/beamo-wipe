@@ -16,6 +16,8 @@ warnings remain fully visible.
 - Method cards say “check the last overwrite”; nested cards drop “unsupported device”
 - Identity card says “This disk”
 - Helper opens with the same three-step path as the wizard
+- Shared checkbox, scrollbar, reader, and progress controls replace native Tk chrome
+- Method and keyboard keycaps sit on the right; compare/report use the check icon
 - WCAG 2.1 AA text and non-text contrast still pass
 
 ## Screenshots

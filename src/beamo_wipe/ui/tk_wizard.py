@@ -19,7 +19,7 @@ from functools import partial
 import tkinter as tk
 from pathlib import Path
 from tkinter import font as tkfont
-from typing import Callable, List, Optional
+from typing import Callable, List, Literal, Optional
 
 from beamo_wipe import copy as C
 from beamo_wipe import diagnostic_report as D
@@ -86,6 +86,7 @@ CONTENT_W = 940
 WRAP = CONTENT_W - 72
 RADIUS = 12
 PILL = 999  # _rr_points clamps to half the shape: fully rounded ends
+BAR_H = 8
 SHADOW_H = 8
 HALO_INSET = 5  # canvas margin a haloed _Box reserves for its glow
 
@@ -190,11 +191,11 @@ def _round_rect(canvas: tk.Canvas, x0, y0, x1, y1, r, **kwargs) -> int:
 
 def _icon_radio(parent: tk.Widget, selected: bool, size: int = 22) -> tk.Canvas:
     cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
-    pad = 2
+    pad = 1.5
     ring = PRIMARY if selected else BORDER_STRONG
     cv.create_oval(pad, pad, size - pad, size - pad, outline=ring, width=2)
     if selected:
-        inset = size // 4 + 1
+        inset = size * 0.30
         cv.create_oval(inset, inset, size - inset, size - inset, fill=PRIMARY, outline="")
     return cv
 
@@ -204,7 +205,7 @@ def _icon_check_box(parent: tk.Widget, checked: bool, size: int = 28) -> tk.Canv
     pad = 2
     if checked:
         _round_rect(
-            cv, pad, pad, size - pad, size - pad, 8,
+            cv, pad, pad, size - pad, size - pad, 10,
             fill=PRIMARY, outline=PRIMARY, width=2,
         )
         cv.create_line(
@@ -221,7 +222,7 @@ def _icon_check_box(parent: tk.Widget, checked: bool, size: int = 28) -> tk.Canv
         )
     else:
         _round_rect(
-            cv, pad, pad, size - pad, size - pad, 8,
+            cv, pad, pad, size - pad, size - pad, 10,
             fill=SURFACE, outline=BORDER_STRONG, width=2,
         )
     return cv
@@ -751,33 +752,49 @@ class _Button(tk.Canvas):
 
 
 class _Scrollbar(tk.Canvas):
-    """Slim rounded-thumb scrollbar for the disk list.
+    """Slim rounded-thumb scrollbar.
 
     Same yview protocol as a stock scrollbar (the list canvas drives it via
     yscrollcommand; drags and track clicks call back into the canvas), drawn
-    as a quiet rounded thumb so the list does not carry native chrome.
+    as a quiet rounded thumb so readers do not carry native chrome.
     """
 
-    WIDTH = 12
+    WIDTH = 10
     MIN_THUMB = 30
 
-    def __init__(self, parent: tk.Widget, command: Callable) -> None:
+    def __init__(
+        self, parent: tk.Widget, command: Callable, *, takefocus: bool = False
+    ) -> None:
+        bg = parent.cget("bg")
         super().__init__(
             parent,
             width=self.WIDTH,
             highlightthickness=0,
             bd=0,
-            bg=parent.cget("bg"),
-            takefocus=0,
+            bg=bg,
+            takefocus=1 if takefocus else 0,
         )
         self._command = command
         self._first = 0.0
         self._last = 1.0
         self._drag_off: Optional[float] = None
+        self._focused = False
         self.bind("<Configure>", lambda _e: self._draw_thumb())
         self.bind("<Button-1>", self._press)
         self.bind("<B1-Motion>", self._drag)
         self.bind("<ButtonRelease-1>", self._release)
+        self.bind("<MouseWheel>", self._wheel)
+        self.bind("<Button-4>", self._wheel)
+        self.bind("<Button-5>", self._wheel)
+        if takefocus:
+            self.bind("<FocusIn>", lambda _e: self._set_focused(True))
+            self.bind("<FocusOut>", lambda _e: self._set_focused(False))
+            self.bind("<Up>", lambda _e: self._key_scroll(-1, "units"))
+            self.bind("<Down>", lambda _e: self._key_scroll(1, "units"))
+            self.bind("<Prior>", lambda _e: self._key_scroll(-1, "pages"))
+            self.bind("<Next>", lambda _e: self._key_scroll(1, "pages"))
+            self.bind("<Home>", lambda _e: self._key_move(0.0))
+            self.bind("<End>", lambda _e: self._key_move(1.0))
 
     def set(self, first, last) -> None:
         self._first, self._last = float(first), float(last)
@@ -803,11 +820,40 @@ class _Scrollbar(tk.Canvas):
         if span is None:
             return
         y0, y1 = span
-        color = BORDER_STRONG if self._drag_off is not None else _mix(BORDER_STRONG, BG, 0.35)
+        if self._focused:
+            color = FOCUS
+        elif self._drag_off is not None:
+            color = BORDER_STRONG
+        else:
+            color = _mix(BORDER_STRONG, BG, 0.35)
         _round_rect(
-            self, 2, y0 + 2, self.WIDTH - 2, max(y1 - 2, y0 + 4), 5,
+            self, 2, y0 + 2, self.WIDTH - 2, max(y1 - 2, y0 + 4), 4,
             fill=color, outline="", tags="thumb",
         )
+
+    def _set_focused(self, focused: bool) -> None:
+        self._focused = focused
+        self._draw_thumb()
+
+    def _key_scroll(self, steps: int, what: str) -> str:
+        self._command("scroll", steps, what)
+        return "break"
+
+    def _key_move(self, first: float) -> str:
+        self._command("moveto", first)
+        return "break"
+
+    def _wheel(self, event) -> Optional[str]:
+        if getattr(event, "num", None) == 5:
+            steps = 1
+        elif getattr(event, "num", None) == 4:
+            steps = -1
+        elif event.delta:
+            steps = -1 if event.delta > 0 else 1
+        else:
+            return None
+        self._command("scroll", steps, "units")
+        return "break"
 
     def _press(self, event) -> None:
         span = self._thumb_span()
@@ -830,6 +876,72 @@ class _Scrollbar(tk.Canvas):
         if self._drag_off is not None:
             self._drag_off = None
             self._draw_thumb()
+
+
+class _CheckRow(tk.Frame):
+    """Checkbox + label using the shared check icon. Replaces native Checkbutton."""
+
+    def __init__(
+        self,
+        parent: tk.Widget,
+        *,
+        text: str,
+        variable: tk.BooleanVar,
+        command: Callable[[], None],
+        font: tkfont.Font,
+        wraplength: int = 0,
+    ) -> None:
+        bg = parent.cget("bg")
+        super().__init__(
+            parent,
+            bg=bg,
+            takefocus=1,
+            highlightthickness=2,
+            highlightbackground=bg,
+            highlightcolor=FOCUS,
+            cursor="hand2",
+        )
+        self._text = text
+        self._variable = variable
+        self._command = command
+        self._font = font
+        self._wraplength = wraplength
+        self._icon: Optional[tk.Canvas] = None
+        self._label = tk.Label(
+            self, text=text, font=font, fg=INK, bg=bg, justify=tk.LEFT, anchor="w",
+            wraplength=wraplength or 0,
+        )
+        self._label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 4), pady=2)
+        self._sync()
+        variable.trace_add("write", lambda *_: self._sync())
+        self.bind("<Button-1>", lambda _e: self.invoke())
+        self.bind("<space>", self._activate)
+        self.bind("<Return>", self._activate)
+        self.bind("<KP_Enter>", self._activate)
+        self._label.bind("<Button-1>", lambda _e: self.invoke())
+
+    def cget(self, key):
+        if key == "text":
+            return self._text
+        return super().cget(key)
+
+    def _activate(self, _event=None) -> str:
+        self.invoke()
+        return "break"
+
+    def invoke(self) -> None:
+        self._variable.set(not bool(self._variable.get()))
+        self._command()
+
+    def _sync(self) -> None:
+        if self._icon is not None:
+            self._icon.destroy()
+        bg = self.cget("bg")
+        icon = _icon_check_box(self, bool(self._variable.get()), 22)
+        icon.configure(bg=bg)
+        icon.pack(side=tk.LEFT, anchor="n", pady=2, before=self._label)
+        icon.bind("<Button-1>", lambda _e: self.invoke())
+        self._icon = icon
 
 
 class TkWizard:
@@ -1446,6 +1558,38 @@ class TkWizard:
         content.pack(fill=tk.X, pady=(8, 0))
         return content
 
+    def _reader(
+        self,
+        parent: tk.Widget,
+        *,
+        height: int,
+        wrap: Literal["none", "char", "word"] = "word",
+        bg: str = SURFACE_ALT,
+        padx: int = 12,
+        pady: int = 8,
+    ) -> tk.Text:
+        """Flat readable text surface. Replaces native sunken Text chrome."""
+        return tk.Text(
+            parent,
+            wrap=wrap,
+            font=self.font_s,
+            takefocus=True,
+            width=1,
+            height=height,
+            bg=bg,
+            fg=INK,
+            relief=tk.FLAT,
+            bd=0,
+            padx=padx,
+            pady=pady,
+            highlightthickness=1,
+            highlightbackground=BORDER,
+            highlightcolor=FOCUS,
+            insertbackground=INK,
+            selectbackground=PRIMARY_TINT,
+            selectforeground=INK,
+        )
+
     def _chip(self, parent: tk.Widget, text: str, *, fg: str, bg: str) -> _Box:
         chip = _Box(parent, radius=PILL, fill=bg, outline=None, ow=0, padx=10, pady=2)
         tk.Label(chip.inner, text=text, font=self.font_tiny, fg=fg, bg=bg).pack()
@@ -1859,14 +2003,19 @@ class TkWizard:
             inner = card.inner
             top = tk.Frame(inner, bg=fill)
             top.pack(fill=tk.X)
-            self._kbd(top, str(index)).pack(side=tk.LEFT)
+            icon = _icon_radio(top, selected, 22)
+            icon.configure(bg=fill)
+            icon.pack(side=tk.LEFT, anchor="n", pady=1)
+            self._kbd(top, str(index)).pack(side=tk.RIGHT, anchor="n")
+            text_col = tk.Frame(top, bg=fill)
+            text_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 8))
             tk.Label(
-                top, text=spec.title, font=self.font_bold, fg=INK, bg=fill, anchor="w",
-            ).pack(side=tk.LEFT, padx=(10, 0))
+                text_col, text=spec.title, font=self.font_bold, fg=INK, bg=fill, anchor="w",
+            ).pack(fill=tk.X)
             tk.Label(
-                inner, text=spec.note, font=self.font_s, fg=MUTED, bg=fill,
-                wraplength=max(200, self.lay.wrap - 80), justify=tk.LEFT, anchor="w",
-            ).pack(fill=tk.X, pady=(6, 0))
+                text_col, text=spec.note, font=self.font_s, fg=MUTED, bg=fill,
+                wraplength=max(200, self.lay.wrap - 110), justify=tk.LEFT, anchor="w",
+            ).pack(fill=tk.X, pady=(4, 0))
 
             def _click(_e=None, lid=layout_id):
                 self.w.set_keyboard_layout(lid)
@@ -1875,6 +2024,13 @@ class TkWizard:
 
             self._bind_tree(card, _click)
             card.configure(cursor="hand2")
+            inner.configure(cursor="hand2")
+            if not selected:
+                self._bind_hover(
+                    card,
+                    partial(card.set_style, fill=SURFACE_ALT),
+                    partial(card.set_style, fill=SURFACE),
+                )
         if self.w.keyboard_message:
             self._panel(zone, kind="warn", text=self.w.keyboard_message).pack(fill=tk.X, pady=(12, 0))
         elif self.w.error:
@@ -2213,14 +2369,11 @@ class TkWizard:
                 content.pack(fill=tk.X)
             else:
                 content.pack_forget()
-        toggle_button = tk.Checkbutton(
+        toggle_button = _CheckRow(
             section, text=inventory.COMPARE_TITLE, variable=opened,
-            command=toggle, bg=BG, fg=INK, font=self.font_s_bold,
-            takefocus=True, highlightcolor=FOCUS,
+            command=toggle, font=self.font_s_bold,
         )
         toggle_button.pack(anchor="w")
-        for key in ("Return", "KP_Enter"):
-            toggle_button.bind(f"<{key}>", lambda e: (toggle_button.invoke(), "break")[1])
         intro = self._p(content, inventory.COMPARE_INTRO, font=self.font_s)
         intro.pack(fill=tk.X)
         content.bind("<Configure>", lambda e: intro.configure(wraplength=max(1, e.width - 12)))
@@ -2230,13 +2383,10 @@ class TkWizard:
         for entry in entries:
             cell = tk.Frame(grid, bg=BG)
             cells.append(cell)
-            reader = tk.Text(cell, height=8, width=1, wrap=tk.CHAR,
-                             font=self.font_s, bg=SURFACE_ALT, fg=INK,
-                             takefocus=True, padx=10, pady=8,
-                             highlightcolor=FOCUS, highlightthickness=1)
+            reader = self._reader(cell, height=8, wrap=tk.CHAR, padx=10)
             reader.insert("1.0", entry)
             reader.configure(state=tk.DISABLED)
-            scrollbar = tk.Scrollbar(cell, command=reader.yview, takefocus=False)
+            scrollbar = _Scrollbar(cell, reader.yview)
             scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
             reader.configure(yscrollcommand=scrollbar.set)
             reader.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -2281,10 +2431,7 @@ class TkWizard:
         self._p(section, inventory.TITLE, font=self.font_s_bold).pack(fill=tk.X)
         frame = tk.Frame(section, bg=BG)
         frame.pack(fill=tk.X, pady=(4, 8))
-        reader = tk.Text(frame, height=2, wrap=tk.WORD, font=self.font_s,
-                         takefocus=True, bg=SURFACE_ALT, fg=INK, relief=tk.FLAT,
-                         bd=0, padx=12, pady=8, highlightthickness=1,
-                         highlightbackground=BORDER, highlightcolor=FOCUS)
+        reader = self._reader(frame, height=2)
         setattr(reader, "_beamo_inventory", True)
         def read_key(event):
             delta = {"Up": -1, "Down": 1, "Prior": -3, "Next": 3}.get(event.keysym, 0)
@@ -2293,8 +2440,8 @@ class TkWizard:
             return "break"
         for key in ("Up", "Down", "Prior", "Next", "Return", "KP_Enter", "space"):
             reader.bind(f"<{key}>", read_key)
-        scroll = tk.Scrollbar(frame, command=reader.yview)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        scroll = _Scrollbar(frame, reader.yview)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
         reader.configure(yscrollcommand=scroll.set)
         reader.pack(side=tk.LEFT, fill=tk.X, expand=True)
         reader.insert("1.0", inventory.full_text(self.w.other_devices))
@@ -2430,12 +2577,33 @@ class TkWizard:
         window = canvas.create_window((0, 0), window=cards, anchor="nw")
         cards.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.bind("<Configure>", lambda _e: canvas.itemconfigure(window, width=canvas.winfo_width()))
-        scroll = tk.Scrollbar(region, command=canvas.yview, takefocus=True)
+        scroll = _Scrollbar(region, canvas.yview, takefocus=True)
         canvas.configure(yscrollcommand=scroll.set)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def _wheel(event) -> Optional[str]:
+            if getattr(event, "num", None) == 5:
+                steps = 1
+            elif getattr(event, "num", None) == 4:
+                steps = -1
+            elif event.delta:
+                steps = -1 if event.delta > 0 else 1
+            else:
+                return None
+            canvas.yview_scroll(steps, "units")
+            return "break"
+
+        def bind_wheel(widget):
+            for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                widget.bind(sequence, _wheel)
+            for child in widget.winfo_children():
+                bind_wheel(child)
+
+        bind_wheel(canvas)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self._protected_boot(cards)
         self._other_devices(cards)
+        bind_wheel(cards)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2595,16 +2763,16 @@ class TkWizard:
         icon = _icon_radio(top, selected, 22)
         icon.configure(bg=fill)
         icon.pack(side=tk.LEFT, anchor="n", pady=1)
+        self._kbd(top, card_copy["key"]).pack(side=tk.RIGHT, anchor="n", padx=(8, 0))
         # Blurb and pace live in the title column so the card's text shares
         # one left edge instead of stair-stepping under the radio.
         text_col = tk.Frame(top, bg=fill)
-        text_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        text_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 8))
         title_row = tk.Frame(text_col, bg=fill)
         title_row.pack(fill=tk.X)
-        self._kbd(title_row, card_copy["key"]).pack(side=tk.LEFT)
         tk.Label(
             title_row, text=card_copy["title"], font=self.font_bold, fg=INK, bg=fill, anchor="w"
-        ).pack(side=tk.LEFT, padx=(10, 0))
+        ).pack(side=tk.LEFT)
         if method == DEFAULT_METHOD:
             self._chip(title_row, C.RECOMMENDED_TAG, fg=OK, bg=OK_TINT).pack(
                 side=tk.LEFT, padx=(10, 0)
@@ -2698,15 +2866,15 @@ class TkWizard:
         self._title_block(col, C.REPORT_HELP_TITLE, "Optional. Read before inserting report media.", compact=True)
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
-        text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
-                       width=1, height=10, bg=SURFACE, fg=INK)
-        scrollbar = tk.Scrollbar(frame, command=text.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text = self._reader(frame, height=10, padx=14, pady=12)
+        scrollbar = _Scrollbar(frame, text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
         text.configure(yscrollcommand=scrollbar.set)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         text.insert("1.0", C.REPORT_HELP_TEXT + ("\n\n" + self.w.report_recovery_warning if self.w.report_recovery_warning else ""))
         text.configure(state=tk.DISABLED)
         choice = tk.BooleanVar(master=self.root, value=self.w.report_wanted)
+        wrap = max(200, self.lay.wrap - 40)
 
         def set_preference():
             previous = self.w.report_recovery_warning
@@ -2718,33 +2886,19 @@ class TkWizard:
                 text.configure(state=tk.DISABLED)
                 text.see(tk.END)
 
-        tk.Checkbutton(
-            col,
-            text=C.REPORT_WANTED,
-            wraplength=max(200, self.lay.wrap - 40),
-            justify=tk.LEFT,
-            variable=choice,
-            bg=BG,
-            font=self.font_s,
-            takefocus=True,
-            command=set_preference,
-        ).pack(anchor="w", pady=8)
+        _CheckRow(
+            col, text=C.REPORT_WANTED, variable=choice,
+            command=set_preference, font=self.font_s, wraplength=wrap,
+        ).pack(anchor="w", fill=tk.X, pady=8)
         share = tk.BooleanVar(master=self.root, value=self.w.report_share_redacted)
 
         def set_share():
             self.w.set_report_share_redacted(share.get())
 
-        tk.Checkbutton(
-            col,
-            text=C.REPORT_SHARE_REDACTED,
-            wraplength=max(200, self.lay.wrap - 40),
-            justify=tk.LEFT,
-            variable=share,
-            bg=BG,
-            font=self.font_s,
-            takefocus=True,
-            command=set_share,
-        ).pack(anchor="w", pady=(0, 8))
+        _CheckRow(
+            col, text=C.REPORT_SHARE_REDACTED, variable=share,
+            command=set_share, font=self.font_s, wraplength=wrap,
+        ).pack(anchor="w", fill=tk.X, pady=(0, 8))
         self._back_btn(self._footer_shell("Enter or Esc returns. Nothing is saved here."))
         text.focus_set()
 
@@ -2753,10 +2907,9 @@ class TkWizard:
         self._title_block(col, C.DISK_HELP_TITLE, "Up/Down or Page Up/Page Down to read. Esc returns.", compact=True)
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
-        text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
-                       width=1, height=10, bg=SURFACE, fg=INK)
-        scrollbar = tk.Scrollbar(frame, command=text.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text = self._reader(frame, height=10, padx=14, pady=12)
+        scrollbar = _Scrollbar(frame, text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
         text.configure(yscrollcommand=scrollbar.set)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         text.insert("1.0", C.DISK_HELP_TEXT)
@@ -2771,10 +2924,9 @@ class TkWizard:
         self._title_block(col, limits.TITLE, "Up/Down or Page Up/Page Down to read. Esc returns.", compact=True)
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
-        text = tk.Text(frame, wrap=tk.WORD, font=self.font_s, takefocus=True,
-                       width=1, height=10, bg=SURFACE, fg=INK)
-        scrollbar = tk.Scrollbar(frame, command=text.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text = self._reader(frame, height=10, padx=14, pady=12)
+        scrollbar = _Scrollbar(frame, text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
         text.configure(yscrollcommand=scrollbar.set)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         text.insert("1.0", limits.full_text())
@@ -2917,7 +3069,7 @@ class TkWizard:
             zone, text="", font=self.font_stat, fg=INK, bg=SURFACE_ALT, anchor="w"
         )
         self._progress_pct.pack(fill=tk.X, pady=(0, 12))
-        bar = tk.Canvas(zone, height=14, bg=SURFACE_ALT, highlightthickness=0)
+        bar = tk.Canvas(zone, height=BAR_H, bg=SURFACE_ALT, highlightthickness=0)
         bar.pack(fill=tk.X)
         bar.bind("<Configure>", lambda _e: self._refresh_working())
         self._progress_bar = bar
@@ -2970,16 +3122,24 @@ class TkWizard:
             return
         bar.delete("all")
         width = max(bar.winfo_width(), 1)
-        _round_rect(bar, 0, 0, width, 14, 7, fill=TRACK, outline="")
+        height = max(bar.winfo_height(), BAR_H)
+        radius = max(2, height // 2)
+        _round_rect(bar, 0, 0, width, height, radius, fill=TRACK, outline="")
         if frac is None:
             seg = width * 0.30
             x1 = seg + (width - seg) * indet_pos
             x0 = x1 - seg
-            _round_rect(bar, max(0, x0), 0, min(width, x1), 14, 7, fill=PRIMARY, outline="")
+            _round_rect(
+                bar, max(0, x0), 0, min(width, x1), height, radius,
+                fill=PRIMARY, outline="",
+            )
             return
         fill_w = width * min(1.0, frac)
         if fill_w > 1:
-            _round_rect(bar, 0, 0, max(fill_w, 14), 14, 7, fill=PRIMARY, outline="")
+            _round_rect(
+                bar, 0, 0, max(fill_w, height), height, radius,
+                fill=PRIMARY, outline="",
+            )
 
     def _done(self, report: ReportView) -> None:
         col = self._column(self._body, fill_height=True)

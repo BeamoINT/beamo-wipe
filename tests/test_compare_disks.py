@@ -58,7 +58,8 @@ def test_tk_comparison_reflow_keyboard_and_continuity(count, width, columns):
         app._comparison(host)
         host.update()
         section = host.winfo_children()[0]
-        toggle = next(c for c in section.winfo_children() if isinstance(c, tk.Checkbutton))
+        from beamo_wipe.ui.tk_wizard import _CheckRow
+        toggle = next(c for c in section.winfo_children() if isinstance(c, _CheckRow))
         toggle.invoke()
         host.update()
         content = next(c for c in section.winfo_children() if isinstance(c, tk.Frame))
@@ -210,8 +211,9 @@ def test_real_picker_comparison_keeps_selection_and_reveals_keyboard_focus():
             yield from walk(child)
     try:
         app.root.update()
+        from beamo_wipe.ui.tk_wizard import _CheckRow
         toggle = next(widget for widget in walk(app.root)
-                      if isinstance(widget, tk.Checkbutton)
+                      if isinstance(widget, _CheckRow)
                       and widget.cget("text") == inventory.COMPARE_TITLE)
         toggle.focus_force()
         toggle.event_generate("<Return>")

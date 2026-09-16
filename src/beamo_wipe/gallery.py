@@ -398,6 +398,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .card.boot { background: var(--usb-bg); border-color: var(--usb-border); cursor: not-allowed; }
   .card .row { display: flex; align-items: flex-start; gap: 14px; }
   .card .grow { flex: 1; min-width: 0; }
+  .card .row > .kbd { flex: none; margin-top: 1px; }
   .card .title { font-size: 16px; font-weight: 700; }
   .card .title .chip { margin-left: 10px; }
   .card .size { font-size: 20px; font-weight: 700; white-space: nowrap; }
@@ -408,7 +409,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .card .meta .dot { color: var(--border-strong); margin: 0 6px; }
   .radio { flex: none; width: 22px; height: 22px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 50%; position: relative; background: var(--surface); }
   .sel .radio { border-color: var(--primary); }
-  .sel .radio::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--primary); }
+  .sel .radio::after { content: ""; position: absolute; inset: 30%; border-radius: 50%; background: var(--primary); }
   .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; background: var(--surface-alt); color: var(--muted); border-radius: 999px; vertical-align: 2px; }
   .chip.ok { color: var(--ok); background: var(--ok-tint); }
   .bootbanner { margin-bottom: 6px; color: var(--ink); font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
@@ -449,7 +450,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .progress-card { padding: 20px 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); }
   .progress-label { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; letter-spacing: .02em; }
   .bigstat { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -.03em; min-height: 62px; }
-  .bar { height: 10px; background: var(--track); border-radius: var(--pill); overflow: hidden; }
+  .bar { height: 8px; background: var(--track); border-radius: var(--pill); overflow: hidden; }
   .fill { height: 100%; background: var(--primary); width: 2%; border-radius: var(--pill); transition: width .2s ease; }
   .fill.indet { width: 30%; animation: slide 1.7s ease-in-out infinite alternate; }
   @keyframes slide { from { margin-left: 0; } to { margin-left: 70%; } }
@@ -473,8 +474,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 21px 23px; box-shadow: var(--halo); }
   .ownercard.checked:hover { background: var(--primary-tint); }
-  .cbox { flex: none; width: 28px; height: 28px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: #fff; font-size: 18px; font-weight: 700; line-height: 24px; text-align: center; }
+  .cbox { flex: none; width: 28px; height: 28px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: #fff; font-size: 18px; font-weight: 700; line-height: 24px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
+  .checkrow { display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; cursor: pointer; font-size: 14px; line-height: 1.45; padding: 8px 10px; border-radius: var(--radius); }
+  .checkrow:hover { background: var(--surface-alt); }
+  .checkrow:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .checkrow .cbox { width: 22px; height: 22px; font-size: 14px; line-height: 18px; }
+  .checkrow.checked { background: var(--primary-tint); }
+  .checkrow.checked .cbox { background: var(--primary); border-color: var(--primary); }
   .ringwrap { display: flex; flex-direction: column; align-items: center; }
   .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
   .countcap { font-size: 16px; color: var(--muted); margin-top: 12px; }
@@ -496,20 +503,34 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .splashlead { font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 620px; margin: 14px 0 0; }
   .splashwrap .btn.primary { min-width: 240px; padding: 14px 34px; margin-top: 36px; }
   .anykeycap { margin-top: 14px; font-size: 12px; color: var(--muted); }
-  .disklist { flex: 1; min-height: 160px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #A3AEC2 transparent; }
-  .disklist::-webkit-scrollbar { width: 12px; }
-  .disklist::-webkit-scrollbar-thumb { background: #A3AEC2; border-radius: 6px; border: 3px solid var(--bg); }
+  .disklist { flex: 1; min-height: 160px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  .disklist::-webkit-scrollbar { width: 10px; }
+  .disklist::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid var(--bg); }
   .disklist::-webkit-scrollbar-track { background: transparent; }
   .utilities { max-width: 940px; margin: auto; display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; }
   button.btn.ghost { background: transparent; color: var(--primary); border-color: transparent; min-width: 0; padding: 8px 16px; font-size: 14px; font-weight: 500; }
   button.btn.ghost:hover { background: var(--primary-tint); }
   .utilities:empty { display: none; }
   section[aria-label] h2 { font-size: 14px; margin: 8px 0 4px; }
-  .inventory-reader { white-space: pre-wrap; overflow: auto; max-height: 78px; padding: 8px 12px; margin-bottom: 10px; font-size: 14px; line-height: 1.4; border: 1px solid var(--border); background: var(--surface-alt); }
+  .inventory-reader, .help-reader { white-space: pre-wrap; overflow: auto; padding: 12px 14px; font-size: 14px; line-height: 1.45; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); color: var(--ink); }
+  .inventory-reader { max-height: 78px; margin-bottom: 10px; padding: 8px 12px; }
+  .help-reader { max-height: 55vh; }
+  .help-reader.compact { max-height: 43vh; }
   .nested { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
   .nested-intro { font-weight: 600; margin-bottom: 4px; }
-  .nested-item { margin-top: 4px; padding-left: 12px; border-left: 2px solid var(--border); }
-  .inventory-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+  .nested-item { margin-top: 6px; }
+  .inventory-reader:focus-visible, .help-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+  details.compare { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin: 0 0 12px; padding: 0; }
+  details.compare > summary { list-style: none; cursor: pointer; font-size: 14px; font-weight: 700; padding: 12px 16px; display: flex; align-items: center; gap: 10px; color: var(--ink); }
+  details.compare > summary::-webkit-details-marker, details.compare > summary::marker { display: none; content: none; }
+  details.compare > summary::before { content: ""; width: 22px; height: 22px; flex: none; border: 2px solid var(--border-strong); border-radius: 10px; background: var(--surface); box-sizing: border-box; }
+  details.compare[open] > summary::before { content: "✓"; color: #fff; background: var(--primary); border-color: var(--primary); font-size: 14px; font-weight: 700; line-height: 18px; text-align: center; }
+  details.compare > summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+  .compare-body { padding: 0 16px 16px; }
+  .compare-body > p { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+  .compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }
+  .compare-pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); color: var(--ink); }
+  .compare-pre:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .disktype { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 0; }
   .card .title, .card .meta { overflow-wrap: anywhere; }
   /* Grid/flex items default to min-width:auto: a long unbroken serial,
@@ -814,7 +835,7 @@ function draw() {
   } else if (screen === "keyboard") {
     const layouts = P.keyboardLayouts.map((item, i) => {
       const selected = (keyboardLayout || "us") === item.id;
-      return `<div class="card${selected ? " selected" : ""}" data-layout="${item.id}" tabindex="0"><div class="row"><span class="kbd">${i+1}</span><div class="title grow">${item.title}</div></div><p class="small muted">${item.note}</p></div>`;
+      return `<div class="card pickable${selected ? " sel" : ""}" data-layout="${item.id}" tabindex="0" role="button" aria-pressed="${selected}"><div class="row"><span class="radio"></span><div class="grow"><div class="title">${item.title}</div><p class="small muted">${item.note}</p></div><span class="kbd">${i+1}</span></div></div>`;
     }).join("");
     main.innerHTML = `<h1 class="sub">${P.titles.keyboard}</h1><p class="subtitle">${P.keyboardLead}</p>
       <p class="small muted">${P.keyboardLimits}</p>
@@ -823,7 +844,9 @@ function draw() {
       <div class="entryshell"><input class="token" id="kbcheck" type="text" autocomplete="off" spellcheck="false" value=""></div>
       </div></div>`;
     main.querySelectorAll("[data-layout]").forEach(el => {
-      el.onclick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
+      const pick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
+      el.onclick = pick;
+      el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
     });
     const box = main.querySelector("#kbcheck");
     if (box) box.value = "";
@@ -874,7 +897,7 @@ function draw() {
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
     disks().filter(d => d.isBoot).forEach(d => { html += diskCard(d); });
-    if (selectable().length > 1) html += `<details><summary>${esc(P.compareTitle)}</summary><p>${esc(P.compareIntro)}</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px">${P.comparison.map(text => `<pre tabindex="0" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;padding:12px;border:1px solid #ccd3dc">${esc(text)}</pre>`).join("")}</div></details>`;
+    if (selectable().length > 1) html += `<details class="compare"><summary>${esc(P.compareTitle)}</summary><div class="compare-body"><p>${esc(P.compareIntro)}</p><div class="compare-grid">${P.comparison.map(text => `<pre class="compare-pre" tabindex="0">${esc(text)}</pre>`).join("")}</div></div></details>`;
     selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
@@ -939,10 +962,11 @@ function draw() {
       html += `<div class="card pickable${sel ? " sel" : ""}" data-id="${id}" tabindex="0" role="button" aria-pressed="${sel}" style="padding-top:9px;padding-bottom:9px;margin-bottom:8px">
         <div class="row"><span class="radio"></span>
           <div class="grow">
-            <div class="title"><span class="kbd">${m.key}</span><span style="margin-left:10px">${m.title}</span>${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : ""}</div>
+            <div class="title">${m.title}${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : ""}</div>
             <div class="methodblurb">${m.blurb}</div>
             <div class="methodpace"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4A5A6A" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4A5A6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${m.pace}</span></div>
           </div>
+          <span class="kbd">${m.key}</span>
         </div>
       </div>`;
     });
@@ -970,21 +994,28 @@ function draw() {
     renderHint(P.shutdownHint);
     keep.focus();
   } else if (screen === "report_help") {
-    main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" role="region" aria-label="Report requirements" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:43vh"></div>
-      <label style="margin-top:12px"><input type="checkbox" id="report-wanted" ${reportWanted ? "checked" : ""}> ${P.reportWanted}</label>`;
+    main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" class="help-reader compact" role="region" aria-label="Report requirements" tabindex="0"></div>
+      <div class="checkrow${reportWanted ? " checked" : ""}" id="report-wanted" tabindex="0" role="checkbox" aria-checked="${reportWanted}"><span class="cbox">${reportWanted ? "✓" : ""}</span><span>${P.reportWanted}</span></div>`;
     main.querySelector("#report-text").textContent = P.reportHelpText;
-    main.querySelector("#report-wanted").onchange = e => { reportWanted = e.target.checked; };
+    const wanted = main.querySelector("#report-wanted");
+    const syncWanted = () => {
+      wanted.classList.toggle("checked", reportWanted);
+      wanted.setAttribute("aria-checked", reportWanted);
+      wanted.querySelector(".cbox").textContent = reportWanted ? "✓" : "";
+    };
+    wanted.onclick = () => { reportWanted = !reportWanted; syncWanted(); };
+    wanted.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); reportWanted = !reportWanted; syncWanted(); } };
     btnsL.append(btn(P.buttons.back, () => { screen = reportHelpFrom; draw(); }));
     renderHint("Nothing is saved here. Esc returns.");
   } else if (screen === "disk_help") {
-    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" role="region" aria-label="Identify the disk" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
+    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" class="help-reader" role="region" aria-label="Identify the disk" tabindex="0"></div>`;
     main.querySelector("#disk-help-text").textContent = P.diskHelpText;
     main.querySelector("#disk-help-text").focus();
     btnsL.append(btn(P.buttons.back, () => { screen = "pick"; draw(); main.querySelector("#unsure-disk").focus(); }));
     btnsR.append(btn(P.diskHelpStop, closePreview));
     renderHint("Esc returns with no disk selected.");
   } else if (screen === "limits") {
-    main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" role="region" aria-label="Supported storage limits" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
+    main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" class="help-reader" role="region" aria-label="Supported storage limits" tabindex="0"></div>`;
     main.querySelector("#limits-text").textContent = P.limitsText;
     main.querySelector("#limits-text").focus();
     btnsL.append(btn(P.buttons.back, () => { screen = "method"; draw(); main.querySelector("#limits").focus(); }));

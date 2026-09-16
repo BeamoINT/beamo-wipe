@@ -334,6 +334,37 @@ def test_nested_pick_headings_do_not_use_kernel_paths():
     assert "disk.path" not in source
 
 
+def test_shared_controls_replace_native_tk_chrome():
+    """Would fail when the wizard still used stock Checkbutton, Scrollbar, or 14px bars."""
+    source = inspect.getsource(tkui)
+    assert "tk.Checkbutton" not in source
+    assert "tk.Scrollbar" not in source
+    assert "class _CheckRow" in source
+    assert "class _Scrollbar" in source
+    assert tkui.BAR_H == 8
+    working = inspect.getsource(tkui.TkWizard._working)
+    assert "BAR_H" in working
+    paint = inspect.getsource(tkui.TkWizard._paint_bar)
+    assert "winfo_height" in paint
+    method = inspect.getsource(tkui.TkWizard._method_card)
+    assert "side=tk.RIGHT" in method
+    keyboard = inspect.getsource(tkui.TkWizard._keyboard)
+    assert "_icon_radio" in keyboard
+    html = gallery_html()
+    assert 'details class="compare"' in html
+    assert "#ccd3dc" not in html
+    assert 'input type="checkbox"' not in html
+    assert 'id="report-wanted"' in html
+    assert 'role="checkbox"' in html
+    assert '<div class="title"><span class="kbd">${m.key}</span>' not in html
+    assert '<span class="kbd">${m.key}</span>' in html
+    assert 'class="card selected"' not in html
+    assert ".bar { height: 8px;" in html
+    assert "border-left: 2px solid var(--border)" not in html
+    assert ".help-reader" in html
+    assert ".checkrow" in html
+
+
 def test_last_chance_does_not_repeat_the_check_line():
     """Would fail when Last chance printed LAST_LEAD and REVIEW_CHECK together."""
     last = inspect.getsource(tkui.TkWizard._last)

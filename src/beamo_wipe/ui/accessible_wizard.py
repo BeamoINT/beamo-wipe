@@ -51,6 +51,9 @@ class AccessibleWizard:
             #beamo-accessible button.destructive-action { background-image: none; background-color: #B3261E; color: #FFFFFF; }
             #beamo-accessible button:disabled { background-image: none; background-color: #E8ECF1; color: #6E7989; }
             #beamo-accessible button:focus { outline: 3px solid #2563EB; outline-offset: 2px; }
+            #beamo-accessible checkbutton { padding: 6px 0; }
+            #beamo-accessible checkbutton:focus { outline: 3px solid #2563EB; outline-offset: 2px; }
+            #beamo-accessible entry { padding: 8px 12px; border-radius: 12px; }
             #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #1C4A73; box-shadow: none; }
             #beamo-accessible .erase-warning { background: #FBEBE9; color: #B3261E; padding: 12px 16px; border-radius: 12px; }
             #beamo-accessible .screen-actions { border-top: 1px solid #E3E8EE; padding-top: 12px; }
