@@ -11,6 +11,9 @@ from beamo_wipe.models import Disk, DiscoveryResult, ExcludedDevice
 TITLE = "Other detected devices"
 INTRO = "Information only. These devices cannot be selected for erasure."
 NESTED_INTRO = "On this disk (cannot be erased separately):"
+# Nested cards already say they cannot be erased separately. Keep other
+# reasons (mounted, protected) visible; drop the generic whole-disk label.
+NESTED_SILENT_REASONS = frozenset({"unsupported device"})
 EMPTY_STEPS = (
     "No eligible disk is available. Review the reasons below. Keep the Beamo USB "
     "connected. Shut down before checking drive connections. If a disk remains "
@@ -41,7 +44,7 @@ def kind_label_for_type(node_type: str) -> str:
 
 def component_summary(disk: Disk, kind_label: str) -> str:
     """Plain nested label. Parent serial/model stay on the parent card."""
-    from beamo_wipe.identity import SYSTEM_PATH_NOTE, UNKNOWN_MODEL
+    from beamo_wipe.identity import UNKNOWN_MODEL
 
     heading = kind_label or "Technical component"
     parts = [heading]
@@ -53,8 +56,6 @@ def component_summary(disk: Disk, kind_label: str) -> str:
         extra = title
     if extra and extra not in parts:
         parts.append(extra)
-    elif not extra and (disk.path or "").strip():
-        parts.append(f"{SYSTEM_PATH_NOTE}: {disk.path}")
     return " · ".join(parts)
 
 
@@ -117,6 +118,11 @@ def nested_heading(device: ExcludedDevice) -> str:
     return device.summary or device.identity
 
 
+def nested_reason_text(device: ExcludedDevice) -> str:
+    shown = [reason for reason in device.reasons if reason not in NESTED_SILENT_REASONS]
+    return "; ".join(shown)
+
+
 def nested_under(
     parent_path: str, devices: Iterable[ExcludedDevice]
 ) -> tuple[ExcludedDevice, ...]:
@@ -142,8 +148,9 @@ def card_nesting_text(children: Iterable[ExcludedDevice]) -> str:
     lines = [NESTED_INTRO]
     for child in items:
         lines.append(nested_heading(child))
-        if child.reasons:
-            lines.append("; ".join(child.reasons))
+        extra = nested_reason_text(child)
+        if extra:
+            lines.append(extra)
     return "\n".join(lines)
 
 

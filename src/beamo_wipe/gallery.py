@@ -77,7 +77,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
         components = [
             {
                 "heading": inventory.nested_heading(child),
-                "reason": "; ".join(child.reasons),
+                "reason": inventory.nested_reason_text(child),
             }
             for child in inventory.nested_under(disk.path, result.excluded)
         ]
@@ -319,52 +319,48 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <style>
   :root {
     /* Shared palette, pinned against ui/tk_wizard.py by tests/test_ui_system.py. */
-    --bg: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F3F5F7;
-    --ink: #182635; --muted: #4C5B6B;
-    --border: #D8DFE6; --border-strong: #758292;
+    --bg: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F4F6F8;
+    --ink: #12202E; --muted: #4A5A6A;
+    --border: #E3E8EE; --border-strong: #6E7C8A;
     --navy: #0A1B34; --navy-soft: #16315C; --navy-muted: #C9D6E8;
-    --primary: #244A73; --primary-dark: #1B395B; --primary-press: #122A45; --primary-tint: #EDF3F8;
+    --primary: #1C4A73; --primary-dark: #163A5C; --primary-press: #102A44; --primary-tint: #F0F5FA;
     --danger: #B3261E; --danger-dark: #8E1D16; --danger-press: #6E1510; --danger-tint: #FBEBE9; --danger-border: #E6A79E;
     --ok: #17703F; --ok-tint: #E7F2EB;
     --warn: #7A5200; --warn-bg: #FBF1D5; --warn-border: #E3CE96;
-    --usb-bg: #F4EFE3; --usb-border: #D9CEB5;
-    --focus: #1A3FA0; --accent: #E8A317;
-    --disabled-bg: #E4E8EF; --disabled-fg: #6E7989; --track: #DFE5EF;
-    /* Soft three-layer shadow, mirroring the stacked rects in _Box._redraw:
-       darkest sliver hugging the card, lighter bands falling away. */
-    --shadow: none;
-    /* Selection halo, mirroring _Box(halo=True): PRIMARY blended 22% toward white. */
-    --halo: none;
+    --usb-bg: #F7F1E6; --usb-border: #D9CEB5;
+    --focus: #2563EB; --accent: #E6A817;
+    --disabled-bg: #E8ECF1; --disabled-fg: #6E7989; --track: #E4E9EF;
+    --shadow: 0 1px 2px rgba(18,32,46,.05), 0 10px 28px rgba(18,32,46,.06);
+    --halo: 0 0 0 4px rgba(28,74,115,.12);
+    --radius: 12px;
+    --radius-lg: 16px;
+    --pill: 999px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: var(--surface-alt); color: var(--ink); }
-  .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-  .note { background: var(--surface); border: 1px solid var(--border); color: var(--navy); font-weight: 400; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; border-radius: 8px; }
-  .note code { background: #fff7d6; padding: 2px 6px; border-radius: 6px; }
+  body { margin: 0; font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; background: var(--surface-alt); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1120px; margin: 0 auto; padding: 28px 20px 72px; }
+  .note { background: var(--surface); border: 1px solid var(--border); color: var(--navy); font-weight: 400; padding: 14px 18px; margin-bottom: 18px; font-size: 14px; border-radius: var(--radius); box-shadow: var(--shadow); }
+  .note code { background: #fff7d6; padding: 2px 7px; border-radius: 8px; }
   .note a { color: var(--navy); }
-  .scenarios { margin: 0 0 20px; }
-  .scenarios button { font-size: 15px; font-weight: 600; margin: 0 8px 8px 0; padding: 10px 18px; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
-  .scenarios button:hover { background: var(--primary-tint); }
+  .scenarios { margin: 0 0 22px; }
+  .scenarios button { font-size: 14px; font-weight: 600; margin: 0 8px 8px 0; padding: 8px 16px; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: var(--pill); cursor: pointer; }
+  .scenarios button:hover { background: var(--primary-tint); border-color: var(--primary); }
   .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .shell { background: var(--bg); min-height: 740px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
-  .preview-stripe { background: var(--accent); color: var(--navy); padding: 7px 24px; font-size: 14px; font-weight: 700; }
+  .shell { background: var(--bg); min-height: 740px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+  .preview-stripe { background: var(--accent); color: var(--navy); padding: 8px 28px; font-size: 13px; font-weight: 700; letter-spacing: .01em; overflow-wrap: break-word; }
   /* Quiet white chrome: the navy-on-transparent mark sits on the field,
      a hairline separates header from body — mirroring _draw_header. */
   .hdr { background: var(--bg); border-bottom: 1px solid var(--border); color: var(--ink); height: 56px; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
   .brandrow { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; }
   .brandchip { display: flex; align-items: center; justify-content: center; flex: none; }
   .brandchip svg { display: block; }
-  .journey { display: flex; flex: 1; max-width: 660px; list-style: none; margin: 0 24px; padding: 0; }
-  .journey li { flex: 1; position: relative; text-align: center; font-size: 12px; color: var(--muted); }
-  .journey li::before { content: ""; position: absolute; top: 10px; left: calc(50% + 13px); width: calc(100% - 26px); border-top: 1px solid var(--border); }
-  .journey li:last-child::before { display: none; }
-  .journey .number { display: block; width: 21px; height: 21px; line-height: 19px; margin: 0 auto 5px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface-alt); font-weight: 700; }
-  .journey [aria-current="step"] { color: var(--primary); }
-  .journey [aria-current="step"] .number { color: white; background: var(--primary); border-color: var(--primary); }
+  /* Current-step text lives in .steptext. The list is a screen-reader
+     name only — never a numbered map of the whole journey. */
+  .journey { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; margin-top: 8px; }
   .review-grid .countcap { max-width: 260px; text-align: center; }
   .review-warning { color: var(--danger); font-weight: 700; overflow-wrap: anywhere; }
-  .card.identity { background: var(--primary-tint); border-color: var(--primary); padding: 12px 20px; }
+  .card.identity { background: var(--primary-tint); border-color: var(--primary); padding: 16px 22px; }
   .identity-label { color: var(--primary); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
   .serialpair { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   .serialpair .ser { min-width: 0; }
@@ -372,17 +368,17 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .splash-roadmap { font-size: 14px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
   .pick-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 8px; }
   .pick-tools .morelink { margin-top: 0; }
-  .steptext { font-size: 12px; font-weight: 400; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; }
-  .strip { height: 3px; background: var(--track); }
+  .steptext { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; }
+  .strip { height: 2px; background: var(--track); }
   .strip .sfill { height: 100%; background: var(--accent); width: 0; transition: width .25s ease; border-radius: 0 1.5px 1.5px 0; }
-  .body { flex: 1; padding: 0 24px 12px; background: var(--bg); display: flex; }
+  .body { flex: 1; padding: 4px 32px 16px; background: var(--bg); display: flex; }
   .col { max-width: 940px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; }
   /* The one screen-header pattern, mirroring _title_block: bold title,
      optional muted subtitle. compact is for the tightest screens. */
-  h1 { font-size: 30px; margin: 24px 0 14px; color: var(--ink); letter-spacing: -.01em; }
-  h1.sub { margin-bottom: 4px; }
-  h1.compact { margin: 10px 0 6px; }
-  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 14px; }
+  h1 { font-size: 32px; margin: 28px 0 16px; color: var(--ink); letter-spacing: -.03em; font-weight: 700; overflow-wrap: break-word; }
+  h1.sub { margin-bottom: 6px; }
+  h1.compact { margin: 12px 0 6px; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; line-height: 1.45; }
   /* Vertically centered content band between title and footer, mirroring
      _center_zone: short content floating at the top reads as unfinished. */
   .cz { flex: 1; display: flex; flex-direction: column; }
@@ -391,17 +387,18 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .muted { color: var(--muted); }
   .small { font-size: 14px; }
   .mono { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
-  .kbd { display: inline-block; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1.35; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 15px 18px; margin: 0 4px 10px; }
-  .card.hero { box-shadow: var(--shadow); margin-left: 0; margin-right: 0; padding: 16px 20px; }
-  .card.pickable { cursor: pointer; }
+  .kbd { display: inline-block; background: var(--surface-alt); border: 1px solid var(--border-strong); border-radius: 8px; padding: 2px 8px; font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin: 0 0 12px; }
+  .card.hero { box-shadow: var(--shadow); margin-left: 0; margin-right: 0; padding: 18px 22px; }
+  .card.pickable { cursor: pointer; transition: border-color .12s ease, background .12s ease, box-shadow .12s ease; }
   .card.pickable:hover { background: var(--surface-alt); }
   .card.pickable:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 14px 17px; box-shadow: var(--halo); }
+  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 15px 19px; box-shadow: var(--halo); }
   .card.sel:hover { background: var(--primary-tint); }
   .card.boot { background: var(--usb-bg); border-color: var(--usb-border); cursor: not-allowed; }
   .card .row { display: flex; align-items: flex-start; gap: 14px; }
   .card .grow { flex: 1; min-width: 0; }
+  .card .row > .kbd { flex: none; margin-top: 1px; }
   .card .title { font-size: 16px; font-weight: 700; }
   .card .title .chip { margin-left: 10px; }
   .card .size { font-size: 20px; font-weight: 700; white-space: nowrap; }
@@ -412,11 +409,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .card .meta .dot { color: var(--border-strong); margin: 0 6px; }
   .radio { flex: none; width: 22px; height: 22px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 50%; position: relative; background: var(--surface); }
   .sel .radio { border-color: var(--primary); }
-  .sel .radio::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--primary); }
+  .sel .radio::after { content: ""; position: absolute; inset: 30%; border-radius: 50%; background: var(--primary); }
   .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; background: var(--surface-alt); color: var(--muted); border-radius: 999px; vertical-align: 2px; }
   .chip.ok { color: var(--ok); background: var(--ok-tint); }
   .bootbanner { margin-bottom: 6px; color: var(--ink); font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
-  .panel { display: flex; gap: 12px; align-items: flex-start; border: 1px solid; border-radius: 8px; padding: 13px 16px; font-size: 16px; line-height: 1.4; }
+  .panel { display: flex; gap: 12px; align-items: flex-start; border: 1px solid; border-radius: var(--radius); padding: 14px 18px; font-size: 16px; line-height: 1.45; }
   .panel svg { flex: none; margin-top: 1px; }
   .panel.warn { background: var(--warn-bg); border-color: var(--warn-border); }
   .panel.danger { background: var(--danger-tint); border-color: var(--danger-border); }
@@ -424,12 +421,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .panel .extra { font-size: 14px; color: var(--muted); margin-top: 4px; }
   /* One-row footer, mirroring _footer_shell: secondary actions left, key
      hints centered, the primary action right, hairline on top. */
-  .foot { padding: 0 24px; }
-  .footrow { max-width: 940px; margin: 0 auto; padding: 12px 0 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  .foot { padding: 0 32px; }
+  .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
   .fleft, .fright { display: flex; gap: 12px; flex: none; }
-  .fhint { flex: 1; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.9; }
+  .fhint { flex: 1; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.9; }
   .fhint .kbd { margin: 0 1px; }
-  button.btn { font-size: 16px; font-weight: 700; padding: 10px 24px; border: 1px solid transparent; border-radius: 8px; cursor: pointer; min-width: 112px; }
+  button.btn { font-size: 15px; font-weight: 600; padding: 11px 22px; border: 1px solid transparent; border-radius: var(--pill); cursor: pointer; min-width: 112px; letter-spacing: -.01em; }
   button.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .primary { background: var(--primary); color: #fff; min-width: 160px; }
   .primary:hover:not(:disabled) { background: var(--primary-dark); }
@@ -439,22 +436,22 @@ _TEMPLATE = r"""<!DOCTYPE html>
   button.btn.danger:active:not(:disabled) { background: var(--danger-press); }
   button.btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border-strong); }
   .secondary:hover:not(:disabled) { background: var(--surface-alt); }
-  .secondary:active:not(:disabled) { background: #E6EAF0; }
+  .secondary:active:not(:disabled) { background: #E2E8EE; }
   button.btn:disabled { background: var(--disabled-bg); color: var(--disabled-fg); border-color: transparent; box-shadow: none; cursor: not-allowed; }
-  .linkbtn { background: none; border: 0; color: var(--primary); font-size: 14px; font-weight: 700; cursor: pointer; padding: 6px 10px; text-align: left; border-radius: 8px; margin-left: -10px; }
+  .linkbtn { background: none; border: 0; color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 10px; text-align: left; border-radius: var(--pill); margin-left: -10px; }
   .linkbtn:hover { background: var(--primary-tint); }
   .linkbtn:focus-visible { outline: 3px solid var(--focus); }
   .morelink { display: inline-block; margin: 8px 0 0; }
-  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 16px; box-shadow: var(--shadow); }
+  .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 12px 18px; box-shadow: var(--shadow); }
   .entryshell:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
-  input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 26px; font-weight: 700; width: 100%; padding: 4px 0; border: 0; outline: none; background: transparent; color: var(--ink); }
-  .match { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; margin: 12px 0 0; color: var(--muted); background: var(--surface-alt); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
+  input.token { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 26px; font-weight: 700; width: 100%; padding: 4px 0; border: 0; outline: none; background: transparent; color: var(--ink); letter-spacing: .02em; }
+  .match { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin: 12px 0 0; color: var(--muted); background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--pill); padding: 6px 12px; }
   .match.ok { color: var(--ok); background: var(--ok-tint); border-color: var(--ok); }
-  .progress-card { padding: 16px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); }
-  .progress-label { font-size: 14px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
-  .bigstat { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; min-height: 62px; }
-  .bar { height: 14px; background: var(--track); border-radius: 7px; overflow: hidden; }
-  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: 7px; transition: width .2s ease; }
+  .progress-card { padding: 20px 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); }
+  .progress-label { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; letter-spacing: .02em; }
+  .bigstat { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -.03em; min-height: 62px; }
+  .bar { height: 8px; background: var(--track); border-radius: var(--pill); overflow: hidden; }
+  .fill { height: 100%; background: var(--primary); width: 2%; border-radius: var(--pill); transition: width .2s ease; }
   .fill.indet { width: 30%; animation: slide 1.7s ease-in-out infinite alternate; }
   @keyframes slide { from { margin-left: 0; } to { margin-left: 70%; } }
   .status { width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
@@ -468,17 +465,23 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .badgehalo.danger { background: var(--danger-tint); }
   .badgehalo.info { background: var(--surface-alt); }
   .ok { color: var(--ok); } .bad { color: var(--danger); }
-  ul.bullets { list-style: none; margin: 0; padding: 20px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); }
-  ul.bullets li { font-size: 18px; line-height: 1.45; padding: 2px 0; display: flex; }
-  ul.bullets li + li { margin-top: 10px; }
+  ul.bullets { list-style: none; margin: 0; padding: 22px 26px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  ul.bullets li { font-size: 17px; line-height: 1.5; padding: 2px 0; display: flex; }
+  ul.bullets li + li { margin-top: 12px; }
   ul.bullets li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin: 10px 14px 0 1px; flex: none; }
-  .ownercard { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 20px 22px; cursor: pointer; font-size: 18px; line-height: 1.45; }
+  .ownercard { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 22px 24px; cursor: pointer; font-size: 18px; line-height: 1.45; }
   .ownercard:hover { background: var(--surface-alt); }
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 19px 21px; box-shadow: var(--halo); }
+  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 21px 23px; box-shadow: var(--halo); }
   .ownercard.checked:hover { background: var(--primary-tint); }
-  .cbox { flex: none; width: 28px; height: 28px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: #fff; font-size: 18px; font-weight: 700; line-height: 24px; text-align: center; }
+  .cbox { flex: none; width: 28px; height: 28px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: #fff; font-size: 18px; font-weight: 700; line-height: 24px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
+  .checkrow { display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; cursor: pointer; font-size: 14px; line-height: 1.45; padding: 8px 10px; border-radius: var(--radius); }
+  .checkrow:hover { background: var(--surface-alt); }
+  .checkrow:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .checkrow .cbox { width: 22px; height: 22px; font-size: 14px; line-height: 18px; }
+  .checkrow.checked { background: var(--primary-tint); }
+  .checkrow.checked .cbox { background: var(--primary); border-color: var(--primary); }
   .ringwrap { display: flex; flex-direction: column; align-items: center; }
   .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
   .countcap { font-size: 16px; color: var(--muted); margin-top: 12px; }
@@ -496,24 +499,38 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .splashwrap { min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
   .marktile { display: flex; }
   .marktile svg { display: block; }
-  .wordmark { font-size: 52px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; margin-top: 26px; line-height: 1.05; }
-  .splashlead { font-size: 18px; line-height: 1.45; color: var(--muted); max-width: 620px; margin: 12px 0 0; }
-  .splashwrap .btn.primary { min-width: 240px; padding: 14px 34px; margin-top: 34px; }
+  .wordmark { font-size: 56px; font-weight: 700; color: var(--ink); letter-spacing: -.04em; margin-top: 28px; line-height: 1.02; }
+  .splashlead { font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 620px; margin: 14px 0 0; }
+  .splashwrap .btn.primary { min-width: 240px; padding: 14px 34px; margin-top: 36px; }
   .anykeycap { margin-top: 14px; font-size: 12px; color: var(--muted); }
-  .disklist { flex: 1; min-height: 160px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #A3AEC2 transparent; }
-  .disklist::-webkit-scrollbar { width: 12px; }
-  .disklist::-webkit-scrollbar-thumb { background: #A3AEC2; border-radius: 6px; border: 3px solid var(--bg); }
+  .disklist { flex: 1; min-height: 160px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  .disklist::-webkit-scrollbar { width: 10px; }
+  .disklist::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid var(--bg); }
   .disklist::-webkit-scrollbar-track { background: transparent; }
   .utilities { max-width: 940px; margin: auto; display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; }
-  button.btn.ghost { background: transparent; color: var(--primary); border-color: transparent; min-width: 0; padding: 8px 16px; font-size: 14px; font-weight: 400; }
+  button.btn.ghost { background: transparent; color: var(--primary); border-color: transparent; min-width: 0; padding: 8px 16px; font-size: 14px; font-weight: 500; }
   button.btn.ghost:hover { background: var(--primary-tint); }
   .utilities:empty { display: none; }
   section[aria-label] h2 { font-size: 14px; margin: 8px 0 4px; }
-  .inventory-reader { white-space: pre-wrap; overflow: auto; max-height: 78px; padding: 8px 12px; margin-bottom: 10px; font-size: 14px; line-height: 1.4; border: 1px solid var(--border); background: var(--surface-alt); }
+  .inventory-reader, .help-reader { white-space: pre-wrap; overflow: auto; padding: 12px 14px; font-size: 14px; line-height: 1.45; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); color: var(--ink); }
+  .inventory-reader { max-height: 78px; margin-bottom: 10px; padding: 8px 12px; }
+  .help-reader { max-height: 55vh; }
+  .help-reader.compact { max-height: 43vh; }
   .nested { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
   .nested-intro { font-weight: 600; margin-bottom: 4px; }
-  .nested-item { margin-top: 4px; padding-left: 12px; border-left: 2px solid var(--border); }
-  .inventory-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+  .nested-item { margin-top: 6px; }
+  .inventory-reader:focus-visible, .help-reader:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+  details.compare { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin: 0 0 12px; padding: 0; }
+  details.compare > summary { list-style: none; cursor: pointer; font-size: 14px; font-weight: 700; padding: 12px 16px; display: flex; align-items: center; gap: 10px; color: var(--ink); }
+  details.compare > summary::-webkit-details-marker, details.compare > summary::marker { display: none; content: none; }
+  details.compare > summary::before { content: ""; width: 22px; height: 22px; flex: none; border: 2px solid var(--border-strong); border-radius: 10px; background: var(--surface); box-sizing: border-box; }
+  details.compare[open] > summary::before { content: "✓"; color: #fff; background: var(--primary); border-color: var(--primary); font-size: 14px; font-weight: 700; line-height: 18px; text-align: center; }
+  details.compare > summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+  .compare-body { padding: 0 16px 16px; }
+  .compare-body > p { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+  .compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }
+  .compare-pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); color: var(--ink); }
+  .compare-pre:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .disktype { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 0; }
   .card .title, .card .meta { overflow-wrap: anywhere; }
   /* Grid/flex items default to min-width:auto: a long unbroken serial,
@@ -525,7 +542,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .compact-notice { padding: 8px 16px; font-size: 14px; }
   .card .meta .ser { display: block; }
   .page, .shell, .body, .col { min-width: 0; }
-  @media (max-width: 1000px) { .journey { display: none; } }
+  @media (max-width: 1000px) { .hdr { padding: 0 16px; } }
   @media (max-width: 700px) {
     .review-grid { grid-template-columns: minmax(0, 1fr); }
     .review-grid .ringwrap { padding: 12px 0; }
@@ -615,7 +632,7 @@ document.getElementById("brand").textContent = P.app;
 function badge(kind, size) {
   const s = size;
   if (kind === "info") {
-    const c = "#244A73";
+    const c = "#1C4A73";
     return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
       `<circle cx="${s/2}" cy="${s/2}" r="${s/2-2}" fill="${c}"/>` +
       `<circle cx="${s/2}" cy="${s*0.26}" r="${s*0.075}" fill="#fff"/>` +
@@ -628,7 +645,7 @@ function badge(kind, size) {
     `<circle cx="${s/2}" cy="${s*0.75}" r="${s*0.06}" fill="#fff"/></svg>`;
 }
 const ICON_NO = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="#B3261E" stroke-width="2.6"/><line x1="6" y1="18" x2="18" y2="6" stroke="#B3261E" stroke-width="2.6" stroke-linecap="round"/></svg>';
-const MATCH_WAIT = '<svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#758292" stroke-width="2"/></svg>';
+const MATCH_WAIT = '<svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#6E7C8A" stroke-width="2"/></svg>';
 const MATCH_OK = '<svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="10" fill="#17703F"/><path d="M6 11.5 9.5 15 16 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const EMBLEM = '__LOGO_SPLASH__';
 
@@ -744,7 +761,7 @@ function nestedComponents(d) {
   if (!items.length) return "";
   return `<div class="nested">
     <div class="nested-intro">${esc(P.nestedIntro)}</div>
-    ${items.map(c => `<div class="nested-item"><div>${esc(c.heading)}</div><div>${esc(c.reason)}</div></div>`).join("")}
+    ${items.map(c => `<div class="nested-item"><div>${esc(c.heading)}</div>${c.reason ? `<div>${esc(c.reason)}</div>` : ""}</div>`).join("")}
   </div>`;
 }
 function diskCard(d) {
@@ -774,6 +791,11 @@ function refreshPreview() {
   method = "everyday"; tLeft = 5; showMore = false; screen = "what";
   draw();
 }
+function headerCaption(info) {
+  const n = info[0], label = info[1];
+  if (n && String(label).indexOf("Step ") === 0) return P.journey[n - 1] + " · " + label;
+  return label;
+}
 function draw() {
   // Countdown redraws must preserve deliberate keyboard focus. Entering
   // final review always starts on Back, including screenshot deep links.
@@ -781,9 +803,9 @@ function draw() {
     && document.activeElement.matches(".foot button") ? document.activeElement.textContent : null;
   const info = stepInfo();
   const stepEl = document.getElementById("step");
-  document.getElementById("journey").innerHTML = info[0] ? P.journey.map((label, index) =>
-    `<li${index + 1 === info[0] ? ' aria-current="step"' : ''}><span class="number">${index + 1}</span>${esc(label)}</li>`).join("") : "";
-  stepEl.textContent = info[1];
+  document.getElementById("journey").innerHTML = info[0]
+    ? `<li aria-current="step">${esc(headerCaption(info))}</li>` : "";
+  stepEl.textContent = headerCaption(info);
   stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
   document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
   const main = document.getElementById("main");
@@ -813,16 +835,18 @@ function draw() {
   } else if (screen === "keyboard") {
     const layouts = P.keyboardLayouts.map((item, i) => {
       const selected = (keyboardLayout || "us") === item.id;
-      return `<div class="card${selected ? " selected" : ""}" data-layout="${item.id}" tabindex="0"><div class="row"><span class="kbd">${i+1}</span><div class="title grow">${item.title}</div></div><p class="small muted">${item.note}</p></div>`;
+      return `<div class="card pickable${selected ? " sel" : ""}" data-layout="${item.id}" tabindex="0" role="button" aria-pressed="${selected}"><div class="row"><span class="radio"></span><div class="grow"><div class="title">${item.title}</div><p class="small muted">${item.note}</p></div><span class="kbd">${i+1}</span></div></div>`;
     }).join("");
     main.innerHTML = `<h1 class="sub">${P.titles.keyboard}</h1><p class="subtitle">${P.keyboardLead}</p>
       <p class="small muted">${P.keyboardLimits}</p>
       <div class="cz"><div class="czc">${layouts}
       <p class="small">${P.keyboardCheck}</p>
-      <input id="kbcheck" type="text" autocomplete="off" spellcheck="false" placeholder="${P.keyboardHint}" value="">
+      <div class="entryshell"><input class="token" id="kbcheck" type="text" autocomplete="off" spellcheck="false" value=""></div>
       </div></div>`;
     main.querySelectorAll("[data-layout]").forEach(el => {
-      el.onclick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
+      const pick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
+      el.onclick = pick;
+      el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
     });
     const box = main.querySelector("#kbcheck");
     if (box) box.value = "";
@@ -833,8 +857,8 @@ function draw() {
     main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
       <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div></div></div>
-      ${powerPanel(false)}
+      <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div>
+      <div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>
       ${moreLink()}
       ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.secureBoot}</div><div class="extra">${P.engine} ${P.powerEvents}</div></div></div>` : ""}</div></div>`;
@@ -873,7 +897,7 @@ function draw() {
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
     disks().filter(d => d.isBoot).forEach(d => { html += diskCard(d); });
-    if (selectable().length > 1) html += `<details><summary>${esc(P.compareTitle)}</summary><p>${esc(P.compareIntro)}</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px">${P.comparison.map(text => `<pre tabindex="0" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;padding:12px;border:1px solid #ccd3dc">${esc(text)}</pre>`).join("")}</div></details>`;
+    if (selectable().length > 1) html += `<details class="compare"><summary>${esc(P.compareTitle)}</summary><div class="compare-body"><p>${esc(P.compareIntro)}</p><div class="compare-grid">${P.comparison.map(text => `<pre class="compare-pre" tabindex="0">${esc(text)}</pre>`).join("")}</div></div></details>`;
     selectable().forEach(d => { html += diskCard(d); });
     html += `</div>`;
     main.innerHTML = html;
@@ -931,17 +955,18 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<div id="storage-notice" role="note">${panel("info", selected ? selected.storageNotice : P.ssd, true)}</div><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
       html += `<div class="card pickable${sel ? " sel" : ""}" data-id="${id}" tabindex="0" role="button" aria-pressed="${sel}" style="padding-top:9px;padding-bottom:9px;margin-bottom:8px">
         <div class="row"><span class="radio"></span>
           <div class="grow">
-            <div class="title"><span class="kbd">${m.key}</span><span style="margin-left:10px">${m.title}</span>${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : ""}</div>
+            <div class="title">${m.title}${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : ""}</div>
             <div class="methodblurb">${m.blurb}</div>
-            <div class="methodpace"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4C5B6B" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4C5B6B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${m.pace}</span></div>
+            <div class="methodpace"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4A5A6A" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4A5A6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${m.pace}</span></div>
           </div>
+          <span class="kbd">${m.key}</span>
         </div>
       </div>`;
     });
@@ -969,21 +994,28 @@ function draw() {
     renderHint(P.shutdownHint);
     keep.focus();
   } else if (screen === "report_help") {
-    main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" role="region" aria-label="Report requirements" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:43vh"></div>
-      <label style="margin-top:12px"><input type="checkbox" id="report-wanted" ${reportWanted ? "checked" : ""}> ${P.reportWanted}</label>`;
+    main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" class="help-reader compact" role="region" aria-label="Report requirements" tabindex="0"></div>
+      <div class="checkrow${reportWanted ? " checked" : ""}" id="report-wanted" tabindex="0" role="checkbox" aria-checked="${reportWanted}"><span class="cbox">${reportWanted ? "✓" : ""}</span><span>${P.reportWanted}</span></div>`;
     main.querySelector("#report-text").textContent = P.reportHelpText;
-    main.querySelector("#report-wanted").onchange = e => { reportWanted = e.target.checked; };
+    const wanted = main.querySelector("#report-wanted");
+    const syncWanted = () => {
+      wanted.classList.toggle("checked", reportWanted);
+      wanted.setAttribute("aria-checked", reportWanted);
+      wanted.querySelector(".cbox").textContent = reportWanted ? "✓" : "";
+    };
+    wanted.onclick = () => { reportWanted = !reportWanted; syncWanted(); };
+    wanted.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); reportWanted = !reportWanted; syncWanted(); } };
     btnsL.append(btn(P.buttons.back, () => { screen = reportHelpFrom; draw(); }));
     renderHint("Nothing is saved here. Esc returns.");
   } else if (screen === "disk_help") {
-    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" role="region" aria-label="Identify the disk" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
+    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" class="help-reader" role="region" aria-label="Identify the disk" tabindex="0"></div>`;
     main.querySelector("#disk-help-text").textContent = P.diskHelpText;
     main.querySelector("#disk-help-text").focus();
     btnsL.append(btn(P.buttons.back, () => { screen = "pick"; draw(); main.querySelector("#unsure-disk").focus(); }));
     btnsR.append(btn(P.diskHelpStop, closePreview));
     renderHint("Esc returns with no disk selected.");
   } else if (screen === "limits") {
-    main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" role="region" aria-label="Supported storage limits" tabindex="0" style="white-space:pre-wrap;overflow:auto;max-height:55vh"></div>`;
+    main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" class="help-reader" role="region" aria-label="Supported storage limits" tabindex="0"></div>`;
     main.querySelector("#limits-text").textContent = P.limitsText;
     main.querySelector("#limits-text").focus();
     btnsL.append(btn(P.buttons.back, () => { screen = "method"; draw(); main.querySelector("#limits").focus(); }));
@@ -1005,7 +1037,7 @@ function draw() {
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
+      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
         <svg width="64" height="64" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :
@@ -1025,12 +1057,13 @@ function draw() {
     main.innerHTML = `<h1>${P.titles.working}</h1>
       ${summaryCard(selected)}
       ${moreLink()}
-      ${powerPanel()}
       <div class="cz"><div class="czc">
       <div class="progress-card"><div class="progress-label">Erase progress</div>
       <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
-      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p><p class="small muted">${m.summary}</p></div></div></div>`;
+      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${P.working}</p>
+      <div id="power-status" role="status" aria-live="polite" class="small muted">${powerText()}</div>
+      <p class="small muted">${m.summary}</p></div></div></div>`;
     bindMore();
     btnsL.append(btn(P.stop.ask, () => {
       if (screen === "working") { screen = "stop_confirm"; draw(); }
@@ -1074,7 +1107,7 @@ function draw() {
       <section aria-labelledby="erase-status-heading"><h1 id="erase-status-heading">${P.eraseStatusTitle}</h1>
       <p class="statustext">${result.message}</p>
       <p class="statustext" style="color:var(--ink)">${result.next_step}</p>
-      <p>${P.methods[method].summary}</p><p role="status" aria-live="polite">${result.announcement}</p>
+      <p>${P.methods[method].summary}</p>
       </section><section aria-labelledby="report-status-heading">
       <h2 id="report-status-heading">${P.reportStatusTitle}</h2>
       <p>${P.reportPreview}</p><p class="small">${P.reportStatusNotice}</p></section>

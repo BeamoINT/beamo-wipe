@@ -249,6 +249,7 @@ TEXT_PAIRS = (
     ("INK", "PRIMARY_TINT"),
     ("MUTED", "BG"),
     ("MUTED", "SURFACE"),
+    ("MUTED", "SURFACE_ALT"),
     ("MUTED", "PRIMARY_TINT"),
     ("NAVY_MUTED", "NAVY"),
     ("PRIMARY", "SURFACE"),
@@ -301,6 +302,132 @@ def test_light_surfaces_do_not_wrap_the_logo_in_a_navy_tile():
     helper = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
     chip = re.search(r"header \.brandchip\s*\{[^}]+\}", helper)
     assert chip and "background: var(--navy)" not in chip.group(0)
+
+
+def test_done_preview_does_not_repeat_the_announcement():
+    """Would fail when gallery done printed message, next_step, and announcement."""
+    html = gallery_html()
+    assert "${result.message}" in html
+    assert "${result.next_step}" in html
+    assert "${result.announcement}" not in html
+
+
+def test_method_cards_use_plain_check_language():
+    """Would fail on 'read-back verification pass' method-card pace."""
+    from beamo_wipe.methods import METHODS
+    from beamo_wipe.models import MethodId
+
+    everyday = METHODS[MethodId.EVERYDAY]
+    assert "read-back" not in everyday.verification_description
+    assert "check the last overwrite" in everyday.verification_description
+    html = gallery_html()
+    assert "check the last overwrite" in html
+    assert "1 separate read-back verification pass" not in html
+
+
+def test_nested_pick_headings_do_not_use_kernel_paths():
+    """Would fail when unlabeled partitions showed /dev/ names on the pick card."""
+    from beamo_wipe import inventory as inv
+
+    source = inspect.getsource(inv.component_summary)
+    assert "SYSTEM_PATH_NOTE" not in source
+    assert "disk.path" not in source
+
+
+def test_shared_controls_replace_native_tk_chrome():
+    """Would fail when the wizard still used stock Checkbutton, Scrollbar, or 14px bars."""
+    source = inspect.getsource(tkui)
+    assert "tk.Checkbutton" not in source
+    assert "tk.Scrollbar" not in source
+    assert "class _CheckRow" in source
+    assert "class _Scrollbar" in source
+    assert tkui.BAR_H == 8
+    working = inspect.getsource(tkui.TkWizard._working)
+    assert "BAR_H" in working
+    paint = inspect.getsource(tkui.TkWizard._paint_bar)
+    assert "winfo_height" in paint
+    method = inspect.getsource(tkui.TkWizard._method_card)
+    assert "side=tk.RIGHT" in method
+    keyboard = inspect.getsource(tkui.TkWizard._keyboard)
+    assert "_icon_radio" in keyboard
+    html = gallery_html()
+    assert 'details class="compare"' in html
+    assert "#ccd3dc" not in html
+    assert 'input type="checkbox"' not in html
+    assert 'id="report-wanted"' in html
+    assert 'role="checkbox"' in html
+    assert '<div class="title"><span class="kbd">${m.key}</span>' not in html
+    assert '<span class="kbd">${m.key}</span>' in html
+    assert 'class="card selected"' not in html
+    assert ".bar { height: 8px;" in html
+    assert "border-left: 2px solid var(--border)" not in html
+    assert ".help-reader" in html
+    assert ".checkrow" in html
+
+
+def test_last_chance_does_not_repeat_the_check_line():
+    """Would fail when Last chance printed LAST_LEAD and REVIEW_CHECK together."""
+    last = inspect.getsource(tkui.TkWizard._last)
+    assert "LAST_LEAD" in last
+    assert "REVIEW_CHECK" not in last
+    html = gallery_html()
+    assert "${P.reviewCheck}" not in html
+    assert "lastLead" in html
+
+
+def test_header_names_the_current_step_instead_of_a_full_map():
+    """Would fail on the eight numbered journey circles in the header."""
+    assert tkui.header_caption(4, "Step 4 of 8") == "Confirm · Step 4 of 8"
+    assert tkui.header_caption(1, "Step 1 of 8") == "Start · Step 1 of 8"
+    assert tkui.header_caption(3, "Identify the disk") == "Identify the disk"
+    assert tkui.header_caption(0, "") == ""
+    source = inspect.getsource(tkui.TkWizard._draw_header)
+    assert "_draw_journey" not in source
+    assert "header_caption" in source
+    html = gallery_html()
+    assert "function headerCaption" in html
+    assert ".journey .number" not in html
+    assert "P.journey[n - 1]" in html
+
+
+def test_modern_visual_system_replaces_utility_chrome():
+    """Shared surfaces use the quieter palette, 12px corners, and pill actions.
+
+    Would fail on the previous utility chrome: RADIUS 8, PRIMARY #244A73,
+    FOCUS #1A3FA0, squared helper cards, and Tk buttons drawn with RADIUS.
+    """
+    assert tkui.RADIUS == 12
+    assert tkui.PILL >= 999
+    assert tkui.PRIMARY == "#1C4A73"
+    assert tkui.FOCUS == "#2563EB"
+    assert tkui.BORDER_STRONG == "#6E7C8A"
+    assert tkui.INK == "#12202E"
+    assert tkui.SURFACE_ALT == "#F4F6F8"
+    button = inspect.getsource(tkui._Button._draw)
+    assert "PILL" in button
+    html = gallery_html()
+    assert "--radius: 12px" in html
+    assert "--pill: 999px" in html
+    assert "--primary: #1C4A73" in html
+    assert "border-radius: var(--pill)" in html
+    helper = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
+    assert "--radius: 12px" in helper
+    assert "--primary: #1C4A73" in helper
+    assert "box-shadow: var(--shadow)" in helper
+    gtk = (ROOT / "src" / "beamo_wipe" / "ui" / "accessible_wizard.py").read_text(
+        encoding="utf-8"
+    )
+    assert "border-radius: 999px" in gtk
+    assert "#1C4A73" in gtk
+    matrix = (ROOT / "docs" / "accessibility-lowres-matrix.md").read_text(encoding="utf-8")
+    assert "FOCUS #2563EB" in matrix
+    assert "BORDER_STRONG #6E7C8A" in matrix
+    assert "#1A3FA0" not in matrix
+    assert "#74839F" not in matrix
+    for old in ("#244A73", "#1A3FA0", "#182635", "#758292"):
+        assert old.lower() not in html.lower(), old
+        assert old.lower() not in helper.lower(), old
+        assert old not in inspect.getsource(tkui), old
 
 
 def test_logo_pngs_are_rgba_with_alpha():

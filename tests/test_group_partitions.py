@@ -202,7 +202,8 @@ def test_parent_identity_stays_on_parent_card():
     assert "WD-WCC6Y1234567" not in nest
     assert "Partition" in nest
     assert "Encrypted volume" in nest
-    assert "unsupported device" in nest
+    assert "unsupported device" not in nest
+    assert "/dev/" not in nest
 
 
 def test_eligibility_unchanged_for_nested_and_boot():

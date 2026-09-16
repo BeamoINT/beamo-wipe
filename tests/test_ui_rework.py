@@ -9,7 +9,7 @@ import pytest
 
 from beamo_wipe import copy as C
 from beamo_wipe.models import Screen
-from beamo_wipe.ui.tk_wizard import _Button
+from beamo_wipe.ui.tk_wizard import _Button, header_caption
 from test_design_runtime import descendants
 from test_tk_runtime import ui, _drive_to, _clipping_problems, _off_window_problems  # noqa: F401
 
@@ -39,13 +39,14 @@ def test_review_keeps_full_long_disk_identity_and_safe_default(ui):  # noqa: F81
         app.root.update()
     labels = [w for w in descendants(app.root) if w.winfo_class() == "Label"]
     for expected in (C.SELECTED_DISK, wiz.selected.display_name, wiz.selected.serial,
-                     wiz.method_summary, C.REVIEW_CHECK):
+                     wiz.method_summary, C.POWER_KEEP):
         matches = [w for w in labels if str(w.cget("text")).replace("\n", "") == expected]
         assert len(matches) == 1
         label = matches[0]
         assert label.winfo_ismapped()
         assert label.winfo_reqheight() <= label.winfo_height() + 2
         assert label.winfo_reqwidth() <= label.winfo_width() + 2
+    assert C.REVIEW_CHECK not in [str(w.cget("text")) for w in labels]
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
     focus = app.root.focus_get()
@@ -55,9 +56,9 @@ def test_review_keeps_full_long_disk_identity_and_safe_default(ui):  # noqa: F81
     assert canvas is not None
     canvas.yview_moveto(1.0)
     app.root.update()
-    review_check = next(w for w in labels if w.cget("text") == C.REVIEW_CHECK)
-    y = review_check.winfo_rooty() - canvas.winfo_rooty()
-    assert 0 <= y and y + review_check.winfo_height() <= canvas.winfo_height() + 2
+    bottom = next(w for w in labels if w.cget("text") == C.POWER_KEEP)
+    y = bottom.winfo_rooty() - canvas.winfo_rooty()
+    assert 0 <= y and y + bottom.winfo_height() <= canvas.winfo_height() + 2
     assert focus.winfo_ismapped()
     assert focus.itemcget(focus._label, "text") == C.BTN_BACK
     assert not wiz.erase_enabled
@@ -71,13 +72,18 @@ def test_header_wayfinding_fits_and_cannot_navigate(ui):  # noqa: F811
     header = app._header
     labels = {header.itemcget(item, "text"): item for item in header.find_all()
               if header.type(item) == "text"}
-    for text in (*C.JOURNEY_LABELS, "Step 4 of 8"):
-        item = labels[text]
-        x0, y0, x1, y1 = header.bbox(item)
-        assert 0 <= x0 < x1 <= header.winfo_width()
-        assert 0 <= y0 < y1 <= header.winfo_height()
-        header.event_generate("<Button-1>", x=int((x0 + x1) / 2), y=int((y0 + y1) / 2))
-        app.root.update()
-        assert wiz.screen == Screen.CONFIRM
-        assert not wiz.token_ok
-        assert wiz.confirm_input == ""
+    caption = header_caption(4, "Step 4 of 8")
+    assert caption == "Confirm · Step 4 of 8"
+    assert caption in labels
+    for extra in C.JOURNEY_LABELS:
+        if extra != "Confirm":
+            assert extra not in labels
+    item = labels[caption]
+    x0, y0, x1, y1 = header.bbox(item)
+    assert 0 <= x0 < x1 <= header.winfo_width()
+    assert 0 <= y0 < y1 <= header.winfo_height()
+    header.event_generate("<Button-1>", x=int((x0 + x1) / 2), y=int((y0 + y1) / 2))
+    app.root.update()
+    assert wiz.screen == Screen.CONFIRM
+    assert not wiz.token_ok
+    assert wiz.confirm_input == ""
