@@ -18,7 +18,7 @@ APP_NAME = "Beamo Wipe"
 
 # Read-only wayfinding: these labels never act as navigation controls.
 JOURNEY_LABELS = ("Start", "Owner", "Disk", "Confirm", "Method", "Review", "Erase", "Result")
-SELECTED_DISK = "Selected disk"
+SELECTED_DISK = "This disk"
 SERIAL_LABEL = "Serial"
 REVIEW_CHECK = "Check the disk and method before you erase."
 SPLASH_ROADMAP = "Choose a disk  →  Confirm its identity  →  Review and erase"
@@ -29,7 +29,7 @@ TITLE_KEYBOARD = "Check your keyboard"
 TITLE_WHAT = "Here's what happens"
 TITLE_OWNER = "Is this your computer?"
 TITLE_PICK = "Which disk should we erase?"
-TITLE_CONFIRM = "Make sure this is the right disk"
+TITLE_CONFIRM = "Is this the right disk?"
 TITLE_METHOD = "Choose an erase method"
 TITLE_ADVANCED = "Advanced"
 TITLE_LAST = "Review before erasing"
@@ -51,9 +51,8 @@ KEYBOARD_LEAD = (
     "Then type a few characters to check."
 )
 KEYBOARD_LIMITS = (
-    "Only US QWERTY, French AZERTY, and German QWERTZ are offered. "
-    "This USB does not include other layouts. "
-    "The change lasts until this USB session restarts. "
+    "Only US QWERTY, French AZERTY, and German QWERTZ. "
+    "The change lasts until this USB restarts. "
     "It does not change firmware or BIOS keyboards."
 )
 KEYBOARD_CHECK_LABEL = "Type here to check. This is not a password and is not saved."
@@ -187,11 +186,10 @@ CONFIRM_MATCH_OK = "That matches. You can continue."
 COUNTDOWN_CAPTION = "seconds until Erase is available."
 COUNTDOWN_READY = "Nothing has started. Choose Erase now to erase this disk."
 
-METHOD_LEAD = "Compare overwrite and read-back passes."
+METHOD_LEAD = "Pick how thoroughly to overwrite the disk."
 
 LAST_LEAD = (
-    "Check the selected disk and method. Reaching zero only enables Erase; "
-    "it never starts erasure."
+    "Check the selected disk and method. The countdown never starts erasure."
 )
 AUTHORIZATION_STALE = "The disk or method changed. Confirm again."
 
@@ -297,7 +295,7 @@ HINT_KEYBOARD = "1, 2, or 3 chooses a layout. Type in the check box. Enter conti
 HINT_DEFAULT = "Enter continues.  Esc goes back."
 HINT_PICK = "Click a disk, or use Up/Down.  Enter continues.  Esc goes back."
 HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
-HINT_METHOD = "Press 1, 2, or 3 to choose. L: storage limits. Enter continues."
+HINT_METHOD = "Press 1, 2, or 3 to choose. Enter continues."
 HINT_CONFIRM = "Type exactly what we ask for, then Enter."
 HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
 HINT_LAST_CHANCE_TK = "Esc goes back.  Tab to Erase, then Enter after the countdown."

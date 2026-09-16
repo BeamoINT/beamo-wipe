@@ -580,7 +580,7 @@ def test_matrix_gallery_and_helper_share_tokens():
 
     html = gallery_html().lower()
     assert "#0a1b34" in html  # NAVY
-    assert "#244a73" in html  # PRIMARY
+    assert "#1c4a73" in html  # PRIMARY
     helper = (Path(__file__).parents[1] / "helper" / "index.html").read_text(encoding="utf-8").lower()
     assert "f12" in helper and "esc" in helper
 

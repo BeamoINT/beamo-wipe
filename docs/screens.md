@@ -18,9 +18,9 @@ Every interface uses the same Wizard authorization and validated result model.
 
 ## Method operations
 
-- Everyday: 1 overwrite pass: random data. 1 separate read-back verification pass after the final overwrite.
-- Three overwrites: 3 overwrite passes: a pattern, its inverse, then random data. 1 separate read-back verification pass after the final overwrite.
-- Quick zero: 1 overwrite pass: zeros. Verification is not performed. No read-back pass.
+- Everyday: 1 overwrite pass: random data. Then we check the last overwrite.
+- Three overwrites: 3 overwrite passes: a pattern, its inverse, then random data. Then we check the last overwrite.
+- Quick zero: 1 overwrite pass: zeros. This method does not check the overwrite.
 
 Before erasure, **Check disks again** (F5) first shows that it clears the
 selected disk, ownership acknowledgement, typed confirmation, method, and
