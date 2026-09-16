@@ -38,6 +38,7 @@ TITLE_DONE_OK = "Finished"
 TITLE_DONE_FAIL = "The erase did not finish"
 TITLE_BLOCKED = "Stop"
 TITLE_EMPTY = "No disk to erase"
+TITLE_REFRESH = "Check disks again?"
 
 # --- Splash: they already booted. Do not lecture. --------------------------
 
@@ -287,6 +288,8 @@ BTN_ADVANCED = "Advanced (technicians)"
 BTN_MORE = "Show more"
 BTN_LESS = "Show less"
 BTN_SAVE_REPORT = "Save report to USB"
+BTN_REFRESH = "Check disks again"
+BTN_REFRESH_UTILITY = "Check disks again (F5)"
 
 PREVIEW_BANNER = "PREVIEW on this computer — fake disks — nothing is erased"
 
@@ -299,6 +302,13 @@ HINT_CONFIRM = "Type exactly what we ask for, then Enter."
 HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
 HINT_LAST_CHANCE_TK = "Esc goes back.  Tab to Erase, then Enter after the countdown."
 HINT_BLOCKED = "Enter requests shutdown. Esc goes back."
+HINT_REFRESH = "Esc keeps your answers. Enter checks disks again."
+REFRESH_LEAD = (
+    "This clears the selected disk, the ownership acknowledgement, the typed "
+    "confirmation, the erase method, and the countdown. Preparation starts "
+    "again from the beginning."
+)
+REFRESH_UTILITY_NOTE = "Check disks again (clears preparation)"
 HINT_DONE = "Enter requests shutdown."
 SHUTDOWN_TITLE = "Shut down without saving?"
 SHUTDOWN_LOSS = (

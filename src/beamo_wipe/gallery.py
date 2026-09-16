@@ -183,7 +183,11 @@ def gallery_html() -> str:
             "doneFail": C.TITLE_DONE_FAIL,
             "blocked": C.TITLE_BLOCKED,
             "empty": C.TITLE_EMPTY,
+            "refresh": C.TITLE_REFRESH,
         },
+        "refreshLead": C.REFRESH_LEAD,
+        "refreshButton": C.BTN_REFRESH,
+        "refreshUtility": C.BTN_REFRESH_UTILITY,
         "whatLead": C.WHAT_LEAD,
         "what": list(C.WHAT_BULLETS),
         "powerReminder": C.POWER_REMINDER,
@@ -594,6 +598,7 @@ let screen = "splash";
 let renderedScreen = null;
 let reportWanted = false;
 let reportHelpFrom = "what";
+let refreshFrom = "what";
 let shutdownFrom = "what";
 let anotherPending = false;
 let owner = false;
@@ -690,7 +695,8 @@ function stepInfo() {
     stop_confirm:[7,"Step 7 of 8",P.stop.title], stopping:[7,"Step 7 of 8","Stopping erase"],
     stop_unconfirmed:[7,"Step 7 of 8",P.stop.unconfirmed.message], stopped:[8,"Step 8 of 8",P.stop.stopped.message],
 
-    working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk]};
+    working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk],
+    refresh_confirm:[0,"",P.titles.refresh]};
   return map[screen] || [0,"",""];
 }
 function btn(label, fn, cls, disabled) {
@@ -765,6 +771,13 @@ function diskCard(d) {
       </div>
     </div>
   </div>`;
+}
+function requestRefresh() {
+  if (["working", "done", "splash", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "shutdown_confirm"].includes(screen)) return;
+  if (screen === "refresh_confirm") return;
+  refreshFrom = screen;
+  screen = "refresh_confirm";
+  draw();
 }
 function refreshPreview() {
   reportHelpFrom = "what";
@@ -958,6 +971,13 @@ function draw() {
     renderHint(P.hints.method);
     btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
     btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
+  } else if (screen === "refresh_confirm") {
+    main.innerHTML = `<h1 class="sub">${P.titles.refresh}</h1><p class="subtitle">${P.refreshLead}</p>`;
+    btnsL.append(btn(P.buttons.back, () => { screen = refreshFrom; draw(); }));
+    const go = btn(P.refreshButton, refreshPreview, "primary");
+    btnsR.append(go);
+    renderHint("Esc keeps your answers. Enter checks disks again.");
+    go.focus();
   } else if (screen === "shutdown_confirm") {
     main.innerHTML = `<h1>${anotherPending ? P.anotherTitle : P.shutdownTitle}</h1><p>${anotherPending ? P.anotherLoss : P.shutdownLoss}</p>`;
     btnsL.append(btn(anotherPending ? P.anotherDiscard : P.shutdownDiscard, () => {
@@ -1091,8 +1111,8 @@ function draw() {
   if (["what", "method", "advanced"].includes(screen)) {
     utilities.append(btn(P.reportHelpTitle, () => { reportHelpFrom = screen; screen = "report_help"; draw(); }, "ghost"));
   }
-  if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
-    utilities.prepend(btn("Check disks again (F5)", refreshPreview, "ghost"));
+  if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm", "refresh_confirm"].includes(screen)) {
+    utilities.prepend(btn(P.refreshUtility, requestRefresh, "ghost"));
   }
   if (screen === "last") {
     const focused = Array.from(foot.querySelectorAll("button"))
@@ -1110,6 +1130,9 @@ document.addEventListener("keydown", e => {
   if (screen === "stop_confirm" && e.repeat && ["Enter", " "].includes(e.key)) {
     e.preventDefault(); return;
   }
+  if (screen === "refresh_confirm" && e.key === "Escape") {
+    e.preventDefault(); screen = refreshFrom; draw(); return;
+  }
   if (screen === "shutdown_confirm" && ["Escape", "Enter"].includes(e.key)) {
     e.preventDefault(); screen = shutdownFrom; draw(); return;
   }
@@ -1119,8 +1142,11 @@ document.addEventListener("keydown", e => {
   if (screen === "report_help" && e.key === "Escape") {
     e.preventDefault(); screen = reportHelpFrom; draw(); return;
   }
-  if (e.key === "F5" && !["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
-    e.preventDefault(); refreshPreview(); return;
+  if (e.key === "F5" && !e.repeat && !["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
+    e.preventDefault();
+    if (screen === "refresh_confirm") refreshPreview();
+    else requestRefresh();
+    return;
   }
   if (screen === "method" && e.key.toLowerCase() === "l") {
     e.preventDefault(); screen = "limits"; draw();

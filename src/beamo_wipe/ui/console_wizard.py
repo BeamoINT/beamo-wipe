@@ -136,8 +136,8 @@ def _chrome_extra(wizard: Wizard) -> list[str]:
         bits.append("D: Diagnostic report (not erase evidence)")
     if wizard.can_open_report_help:
         bits.append("R: Need a report? (optional)")
-    if wizard.can_refresh and wizard.screen != Screen.REPORT_HELP:
-        bits.append("F5: Check disks again (clears all confirmations)")
+    if wizard.can_refresh and wizard.screen not in {Screen.REPORT_HELP, Screen.REFRESH_CONFIRM}:
+        bits.append("F5: " + C.REFRESH_UTILITY_NOTE)
     if wizard.can_open_keyboard and wizard.screen != Screen.KEYBOARD:
         bits.append("K: Keyboard layout")
     return bits
@@ -178,7 +178,7 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
         return ["Enter: shut down    Esc: back"]
     if screen == Screen.CONFIRM:
         return [
-            "Up/Down: read more    F5: Check disks again (clears all confirmations)",
+            "Up/Down: read more    F5: " + C.REFRESH_UTILITY_NOTE,
             "> " + wizard.confirm_input,
         ]
     if screen == Screen.METHOD:
@@ -208,6 +208,11 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
         return ["The disk may still be erasing. Keep this USB connected."]
     if screen == Screen.REFRESHING:
         return ["Please wait. Previous selections have been cleared."]
+    if screen == Screen.REFRESH_CONFIRM:
+        return [
+            "Enter: check disks again",
+            "Esc: keep your answers",
+        ]
     if screen == Screen.SHUTDOWN_CONFIRM:
         return [
             "Enter/Esc: keep session open",
@@ -244,6 +249,7 @@ def _footer_lines(wizard: Wizard, inventory_open: bool, width: int, height: int)
         Screen.CHECKING,
         Screen.STOPPING,
         Screen.REFRESHING,
+        Screen.REFRESH_CONFIRM,
         Screen.SHUTDOWN_CONFIRM,
         Screen.CONFIRM,
         Screen.KEYBOARD,
@@ -281,13 +287,23 @@ class _InventoryRefreshed(Exception):
     pass
 
 
+def _request_or_confirm_refresh(wizard: Wizard) -> None:
+    if wizard.screen == Screen.REFRESH_CONFIRM:
+        wizard.confirm_refresh()
+    else:
+        wizard.open_refresh_confirm()
+
+
 def _print_view(view, width: int = 76) -> None:
     print(textwrap.fill(_identity_text(view), width, break_long_words=True, break_on_hyphens=False))
 
 
 def _answer(wizard: Wizard, prompt: str) -> str:
     if wizard.can_refresh:
-        print("Type CHECK DISKS AGAIN to refresh and clear all confirmations.")
+        if wizard.screen == Screen.REFRESH_CONFIRM:
+            print("Type CHECK DISKS AGAIN to continue. Type BACK to keep your answers.")
+        else:
+            print("Type CHECK DISKS AGAIN to refresh. This clears preparation.")
     if wizard.can_open_diagnostic:
         print("Type DIAGNOSTIC for a diagnostic report (not erase evidence).")
     if wizard.can_open_report_help:
@@ -300,7 +316,10 @@ def _answer(wizard: Wizard, prompt: str) -> str:
         wizard.open_diagnostic()
         raise _InventoryRefreshed
     if wizard.can_refresh and answer.strip().upper() == "CHECK DISKS AGAIN":
-        wizard.refresh_disks()
+        _request_or_confirm_refresh(wizard)
+        raise _InventoryRefreshed
+    if wizard.screen == Screen.REFRESH_CONFIRM and answer.strip().upper() == "BACK":
+        wizard.back()
         raise _InventoryRefreshed
     return answer
 
@@ -354,6 +373,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             if wizard.preview:
                 print(C.PREVIEW_BANNER)
             print("=" * 60)
+        if screen == Screen.REFRESH_CONFIRM:
+            print(C.TITLE_REFRESH)
+            print(textwrap.fill(C.REFRESH_LEAD, 76))
+            _answer(wizard, "Type CHECK DISKS AGAIN to continue, or BACK to keep your answers: ")
+            continue
         if screen == Screen.SHUTDOWN_CONFIRM:
             print(wizard.exit_confirmation_title)
             print(textwrap.fill(wizard.exit_confirmation_loss, 76))
@@ -811,6 +835,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     break
             if need_below:
                 _add(stdscr, y_max - 1, 0, "More disks below. Use Up and Down.")
+        elif wizard.screen == Screen.REFRESH_CONFIRM:
+            y = _wrap(stdscr, y, C.TITLE_REFRESH, w, y_max)
+            _wrap(stdscr, y, C.REFRESH_LEAD, w, y_max)
         elif wizard.screen == Screen.SHUTDOWN_CONFIRM:
             y = _wrap(stdscr, y, wizard.exit_confirmation_title, w, y_max)
             y = _wrap(stdscr, y, wizard.exit_confirmation_loss, w, y_max)
@@ -846,7 +873,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if ch == KEY_RESIZE:
                 continue
             if ch == curses.KEY_F5 and wizard.can_refresh:
-                wizard.refresh_disks()
+                wizard.open_refresh_confirm()
                 continue
             if ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE):
                 delta = {
@@ -1003,7 +1030,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _confirm_diagnostic_action(stdscr, wizard)
             continue
         if ch == curses.KEY_F5 and wizard.can_refresh:
-            wizard.refresh_disks()
+            wizard.open_refresh_confirm()
             inventory_open = False
             continue
         if inventory_open:
@@ -1187,6 +1214,12 @@ def _handle(wizard: Wizard, ch: int) -> None:
         return
     if wizard.screen == Screen.DONE and ch in (ord("e"), ord("E")):
         wizard.begin_evidence_retry()
+        return
+    if wizard.screen == Screen.REFRESH_CONFIRM:
+        if ch in (curses.KEY_ENTER, 10, 13):
+            wizard.confirm_refresh()
+        elif ch == 27:
+            wizard.back()
         return
     if wizard.screen == Screen.SHUTDOWN_CONFIRM:
         if ch in (27, curses.KEY_ENTER, 10, 13):

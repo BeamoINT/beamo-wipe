@@ -182,6 +182,7 @@ class Wizard:
         self._saved_report_claim: Optional[_ReportExportClaim] = None
         self._saved_diagnostic_context: Optional[tuple[str, DiscoveryResult]] = None
         self._report_help_from: Optional[Screen] = None
+        self._refresh_confirm_from: Optional[Screen] = None
         self.owner_ok = False
         self.selected: Optional[Disk] = None
         self.confirm_input = ""
@@ -1008,6 +1009,7 @@ class Wizard:
             Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.PICK_EMPTY,
             Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD,
             Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS, Screen.REPORT_HELP, Screen.DISK_HELP,
+            Screen.REFRESH_CONFIRM,
         } and self._wipe_request is None and not self.wants_shutdown and not self._startup_blocked and not self._diagnostic_busy
 
     def begin_refresh(self) -> Optional[int]:
@@ -1032,6 +1034,7 @@ class Wizard:
             self._authorized_operation = None
             self._advanced_from = None
             self._report_help_from = None
+            self._refresh_confirm_from = None
             self._done_keyboard_armed = False
             self.error = None
             return self._refresh_seq
@@ -1098,6 +1101,34 @@ class Wizard:
             outcome = exc
         self.finish_refresh(seq, outcome)
         return True
+
+    def open_refresh_confirm(self) -> bool:
+        """Show the reset explanation. Does not clear authorization."""
+        with self._lock:
+            if self.screen == Screen.REFRESHING:
+                return False
+            if self.screen == Screen.REFRESH_CONFIRM:
+                return True
+            if not self.can_refresh:
+                return False
+            self._refresh_confirm_from = self.screen
+            self.screen = Screen.REFRESH_CONFIRM
+            return True
+
+    def confirm_refresh(self) -> bool:
+        """Activate rediscovery after the wording screen."""
+        with self._lock:
+            if self.screen != Screen.REFRESH_CONFIRM:
+                return False
+        return self.refresh_disks()
+
+    def cancel_refresh_confirm(self) -> None:
+        with self._lock:
+            if self.screen != Screen.REFRESH_CONFIRM:
+                return
+            dest = self._refresh_confirm_from or Screen.WHAT
+            self._refresh_confirm_from = None
+            self.screen = dest
 
     def _operation_key(self) -> Optional[tuple[Any, ...]]:
         disk = self.selected
@@ -2364,7 +2395,7 @@ class Wizard:
 
     def open_advanced(self) -> None:
         with self._lock:
-            if self.screen in (Screen.SPLASH, Screen.KEYBOARD, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
+            if self.screen in (Screen.SPLASH, Screen.KEYBOARD, Screen.CHECKING, Screen.STOPPING, Screen.WORKING, Screen.ADVANCED, Screen.REFRESHING, Screen.REFRESH_CONFIRM, Screen.DIAGNOSTIC, Screen.REPORT_HELP):
                 return
             self._advanced_from = self.screen
             self.screen = Screen.ADVANCED
@@ -2382,6 +2413,9 @@ class Wizard:
         with self._lock:
             if self.screen == Screen.SHUTDOWN_CONFIRM:
                 self.keep_report_session()
+                return
+            if self.screen == Screen.REFRESH_CONFIRM:
+                self.cancel_refresh_confirm()
                 return
             if self.screen == Screen.REPORT_HELP:
                 self.close_report_help()

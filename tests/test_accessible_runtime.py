@@ -140,6 +140,11 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     assert not app.actions["Erase now"].get_sensitive()
     stale_erase = app.actions["Erase now"]
     app.actions["Check disks again (F5)"].clicked()
+    assert wizard.screen == Screen.REFRESH_CONFIRM
+    assert wizard.selected is not None and wizard.owner_ok
+    from beamo_wipe import copy as C
+    assert C.REFRESH_LEAD in text(app)
+    app.actions[C.BTN_REFRESH].clicked()
     assert wizard.screen == Screen.WHAT
     assert wizard.selected is None and not wizard.owner_ok and not wizard.confirm_input
     # A queued action from the previous screen never starts a wipe.
@@ -666,6 +671,9 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     fresh = w.discovery
     w._rediscover = lambda: fresh
     app.actions["Check disks again (F5)"].clicked()
+    drain()
+    assert w.screen == Screen.REFRESH_CONFIRM
+    app.actions[C.BTN_REFRESH].clicked()
     drain()
     assert w.report_wanted is wanted and w.screen == Screen.WHAT
     assert w.selected is None and not w.owner_ok and not w.confirm_input

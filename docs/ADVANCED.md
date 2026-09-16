@@ -62,7 +62,8 @@ this preference but clears target selection and every erase confirmation.
 
 Keep the report USB unplugged while selecting, confirming, and erasing. If
 inserted early, remove only the intended report USB, leave the boot USB and
-erase disk attached, and choose **Check disks again** before choosing and
+erase disk attached, and choose **Check disks again** (it explains the reset,
+then you confirm) before choosing and
 confirming the target again. Do not guess which device to remove.
 
 Only after the erase has stopped and the result screen offers **Save report to

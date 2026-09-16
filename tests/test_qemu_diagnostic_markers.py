@@ -46,7 +46,7 @@ def _draw_markers(monkeypatch, discovery_code, startup_code="", screen=Screen.PI
     for name in (
         "_splash", "_what", "_owner", "_pick", "_blocked", "_empty", "_confirm",
         "_method", "_last", "_working", "_advanced", "_limits", "_report_help",
-        "_shutdown_confirm", "_disk_help",
+        "_shutdown_confirm", "_refresh_confirm", "_disk_help",
     ):
         setattr(app, name, lambda: None)
     tk_wizard.TkWizard._draw(app)

@@ -51,6 +51,7 @@ class Screen(str, Enum):
     SHUTDOWN_CONFIRM = "shutdown_confirm"
     LIMITS = "limits"
     REFRESHING = "refreshing"
+    REFRESH_CONFIRM = "refresh_confirm"
     DIAGNOSTIC = "diagnostic"
 
 

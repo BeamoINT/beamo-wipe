@@ -72,11 +72,13 @@ help, **Esc** to return and **S** to stop; the plain text fallback asks for
 powering off this computer.
 
 Before erasure, **Check disks again** (F5, or `CHECK DISKS AGAIN` at a text
-prompt) reads the inventory again and identifies the boot device again. It
-clears the selected disk, ownership acknowledgement, typed confirmation,
-method, and countdown. Complete the entire confirmation flow again. A failed
-refresh leaves no stale target selectable. Refresh is unavailable once an
-erase is starting or running.
+prompt) first explains that it clears the selected disk, ownership
+acknowledgement, typed confirmation, method, and countdown, and that
+preparation starts again from the beginning. You can keep your answers, or
+continue. Then it reads the inventory again and identifies the boot device
+again. Complete the entire confirmation flow again. A failed refresh leaves
+no stale target selectable. Refresh is unavailable once an erase is starting
+or running.
 
 **Beamo USB — protected, cannot be erased** appears separately above the disks
 you can choose, with its name, size and serial or hardware ID. The keyboard

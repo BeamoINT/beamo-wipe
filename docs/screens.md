@@ -22,11 +22,13 @@ Every interface uses the same Wizard authorization and validated result model.
 - Three overwrites: 3 overwrite passes: a pattern, its inverse, then random data. 1 separate read-back verification pass after the final overwrite.
 - Quick zero: 1 overwrite pass: zeros. Verification is not performed. No read-back pass.
 
-Before erasure, **Check disks again** (F5) performs fresh discovery and boot
-identification, clears the selected target and every prior acknowledgement,
-confirmation, method and countdown, and requires the full flow again. A failed
-refresh leaves no stale target selectable. Refresh is disabled once starting or
-running. Returning to a disk never automatically selects or authorizes it.
+Before erasure, **Check disks again** (F5) first shows that it clears the
+selected disk, ownership acknowledgement, typed confirmation, method, and
+countdown, and that preparation starts again from the beginning. Back keeps
+those answers. Confirming then performs fresh discovery and boot
+identification and requires the full flow again. A failed refresh leaves no
+stale target selectable. Refresh is disabled once starting or running.
+Returning to a disk never automatically selects or authorizes it.
 The checking screen paints immediately and discovery runs off the UI thread,
 so repaint and input continue during the scan; pressing F5 again while
 checking is ignored until the scan lands, so only one scan ever runs.

@@ -326,6 +326,8 @@ def test_refresh_returns_while_scan_runs():
 
         app.root.after(100, beat)
         main_ident = threading.get_ident()
+        app._click_refresh()
+        assert wiz.screen == Screen.REFRESH_CONFIRM
         start = time.monotonic()
         app._click_refresh()
         elapsed = time.monotonic() - start
@@ -345,6 +347,7 @@ def test_refresh_failure_blocks_closed():
     wiz, app, calls = _slow_scan_app(WINDOW, delay=0.5, fail=True)
     try:
         _drive_to(wiz, app, Screen.PICK)
+        app._click_refresh()
         app._click_refresh()
         assert _await_scan_done(app) == Screen.PICK_BLOCKED
         assert wiz.error == REDISCOVER_ERROR
@@ -370,6 +373,7 @@ def test_duplicate_refresh_runs_single_scan():
         _drive_to(wiz, app, Screen.PICK)
         wiz.finish_refresh = counting_finish
         app._click_refresh()
+        app._click_refresh()
         time.sleep(0.3)
         app.root.update()
         app._click_refresh()
@@ -389,6 +393,7 @@ def test_close_during_scan_drops_silently():
     wiz, app, calls = _slow_scan_app(WINDOW, delay=2.0)
     try:
         _drive_to(wiz, app, Screen.PICK)
+        app._click_refresh()
         app._click_refresh()
         assert wiz.screen == Screen.REFRESHING
         app.root.update()
@@ -1100,6 +1105,21 @@ def test_every_terminal_result_renders_consistent_text(ui, case, size):
     assert not _off_window_problems(app)
 
 
+def test_held_f5_cannot_skip_refresh_wording(ui):
+    from types import SimpleNamespace
+    wiz, app = ui(size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    app._on_key(SimpleNamespace(keysym="F5", char=""))
+    assert wiz.screen == Screen.REFRESH_CONFIRM
+    assert wiz.selected is not None and wiz.owner_ok
+    app._on_key(SimpleNamespace(keysym="F5", char=""))
+    assert wiz.screen == Screen.REFRESH_CONFIRM
+    app._on_f5_release()
+    app._on_key(SimpleNamespace(keysym="F5", char=""))
+    assert wiz.screen == Screen.REFRESHING
+    assert _await_scan_done(app) == Screen.WHAT
+
+
 @pytest.mark.parametrize("screen", [Screen.PICK, Screen.PICK_EMPTY, Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE])
 def test_graphical_refresh_restarts_full_authorization(ui, screen):
     from types import SimpleNamespace
@@ -1107,6 +1127,10 @@ def test_graphical_refresh_restarts_full_authorization(ui, screen):
     _drive_to(wiz, app, Screen.LAST_CHANCE)
     wiz.screen = screen
     app._draw()
+    app._on_key(SimpleNamespace(keysym="F5", char=""))
+    assert wiz.screen == Screen.REFRESH_CONFIRM
+    assert wiz.selected is not None
+    app._on_f5_release()
     app._on_key(SimpleNamespace(keysym="F5", char=""))
     assert wiz.screen == Screen.REFRESHING
     assert _await_scan_done(app) == Screen.WHAT

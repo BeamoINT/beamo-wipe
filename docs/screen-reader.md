@@ -15,6 +15,9 @@ acknowledgement, typed confirmation, method, and countdown. Complete the entire
 authorization flow in the new view. Switching is unavailable while an erase is
 starting or running. A failed refresh leaves no stale disk selectable.
 
+**Check disks again (F5)** first explains that reset and waits for confirm or
+Back. F8 screen-reader handoff still scans immediately after you choose it.
+
 The live USB boot menu also offers **Beamo Wipe: speech for screen readers** —
 press **S** when the menu appears. That entry passes `beamo.ui=accessible` on
 the kernel command line; the kiosk supervisor then launches
