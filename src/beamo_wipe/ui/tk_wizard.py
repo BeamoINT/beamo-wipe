@@ -118,6 +118,7 @@ _STEP_ORDER = {
     Screen.ADVANCED: (5, C.TITLE_ADVANCED, C.TITLE_ADVANCED),
     Screen.LIMITS: (5, limits.TITLE, limits.TITLE),
     Screen.REFRESHING: (0, "", "Checking disks again"),
+    Screen.REFRESH_CONFIRM: (0, "", C.TITLE_REFRESH),
     Screen.LAST_CHANCE: (6, "Step 6 of 8", C.TITLE_LAST),
     Screen.CHECKING: (6, "Step 6 of 8", "Checking disk"),
     Screen.STOPPING: (7, "Step 7 of 8", "Stopping erase"),
@@ -1050,6 +1051,7 @@ class TkWizard:
         self._space_release_after: Optional[str] = None
         self._space_release_time: Optional[int] = None
         self._space_action_active = False
+        self._f5_held = False
         self._fatal_ui = False
         self._accessible_requested = False
         # Optional extra detail (device path, bus) on existing screens.
@@ -1069,6 +1071,7 @@ class TkWizard:
         self.root.bind("<KeyRelease-Return>", self._on_return_release)
         self.root.bind("<KeyRelease-KP_Enter>", self._on_return_release)
         self.root.bind("<KeyRelease-space>", self._on_space_release)
+        self.root.bind("<KeyRelease-F5>", self._on_f5_release)
         self.root.bind("<Key>", self._on_key)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
         self._draw()
@@ -1463,6 +1466,7 @@ class TkWizard:
             Screen.LIMITS: self._limits,
             Screen.REPORT_HELP: self._report_help,
             Screen.SHUTDOWN_CONFIRM: self._shutdown_confirm,
+            Screen.REFRESH_CONFIRM: self._refresh_confirm,
             Screen.REFRESHING: lambda: self._status_screen(
                 "info",
                 "Checking disks again",
@@ -1852,8 +1856,8 @@ class TkWizard:
             utility(C.BTN_ADVANCED, self._nav(self.w.open_advanced))
         if self.w.can_open_keyboard and self.w.screen != Screen.KEYBOARD:
             utility(C.KEYBOARD_UTILITY, self._nav(self.w.open_keyboard))
-        if self.w.can_refresh:
-            utility("Check disks again (F5)", self._click_refresh)
+        if self.w.can_refresh and self.w.screen != Screen.REFRESH_CONFIRM:
+            utility(C.BTN_REFRESH_UTILITY, self._click_refresh)
             if self.w.can_open_report_help:
                 utility(C.REPORT_HELP_TITLE, self._nav(self.w.open_report_help))
             if sys.platform.startswith("linux"):
@@ -2861,6 +2865,15 @@ class TkWizard:
         if self._primary is not None:
             self._primary.focus_set()
 
+    def _refresh_confirm(self) -> None:
+        col = self._column(self._body, fill_height=True)
+        self._title_block(col, C.TITLE_REFRESH, C.REFRESH_LEAD)
+        row = self._footer_shell(C.HINT_REFRESH)
+        self._back_btn(row)
+        self._primary_btn(row, C.BTN_REFRESH, self._click_refresh)
+        if self._primary is not None:
+            self._primary.focus_set()
+
     def _report_help(self) -> None:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.REPORT_HELP_TITLE, "Optional. Read before inserting report media.", compact=True)
@@ -3523,17 +3536,30 @@ class TkWizard:
         self._teardown()
 
     def _click_refresh(self) -> None:
+        if self.w.screen != Screen.REFRESH_CONFIRM:
+            if not self.w.open_refresh_confirm():
+                return
+            self._draw()
+            return
         if self._start_refresh_scan(self._redraw_after_refresh) is None:
             return
         self._show_more = False
         self._pick_scroll = 0.0
 
+    def _on_f5_release(self, _event=None) -> str:
+        self._f5_held = False
+        return "break"
+
     def _on_key(self, event) -> Optional[str]:
         if event.keysym == "F8" and sys.platform.startswith("linux") and self.w.can_refresh:
             self._click_accessible()
             return "break"
-        if event.keysym == "F5" and self.w.can_refresh:
-            self._click_refresh()
+        if event.keysym == "F5":
+            if self._f5_held:
+                return "break"
+            self._f5_held = True
+            if self.w.can_refresh:
+                self._click_refresh()
             return "break"
         if self._body_canvas is not None and event.keysym in ("Prior", "Next"):
             self._body_canvas.yview_scroll(-1 if event.keysym == "Prior" else 1, "pages")

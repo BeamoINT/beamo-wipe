@@ -524,6 +524,11 @@ class AccessibleWizard:
                 "Close preview" if self.w.preview else "Shut down", self.w.shutdown,
                 enabled=not report.exporting and not report.saving_evidence,
             )
+        elif screen == Screen.REFRESH_CONFIRM:
+            heading.set_text(C.TITLE_REFRESH)
+            self.label(C.REFRESH_LEAD, focusable=True)
+            self.button(C.BTN_REFRESH, self.w.confirm_refresh)
+            self.button(C.BTN_BACK, self.w.back)
         elif screen == Screen.SHUTDOWN_CONFIRM:
             heading.set_text(self.w.exit_confirmation_title)
             self.label(self.w.exit_confirmation_loss)
@@ -563,8 +568,8 @@ class AccessibleWizard:
             self.button("Diagnostic report", self.w.open_diagnostic, utility=True)
         if self.w.can_open_report_help:
             self.button(C.REPORT_HELP_TITLE, self.w.open_report_help, utility=True)
-        if self.w.can_refresh:
-            self.button("Check disks again (F5)", self.w.refresh_disks, utility=True)
+        if self.w.can_refresh and screen != Screen.REFRESH_CONFIRM:
+            self.button(C.BTN_REFRESH_UTILITY, self.w.open_refresh_confirm, utility=True)
         if self.w.can_open_keyboard and screen != Screen.KEYBOARD:
             self.button(C.KEYBOARD_UTILITY, self.w.open_keyboard, utility=True)
         if screen in {
@@ -672,6 +677,7 @@ class AccessibleWizard:
             Gdk.KEY_Return,
             Gdk.KEY_KP_Enter,
             Gdk.KEY_space,
+            Gdk.KEY_F5,
         }:
             return True
         self.held.add(key)
@@ -691,7 +697,10 @@ class AccessibleWizard:
                 back.clicked()
             return True
         if key == Gdk.KEY_F5 and self.w.can_refresh:
-            self.w.refresh_disks()
+            if self.w.screen == Screen.REFRESH_CONFIRM:
+                self.w.confirm_refresh()
+            else:
+                self.w.open_refresh_confirm()
             self.render()
             return True
         if key == Gdk.KEY_Escape:

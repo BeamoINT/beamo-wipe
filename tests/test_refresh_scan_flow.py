@@ -68,6 +68,7 @@ def _stub_app(rediscover, delay=0.0, fail=False):
     wiz.accept_what()
     wiz.set_owner(True)
     wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
     assert wiz.screen == Screen.PICK
     app = TkWizard.__new__(TkWizard)
     app.w = wiz
@@ -116,6 +117,9 @@ def test_scan_returns_fast_and_loop_beats_during_io():
 
     try:
         app.root.after(100, beat)
+        app._click_refresh()
+        assert app.w.screen == Screen.REFRESH_CONFIRM
+        assert app.w.selected is not None
         start = time.monotonic()
         app._click_refresh()
         assert time.monotonic() - start < 0.5
@@ -123,7 +127,8 @@ def test_scan_returns_fast_and_loop_beats_during_io():
         assert _settle(app) == Screen.WHAT
         assert len(beats) >= 3, f"loop stalled ({len(beats)} beats)"
         assert calls and calls[0] != main_ident
-        assert app.draws[0][1] == Screen.REFRESHING  # checking painted first
+        assert app.draws[0][1] == Screen.REFRESH_CONFIRM
+        assert Screen.REFRESHING in [screen for _ident, screen in app.draws]
         assert app.draws[-1][1] == Screen.WHAT
         assert all(ident == main_ident for ident, _screen in app.draws)
     finally:
@@ -135,6 +140,7 @@ def test_scan_failure_blocks_closed_without_escape():
         lambda: discovery_for_scenario("happy"), delay=0.2, fail=True
     )
     try:
+        app._click_refresh()
         app._click_refresh()
         assert _settle(app) == Screen.PICK_BLOCKED
         assert app.w.error == REDISCOVER_ERROR
@@ -148,15 +154,16 @@ def test_duplicate_scan_refused_single_worker():
     app, _calls, _main = _stub_app(lambda: discovery_for_scenario("happy"), delay=0.5)
     try:
         app._click_refresh()
+        app._click_refresh()
         time.sleep(0.1)
         app.root.pump()
         app._click_refresh()
         assert _settle(app) == Screen.WHAT
         for worker in app._refresh_threads.values():
             worker.join(timeout=10)
-        # The refused repeat drew nothing and started no worker: one
-        # checking paint, one applied paint, one thread total.
+        # Wording, then one checking paint, one applied paint, one thread.
         assert [screen for _ident, screen in app.draws] == [
+            Screen.REFRESH_CONFIRM,
             Screen.REFRESHING,
             Screen.WHAT,
         ]
@@ -169,6 +176,7 @@ def test_close_mid_scan_drops_worker_result():
     app, _calls, _main = _stub_app(lambda: discovery_for_scenario("happy"), delay=1.0)
     try:
         app._click_refresh()
+        app._click_refresh()
         app.root.pump()
         app._teardown()
         assert app._ui_dead
@@ -176,6 +184,9 @@ def test_close_mid_scan_drops_worker_result():
             worker.join(timeout=10)
             assert not worker.is_alive()
         app.root.pump()
-        assert [screen for _ident, screen in app.draws] == [Screen.REFRESHING]
+        assert [screen for _ident, screen in app.draws] == [
+            Screen.REFRESH_CONFIRM,
+            Screen.REFRESHING,
+        ]
     finally:
         app._teardown()
