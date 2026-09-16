@@ -1915,12 +1915,12 @@ class TkWizard:
             return
         self.w.set_typing_check(self._typing_var.get())
 
-    def _power_notice(self, parent, *, reminder=True) -> None:
+    def _power_notice(self, parent, *, reminder=True, bg: str = BG, indent: int = 0) -> None:
         if reminder:
-            self._wrapping_label(parent, C.POWER_KEEP, font=self.font_s_bold, bg=BG)
-        label = self._p(parent, self.w.power_text, font=self.font_s, bg=BG)
+            self._wrapping_label(parent, C.POWER_KEEP, font=self.font_s_bold, bg=bg)
+        label = self._p(parent, self.w.power_text, font=self.font_s, bg=bg)
         label.configure(width=1)
-        label.pack(fill=tk.X)
+        label.pack(fill=tk.X, padx=(indent, 0), pady=(4 if indent else 0, 0))
         label.bind("<Configure>", lambda event: label.configure(wraplength=max(1, event.width - 4)))
         self._power_label = label
 
@@ -1943,10 +1943,11 @@ class TkWizard:
                 line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
                 wraplength=max(200, self.lay.wrap - 80), justify=tk.LEFT, anchor="w",
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
-        self._panel(
+        power = self._panel(
             zone, kind="info", text=C.POWER_REMINDER, extra=C.POWER_BLANKING
-        ).pack(fill=tk.X, pady=(12, 0))
-        self._power_notice(zone, reminder=False)
+        )
+        power.pack(fill=tk.X, pady=(12, 0))
+        self._power_notice(power.inner, reminder=False, bg=SURFACE_ALT, indent=40)
         if self._more_link(zone):
             self._panel(
                 zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE + " " + C.POWER_EVENTS
@@ -2656,7 +2657,11 @@ class TkWizard:
         if self.w.selected:
             self._disk_summary(col, self.w.selected).pack(fill=tk.X)
             self._more_link(col)
-        self._p(col, self.w.storage_notice, font=self.font_s, fg=INK).pack(fill=tk.X)
+        notice = self.w.storage_notice
+        if notice:
+            self._panel(col, kind="info", text=notice, compact=True).pack(
+                fill=tk.X, pady=(8, 0)
+            )
         _Button(
             col, text=limits.BUTTON, command=self._nav(self.w.open_limits),
             font=self.font_s_bold, variant="ghost", compact=True,
@@ -2810,8 +2815,6 @@ class TkWizard:
         self._wrapping_label(details, self.w.erase_label(), font=self.font_bold,
                              bg=BG, fg=DANGER).pack_configure(pady=(16, 8))
         self._wrapping_label(details, self.w.method_summary, font=self.font_s, bg=BG)
-        self._wrapping_label(details, C.REVIEW_CHECK, font=self.font_s,
-                             fg=MUTED, bg=BG).pack_configure(pady=(12, 0))
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         self._power_notice(details)

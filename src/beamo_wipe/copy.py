@@ -50,9 +50,8 @@ KEYBOARD_LEAD = (
     "Then type a few characters to check."
 )
 KEYBOARD_LIMITS = (
-    "Only US QWERTY, French AZERTY, and German QWERTZ are offered. "
-    "This USB does not include other layouts. "
-    "The change lasts until this USB session restarts. "
+    "Only US QWERTY, French AZERTY, and German QWERTZ. "
+    "The change lasts until this USB restarts. "
     "It does not change firmware or BIOS keyboards."
 )
 KEYBOARD_CHECK_LABEL = "Type here to check. This is not a password and is not saved."

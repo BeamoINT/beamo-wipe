@@ -820,7 +820,7 @@ function draw() {
       <p class="small muted">${P.keyboardLimits}</p>
       <div class="cz"><div class="czc">${layouts}
       <p class="small">${P.keyboardCheck}</p>
-      <input id="kbcheck" type="text" autocomplete="off" spellcheck="false" placeholder="${P.keyboardHint}" value="">
+      <div class="entryshell"><input class="token" id="kbcheck" type="text" autocomplete="off" spellcheck="false" value=""></div>
       </div></div>`;
     main.querySelectorAll("[data-layout]").forEach(el => {
       el.onclick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
@@ -834,8 +834,8 @@ function draw() {
     main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
       <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div></div></div>
-      ${powerPanel(false)}
+      <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div>
+      <div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>
       ${moreLink()}
       ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.secureBoot}</div><div class="extra">${P.engine} ${P.powerEvents}</div></div></div>` : ""}</div></div>`;
@@ -932,7 +932,7 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<p id="storage-notice" role="note">${selected ? selected.storageNotice : P.ssd}</p><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<div id="storage-notice" role="note">${panel("info", selected ? selected.storageNotice : P.ssd, true)}</div><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
@@ -1006,7 +1006,7 @@ function draw() {
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p><p class="small muted">${P.reviewCheck}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
+      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
         <svg width="64" height="64" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :

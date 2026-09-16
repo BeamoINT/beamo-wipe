@@ -304,6 +304,16 @@ def test_light_surfaces_do_not_wrap_the_logo_in_a_navy_tile():
     assert chip and "background: var(--navy)" not in chip.group(0)
 
 
+def test_last_chance_does_not_repeat_the_check_line():
+    """Would fail when Last chance printed LAST_LEAD and REVIEW_CHECK together."""
+    last = inspect.getsource(tkui.TkWizard._last)
+    assert "LAST_LEAD" in last
+    assert "REVIEW_CHECK" not in last
+    html = gallery_html()
+    assert "${P.reviewCheck}" not in html
+    assert "lastLead" in html
+
+
 def test_header_names_the_current_step_instead_of_a_full_map():
     """Would fail on the eight numbered journey circles in the header."""
     assert tkui.header_caption(4, "Step 4 of 8") == "Confirm · Step 4 of 8"
