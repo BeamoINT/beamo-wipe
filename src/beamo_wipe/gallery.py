@@ -77,7 +77,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
         components = [
             {
                 "heading": inventory.nested_heading(child),
-                "reason": "; ".join(child.reasons),
+                "reason": inventory.nested_reason_text(child),
             }
             for child in inventory.nested_under(disk.path, result.excluded)
         ]
@@ -740,7 +740,7 @@ function nestedComponents(d) {
   if (!items.length) return "";
   return `<div class="nested">
     <div class="nested-intro">${esc(P.nestedIntro)}</div>
-    ${items.map(c => `<div class="nested-item"><div>${esc(c.heading)}</div><div>${esc(c.reason)}</div></div>`).join("")}
+    ${items.map(c => `<div class="nested-item"><div>${esc(c.heading)}</div>${c.reason ? `<div>${esc(c.reason)}</div>` : ""}</div>`).join("")}
   </div>`;
 }
 function diskCard(d) {
@@ -1030,7 +1030,7 @@ function draw() {
       <div class="progress-card"><div class="progress-label">Erase progress</div>
       <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
-      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${m.title}. &nbsp;${P.working}</p>
+      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${P.working}</p>
       <div id="power-status" role="status" aria-live="polite" class="small muted">${powerText()}</div>
       <p class="small muted">${m.summary}</p></div></div></div>`;
     bindMore();

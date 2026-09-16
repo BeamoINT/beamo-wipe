@@ -47,8 +47,11 @@ class NwipeMethodSpec:
     @property
     def verification_description(self) -> str:
         if self.verify == "off":
-            return "Verification is not performed. No read-back pass."
-        return f"{self.verification_passes} separate read-back verification pass after the final overwrite."
+            return "This method does not check the overwrite."
+        n = self.verification_passes
+        if n == 1:
+            return "Then we check the last overwrite."
+        return f"Then we check the overwrite {n} times."
 
     @property
     def description(self) -> str:

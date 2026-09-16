@@ -111,9 +111,9 @@ def test_cards_gallery_and_plain_console(
     assert f"{writes} overwrite" in card["blurb"]
     assert card["blurb"] + " " + card["pace"] == spec.description
     if reads:
-        assert "1 separate read-back verification pass" in card["pace"]
+        assert "check the last overwrite" in card["pace"]
     else:
-        assert "Verification is not performed" in card["pace"]
+        assert "does not check the overwrite" in card["pace"]
     payload = json.loads(re.search(r"const P = (.*);", gallery_html()).group(1))
     assert payload["methods"][method.value]["summary"] == spec.summary
     assert payload["methods"][method.value]["operation"] == spec.operation_summary

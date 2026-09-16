@@ -312,6 +312,19 @@ def test_done_preview_does_not_repeat_the_announcement():
     assert "${result.announcement}" not in html
 
 
+def test_method_cards_use_plain_check_language():
+    """Would fail on 'read-back verification pass' method-card pace."""
+    from beamo_wipe.methods import METHODS
+    from beamo_wipe.models import MethodId
+
+    everyday = METHODS[MethodId.EVERYDAY]
+    assert "read-back" not in everyday.verification_description
+    assert "check the last overwrite" in everyday.verification_description
+    html = gallery_html()
+    assert "check the last overwrite" in html
+    assert "1 separate read-back verification pass" not in html
+
+
 def test_nested_pick_headings_do_not_use_kernel_paths():
     """Would fail when unlabeled partitions showed /dev/ names on the pick card."""
     from beamo_wipe import inventory as inv

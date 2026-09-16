@@ -13,6 +13,8 @@ warnings remain fully visible.
 - One power panel, method limits as a quiet note, no repeated last-check line
 - Pick cards nest partitions without kernel paths; working keeps one progress card
 - Done preview no longer repeats the announcement line
+- Method cards say “check the last overwrite”; nested cards drop “unsupported device”
+- Identity card says “This disk”
 - Helper opens with the same three-step path as the wizard
 - WCAG 2.1 AA text and non-text contrast still pass
 

@@ -2906,7 +2906,6 @@ class TkWizard:
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
             self._more_link(col)
-        card_copy = C.METHOD_CARDS[self.w.method]
         container = self._center_zone(col)
         progress_card = _Box(container, radius=RADIUS, fill=SURFACE_ALT,
                              outline=BORDER, ow=1, padx=20, pady=16)
@@ -2923,7 +2922,7 @@ class TkWizard:
         bar.bind("<Configure>", lambda _e: self._refresh_working())
         self._progress_bar = bar
         self._progress_label = self._p(
-            zone, f"{card_copy['title']}.  {C.WORKING_PULSE}", fg=MUTED, font=self.font_b, bg=SURFACE_ALT
+            zone, C.WORKING_PULSE, fg=MUTED, font=self.font_b, bg=SURFACE_ALT
         )
         self._progress_label.pack(fill=tk.X, pady=(14, 0))
         self._power_notice(zone, reminder=False, bg=SURFACE_ALT)
