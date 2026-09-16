@@ -94,6 +94,16 @@ RING_SIZE = 64
 RING_PAD = 6
 RING_W = 4
 
+
+def header_caption(step_n: int, step_label: str) -> str:
+    """One current-step label. Not a map of every step, and not a control."""
+    if not step_label:
+        return ""
+    if step_n and step_label.startswith("Step "):
+        return f"{C.JOURNEY_LABELS[step_n - 1]} · {step_label}"
+    return step_label
+
+
 _STEP_ORDER = {
     Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
     Screen.WHAT: (1, "Step 1 of 8", C.TITLE_WHAT),
@@ -1082,41 +1092,15 @@ class TkWizard:
             text_x, mid, anchor="w",
             text=C.APP_NAME, font=self.font_brand, fill=INK,
         )
-        # The screen title below names the step; the header only carries
-        # quiet progress text ("Step 3 of 8"), never a duplicate title.
+        # The screen title below names the work. The header only names the
+        # current position ("Confirm · Step 4 of 8"), never a full step map.
         step = _STEP_ORDER.get(self.w.screen, (0, "", ""))
-        self._draw_journey(cv, width, step[0])
-        label = step[1]
+        label = header_caption(step[0], step[1])
         if label:
             cv.create_text(
                 width - 24, mid, anchor="e",
                 text=label, font=self.font_meta, fill=MUTED,
             )
-
-    def _draw_journey(self, cv: tk.Canvas, width: int, step: int) -> None:
-        # Numbered steps are positions, never success badges or shortcuts.
-        if not step or width < 1000:
-            return
-        start, end = 260, width - 150
-        gap = (end - start) / len(C.JOURNEY_LABELS)
-        for index, name in enumerate(C.JOURNEY_LABELS, 1):
-            cx = start + gap * (index - 0.5)
-            active = index == step
-            done = index < step
-            if index < len(C.JOURNEY_LABELS):
-                cv.create_line(
-                    cx + 13, 18, cx + gap - 13, 18,
-                    fill=PRIMARY_TINT if index < step else BORDER, width=1,
-                )
-            if active:
-                fill, outline, nfill, lfill = PRIMARY, PRIMARY, SURFACE, INK
-            elif done:
-                fill, outline, nfill, lfill = PRIMARY_TINT, PRIMARY, PRIMARY, MUTED
-            else:
-                fill, outline, nfill, lfill = SURFACE, BORDER_STRONG, MUTED, MUTED
-            cv.create_oval(cx - 10, 8, cx + 10, 28, fill=fill, outline=outline)
-            cv.create_text(cx, 18, text=str(index), font=self.font_tiny, fill=nfill)
-            cv.create_text(cx, 42, text=name, font=self.font_meta, fill=lfill)
 
     def _draw_strip(self) -> None:
         cv = self._strip

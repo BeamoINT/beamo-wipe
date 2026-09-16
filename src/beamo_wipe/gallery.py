@@ -354,15 +354,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .brandrow { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; }
   .brandchip { display: flex; align-items: center; justify-content: center; flex: none; }
   .brandchip svg { display: block; }
-  .journey { display: flex; flex: 1; max-width: 680px; list-style: none; margin: 0 24px; padding: 0; }
-  .journey li { flex: 1; position: relative; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
-  .journey li::before { content: ""; position: absolute; top: 9px; left: calc(50% + 12px); width: calc(100% - 24px); border-top: 1px solid var(--border); }
-  .journey li:last-child::before { display: none; }
-  .journey .done::before { border-top-color: var(--primary-tint); }
-  .journey .number { display: block; width: 18px; height: 18px; line-height: 16px; margin: 0 auto 6px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface); font-weight: 600; color: var(--muted); }
-  .journey .done .number { color: var(--primary); background: var(--primary-tint); border-color: var(--primary); }
-  .journey [aria-current="step"] { color: var(--ink); }
-  .journey [aria-current="step"] .number { color: white; background: var(--primary); border-color: var(--primary); }
+  /* Current-step text lives in .steptext. The list is a screen-reader
+     name only — never a numbered map of the whole journey. */
+  .journey { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; margin-top: 8px; }
   .review-grid .countcap { max-width: 260px; text-align: center; }
   .review-warning { color: var(--danger); font-weight: 700; overflow-wrap: anywhere; }
@@ -527,7 +521,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .compact-notice { padding: 8px 16px; font-size: 14px; }
   .card .meta .ser { display: block; }
   .page, .shell, .body, .col { min-width: 0; }
-  @media (max-width: 1000px) { .journey { display: none; } }
+  @media (max-width: 1000px) { .hdr { padding: 0 16px; } }
   @media (max-width: 700px) {
     .review-grid { grid-template-columns: minmax(0, 1fr); }
     .review-grid .ringwrap { padding: 12px 0; }
@@ -776,6 +770,11 @@ function refreshPreview() {
   method = "everyday"; tLeft = 5; showMore = false; screen = "what";
   draw();
 }
+function headerCaption(info) {
+  const n = info[0], label = info[1];
+  if (n && String(label).indexOf("Step ") === 0) return P.journey[n - 1] + " · " + label;
+  return label;
+}
 function draw() {
   // Countdown redraws must preserve deliberate keyboard focus. Entering
   // final review always starts on Back, including screenshot deep links.
@@ -783,13 +782,9 @@ function draw() {
     && document.activeElement.matches(".foot button") ? document.activeElement.textContent : null;
   const info = stepInfo();
   const stepEl = document.getElementById("step");
-  document.getElementById("journey").innerHTML = info[0] ? P.journey.map((label, index) => {
-    const n = index + 1;
-    const cls = n < info[0] ? ' class="done"' : '';
-    const cur = n === info[0] ? ' aria-current="step"' : '';
-    return `<li${cls}${cur}><span class="number">${n}</span>${esc(label)}</li>`;
-  }).join("") : "";
-  stepEl.textContent = info[1];
+  document.getElementById("journey").innerHTML = info[0]
+    ? `<li aria-current="step">${esc(headerCaption(info))}</li>` : "";
+  stepEl.textContent = headerCaption(info);
   stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
   document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
   const main = document.getElementById("main");
@@ -946,7 +941,7 @@ function draw() {
           <div class="grow">
             <div class="title"><span class="kbd">${m.key}</span><span style="margin-left:10px">${m.title}</span>${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : ""}</div>
             <div class="methodblurb">${m.blurb}</div>
-            <div class="methodpace"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4C5B6B" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4C5B6B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${m.pace}</span></div>
+            <div class="methodpace"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4A5A6A" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4A5A6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${m.pace}</span></div>
           </div>
         </div>
       </div>`;

@@ -8,8 +8,9 @@ warnings remain fully visible.
 ## What changed
 
 - Cooler ink/muted/border palette, 12px corners, pill actions
-- Completed vs current journey markers
-- Helper cards are rounded surfaces on a quiet field
+- Header names only the current step (`Confirm · Step 4 of 8`)
+- Confirm/method/last-check leads in plain language
+- Helper opens with the same three-step path as the wizard
 - WCAG 2.1 AA text and non-text contrast still pass
 
 ## Screenshots

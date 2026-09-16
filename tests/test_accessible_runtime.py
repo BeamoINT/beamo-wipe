@@ -136,7 +136,8 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     app.actions["Continue"].clicked()
     assert wizard.screen == Screen.LAST_CHANCE
     assert "Review before erasing" in text(app)
-    assert "Reaching zero only enables Erase; it never starts erasure." in text(app)
+    from beamo_wipe import copy as C
+    assert C.LAST_LEAD in text(app)
     assert not app.actions["Erase now"].get_sensitive()
     stale_erase = app.actions["Erase now"]
     app.actions["Check disks again (F5)"].clicked()

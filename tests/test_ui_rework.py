@@ -9,7 +9,7 @@ import pytest
 
 from beamo_wipe import copy as C
 from beamo_wipe.models import Screen
-from beamo_wipe.ui.tk_wizard import _Button
+from beamo_wipe.ui.tk_wizard import _Button, header_caption
 from test_design_runtime import descendants
 from test_tk_runtime import ui, _drive_to, _clipping_problems, _off_window_problems  # noqa: F401
 
@@ -71,13 +71,18 @@ def test_header_wayfinding_fits_and_cannot_navigate(ui):  # noqa: F811
     header = app._header
     labels = {header.itemcget(item, "text"): item for item in header.find_all()
               if header.type(item) == "text"}
-    for text in (*C.JOURNEY_LABELS, "Step 4 of 8"):
-        item = labels[text]
-        x0, y0, x1, y1 = header.bbox(item)
-        assert 0 <= x0 < x1 <= header.winfo_width()
-        assert 0 <= y0 < y1 <= header.winfo_height()
-        header.event_generate("<Button-1>", x=int((x0 + x1) / 2), y=int((y0 + y1) / 2))
-        app.root.update()
-        assert wiz.screen == Screen.CONFIRM
-        assert not wiz.token_ok
-        assert wiz.confirm_input == ""
+    caption = header_caption(4, "Step 4 of 8")
+    assert caption == "Confirm · Step 4 of 8"
+    assert caption in labels
+    for extra in C.JOURNEY_LABELS:
+        if extra != "Confirm":
+            assert extra not in labels
+    item = labels[caption]
+    x0, y0, x1, y1 = header.bbox(item)
+    assert 0 <= x0 < x1 <= header.winfo_width()
+    assert 0 <= y0 < y1 <= header.winfo_height()
+    header.event_generate("<Button-1>", x=int((x0 + x1) / 2), y=int((y0 + y1) / 2))
+    app.root.update()
+    assert wiz.screen == Screen.CONFIRM
+    assert not wiz.token_ok
+    assert wiz.confirm_input == ""

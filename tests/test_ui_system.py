@@ -304,6 +304,21 @@ def test_light_surfaces_do_not_wrap_the_logo_in_a_navy_tile():
     assert chip and "background: var(--navy)" not in chip.group(0)
 
 
+def test_header_names_the_current_step_instead_of_a_full_map():
+    """Would fail on the eight numbered journey circles in the header."""
+    assert tkui.header_caption(4, "Step 4 of 8") == "Confirm · Step 4 of 8"
+    assert tkui.header_caption(1, "Step 1 of 8") == "Start · Step 1 of 8"
+    assert tkui.header_caption(3, "Identify the disk") == "Identify the disk"
+    assert tkui.header_caption(0, "") == ""
+    source = inspect.getsource(tkui.TkWizard._draw_header)
+    assert "_draw_journey" not in source
+    assert "header_caption" in source
+    html = gallery_html()
+    assert "function headerCaption" in html
+    assert ".journey .number" not in html
+    assert "P.journey[n - 1]" in html
+
+
 def test_modern_visual_system_replaces_utility_chrome():
     """Shared surfaces use the quieter palette, 12px corners, and pill actions.
 
@@ -324,7 +339,6 @@ def test_modern_visual_system_replaces_utility_chrome():
     assert "--pill: 999px" in html
     assert "--primary: #1C4A73" in html
     assert "border-radius: var(--pill)" in html
-    assert ".journey .done .number" in html
     helper = (ROOT / "helper" / "index.html").read_text(encoding="utf-8")
     assert "--radius: 12px" in helper
     assert "--primary: #1C4A73" in helper
