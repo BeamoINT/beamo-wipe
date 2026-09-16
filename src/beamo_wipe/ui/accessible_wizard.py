@@ -417,7 +417,13 @@ class AccessibleWizard:
             self.label(f"{C.SEVERITY_LIMITS}: {self.w.storage_notice}", focusable=True)
             group = None
             for method, spec in METHODS.items():
-                choice = Gtk.RadioButton.new_with_label_from_widget(group, spec.summary)
+                card = C.METHOD_CARDS[method]
+                label = spec.summary
+                if card["mark"]:
+                    label = f"{label} [{card['mark']}]"
+                if card["extra"]:
+                    label = f"{label} {card['extra']}"
+                choice = Gtk.RadioButton.new_with_label_from_widget(group, label)
                 choice.get_child().set_line_wrap(True)
                 choice.get_child().set_max_width_chars(65)
                 group = choice

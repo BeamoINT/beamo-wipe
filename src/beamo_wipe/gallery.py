@@ -619,6 +619,9 @@ def _gallery_html_for_current_language(lang: str) -> str:
                 "title": C.METHOD_CARDS[mid]["title"],
                 "blurb": C.METHOD_CARDS[mid]["blurb"],
                 "pace": C.METHOD_CARDS[mid]["pace"],
+                "mark": C.METHOD_CARDS[mid]["mark"],
+                "extra": C.METHOD_CARDS[mid]["extra"],
+                "checks": C.METHOD_CARDS[mid]["checks"],
                 "key": C.METHOD_CARDS[mid]["key"],
                 "docs": METHODS[mid].docs_name,
                 "nwipe": METHODS[mid].nwipe_method,
@@ -836,6 +839,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .sel .radio::after { content: ""; position: absolute; inset: 30%; border-radius: 50%; background: var(--primary); }
   .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; background: var(--surface-alt); color: var(--muted); border-radius: 999px; vertical-align: 2px; }
   .chip.ok { color: var(--ok); background: var(--ok-tint); }
+  .chip.warn { color: var(--warn); background: var(--warn-bg); }
+  .methodextra { font-size: 14px; color: var(--muted); margin: 4px 0 0; line-height: 1.4; }
   .bootbanner { margin-bottom: 6px; color: var(--ink); font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
   .panel { display: flex; gap: 12px; align-items: flex-start; border: 1px solid; border-radius: var(--radius); padding: 14px 18px; font-size: 16px; line-height: 1.45; }
   .panel svg { flex: none; margin-top: 1px; }
@@ -1484,9 +1489,10 @@ function draw() {
       html += `<div class="card pickable${sel ? " sel" : ""}" data-id="${id}" tabindex="0" role="button" aria-pressed="${sel}" style="padding-top:9px;padding-bottom:9px;margin-bottom:8px">
         <div class="row"><span class="radio"></span>
           <div class="grow">
-            <div class="title">${m.title}${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : ""}</div>
+            <div class="title">${m.title}${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : (m.mark ? `<span class="chip${m.checks ? "" : " warn"}">${m.mark}</span>` : "")}</div>
             <div class="methodblurb">${m.blurb}</div>
-            <div class="methodpace"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4A5A6A" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4A5A6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${m.pace}</span></div>
+            <div class="methodpace">${m.checks ? `<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4A5A6A" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4A5A6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ""}<span>${m.pace}</span></div>
+            ${m.extra ? `<div class="methodextra">${m.extra}</div>` : ""}
           </div>
           <span class="kbd">${m.key}</span>
         </div>

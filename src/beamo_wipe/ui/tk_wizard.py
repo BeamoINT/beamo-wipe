@@ -3124,6 +3124,13 @@ class TkWizard:
 
     def _method_card(self, parent: tk.Widget, method: MethodId) -> None:
         card_copy = C.METHOD_CARDS[method]
+        title = str(card_copy["title"])
+        blurb = str(card_copy["blurb"])
+        pace = str(card_copy["pace"])
+        mark = str(card_copy["mark"])
+        extra = str(card_copy["extra"])
+        checks = bool(card_copy["checks"])
+        key = str(card_copy["key"])
         selected = self.w.method == method
         fill = PRIMARY_TINT if selected else SURFACE
         outline = PRIMARY if selected else BORDER
@@ -3138,7 +3145,7 @@ class TkWizard:
         icon = _icon_radio(top, selected, 22)
         icon.configure(bg=fill)
         icon.pack(side=tk.LEFT, anchor="n", pady=1)
-        self._kbd(top, card_copy["key"]).pack(side=tk.RIGHT, anchor="n", padx=(8, 0))
+        self._kbd(top, key).pack(side=tk.RIGHT, anchor="n", padx=(8, 0))
         # Blurb and pace live in the title column so the card's text shares
         # one left edge instead of stair-stepping under the radio.
         text_col = tk.Frame(top, bg=fill)
@@ -3146,15 +3153,20 @@ class TkWizard:
         title_row = tk.Frame(text_col, bg=fill)
         title_row.pack(fill=tk.X)
         tk.Label(
-            title_row, text=card_copy["title"], font=self.font_bold, fg=INK, bg=fill, anchor="w"
+            title_row, text=title, font=self.font_bold, fg=INK, bg=fill, anchor="w"
         ).pack(side=tk.LEFT)
         if method == DEFAULT_METHOD:
             self._chip(title_row, C.RECOMMENDED_TAG, fg=OK, bg=OK_TINT).pack(
                 side=tk.LEFT, padx=(10, 0)
             )
+        elif mark:
+            fg, bg_chip = (WARN, WARN_BG) if not checks else (MUTED, SURFACE_ALT)
+            self._chip(title_row, mark, fg=fg, bg=bg_chip).pack(
+                side=tk.LEFT, padx=(10, 0)
+            )
         tk.Label(
             text_col,
-            text=card_copy["blurb"],
+            text=blurb,
             font=self.font_s,
             fg=MUTED,
             bg=fill,
@@ -3164,19 +3176,31 @@ class TkWizard:
         ).pack(fill=tk.X, pady=(4, 0))
         pace_row = tk.Frame(text_col, bg=fill)
         pace_row.pack(fill=tk.X, pady=(4, 0))
-        clock = _icon_clock(pace_row, 16)
-        clock.configure(bg=fill)
-        clock.pack(side=tk.LEFT, anchor="n", pady=1)
+        if checks:
+            clock = _icon_clock(pace_row, 16)
+            clock.configure(bg=fill)
+            clock.pack(side=tk.LEFT, anchor="n", pady=1)
         tk.Label(
             pace_row,
-            text=card_copy["pace"],
+            text=pace,
             font=self.font_s,
             fg=MUTED,
             bg=fill,
             wraplength=max(200, self.lay.wrap - 110),
             justify=tk.LEFT,
             anchor="w",
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(7, 0))
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(7 if checks else 0, 0))
+        if extra:
+            tk.Label(
+                text_col,
+                text=extra,
+                font=self.font_s,
+                fg=MUTED,
+                bg=fill,
+                wraplength=max(200, self.lay.wrap - 90),
+                justify=tk.LEFT,
+                anchor="w",
+            ).pack(fill=tk.X, pady=(4, 0))
 
         def _click(_e, m=method):
             self._choose_method(m)

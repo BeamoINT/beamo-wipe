@@ -73,6 +73,24 @@ class NwipeMethodSpec:
         return VERIFY_N.format(n=n)
 
     @property
+    def comparison_mark(self) -> str:
+        """Short scan label for the method list. Everyday uses Recommended."""
+        if self.verify == "off":
+            return "No check"
+        if self.overwrite_passes > 1:
+            return "More overwrites"
+        return ""
+
+    @property
+    def extra_work(self) -> str:
+        if self.overwrite_passes > 1:
+            return (
+                "Three times the overwrites of Everyday. "
+                "Extra passes do not reach hidden storage."
+            )
+        return ""
+
+    @property
     def description(self) -> str:
         return f"{self.overwrite_description} {self.verification_description}"
 

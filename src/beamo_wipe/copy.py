@@ -296,6 +296,9 @@ METHOD_CARDS = {
         "title": spec.title,
         "blurb": spec.overwrite_description,
         "pace": spec.verification_description,
+        "mark": spec.comparison_mark,
+        "extra": spec.extra_work,
+        "checks": spec.verification_passes > 0,
         "key": str(index),
     }
     for index, (method, spec) in enumerate(METHODS.items(), 1)
