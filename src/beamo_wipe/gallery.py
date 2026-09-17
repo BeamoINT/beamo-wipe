@@ -890,8 +890,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .secondary:active:not(:disabled) { background: #E2E8EE; }
   button.btn:disabled { background: var(--disabled-bg); color: var(--disabled-fg); border-color: transparent; box-shadow: none; cursor: not-allowed; }
   .linkbtn { background: none; border: 0; color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 10px; text-align: left; border-radius: var(--pill); margin-left: -10px; }
-  .linkbtn:hover { background: var(--primary-tint); }
+  .linkbtn:hover:not(:disabled) { background: var(--primary-tint); }
+  .linkbtn:active:not(:disabled) { background: #D7E4F2; }
   .linkbtn:focus-visible { outline: 3px solid var(--focus); }
+  .linkbtn:disabled { color: var(--disabled-fg); cursor: not-allowed; }
   .morelink { display: inline-block; margin: 8px 0 0; }
   .entryshell { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 12px 18px; box-shadow: var(--shadow); }
   .entryshell:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
@@ -930,9 +932,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
   .checkrow { display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; cursor: pointer; font-size: 14px; line-height: 1.45; padding: 8px 10px; border-radius: var(--radius); }
   .checkrow:hover { background: var(--surface-alt); }
+  .checkrow:active { background: #E2E8EE; }
   .checkrow:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .checkrow .cbox { width: 22px; height: 22px; font-size: 14px; line-height: 18px; }
   .checkrow.checked { background: var(--primary-tint); }
+  .checkrow.checked:hover, .checkrow.checked:active { background: var(--primary-tint); }
   .checkrow.checked .cbox { background: var(--primary); border-color: var(--primary); }
   .ringwrap { display: flex; flex-direction: column; align-items: center; }
   .ringnum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
@@ -978,7 +982,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .disklist::-webkit-scrollbar-track { background: transparent; }
   .utilities { display: flex; flex-wrap: wrap; gap: 4px; }
   button.btn.ghost { background: transparent; color: var(--primary); border-color: transparent; min-width: 0; padding: 8px 16px; font-size: 14px; font-weight: 500; }
-  button.btn.ghost:hover { background: var(--primary-tint); }
+  button.btn.ghost:hover:not(:disabled) { background: var(--primary-tint); }
+  button.btn.ghost:active:not(:disabled) { background: #D7E4F2; }
+  button.btn.ghost:disabled { background: transparent; color: var(--disabled-fg); cursor: not-allowed; }
+  button.btn.ghost:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .utilities:empty { display: none; }
   section[aria-label] h2 { font-size: 14px; margin: 8px 0 4px; }
   .inventory-reader, .help-reader { white-space: pre-wrap; overflow: auto; padding: 12px 14px; font-size: 14px; line-height: 1.45; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); color: var(--ink); }

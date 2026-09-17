@@ -713,6 +713,8 @@ class _Button(tk.Canvas):
     def _state_colors(self) -> tuple:
         bg, fg, hover, press, outline, _ring = self._VARIANTS[self._variant]
         if not self._enabled:
+            if self._variant == "ghost":
+                return self.cget("bg"), DISABLED_FG, None
             return DISABLED_BG, DISABLED_FG, None
         if self._pressed and press is not None:
             return press, fg, outline
@@ -965,24 +967,89 @@ class _CheckRow(tk.Frame):
         self._command = command
         self._font = font
         self._wraplength = wraplength
+        self._base_bg = bg
+        self._hovering = False
+        self._held = False
+        self._pressed = False
         self._icon: Optional[tk.Canvas] = None
         self._label = tk.Label(
             self, text=text, font=font, fg=INK, bg=bg, justify=tk.LEFT, anchor="w",
             wraplength=wraplength or 0,
         )
-        self._label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 4), pady=2)
+        self._label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 4), pady=6)
         self._sync()
-        variable.trace_add("write", lambda *_: self._sync())
-        self.bind("<Button-1>", lambda _e: self.invoke())
+        self._paint()
+        variable.trace_add("write", self._on_variable)
+        self.bind("<Enter>", self._enter)
+        self.bind("<Leave>", self._leave)
+        self.bind("<ButtonPress-1>", self._press)
+        self.bind("<ButtonRelease-1>", self._release)
         self.bind("<space>", self._activate)
         self.bind("<Return>", self._activate)
         self.bind("<KP_Enter>", self._activate)
-        self._label.bind("<Button-1>", lambda _e: self.invoke())
+        self._label.bind("<ButtonPress-1>", self._press)
+        self._label.bind("<ButtonRelease-1>", self._release)
 
     def cget(self, key):
         if key == "text":
             return self._text
         return super().cget(key)
+
+    def _on_variable(self, *_args) -> None:
+        self._sync()
+        self._paint()
+
+    def _row_bg(self) -> str:
+        if self._pressed:
+            return "#E2E8EE"
+        if bool(self._variable.get()):
+            return PRIMARY_TINT
+        if self._hovering:
+            return SURFACE_ALT
+        return self._base_bg
+
+    def _paint(self) -> None:
+        bg = self._row_bg()
+        self.configure(bg=bg)
+        self._label.configure(bg=bg)
+        if self._icon is not None:
+            try:
+                self._icon.configure(bg=bg)
+            except tk.TclError:
+                pass
+
+    def _enter(self, _event=None) -> None:
+        self._hovering = True
+        if self._held:
+            self._pressed = True
+        self._paint()
+
+    def _leave(self, _event=None) -> None:
+        self._hovering = False
+        self._pressed = False
+        self._paint()
+
+    def _press(self, _event=None) -> str:
+        self.focus_set()
+        self._held = True
+        self._pressed = True
+        self._paint()
+        return "break"
+
+    def _release(self, event=None) -> str:
+        held = self._held
+        self._held = False
+        self._pressed = False
+        inside = True
+        if event is not None:
+            try:
+                inside = 0 <= event.x <= self.winfo_width() and 0 <= event.y <= self.winfo_height()
+            except tk.TclError:
+                inside = True
+        self._paint()
+        if held and inside:
+            self.invoke()
+        return "break"
 
     def _activate(self, _event=None) -> str:
         self.invoke()
@@ -995,11 +1062,12 @@ class _CheckRow(tk.Frame):
     def _sync(self) -> None:
         if self._icon is not None:
             self._icon.destroy()
-        bg = self.cget("bg")
+        bg = self._row_bg()
         icon = _icon_check_box(self, bool(self._variable.get()), 22)
         icon.configure(bg=bg)
-        icon.pack(side=tk.LEFT, anchor="n", pady=2, before=self._label)
-        icon.bind("<Button-1>", lambda _e: self.invoke())
+        icon.pack(side=tk.LEFT, anchor="n", pady=6, before=self._label)
+        icon.bind("<ButtonPress-1>", self._press)
+        icon.bind("<ButtonRelease-1>", self._release)
         self._icon = icon
 
 
@@ -2285,6 +2353,8 @@ class TkWizard:
             fg=INK,
             bg=SURFACE,
             insertbackground=INK,
+            selectbackground=PRIMARY_TINT,
+            selectforeground=INK,
             relief=tk.FLAT,
             highlightthickness=0,
             show="",
@@ -2479,7 +2549,7 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_PICK, C.pick_subtitle())
         _Button(col, text=C.DISK_HELP_BUTTON, command=self._nav(self.w.open_disk_help),
-                font=self.font_s_bold, variant="ghost").pack(anchor="w", pady=(0, 4))
+                font=self.font_s_bold, variant="ghost", compact=True).pack(anchor="w", pady=(0, 4))
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.error:
@@ -3083,6 +3153,8 @@ class TkWizard:
             fg=INK,
             bg=SURFACE,
             insertbackground=INK,
+            selectbackground=PRIMARY_TINT,
+            selectforeground=INK,
             relief=tk.FLAT,
             highlightthickness=0,
             bd=0,
