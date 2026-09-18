@@ -566,6 +566,24 @@ sys.exit(entry['main']())
         wait_for(wizard.erase_label(), since=checkpoint)
         assert not wizard.runner.started
         from beamo_wipe import copy as C
+        # The last-chance countdown mutates a GtkLabel every second. Leaving
+        # the screen while those text-changed events are still queued leaves
+        # Orca processing defunct widgets, so it never speaks TITLE_PICK.
+        wizard._erase_until = 0.0
+        app.tick()
+        drain()
+        previous_size = logfile.stat().st_size if logfile.exists() else 0
+        quiet_since = time.monotonic()
+        settle_deadline = time.monotonic() + 5
+        while time.monotonic() < settle_deadline:
+            drain()
+            size = logfile.stat().st_size if logfile.exists() else 0
+            if size != previous_size:
+                quiet_since = time.monotonic()
+                previous_size = size
+            elif time.monotonic() - quiet_since >= 0.4:
+                break
+            time.sleep(0.01)
         wizard.back(); wizard.back(); wizard.back()
         checkpoint = len(logfile.read_text(errors="replace"))
         app.render()
