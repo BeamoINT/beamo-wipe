@@ -6,6 +6,8 @@
 
 This runbook is for the support operator who answers "the USB won't boot / it shows no disks / the erase failed." It separates **verified behavior** (code, tests, build) from **unknowns**, gives decision trees that never weaken a safety gate, and defines how to reproduce safely, collect evidence with redaction, communicate, and when to quarantine or stop-ship.
 
+Customer-facing destination on error screens, the helper, and the printed boot card: **beamosupport.com** (QR payload `https://beamosupport.com`). Do not substitute a store page, GitHub issues URL, or a different domain. Canonical outcome strings still say "contact support"; the destination is shown beside them, not inside them.
+
 No step in this runbook allows disabling boot-media exclusion, skipping owner/type-to-confirm/5 s delay, manually targeting `/dev/...` without safe identification, or running `nwipe` on a developer/host disk.
 
 ---

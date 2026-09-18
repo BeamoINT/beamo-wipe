@@ -243,6 +243,10 @@ def test_helper_cites_the_verified_microsoft_sources():
         "https://github.com/BeamoINT/beamo-wipe",
         *MICROSOFT_SOURCES,
     }
+    from beamo_wipe.support_contact import SUPPORT_URL
+
+    allowed.add(SUPPORT_URL)
+    assert SUPPORT_URL in hrefs
     assert set(hrefs) <= allowed
 
 

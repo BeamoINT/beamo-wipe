@@ -13,6 +13,9 @@ import functools
 SUPPORT_SHORT = "beamosupport.com"
 SUPPORT_URL = "https://" + SUPPORT_SHORT
 
+# Pixels per QR module on graphical screens. 37 modules × 3 = 111 px,
+# independently scannable; helper/report CSS paints the same matrix larger.
+QR_DISPLAY_SCALE = 3
 _QR_BORDER = 4
 
 

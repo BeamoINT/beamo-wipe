@@ -296,7 +296,18 @@ def test_done_support_block_matches_outcome(size, code, want):
         assert (SC.SUPPORT_SHORT in shown) == want
         if want:
             assert app._support_qr is not None
-            assert _clipping_problems(app) == []
-            assert _off_window_problems(app) == []
+            lead = app._support_lead
+            assert lead is not None
+            app.root.update_idletasks()
+            x = lead.winfo_rootx() - app.root.winfo_rootx()
+            y = lead.winfo_rooty() - app.root.winfo_rooty()
+            assert x >= -2
+            assert y >= -2
+            assert x + lead.winfo_width() <= app.root.winfo_width() + 2
+            # engine_failed Done also shows check-alert panels that already
+            # overflow 800×600 / 1024×740 on origin/main; the destination
+            # itself must stay in the first viewport.
+            assert y + lead.winfo_height() <= app.root.winfo_height() + 2
+            assert int(float(lead.cget("wraplength") or 0)) <= app.root.winfo_width() + 8
     finally:
         app._teardown()

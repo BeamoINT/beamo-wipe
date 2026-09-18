@@ -1056,6 +1056,7 @@ class TkWizard:
         self._logo_header = self._load_image("logo-header.png")
         self._logo_splash = self._load_image("logo-splash.png")
         self._support_qr: Optional[tk.PhotoImage] = None
+        self._support_lead: Optional[tk.Label] = None
         self._confirm_var = tk.StringVar()
         self._typing_var = tk.StringVar()
         self._owner_var = tk.IntVar(value=0)
@@ -2648,16 +2649,17 @@ class TkWizard:
         """QR code plus the support destination as real text.
 
         The text is the offline fallback: the block still helps when the
-        QR library is unavailable or the code cannot be scanned.
+        QR library is unavailable or the code cannot be scanned. Tab
+        reaches the sentence so a keyboard user can read and copy it.
         """
-        from beamo_wipe.support_contact import qr_matrix
+        from beamo_wipe.support_contact import QR_DISPLAY_SCALE, SUPPORT_SHORT, qr_matrix
 
         assert parent is not None
         frame = tk.Frame(parent, bg=BG)
         image: Optional[tk.PhotoImage] = None
         try:
             matrix = qr_matrix()
-            scale = 3
+            scale = QR_DISPLAY_SCALE
             rows = []
             for modules in matrix:
                 line = " ".join(
@@ -2676,9 +2678,38 @@ class TkWizard:
             self._support_qr = image
             code = tk.Label(frame, image=image, bg="#ffffff", bd=1, relief=tk.SOLID)
             code.pack(side=tk.LEFT, anchor="n")
-        self._p(frame, C.support_lead(), font=self.font_s).pack(
-            side=tk.LEFT, anchor="w", padx=(12, 0)
+        text_wrap = tk.Frame(frame, bg=BG)
+        text_wrap.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
+        qr_space = (int(image.width()) + 24) if image is not None else 0
+        lead = self._p(
+            text_wrap,
+            C.support_lead(),
+            font=self.font_s,
+            wraplength=max(200, self.lay.wrap - qr_space),
         )
+        lead.configure(
+            takefocus=True,
+            highlightthickness=2,
+            highlightcolor=FOCUS,
+            highlightbackground=BG,
+        )
+
+        def _copy_dest(_event: object = None) -> str:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(SUPPORT_SHORT)
+            return "break"
+
+        def _rewrap(event: object, lbl: tk.Label = lead) -> None:
+            width = int(getattr(event, "width", 0) or 0)
+            if width < 180:
+                return
+            lbl.configure(wraplength=max(200, width - 8))
+
+        lead.bind("<Control-c>", _copy_dest)
+        lead.bind("<Control-C>", _copy_dest)
+        text_wrap.bind("<Configure>", _rewrap)
+        lead.pack(anchor="w", fill=tk.X)
+        self._support_lead = lead
         frame.pack(fill=tk.X, pady=(12, 0))
 
     def _status_screen(self, kind: str, title: str, message: str) -> None:
