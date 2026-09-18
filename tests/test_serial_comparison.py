@@ -164,8 +164,10 @@ def test_comparison_never_bypasses_owner_token_or_delay():
 ])
 def test_browser_comparison_wraps_and_escapes_metadata(monkeypatch, tmp_path, serials):
     import json
+    import os
     import re
     import shutil
+    import signal
     import subprocess
     from html import unescape
     from beamo_wipe import gallery
@@ -191,15 +193,28 @@ def test_browser_comparison_wraps_and_escapes_metadata(monkeypatch, tmp_path, se
     </script>'''
     page = tmp_path / "gallery.html"
     page.write_text(gallery.gallery_html().replace('</body>', check + '</body>'))
-    result = subprocess.run(
+    proc = subprocess.Popen(
         [chrome, '--headless=new', '--no-sandbox', '--disable-gpu',
          '--disable-dev-shm-usage', '--no-first-run',
          f'--user-data-dir={tmp_path / "chrome"}', '--window-size=1024,1160',
          '--dump-dom', page.as_uri() + '#s=pick'],
-        capture_output=True, text=True, timeout=40, check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
     )
-    match = re.search(r'data-serial-check="([^"]*)"', result.stdout)
-    assert match, result.stderr
+    try:
+        stdout, stderr = proc.communicate(timeout=40)
+    except subprocess.TimeoutExpired as exc:
+        # Headless Chrome 148 can dump the DOM then hang until timeout.
+        stdout, stderr = exc.stdout or "", exc.stderr or ""
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait()
+    match = re.search(r'data-serial-check="([^"]*)"', stdout)
+    assert match, stderr
     rows = json.loads(unescape(match.group(1)))
     assert len(rows) == 2
     for row, disk in zip(rows, wizard.selectable):
