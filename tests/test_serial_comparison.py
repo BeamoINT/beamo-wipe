@@ -207,12 +207,18 @@ def test_browser_comparison_wraps_and_escapes_metadata(monkeypatch, tmp_path, se
         stdout, stderr = proc.communicate(timeout=40)
     except subprocess.TimeoutExpired as exc:
         # Headless Chrome 148 can dump the DOM then hang until timeout.
-        stdout, stderr = exc.stdout or "", exc.stderr or ""
+        stdout, stderr = exc.stdout, exc.stderr
         try:
             os.killpg(proc.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
         proc.wait()
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode("utf-8", "replace")
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", "replace")
+    stdout = stdout or ""
+    stderr = stderr or ""
     match = re.search(r'data-serial-check="([^"]*)"', stdout)
     assert match, stderr
     rows = json.loads(unescape(match.group(1)))
