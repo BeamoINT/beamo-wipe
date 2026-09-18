@@ -1315,7 +1315,9 @@ def test_done_announcement_is_first_heading(ui):
         for widget in widgets(app.window)
         if widget.get_accessible().get_role() == Atk.Role.HEADING
     ]
-    assert ordered[0] == wizard.result_view.announcement
+    view = wizard.result_view
+    expected = view.announcement if view.success else view.message
+    assert ordered[0] == expected
     assert "Erase status" not in ordered
     assert C.REPORT_STATUS_TITLE in ordered
 

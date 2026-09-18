@@ -93,7 +93,7 @@ def test_every_diagnostic_code_has_sections_and_error_code():
         assert sections.next_step == "do this"
         assert code in sections.technical
     empty = R.recovery_for_diagnostic("discovery_failed")
-    assert empty.happened == D.report_title("discovery_failed")
+    assert empty.happened == D.NOTICE
     assert empty.next_step == D.PREPARE
 
 

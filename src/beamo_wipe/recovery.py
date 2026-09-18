@@ -194,7 +194,7 @@ def recovery_for_diagnostic(
 ) -> RecoverySections:
     from beamo_wipe import diagnostic_report as D
 
-    happened = message.strip() if isinstance(message, str) and message.strip() else D.report_title(code)
+    happened = message.strip() if isinstance(message, str) and message.strip() else D.NOTICE
     next_step = step.strip() if isinstance(step, str) and step.strip() else D.PREPARE
     technical = TECHNICAL_ERROR_CODE.format(code=code) if code else ""
     return RecoverySections(happened, MEANING_DIAGNOSTIC, next_step, technical)

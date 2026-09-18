@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 
 from beamo_wipe import copy as C
+from beamo_wipe import recovery as R
 from beamo_wipe import support_export as E
 from beamo_wipe.models import Screen
 from beamo_wipe.ui import console_wizard as console
@@ -189,7 +190,8 @@ def test_aftercare_error_carries_problem_step_retry():
     text = C.report_aftercare(
         can_save=False, status="error", message=E.USB_FAT32_ONLY
     )
-    assert text.startswith(E.USB_FAT32_ONLY)
+    assert E.USB_FAT32_ONLY in text
+    assert text.startswith(R.RECOVERY_HAPPENED)
     assert "different USB stick" in text
     assert "Save report to USB again" in text
     assert "If it fails again, use a different USB stick." in text

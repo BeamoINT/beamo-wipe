@@ -1809,6 +1809,11 @@ class TkWizard:
         frame = tk.Frame(parent, bg=bg)
         frame.pack(fill=tk.X, pady=(4, 0), anchor="w")
         for label, body in sections.labeled_pairs():
+            if self.lay.short:
+                self._p(frame, f"{label}: {body}", font=self.font_s, bg=bg).pack(
+                    fill=tk.X, pady=(4, 0)
+                )
+                continue
             tk.Label(
                 frame,
                 text=label,

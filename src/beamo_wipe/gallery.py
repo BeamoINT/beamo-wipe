@@ -20,10 +20,6 @@ from beamo_wipe import support_export as _export
 from beamo_wipe import inventory
 from beamo_wipe.outcomes import preview_view
 from beamo_wipe.recovery import (
-    RECOVERY_HAPPENED,
-    RECOVERY_MEANING,
-    RECOVERY_NEXT,
-    RECOVERY_TECHNICAL,
     recovery_for_blocked,
     recovery_for_empty,
     recovery_for_outcome,
@@ -92,7 +88,7 @@ def _recovery_payload(sections) -> dict | None:
     }
 
 
-def _disks_payload(scenario: str) -> list[dict]:
+def _disks_payload(scenario: str = "happy") -> list[dict]:
     result = discovery_for_scenario(scenario)  # type: ignore[arg-type]
     peers = listed_disks(result)
     eligible_paths = {disk.path for disk in result.selectable}
@@ -157,6 +153,8 @@ def gallery_html(lang: str = "en") -> str:
 
 
 def _gallery_html_for_current_language(lang: str) -> str:
+    from beamo_wipe import recovery as Rec
+
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
@@ -180,10 +178,10 @@ def _gallery_html_for_current_language(lang: str) -> str:
             },
         },
         "recoveryLabels": {
-            "happened": RECOVERY_HAPPENED,
-            "meaning": RECOVERY_MEANING,
-            "next": RECOVERY_NEXT,
-            "technical": RECOVERY_TECHNICAL,
+            "happened": Rec.RECOVERY_HAPPENED,
+            "meaning": Rec.RECOVERY_MEANING,
+            "next": Rec.RECOVERY_NEXT,
+            "technical": Rec.RECOVERY_TECHNICAL,
         },
         "blockedRecovery": _recovery_payload(recovery_for_blocked(C.IDENTIFY_ERROR)),
         "emptyRecovery": _recovery_payload(recovery_for_empty()),
