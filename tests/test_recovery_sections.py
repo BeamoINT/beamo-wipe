@@ -154,6 +154,16 @@ def test_screen_reader_order_is_happened_meaning_next_then_technical():
     customer = R.format_recovery_text(R.recovery_for_outcome("engine_failed"))
     assert R.RECOVERY_TECHNICAL not in customer
     assert "engine_failed" not in customer
+    compact = R.format_recovery_text(
+        R.recovery_for_outcome("engine_failed"),
+        include_technical=True,
+        compact=True,
+    )
+    assert compact.index(R.RECOVERY_HAPPENED) < compact.index(R.RECOVERY_MEANING)
+    assert compact.index(R.RECOVERY_MEANING) < compact.index(R.RECOVERY_NEXT)
+    assert compact.index(R.RECOVERY_NEXT) < compact.index(R.RECOVERY_TECHNICAL)
+    assert "\n\n" not in compact
+    assert f"{R.RECOVERY_HAPPENED}: {VIEWS['engine_failed'].message}" in compact
 
 
 def test_labels_follow_session_language():
@@ -194,6 +204,34 @@ def test_console_plain_failure_uses_recovery_sections(monkeypatch, capsys):
     assert VIEWS["engine_failed"].message in out
     assert VIEWS["engine_failed"].next_step in out
     assert "engine_failed" in out
+
+
+def test_curses_done_failure_keeps_report_status_on_first_page(monkeypatch):
+    from unittest.mock import PropertyMock, patch
+
+    from beamo_wipe.models import Screen, WipeResult
+    from beamo_wipe.wizard import Wizard
+    from test_console_parity import _at_pick, _draw
+
+    wiz = _at_pick()
+    disk = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    wiz.select_disk(disk.path)
+    wiz.preview = False
+    wiz.screen = Screen.DONE
+    wiz.wipe_result = WipeResult(True, 0, "Erase completed", "/tmp/x.log")
+    with patch.object(Wizard, "result_view", new_callable=PropertyMock) as view:
+        view.return_value = VIEWS["engine_failed"]
+        shown, _, term = _draw(monkeypatch, wiz)
+    message = VIEWS["engine_failed"].message
+    assert message in shown
+    assert f"{R.RECOVERY_HAPPENED}:" in shown
+    assert R.MEANING_MAY_REMAIN in shown
+    assert VIEWS["engine_failed"].next_step in shown
+    assert C.REPORT_STATUS_TITLE in shown
+    assert shown.index(message) < shown.index(C.REPORT_STATUS_TITLE)
+    last = term.frames[-1]
+    assert max(last) < 24
+    assert all(len(line) < 80 for line in last.values())
 
 
 def test_console_plain_blocked_uses_recovery_sections(monkeypatch, capsys):

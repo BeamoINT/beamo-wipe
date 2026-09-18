@@ -49,7 +49,10 @@ def _error_recovery_text(error, *, recovered: bool = False) -> str:
     )
     if sections is None:
         return f"{C.SEVERITY_ERROR}: {error}" if error else ""
-    return f"{C.SEVERITY_ERROR}\n{format_recovery_text(sections, include_technical=True)}"
+    return (
+        f"{C.SEVERITY_ERROR}\n"
+        f"{format_recovery_text(sections, include_technical=True, compact=True)}"
+    )
 
 
 def _next_language(wizard: Wizard) -> str:
@@ -1057,6 +1060,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                         wizard.diagnostic_step,
                     ),
                     include_technical=True,
+                    compact=True,
                 ),
                 w,
                 y_max,
@@ -1087,7 +1091,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
         elif wizard.screen == Screen.PICK_EMPTY:
             y = _wrap(stdscr, y, C.TITLE_EMPTY, w, y_max)
             _empty_text = format_recovery_text(
-                recovery_for_empty(), include_technical=True
+                recovery_for_empty(), include_technical=True, compact=True
             )
             if wizard.empty_detail:
                 _empty_text = f"{_empty_text}\n\n{wizard.empty_detail}"
@@ -1251,10 +1255,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             sections = recovery_for_view(wizard.result_view)
             if sections:
+                # Compact Label: body, no technical block. Stacked sections plus
+                # Result code pushed Report status and FAT32 aftercare off 80x24.
                 y = _wrap(
                     stdscr,
                     y,
-                    format_recovery_text(sections, include_technical=True),
+                    format_recovery_text(sections, compact=True),
                     w,
                     y_max,
                 )
@@ -1276,6 +1282,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
                         can_save=report.can_save, status=report.status, message=report.message
                     )
                 )
+            if sections and sections.technical:
+                from beamo_wipe import recovery as Rec
+
+                paras.append(f"{Rec.RECOVERY_TECHNICAL}: {sections.technical}")
             paras.append(wizard.elapsed_text)
             paras.append(C.REPORT_STATUS_NOTICE)
             if wizard.check_alerts:

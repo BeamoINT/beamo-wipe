@@ -485,7 +485,9 @@ def report_aftercare(*, can_save: bool, status: str, message: str) -> str:
         from beamo_wipe.recovery import format_recovery_text, recovery_for_export
         from beamo_wipe.support_export import next_step_needs_support
 
-        detail = format_recovery_text(recovery_for_export(message))
+        detail = format_recovery_text(
+            recovery_for_export(message), compact=True
+        )
         if next_step_needs_support(message):
             detail += "\n" + support_text()
         return detail + "\n" + EXPORT_GUIDE_RETRY + " " + REPORT_VOLATILE

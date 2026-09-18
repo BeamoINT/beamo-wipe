@@ -111,11 +111,21 @@ class RecoverySections:
 
 
 def format_recovery_text(
-    sections: RecoverySections, *, include_technical: bool = False
+    sections: RecoverySections,
+    *,
+    include_technical: bool = False,
+    compact: bool = False,
 ) -> str:
-    """Plain-text recovery block. Labels then bodies, in screen-reader order."""
+    """Plain-text recovery block. Labels then bodies, in screen-reader order.
+
+    compact=True joins each label to its body on one line, matching short Tk
+    and 80x24 curses so later landmarks still fit. Order is unchanged.
+    """
     lines: list[str] = []
     for label, body in sections.labeled_pairs(include_technical=include_technical):
+        if compact:
+            lines.append(f"{label}: {body}")
+            continue
         if lines:
             lines.append("")
         lines.append(label)

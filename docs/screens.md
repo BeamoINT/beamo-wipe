@@ -91,10 +91,15 @@ detail on demand: diagnostic, blocked, empty, keyboard/layout, last-chance,
 working, finished, report-USB refusal, and evidence-save failure. Unknown
 errors keep the original message, say the result is unconfirmed, and tell the
 owner not to bypass protection. RESULT.txt adds the labeled fields after
-Result for non-success outcomes only; Limitations is unchanged. The live USB
-supervisor recovery menu is an intentional difference: it is outside the
-Python wizard, so its **Technical details and logs** choice is not this
-three-section layout. The offline helper explains both.
+Result for non-success outcomes only; Limitations is unchanged. Short Tk and
+the 80×24 curses console join each label to its body on one line so **Report
+status**, the post-erase start note, and report-USB next steps stay in the
+first viewport; stacked labels plus on-demand technical details remain the
+full-height Tk, GTK/Orca, gallery, helper, and plain-console layout. Curses
+pages the Result code with report aftercare. The live USB supervisor recovery
+menu is an intentional difference: it is outside the Python wizard, so its
+**Technical details and logs** choice is not this three-section layout. The
+offline helper explains both.
 
 ### Stop controls and fallback differences
 
