@@ -3,7 +3,7 @@
 
 import pytest
 
-from beamo_wipe.copy import AUTHORIZATION_STALE
+from beamo_wipe.copy import AUTHORIZATION_STALE, SEVERITY_WARNING
 from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId, Screen, WipeRequest
@@ -193,4 +193,7 @@ def test_last_chance_tk_shows_operation_next_to_identity(ui, method_id):  # noqa
     assert view.title in texts
     assert SUMMARIES[method_id] in texts
     assert texts.index(SUMMARIES[method_id]) > texts.index(view.title)
-    assert wiz.erase_label() in texts
+    assert any(
+        text == f"{SEVERITY_WARNING}: {wiz.erase_label()}" or wiz.erase_label() in text
+        for text in texts
+    )

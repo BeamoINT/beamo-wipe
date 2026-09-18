@@ -1931,18 +1931,26 @@ class TkWizard:
             if sys.platform.startswith("linux"):
                 utility(C.SCREEN_READER_VIEW, self._click_accessible)
         if self.w.screen == Screen.DONE and not self.w.preview:
-            tk.Label(tools, text=C.ANOTHER_HINT, font=self.font_s, bg=BG,
-                     fg=MUTED, wraplength=600, justify=tk.LEFT).pack(side=tk.LEFT, padx=12)
+            tk.Label(
+                tools, text=C.ANOTHER_HINT, font=self.font_s, bg=BG,
+                fg=MUTED, wraplength=self.lay.content_w, justify=tk.LEFT,
+                anchor="w",
+            ).pack(fill=tk.X, pady=(4, 0))
         if self.w.can_open_diagnostic:
             utility(C.DIAGNOSTIC_TITLE, self._nav(self.w.open_diagnostic))
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
         row = tk.Frame(col, bg=BG)
         pad = self.lay.footer_pad_y
         row.pack(fill=tk.X, pady=(max(8, pad - 4), pad))
-        left = tk.Frame(row, bg=BG)
-        left.pack(side=tk.LEFT)
+        # Pack the primary cluster first so Shut down / Continue keep the
+        # right edge on 800-wide windows. Left actions wrap onto extra rows
+        # when they would collide with that reserved width.
         right = tk.Frame(row, bg=BG)
         right.pack(side=tk.RIGHT)
+        left_host = tk.Frame(row, bg=BG)
+        left_host.pack(side=tk.LEFT)
+        left = tk.Frame(left_host, bg=BG)
+        left.pack(anchor="w")
         mid = tk.Frame(row, bg=BG)
         mid.pack(fill=tk.BOTH, expand=True)
         if self.lay.short:
@@ -1954,17 +1962,35 @@ class TkWizard:
         else:
             self._hint = self._hint_bar(mid, hint)
             self._hint.pack(fill=tk.BOTH, expand=True)
+        row._left_host = left_host  # type: ignore[attr-defined]
         row._left = left  # type: ignore[attr-defined]
+        row._left_width = 0  # type: ignore[attr-defined]
         row._right = right  # type: ignore[attr-defined]
         return row
 
+    def _footer_left_parent(self, row: tk.Frame, width: int) -> tk.Frame:
+        """Next left-action row that still leaves room for the primary."""
+        budget = max(280, self.lay.content_w - 168)
+        used = getattr(row, "_left_width", 0)
+        if used and used + width > budget:
+            left = tk.Frame(row._left_host, bg=BG)  # type: ignore[attr-defined]
+            left.pack(anchor="w")
+            row._left = left  # type: ignore[attr-defined]
+            row._left_width = 0  # type: ignore[attr-defined]
+        row._left_width = getattr(row, "_left_width", 0) + width  # type: ignore[attr-defined]
+        return row._left  # type: ignore[attr-defined]
+
     def _back_btn(self, row: tk.Frame) -> _Button:
+        compact = self.lay.compact
+        pad_x = 12 if compact else 24
+        width = max(112, self.font_btn.measure(C.BTN_BACK) + 2 * pad_x + 6)
         btn = _Button(
-            row._left,  # type: ignore[attr-defined]
+            self._footer_left_parent(row, width),
             text=C.BTN_BACK,
             command=self._nav(self.w.back),
             font=self.font_btn,
             variant="secondary",
+            compact=compact,
             min_width=112,
         )
         btn.pack(side=tk.LEFT)
@@ -1977,13 +2003,17 @@ class TkWizard:
         command: Callable[[], None],
         enabled: bool = True,
     ) -> _Button:
+        compact = self.lay.compact
+        pad_x = 12 if compact else 24
+        width = self.font_btn.measure(text) + 2 * pad_x + 6
         btn = _Button(
-            row._left,  # type: ignore[attr-defined]
+            self._footer_left_parent(row, width),
             text=text,
             command=self._nav(command),
             font=self.font_btn,
             variant="secondary",
             enabled=enabled,
+            compact=compact,
         )
         btn.pack(side=tk.LEFT)
         return btn
@@ -3414,10 +3444,16 @@ class TkWizard:
             )
             self._secondary_btn(row, self.w.sound_toggle_text, self.w.toggle_sounds)
             self._secondary_btn(row, C.SOUND_HEAR_AGAIN, self.w.hear_outcome_sound)
-            _Button(row._left, text=C.BTN_ERASE_ANOTHER,
-                    command=self._nav(self.w.erase_another_disk),
-                    font=self.font_s_bold, variant="ghost", compact=True,
-                    enabled=self.w.can_erase_another).pack(side=tk.LEFT)
+            another = _Button(
+                self._footer_left_parent(
+                    row, self.font_s_bold.measure(C.BTN_ERASE_ANOTHER) + 2 * 12 + 6
+                ),
+                text=C.BTN_ERASE_ANOTHER,
+                command=self._nav(self.w.erase_another_disk),
+                font=self.font_s_bold, variant="ghost", compact=True,
+                enabled=self.w.can_erase_another,
+            )
+            another.pack(side=tk.LEFT)
             self._primary_btn(
                 row,
                 C.BTN_SHUTDOWN,

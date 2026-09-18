@@ -622,7 +622,13 @@ class AccessibleWizard:
         self.error_label.get_style_context().add_class("error-message")
         if self.w.error:
             self.error_label.get_accessible().set_role(Atk.Role.ALERT)
-        self.button(C.SOUND_CHECK_BUTTON, self.open_sound_check, utility=True)
+        if screen not in {
+            Screen.CHECKING,
+            Screen.STOPPING,
+            Screen.REFRESHING,
+            Screen.SHUTDOWN_CONFIRM,
+        }:
+            self.button(C.SOUND_CHECK_BUTTON, self.open_sound_check, utility=True)
         if self.w.can_open_diagnostic:
             self.button(C.DIAGNOSTIC_TITLE, self.w.open_diagnostic, utility=True)
         if self.w.can_open_report_help:

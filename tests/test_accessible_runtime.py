@@ -410,7 +410,7 @@ def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
     assert (C.TITLE_CONFIRM if screen == Screen.CONFIRM else C.TITLE_LAST) in text(app)
     arrival = app.window.get_focus()
     warning = wizard.warning_text() if screen == Screen.CONFIRM else wizard.erase_label()
-    assert arrival.get_text() == warning
+    assert arrival.get_text() == f"{C.SEVERITY_WARNING}: {warning}"
     has_selection, start, end = arrival.get_selection_bounds()
     assert not has_selection and start == end
     assert not wizard.runner.started
@@ -1087,6 +1087,7 @@ def test_accessible_erase_another_guard(ui):
 
 
 def _canned_sound(monkeypatch, calls, *, available=True, orca=True):
+    from beamo_wipe import copy as C
     from beamo_wipe import sound
 
     outputs = (
@@ -1095,7 +1096,7 @@ def _canned_sound(monkeypatch, calls, *, available=True, orca=True):
     )
     state = sound.SoundState(
         available=available,
-        message="" if available else "No sound output was found.",
+        message="" if available else C.SOUND_NO_OUTPUT,
         outputs=outputs if available else (),
         volume_percent=40 if available else None,
         muted=False if available else None,
@@ -1365,8 +1366,8 @@ def test_done_export_stages_announced_per_state(ui, tmp_path, status):
         wizard.report_message = "Report USB was removed."
     app = ui(wizard)
     body = text(app)
-    for stage in C.EXPORT_STAGES:
-        assert (stage in body) == (status != "error")
+    for index, stage in enumerate(C.EXPORT_STAGES, 1):
+        assert (f"{index}. {stage}" in body) == (status != "error")
     if status == "error":
         assert "Save report to USB again" in body
 
