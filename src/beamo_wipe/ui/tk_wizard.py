@@ -1120,8 +1120,6 @@ class TkWizard:
         # Optional extra detail (device path, bus) on existing screens.
         # One flag for the session; not a new wizard step.
         self._show_more = False
-        self._show_recovery_technical = False
-        self._recovery_tech_button: Optional[_Button] = None
         self._body_inner: Optional[tk.Frame] = None
         self._body_canvas: Optional[tk.Canvas] = None
         self._ring_px = self.lay.ring
@@ -1802,15 +1800,28 @@ class TkWizard:
         sections: RecoverySections,
         *,
         bg: str = BG,
+        omit_duplicate_happened: str = "",
     ) -> None:
-        """What happened, meaning, next; technical details on demand."""
+        """What happened, meaning, next; technical details separately.
+
+        When the screen heading already is What happened, skip a second
+        Label with that same text so outcome lookups keep the heading.
+        Technical detail is a muted line, not a button: Done tab order
+        stays Show more then Save report.
+        """
         from beamo_wipe import recovery as Rec
 
         frame = tk.Frame(parent, bg=bg)
         frame.pack(fill=tk.X, pady=(4, 0), anchor="w")
         for label, body in sections.labeled_pairs():
+            skip_body = (
+                omit_duplicate_happened
+                and label == Rec.RECOVERY_HAPPENED
+                and body == omit_duplicate_happened
+            )
             if self.lay.short:
-                self._p(frame, f"{label}: {body}", font=self.font_s, bg=bg).pack(
+                text = label if skip_body else f"{label}: {body}"
+                self._p(frame, text, font=self.font_s, bg=bg).pack(
                     fill=tk.X, pady=(4, 0)
                 )
                 continue
@@ -1822,30 +1833,18 @@ class TkWizard:
                 bg=bg,
                 anchor="w",
             ).pack(fill=tk.X, pady=(8, 0))
+            if skip_body:
+                continue
             self._p(frame, body, font=self.font_s, bg=bg).pack(fill=tk.X)
         if not sections.technical:
             return
-
-        def toggle() -> None:
-            self._show_recovery_technical = not self._show_recovery_technical
-            self._draw()
-            if self._recovery_tech_button is not None:
-                self._recovery_tech_button.focus_set()
-
-        open_ = self._show_recovery_technical
-        self._recovery_tech_button = _Button(
+        self._p(
             frame,
-            text=C.BTN_LESS if open_ else Rec.RECOVERY_TECHNICAL,
-            command=toggle,
-            font=self.font_s_bold,
-            variant="ghost",
-            compact=True,
-        )
-        self._recovery_tech_button.pack(anchor="w", pady=(8, 0))
-        if open_:
-            self._p(
-                frame, sections.technical, font=self.font_s, fg=MUTED, bg=bg
-            ).pack(fill=tk.X)
+            f"{Rec.RECOVERY_TECHNICAL}: {sections.technical}",
+            font=self.font_s,
+            fg=MUTED,
+            bg=bg,
+        ).pack(fill=tk.X, pady=(4, 0))
 
     def _more_link(self, parent: tk.Widget, *, bg: str = BG) -> bool:
         """Optional details use the shared, keyboard-accessible control."""
@@ -2924,9 +2923,6 @@ class TkWizard:
         col = self._column(self._body, fill_height=True)
         _icon_badge(col, "info", 40).pack(anchor="w")
         self._title_block(col, C.TITLE_EMPTY)
-        self._recovery_block(col, recovery_for_empty())
-        self._support_block(col)
-        self._support_identity_block(col)
         region = tk.Frame(col, bg=BG)
         region.pack(fill=tk.BOTH, expand=True)
         canvas = tk.Canvas(region, bg=BG, highlightthickness=0)
@@ -2934,6 +2930,9 @@ class TkWizard:
         window = canvas.create_window((0, 0), window=cards, anchor="nw")
         cards.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.bind("<Configure>", lambda _e: canvas.itemconfigure(window, width=canvas.winfo_width()))
+        self._recovery_block(cards, recovery_for_empty())
+        self._support_block(cards)
+        self._support_identity_block(cards)
         scroll = _Scrollbar(region, canvas.yview, takefocus=True)
         canvas.configure(yscrollcommand=scroll.set)
 
@@ -3605,7 +3604,9 @@ class TkWizard:
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
         sections = recovery_for_view(result)
         if sections:
-            self._recovery_block(col, sections)
+            self._recovery_block(
+                col, sections, omit_duplicate_happened=result.message
+            )
         else:
             self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
         for alert in self.w.check_alerts:

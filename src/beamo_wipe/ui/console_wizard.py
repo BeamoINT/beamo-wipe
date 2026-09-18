@@ -1254,18 +1254,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.method_result, w, y_max)
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             sections = recovery_for_view(wizard.result_view)
-            if sections:
-                # Compact Label: body, no technical block. Stacked sections plus
-                # Result code pushed Report status and FAT32 aftercare off 80x24.
-                y = _wrap(
-                    stdscr,
-                    y,
-                    format_recovery_text(sections, compact=True),
-                    w,
-                    y_max,
-                )
-            else:
-                y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
+            # First 80x24 page keeps the pre-#107 landmarks: outcome, next
+            # step, post-erase note, Report status, then paged aftercare.
+            # Labeled meaning/technical follow in the paged tail.
+            y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
             if wizard.done_support_needed:
                 y = _wrap(stdscr, y, C.support_text(), w, y_max)
             ident = _support_identity_text(wizard)
@@ -1282,10 +1274,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
                         can_save=report.can_save, status=report.status, message=report.message
                     )
                 )
-            if sections and sections.technical:
+            if sections:
                 from beamo_wipe import recovery as Rec
 
-                paras.append(f"{Rec.RECOVERY_TECHNICAL}: {sections.technical}")
+                paras.append(f"{Rec.RECOVERY_MEANING}: {sections.meaning}")
+                if sections.technical:
+                    paras.append(f"{Rec.RECOVERY_TECHNICAL}: {sections.technical}")
             paras.append(wizard.elapsed_text)
             paras.append(C.REPORT_STATUS_NOTICE)
             if wizard.check_alerts:

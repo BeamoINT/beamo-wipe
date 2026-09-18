@@ -94,9 +94,15 @@ owner not to bypass protection. RESULT.txt adds the labeled fields after
 Result for non-success outcomes only; Limitations is unchanged. Short Tk and
 the 80×24 curses console join each label to its body on one line so **Report
 status**, the post-erase start note, and report-USB next steps stay in the
-first viewport; stacked labels plus on-demand technical details remain the
-full-height Tk, GTK/Orca, gallery, helper, and plain-console layout. Curses
-pages the Result code with report aftercare. The live USB supervisor recovery
+first viewport; stacked labels remain the full-height Tk, GTK/Orca, gallery,
+helper, and plain-console layout. Tk Finished uses the outcome heading as
+What happened (no second copy of that sentence) and shows the Result code as
+a muted line rather than a button, so Tab still reaches **Save report to USB**
+after **Show more**. GTK, gallery, and the helper keep an expander. Curses
+pages the Result code after report aftercare so the first 80×24 page keeps
+**Report status** and export stages. Labeled meaning is in that paged tail;
+the outcome heading is What happened and the next-step paragraph is What to
+do next. The live USB supervisor recovery
 menu is an intentional difference: it is outside the Python wizard, so its
 **Technical details and logs** choice is not this three-section layout. The
 offline helper explains both.

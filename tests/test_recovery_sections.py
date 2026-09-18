@@ -207,6 +207,7 @@ def test_console_plain_failure_uses_recovery_sections(monkeypatch, capsys):
 
 
 def test_curses_done_failure_keeps_report_status_on_first_page(monkeypatch):
+    import curses
     from unittest.mock import PropertyMock, patch
 
     from beamo_wipe.models import Screen, WipeResult
@@ -221,14 +222,17 @@ def test_curses_done_failure_keeps_report_status_on_first_page(monkeypatch):
     wiz.wipe_result = WipeResult(True, 0, "Erase completed", "/tmp/x.log")
     with patch.object(Wizard, "result_view", new_callable=PropertyMock) as view:
         view.return_value = VIEWS["engine_failed"]
-        shown, _, term = _draw(monkeypatch, wiz)
+        shown, _, term = _draw(monkeypatch, wiz, keys=[curses.KEY_NPAGE])
     message = VIEWS["engine_failed"].message
-    assert message in shown
-    assert f"{R.RECOVERY_HAPPENED}:" in shown
-    assert R.MEANING_MAY_REMAIN in shown
-    assert VIEWS["engine_failed"].next_step in shown
-    assert C.REPORT_STATUS_TITLE in shown
-    assert shown.index(message) < shown.index(C.REPORT_STATUS_TITLE)
+    first = " ".join(term.frames[0][y] for y in sorted(term.frames[0]))
+    all_text = " ".join(
+        " ".join(frame[y] for y in sorted(frame)) for frame in term.frames
+    )
+    assert message in first
+    assert VIEWS["engine_failed"].next_step in first
+    assert C.REPORT_STATUS_TITLE in first
+    assert first.index(message) < first.index(C.REPORT_STATUS_TITLE)
+    assert R.MEANING_MAY_REMAIN in all_text
     last = term.frames[-1]
     assert max(last) < 24
     assert all(len(line) < 80 for line in last.values())
