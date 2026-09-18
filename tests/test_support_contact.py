@@ -276,14 +276,20 @@ def test_tk_support_text_is_keyboard_reachable():
         app.root.update()
         lead = app._support_lead
         assert lead is not None
-        assert str(lead.cget("takefocus")) in {"1", "true"}
+        # Visible and copyable, but not a Tab stop: Shut down → Show more
+        # → Save report must stay two Tabs (QEMU).
+        assert str(lead.cget("takefocus")) in {"", "0", "false"}
         assert SC.SUPPORT_SHORT in str(lead.cget("text"))
         wrap = int(float(lead.cget("wraplength") or 0))
         assert wrap >= 200
         assert wrap <= app.root.winfo_width()
+        current = app.root.focus_get()
+        for _ in range(2):
+            current = current.tk_focusNext()
+            assert current is not lead
         try:
             app.root.clipboard_clear()
-            lead.event_generate("<Control-c>")
+            app.root.event_generate("<Control-c>")
             app.root.update_idletasks()
             assert app.root.clipboard_get() == SC.SUPPORT_SHORT
         except tk.TclError:
