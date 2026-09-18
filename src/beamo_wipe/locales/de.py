@@ -78,6 +78,12 @@ STRINGS = {
         "REDISCOVER_ERROR": "Die Datenträger konnten nicht erneut geprüft werden. Das Löschen hat nicht begonnen.",
         "SUPPORT_LEAD": "Hilfe finden Sie unter {short} oder scannen Sie den Code mit Ihrem Telefon.",
         "SUPPORT_TEXT": "Hilfe finden Sie unter {short}.",
+        "SUPPORT_CODE_LABEL": "Supportcode",
+        "SUPPORT_SAVE_LABEL": "Speichercode",
+        "SUPPORT_BUILD_LABEL": "Build-Kennung",
+        "SUPPORT_CODE_HINT": (
+            "Lesen Sie diese genauen Werte dem Support vor, wenn ein Bericht nicht gespeichert werden kann."
+        ),
         "SSD_FOOTER_SUFFIX": " Kein formales Zertifikat.",
         "WORKING_PULSE": "Lassen Sie den USB-Stick stecken. Lassen Sie das Netzteil angeschlossen, wenn dieser Computer einen Akku hat. Lassen Sie den Deckel offen. Schalten Sie den PC nicht aus.",
         "NOT_LIVE_ERROR": "Beamo Wipe löscht Datenträger nur, nachdem Sie den Computer von diesem USB-Stick gestartet haben. Es löscht keinen Datenträger aus Windows oder einem installierten Linux-System. Führen Sie ./preview aus, um die Bildschirme auf diesem Computer zu sehen, oder starten Sie vom USB-Stick.",

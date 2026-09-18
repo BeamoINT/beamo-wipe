@@ -39,6 +39,8 @@ The native and browser wizard previews keep their existing diagnostic and
 session-recovery screens: they do not run this privileged live supervisor.
 The offline helper explains the same recovery choices. No wizard disk identity,
 exclusion, warning, or result is replaced by the generic recovery screen.
+Recovery cannot show a Beamo Wipe support code or build id: those values come
+from the Python wizard when a report cannot be saved.
 
 Recovery resets terminal input and cursor state left behind by a crashed console
 UI. Its numbered choices require no pointing device and fit an 80-column,

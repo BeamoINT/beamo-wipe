@@ -56,6 +56,15 @@ before these interfaces can run, the application cannot generate a report.
 Record the visible fixed error message and the distributed build identity
 manually. No report can be recovered after shutdown unless it was exported.
 
+When export is blocked, every wizard interface still shows a non-sensitive
+**Support code** (form `BW-family-token`) and **Build** line, plus a **Save
+code** when the on-screen refusal is a known export failure. Labels follow
+the chosen language; the code and build id never do. The values are safe to
+photograph or read over the phone. They are not disk serials, paths, or a
+substitute for a saved `diagnostic.json`. Correlate them with
+`diagnostics.log` area `support` and serial markers `BEAMO_WIPE_SUPPORT_*`.
+Kiosk recovery cannot mint these codes: it has no Python wizard.
+
 If you requested a report, an unsaved diagnostic requires the explicit
 **Shut down without saving?** decision. **Keep session open** returns to the
 diagnostic screen to save or retry. Only a verified diagnostic export for the

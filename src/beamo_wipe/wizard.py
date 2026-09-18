@@ -356,6 +356,7 @@ class Wizard:
         self._diagnostic_baseline = ()
         self._diagnostic_busy = False
         self._diagnostic_from = Screen.PICK_BLOCKED
+        self._logged_support_identity = None
         self._startup_blocked = False
         self._session_store: Optional[SessionStore] = None
         self._recovered = False
@@ -1012,6 +1013,18 @@ class Wizard:
         if step and next_step_needs_support(self.diagnostic_message):
             return step + " " + C.support_text()
         return step
+
+    @property
+    def support_identity(self):
+        """Non-sensitive code plus build id when a report cannot be saved."""
+        from beamo_wipe.support_code import identity_for_wizard, record_identity
+
+        ident = identity_for_wizard(self)
+        logged = getattr(self, "_logged_support_identity", None)
+        if ident is not None and ident != logged:
+            record_identity(ident)
+            self._logged_support_identity = ident
+        return ident
 
     def erase_another_disk(self) -> None:
         """Request replacement by a freshly constructed application session."""

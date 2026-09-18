@@ -341,3 +341,10 @@ def test_helper_lists_rejection_remedies(name):
     }[name]
     for marker in markers:
         assert marker in card
+    code_markers = {
+        "index.html": ("Support code", "Build"),
+        "fr.html": ("Code d’assistance", "Version"),
+        "de.html": ("Supportcode", "Build-Kennung"),
+    }[name]
+    for marker in code_markers:
+        assert marker in card

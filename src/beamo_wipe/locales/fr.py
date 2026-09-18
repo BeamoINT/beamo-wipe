@@ -78,6 +78,12 @@ STRINGS = {
         "REDISCOVER_ERROR": "Impossible de vérifier à nouveau les disques. L’effacement n’a pas commencé.",
         "SUPPORT_LEAD": "Pour obtenir de l’aide, visitez {short} ou scannez le code avec votre téléphone.",
         "SUPPORT_TEXT": "Pour obtenir de l’aide, visitez {short}.",
+        "SUPPORT_CODE_LABEL": "Code d’assistance",
+        "SUPPORT_SAVE_LABEL": "Code d’enregistrement",
+        "SUPPORT_BUILD_LABEL": "Version",
+        "SUPPORT_CODE_HINT": (
+            "Lisez ces valeurs exactes au support si un rapport ne peut pas être enregistré."
+        ),
         "SSD_FOOTER_SUFFIX": " Pas un certificat formel.",
         "WORKING_PULSE": "Laissez la clé USB branchée. Restez branché sur le secteur si cet ordinateur a une batterie. Gardez le capot ouvert. N’éteignez pas le PC.",
         "NOT_LIVE_ERROR": "Beamo Wipe efface les disques uniquement après avoir démarré l’ordinateur depuis cette clé USB. Il n’effacera pas un disque depuis Windows ni depuis un système Linux installé. Lancez ./preview pour voir les écrans sur cet ordinateur, ou démarrez depuis la clé USB.",

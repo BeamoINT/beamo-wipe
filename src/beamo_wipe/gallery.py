@@ -11,6 +11,12 @@ from urllib.parse import quote
 from beamo_wipe import copy as C
 from beamo_wipe import storage_limits as limits
 from beamo_wipe.support_contact import qr_svg as _support_qr_svg
+from beamo_wipe.support_code import (
+    code_for_export_detail,
+    code_for_startup,
+    public_build_id,
+)
+from beamo_wipe.support_export import USB_FAT32_ONLY
 from beamo_wipe import inventory
 from beamo_wipe.outcomes import preview_view
 from beamo_wipe.demo import discovery_for_scenario
@@ -235,6 +241,14 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "empty": C.EMPTY_DISKS,
         "supportLead": C.support_lead(),
         "supportQr": _support_qr_svg(),
+        "supportCodeLabel": C.SUPPORT_CODE_LABEL,
+        "supportSaveLabel": C.SUPPORT_SAVE_LABEL,
+        "supportBuildLabel": C.SUPPORT_BUILD_LABEL,
+        "supportCodeHint": C.SUPPORT_CODE_HINT,
+        "sampleBlockedCode": code_for_startup("boot_unidentified"),
+        "sampleEmptyCode": code_for_startup("no_eligible_disks"),
+        "sampleExportCode": code_for_export_detail(USB_FAT32_ONLY),
+        "sampleBuild": public_build_id(),
         "ssd": C.SSD_FOOTER,
         "sameSize": C.SAME_SIZE_HINT,
         "sameSizeConflict": same_size_conflict(listed_disks(result)),
@@ -612,6 +626,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .support svg { width: 132px; height: auto; flex: none; border: 1px solid var(--muted); background: #fff; }
   .support p { margin: 0; min-width: 0; }
   .support p:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  .support-code { max-width: 700px; margin: 16px auto 0; text-align: left; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .support-code .row { display: flex; gap: 12px; margin: 0; }
+  .support-code .k { color: var(--muted); min-width: 7em; }
+  .support-code .v { font-weight: 700; letter-spacing: 0.04em; }
+  .support-code .hint { margin: 6px 0 0; color: var(--muted); font-family: inherit; font-weight: 400; letter-spacing: 0; }
   /* Splash: a plain white field, the navy-on-transparent brand mark,
      huge simple type, and one primary action — mirroring TkWizard._splash. */
   .splashwrap { min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
@@ -856,6 +875,10 @@ function stepInfo() {
 function supportBlock() {
   return `<div class="support"><div aria-hidden="true">${P.supportQr}</div><p tabindex="0">${P.supportLead}</p></div>`;
 }
+function supportCodeBlock(code, extra) {
+  const save = extra ? `<p class="row"><span class="k">${esc(P.supportSaveLabel)}</span><span class="v">${esc(extra)}</span></p>` : "";
+  return `<div class="support-code" tabindex="0"><p class="row"><span class="k">${esc(P.supportCodeLabel)}</span><span class="v">${esc(code)}</span></p>${save}<p class="row"><span class="k">${esc(P.supportBuildLabel)}</span><span class="v">${esc(P.sampleBuild)}</span></p><p class="hint">${esc(P.supportCodeHint)}</p></div>`;
+}
 function btn(label, fn, cls, disabled) {
   const b = document.createElement("button");
   b.textContent = label;
@@ -1040,12 +1063,12 @@ function draw() {
     btnsR.append(btn(P.buttons.continue, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
     main.innerHTML = `<div class="centerstage"><div class="badgehalo danger">${badge("danger", 51)}</div>
-      <h1>${P.titles.blocked}</h1><p class="statustext">${P.identify}</p></div>`;
+      <h1>${P.titles.blocked}</h1><p class="statustext">${P.identify}</p>${supportCodeBlock(P.sampleBlockedCode)}</div>`;
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
     btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "empty") {
     let html = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
-      <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p>${supportBlock()}</div>`;
+      <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p>${supportBlock()}${supportCodeBlock(P.sampleEmptyCode)}</div>`;
     html += `<div class="disklist">` + disks().map(diskCard).join("") + `</div>`;
     main.innerHTML = html;
     renderOtherDevices();

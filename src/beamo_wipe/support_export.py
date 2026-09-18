@@ -434,7 +434,18 @@ def _marker_for(detail: str) -> str:
 
 def _emit_export_failure(exc: Exception) -> None:
     """Map a failure message to one fixed marker without exporting metadata."""
-    _emit_export_marker(_marker_for(str(exc)))
+    detail = str(exc)
+    _emit_export_marker(_marker_for(detail))
+    try:
+        from beamo_wipe.support_code import code_for_export_detail, record_identity, SupportIdentity, public_build_id
+
+        ident = SupportIdentity(
+            code=code_for_export_detail(detail),
+            build_id=public_build_id(),
+        )
+        record_identity(ident)
+    except Exception:
+        pass
 
 
 @dataclass(frozen=True)

@@ -68,6 +68,13 @@ def _identity_text(view) -> str:
     return view.announcement
 
 
+def _support_identity_text(wizard: Wizard) -> str:
+    ident = wizard.support_identity
+    if ident is None:
+        return ""
+    return C.support_identity_text(ident)
+
+
 def _pick_blocks(wizard: Wizard, width: int) -> list[tuple[object, list[str]]]:
     """One wrapped block per eligible disk: heading, identifier, notes."""
     blocks = []
@@ -454,6 +461,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(wizard.diagnostic_message)
             if wizard.diagnostic_step:
                 print(wizard.diagnostic_step)
+            ident = _support_identity_text(wizard)
+            if ident:
+                print(ident)
             action = "SAVE" if wizard._diagnostic_baseline else "PREPARE"
             answer = input(C.CON_DIAG_TYPE.format(action=action)).strip().upper()
             if answer == action:
@@ -512,6 +522,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(C.POWER_BLANKING)
             print(C.POWER_EVENTS)
             print(wizard.power_text)
+            ident = _support_identity_text(wizard)
+            if ident:
+                print(ident)
             _answer(wizard, C.CON_PRESS_ENTER_CONTINUE)
             wizard.accept_what()
             continue
@@ -527,12 +540,18 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(f"{C.SEVERITY_ERROR}: {wizard.error or C.IDENTIFY_ERROR}")
             if error_needs_support(wizard.error):
                 print(C.support_text())
+            ident = _support_identity_text(wizard)
+            if ident:
+                print(ident)
             _answer(wizard, C.CON_PRESS_ENTER_SHUTDOWN)
             wizard.shutdown()
             continue
         if screen == Screen.PICK_EMPTY:
             print(C.EMPTY_DISKS)
             print(C.support_text())
+            ident = _support_identity_text(wizard)
+            if ident:
+                print(ident)
             if wizard.protected_boot_text:
                 print(wizard.protected_boot_text)
             if wizard.other_devices:
@@ -672,6 +691,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 print(f"{C.SEVERITY_ERROR}: {wizard.error}")
                 if error_needs_support(wizard.error):
                     print(C.support_text())
+            ident = _support_identity_text(wizard)
+            if ident:
+                print(ident)
             while wizard.countdown_left > 0:
                 wizard.tick()
                 print(C.CON_COUNTDOWN.format(seconds=wizard.countdown_display))
@@ -748,6 +770,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(wizard.result_view.next_step)
             if wizard.done_support_needed:
                 print(C.support_text())
+            ident = _support_identity_text(wizard)
+            if ident:
+                print(ident)
             if may_have_erased(wizard.result_view.code):
                 print(C.POST_ERASE_BOOT)
             print(wizard.sound_toggle_text)
@@ -920,6 +945,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             lines.extend(_lines(C.POWER_BLANKING, w))
             lines.extend(_lines(wizard.power_text, w))
             lines.extend(_lines(C.POWER_EVENTS, w))
+            ident = _support_identity_text(wizard)
+            if ident:
+                lines.extend(_lines(ident, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.OWNER:
             y = _wrap(stdscr, y, C.OWNER_CHECKBOX, w, y_max)
@@ -979,7 +1007,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, D.PREPARE, w, y_max)
             y = _wrap(stdscr, y, wizard.diagnostic_message, w, y_max)
             if wizard.diagnostic_step:
-                _wrap(stdscr, y, wizard.diagnostic_step, w, y_max)
+                y = _wrap(stdscr, y, wizard.diagnostic_step, w, y_max)
+            ident = _support_identity_text(wizard)
+            if ident:
+                y = _wrap(stdscr, y, ident, w, y_max)
         elif wizard.screen == Screen.PICK_BLOCKED:
             y = _wrap(
                 stdscr,
@@ -990,13 +1021,19 @@ def _loop(stdscr, wizard: Wizard) -> int:
             )
             y = _wrap(stdscr, y, f"{C.SEVERITY_ERROR}: {wizard.error or C.IDENTIFY_ERROR}", w, y_max)
             if error_needs_support(wizard.error):
-                _wrap(stdscr, y, C.support_text(), w, y_max)
+                y = _wrap(stdscr, y, C.support_text(), w, y_max)
+            ident = _support_identity_text(wizard)
+            if ident:
+                y = _wrap(stdscr, y, ident, w, y_max)
         elif wizard.screen == Screen.PICK_EMPTY:
             _empty_text = C.EMPTY_DISKS
             if wizard.empty_detail:
                 _empty_text = f"{_empty_text}\n\n{wizard.empty_detail}"
             y = _wrap(stdscr, y, _empty_text, w, y_max)
-            _wrap(stdscr, y, C.support_text(), w, y_max)
+            y = _wrap(stdscr, y, C.support_text(), w, y_max)
+            ident = _support_identity_text(wizard)
+            if ident:
+                y = _wrap(stdscr, y, ident, w, y_max)
         elif wizard.screen == Screen.CONFIRM and wizard.selected:
             view = wizard.disk_view(wizard.selected)
             y = _wrap_view(stdscr, y, view, w, y_max)
@@ -1102,6 +1139,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 rest.extend(_lines(f"{C.SEVERITY_ERROR}: {wizard.error}", w))
                 if error_needs_support(wizard.error):
                     rest.extend(_lines(C.support_text(), w))
+            ident = _support_identity_text(wizard)
+            if ident:
+                rest.extend(_lines(ident, w))
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
         elif wizard.screen == Screen.WORKING:
             if wizard.stop_confirmation is not None:
@@ -1150,6 +1190,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
             if wizard.done_support_needed:
                 y = _wrap(stdscr, y, C.support_text(), w, y_max)
+            ident = _support_identity_text(wizard)
+            if ident:
+                y = _wrap(stdscr, y, ident, w, y_max)
             if may_have_erased(wizard.result_view.code):
                 y = _wrap(stdscr, y, C.POST_ERASE_BOOT, w, y_max)
             y = _wrap(stdscr, y, C.REPORT_STATUS_TITLE, w, y_max)
