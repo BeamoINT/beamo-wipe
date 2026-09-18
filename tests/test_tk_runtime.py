@@ -475,6 +475,39 @@ def test_status_screens_fit(ui, size):
         assert _off_window_problems(app) == []
 
 
+def test_blocked_and_empty_use_recovery_section_labels(ui):
+    from beamo_wipe import copy as C
+    from beamo_wipe import recovery as Rec
+
+    wiz, app = ui(scenario="blocked")
+    wiz.skip_intro()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    app._draw()
+    app.root.update()
+    labels = [w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)]
+    assert Rec.RECOVERY_HAPPENED in labels
+    assert Rec.RECOVERY_MEANING in labels
+    assert Rec.RECOVERY_NEXT in labels
+    assert Rec.MEANING_BLOCKED in labels
+    assert C.IDENTIFY_ERROR in labels
+    empty, empty_app = ui(scenario="empty")
+    empty.skip_intro()
+    empty.accept_what()
+    empty.set_owner(True)
+    empty.continue_owner()
+    empty_app._draw()
+    empty_app.root.update()
+    empty_labels = [
+        w.cget("text") for w in descendants(empty_app.root) if isinstance(w, tk.Label)
+    ]
+    assert Rec.RECOVERY_HAPPENED in empty_labels
+    assert Rec.MEANING_EMPTY in empty_labels
+    assert C.EMPTY_DISKS in empty_labels
+    assert Rec.RECOVERY_TECHNICAL not in empty_labels
+
+
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 def test_done_screen_fits(ui, size):
     wiz, app = ui(size=size)
@@ -1097,6 +1130,14 @@ def test_every_terminal_result_renders_consistent_text(ui, case, size):
     assert wiz.result_view.message in texts
     assert wiz.result_view.next_step in texts
     assert evidence["presentation"]["announcement"] == wiz.result_view.announcement
+    from beamo_wipe import recovery as Rec
+    if wiz.result_view.success:
+        assert Rec.RECOVERY_HAPPENED not in texts
+    else:
+        assert Rec.RECOVERY_HAPPENED in texts
+        assert Rec.RECOVERY_MEANING in texts
+        assert Rec.RECOVERY_NEXT in texts
+        assert Rec.recovery_for_view(wiz.result_view).meaning in texts
     from beamo_wipe.outcomes import AFTERCARE_SUCCESS
     shown = " ".join(texts)
     if wiz.result_view.success:

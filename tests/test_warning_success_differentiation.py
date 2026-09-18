@@ -219,7 +219,10 @@ def test_console_errors_warnings_and_limits_carry_words(monkeypatch, capsys):
     blocked.continue_owner()
     assert blocked.screen == Screen.PICK_BLOCKED
     output = _run_plain(blocked, monkeypatch, capsys)
-    assert f"{C.SEVERITY_ERROR}: " in output
+    assert C.SEVERITY_ERROR in output
+    from beamo_wipe import recovery as R
+    assert R.RECOVERY_HAPPENED in output
+    assert C.IDENTIFY_ERROR in output
 
     picking = make_demo_wizard()
     picking.skip_intro()
@@ -240,7 +243,10 @@ def test_console_keyboard_error_is_labeled_error(monkeypatch, capsys):
     assert wizard.screen == Screen.KEYBOARD
     wizard.error = "Could not change the keyboard layout."
     output = _run_plain(wizard, monkeypatch, capsys)
-    assert f"{C.SEVERITY_ERROR}: Could not change the keyboard layout." in output
+    from beamo_wipe import recovery as R
+    assert C.SEVERITY_ERROR in output
+    assert "Could not change the keyboard layout." in output
+    assert R.RECOVERY_HAPPENED in output
 
 
 def test_curses_report_and_pick_severities_carry_words(monkeypatch):

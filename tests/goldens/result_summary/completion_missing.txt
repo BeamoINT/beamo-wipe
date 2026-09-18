@@ -10,6 +10,9 @@ Method: Everyday. One overwrite, followed by verification.
 Overwrites: 1
 Elapsed: less than 1 minute
 Result: Erase completion could not be confirmed
+What happened: Erase completion could not be confirmed
+What it means for your disk: The result could not be confirmed. Treat the disk as still containing data.
+What to do next: Files may still be on the disk. Save the report if available and contact support. Shut down before disconnecting.
 Verification: unavailable
 Warnings:
 - SSD limits: Overwriting reaches only storage the device exposes. It cannot guarantee coverage of inaccessible, remapped, over-provisioned (spare), or controller-managed flash areas. Additional overwrite passes do not fix these limitations.

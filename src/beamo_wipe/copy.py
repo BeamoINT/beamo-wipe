@@ -482,13 +482,13 @@ def report_aftercare(*, can_save: bool, status: str, message: str) -> str:
             + REPORT_VOLATILE
         )
     if status == "error":
-        from beamo_wipe.support_export import next_step_for, next_step_needs_support
+        from beamo_wipe.recovery import format_recovery_text, recovery_for_export
+        from beamo_wipe.support_export import next_step_needs_support
 
-        step = next_step_for(message)
-        detail = message + (" " + step if step else "")
+        detail = format_recovery_text(recovery_for_export(message))
         if next_step_needs_support(message):
-            detail += " " + support_text()
-        return detail + " " + EXPORT_GUIDE_RETRY + " " + REPORT_VOLATILE
+            detail += "\n" + support_text()
+        return detail + "\n" + EXPORT_GUIDE_RETRY + " " + REPORT_VOLATILE
     detail = message or (REPORT_INSERT if can_save else REPORT_EXPORT_UNAVAILABLE)
     if message or not can_save:
         return detail + " " + REPORT_VOLATILE

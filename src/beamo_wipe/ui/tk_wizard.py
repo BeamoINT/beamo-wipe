@@ -34,6 +34,14 @@ from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.ui.layout import DEFAULT_SIZE, MIN_SIZE, layout_for
+from beamo_wipe.recovery import (
+    RecoverySections,
+    recovery_for_blocked,
+    recovery_for_diagnostic,
+    recovery_for_empty,
+    recovery_for_view,
+    recovery_for_wizard_error,
+)
 from beamo_wipe.support_export import next_step_needs_support
 from beamo_wipe.wizard import (
     COUNTDOWN_S,
@@ -1112,6 +1120,8 @@ class TkWizard:
         # Optional extra detail (device path, bus) on existing screens.
         # One flag for the session; not a new wizard step.
         self._show_more = False
+        self._show_recovery_technical = False
+        self._recovery_tech_button: Optional[_Button] = None
         self._body_inner: Optional[tk.Frame] = None
         self._body_canvas: Optional[tk.Canvas] = None
         self._ring_px = self.lay.ring
@@ -1786,6 +1796,52 @@ class TkWizard:
             side=tk.LEFT, padx=(10, 0)
         )
 
+    def _recovery_block(
+        self,
+        parent: tk.Widget,
+        sections: RecoverySections,
+        *,
+        bg: str = BG,
+    ) -> None:
+        """What happened, meaning, next; technical details on demand."""
+        from beamo_wipe import recovery as Rec
+
+        frame = tk.Frame(parent, bg=bg)
+        frame.pack(fill=tk.X, pady=(4, 0), anchor="w")
+        for label, body in sections.labeled_pairs():
+            tk.Label(
+                frame,
+                text=label,
+                font=self.font_s_bold,
+                fg=INK,
+                bg=bg,
+                anchor="w",
+            ).pack(fill=tk.X, pady=(8, 0))
+            self._p(frame, body, font=self.font_s, bg=bg).pack(fill=tk.X)
+        if not sections.technical:
+            return
+
+        def toggle() -> None:
+            self._show_recovery_technical = not self._show_recovery_technical
+            self._draw()
+            if self._recovery_tech_button is not None:
+                self._recovery_tech_button.focus_set()
+
+        open_ = self._show_recovery_technical
+        self._recovery_tech_button = _Button(
+            frame,
+            text=C.BTN_LESS if open_ else Rec.RECOVERY_TECHNICAL,
+            command=toggle,
+            font=self.font_s_bold,
+            variant="ghost",
+            compact=True,
+        )
+        self._recovery_tech_button.pack(anchor="w", pady=(8, 0))
+        if open_:
+            self._p(
+                frame, sections.technical, font=self.font_s, fg=MUTED, bg=bg
+            ).pack(fill=tk.X)
+
     def _more_link(self, parent: tk.Widget, *, bg: str = BG) -> bool:
         """Optional details use the shared, keyboard-accessible control."""
         open_ = self._show_more
@@ -2173,7 +2229,11 @@ class TkWizard:
             chip.configure(cursor="hand2")
             chip.inner.configure(cursor="hand2")
         if self.w.error:
-            self._panel(zone, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+            sections = recovery_for_wizard_error(self.w.error)
+            if sections:
+                self._recovery_block(zone, sections)
+            else:
+                self._panel(zone, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         elif self.w.keyboard_message:
             self._panel(zone, kind="warn", text=self.w.keyboard_message).pack(fill=tk.X, pady=(12, 0))
         tk.Label(
@@ -2386,7 +2446,11 @@ class TkWizard:
         if same_size_conflict(self.w.listed_disks):
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.error:
-            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
+            sections = recovery_for_wizard_error(self.w.error)
+            if sections:
+                self._recovery_block(col, sections)
+            else:
+                self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
             if error_needs_support(self.w.error):
                 self._support_block(col)
         elif any(not self.w.disk_view(disk).confirmable for disk in self.w.selectable):
@@ -2832,7 +2896,19 @@ class TkWizard:
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
 
     def _blocked(self) -> None:
-        self._status_screen("danger", C.blocked_title(self.w.error, recovered=self.w._recovered), self.w.error or C.IDENTIFY_ERROR)
+        col = self._column(self._body, fill_height=True)
+        icon = _icon_badge(col, "danger", 88)
+        icon.configure(bg=BG)
+        icon.pack(pady=(8, 0))
+        heading = self._h(col, C.blocked_title(self.w.error, recovered=self.w._recovered))
+        heading.configure(anchor="w", justify=tk.LEFT)
+        heading.pack(fill=tk.X, pady=(12, 4))
+        self._recovery_block(
+            col, recovery_for_blocked(self.w.error, recovered=self.w._recovered)
+        )
+        if error_needs_support(self.w.error):
+            self._support_block(col)
+        self._support_identity_block(col)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2842,8 +2918,8 @@ class TkWizard:
     def _empty(self) -> None:
         col = self._column(self._body, fill_height=True)
         _icon_badge(col, "info", 40).pack(anchor="w")
-        msg = C.EMPTY_DISKS
-        self._title_block(col, C.TITLE_EMPTY, msg)
+        self._title_block(col, C.TITLE_EMPTY)
+        self._recovery_block(col, recovery_for_empty())
         self._support_block(col)
         self._support_identity_block(col)
         region = tk.Frame(col, bg=BG)
@@ -2888,13 +2964,17 @@ class TkWizard:
 
     def _diagnostic(self, view) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, D.report_title(self.w.startup_error_code), D.NOTICE)
-        self._p(col, D.PREPARE, font=self.font_s).pack(fill=tk.X, pady=8)
-        self._p(col, view.message, font=self.font_s).pack(fill=tk.X, pady=8)
-        if self.w.diagnostic_step:
-            self._p(col, self.w.diagnostic_step, font=self.font_s).pack(fill=tk.X)
-            if next_step_needs_support(self.w.diagnostic_message):
-                self._support_block(col)
+        self._title_block(col, D.report_title(self.w.startup_error_code))
+        self._recovery_block(
+            col,
+            recovery_for_diagnostic(
+                self.w.startup_error_code,
+                view.message,
+                self.w.diagnostic_step,
+            ),
+        )
+        if next_step_needs_support(self.w.diagnostic_message):
+            self._support_block(col)
         self._support_identity_block(col)
         row = self._footer_shell(C.NO_OUTCOME_RECORDED)
         self._secondary_btn(row, C.BTN_BACK, self.w.close_diagnostic, enabled=not view.busy)
@@ -3272,7 +3352,11 @@ class TkWizard:
                              font=self.font_bold, bg=BG, fg=DANGER).pack_configure(pady=(16, 8))
         self._wrapping_label(details, self.w.method_summary, font=self.font_s, bg=BG)
         if self.w.error:
-            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+            sections = recovery_for_wizard_error(self.w.error)
+            if sections:
+                self._recovery_block(col, sections)
+            else:
+                self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
             self._support_identity_block(col)
         self._power_notice(details)
         ring_px = self.lay.ring
@@ -3362,7 +3446,11 @@ class TkWizard:
                           if self.w.error == C.VIEWS["stop_unconfirmed"].announcement
                           else C.TITLE_WORKING)
         if self.w.error:
-            self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
+            sections = recovery_for_wizard_error(self.w.error)
+            if sections:
+                self._recovery_block(col, sections)
+            else:
+                self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
             if error_needs_support(self.w.error):
                 self._support_block(col)
         if disk is not None:
@@ -3510,7 +3598,11 @@ class TkWizard:
             compact=True,
         ).pack(fill=tk.X)
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
-        self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
+        sections = recovery_for_view(result)
+        if sections:
+            self._recovery_block(col, sections)
+        else:
+            self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
         for alert in self.w.check_alerts:
             self._panel(col, kind="warn", text=alert).pack(fill=tk.X, pady=(8, 0))
         if self.w.sound_message:

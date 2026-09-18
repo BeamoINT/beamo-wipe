@@ -10,6 +10,9 @@ Method: Everyday. One overwrite, followed by verification.
 Overwrites: 1
 Elapsed: less than 1 minute
 Result: The disk is in use
+What happened: The disk is in use
+What it means for your disk: The erase did not complete. This disk is not confirmed erased.
+What to do next: The erase did not complete. Save the report and ask support what is using the disk. Do not force access.
 Verification: unavailable
 Warnings:
 - SSD limits: Overwriting reaches only storage the device exposes. It cannot guarantee coverage of inaccessible, remapped, over-provisioned (spare), or controller-managed flash areas. Additional overwrite passes do not fix these limitations.
