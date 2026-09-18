@@ -504,8 +504,8 @@ sys.exit(entry['main']())
         stderr=subprocess.DEVNULL,
     )
 
-    def wait_for(phrase, *, since=0):
-        deadline = time.monotonic() + 15
+    def wait_for(phrase, *, since=0, timeout=15):
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             drain()
             content = logfile.read_text(errors="replace") if logfile.exists() else ""
@@ -574,7 +574,10 @@ sys.exit(entry['main']())
         wizard.back(); wizard.back(); wizard.back()
         checkpoint = len(logfile.read_text(errors="replace"))
         app.render()
-        wait_for(C.TITLE_PICK, since=checkpoint)
+        # Destroying last-chance's dense widget tree leaves Orca draining
+        # defunct children-changed events for >15s before it speaks the
+        # new heading (reproduced at ~16s on bookworm).
+        wait_for(C.TITLE_PICK, since=checkpoint, timeout=40)
         checkpoint = len(logfile.read_text(errors="replace"))
         app.actions[C.DISK_HELP_BUTTON].grab_focus()
         wait_for(C.DISK_HELP_BUTTON, since=checkpoint)
