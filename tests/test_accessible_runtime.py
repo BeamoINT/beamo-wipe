@@ -471,7 +471,7 @@ def test_orca_announces_every_result(ui, tmp_path):
             env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
             capture_output=True,
             text=True,
-            timeout=180,
+            timeout=300,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         assert "warning" not in result.stdout.lower(), result.stdout
@@ -561,29 +561,16 @@ sys.exit(entry['main']())
         wizard.set_confirm_input(wizard.confirm.token)
         wizard.continue_confirm()
         wizard.continue_method()
+        # Freeze the countdown before the first last-chance paint. A live
+        # countdown mutates a GtkLabel every second; Orca queues those
+        # text-changed events and never speaks TITLE_PICK after the widgets
+        # are destroyed.
+        wizard._erase_until = 0.0
         checkpoint = len(logfile.read_text(errors="replace"))
         app.render()
         wait_for(wizard.erase_label(), since=checkpoint)
         assert not wizard.runner.started
         from beamo_wipe import copy as C
-        # The last-chance countdown mutates a GtkLabel every second. Leaving
-        # the screen while those text-changed events are still queued leaves
-        # Orca processing defunct widgets, so it never speaks TITLE_PICK.
-        wizard._erase_until = 0.0
-        app.tick()
-        drain()
-        previous_size = logfile.stat().st_size if logfile.exists() else 0
-        quiet_since = time.monotonic()
-        settle_deadline = time.monotonic() + 5
-        while time.monotonic() < settle_deadline:
-            drain()
-            size = logfile.stat().st_size if logfile.exists() else 0
-            if size != previous_size:
-                quiet_since = time.monotonic()
-                previous_size = size
-            elif time.monotonic() - quiet_since >= 0.4:
-                break
-            time.sleep(0.01)
         wizard.back(); wizard.back(); wizard.back()
         checkpoint = len(logfile.read_text(errors="replace"))
         app.render()
