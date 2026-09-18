@@ -7,7 +7,7 @@ import curses
 import select
 import sys
 import time
-import textwrap
+import unicodedata
 
 from beamo_wipe import copy as C
 from beamo_wipe import diagnostic_report as D
@@ -83,25 +83,166 @@ def _curses_opt(name: str, *args) -> None:
         pass
 
 
+def _char_cols(ch: str) -> int:
+    """Terminal columns for one Unicode character. Combining marks take none."""
+    if unicodedata.combining(ch):
+        return 0
+    return 2 if unicodedata.east_asian_width(ch) in {"W", "F"} else 1
+
+
+def _display_cols(text: str) -> int:
+    return sum(_char_cols(ch) for ch in text or "")
+
+
+def _fit_cols(text: str, cols: int) -> str:
+    """Prefix that fits in ``cols`` display columns. Last-resort curses clip."""
+    if cols <= 0:
+        return ""
+    out: list[str] = []
+    used = 0
+    for ch in text or "":
+        width = _char_cols(ch)
+        if used + width > cols:
+            break
+        out.append(ch)
+        used += width
+    return "".join(out)
+
+
+def _hard_break(token: str, cols: int) -> list[str]:
+    lines: list[str] = []
+    current = ""
+    used = 0
+    for ch in token:
+        width = _char_cols(ch)
+        if current and used + width > cols:
+            lines.append(current)
+            current = ch
+            used = width
+        else:
+            current += ch
+            used += width
+    if current or not lines:
+        lines.append(current)
+    return lines
+
+
 def _lines(text: str, width: int) -> list[str]:
     """Wrap including long identifiers. Never leaves a token unwrapped."""
     col = max(8, int(width) - 2)
     out: list[str] = []
     for para in (text or "").split("\n"):
-        out.extend(
-            textwrap.wrap(
-                para,
-                width=col,
-                break_long_words=True,
-                break_on_hyphens=False,
-            )
-            or [""]
+        if para == "":
+            out.append("")
+            continue
+        current = ""
+        for word in para.split(" "):
+            piece = word if current == "" else f" {word}"
+            if _display_cols(current + piece) <= col:
+                current += piece
+                continue
+            if current:
+                out.append(current)
+                current = ""
+            if _display_cols(word) <= col:
+                current = word
+            else:
+                out.extend(_hard_break(word, col))
+        if current:
+            out.append(current)
+    return out or [""]
+
+
+def _screen_title(wizard: Wizard) -> str:
+    """Customer heading for the current screen. Never the Screen enum name."""
+    screen = wizard.screen
+    if screen == Screen.SPLASH:
+        return C.APP_NAME
+    if screen == Screen.KEYBOARD:
+        return C.TITLE_KEYBOARD
+    if screen == Screen.WHAT:
+        return C.TITLE_WHAT
+    if screen == Screen.OWNER:
+        return C.TITLE_OWNER
+    if screen == Screen.PICK:
+        return C.TITLE_PICK
+    if screen == Screen.PICK_EMPTY:
+        return C.TITLE_EMPTY
+    if screen == Screen.PICK_BLOCKED:
+        return C.blocked_title(wizard.error, recovered=wizard._recovered)
+    if screen == Screen.DISK_HELP:
+        return C.DISK_HELP_TITLE
+    if screen == Screen.CONFIRM:
+        return C.TITLE_CONFIRM
+    if screen == Screen.METHOD:
+        return C.TITLE_METHOD
+    if screen == Screen.LIMITS:
+        return limits.TITLE
+    if screen == Screen.REPORT_HELP:
+        return C.REPORT_HELP_TITLE
+    if screen == Screen.ADVANCED:
+        return C.TITLE_ADVANCED
+    if screen == Screen.LAST_CHANCE:
+        return C.TITLE_LAST
+    if screen == Screen.WORKING:
+        return C.TITLE_WORKING
+    if screen == Screen.CHECKING:
+        return C.BUSY_CHECKING_TITLE
+    if screen == Screen.STOPPING:
+        return C.BUSY_STOPPING_TITLE
+    if screen == Screen.REFRESHING:
+        return C.BUSY_REFRESHING_TITLE
+    if screen == Screen.REFRESH_CONFIRM:
+        return C.TITLE_REFRESH
+    if screen == Screen.SHUTDOWN_CONFIRM:
+        return wizard.exit_confirmation_title
+    if screen == Screen.DIAGNOSTIC:
+        return D.report_title(wizard.startup_error_code)
+    if screen == Screen.DONE:
+        return wizard.result_view.message or C.TITLE_DONE_OK
+    return C.APP_NAME
+
+
+def _chrome_lines(wizard: Wizard, width: int) -> list[str]:
+    """One-line brand plus title when they fit. Preview stays visible."""
+    title = _screen_title(wizard)
+    if title and title != C.APP_NAME:
+        combined = f"{C.APP_NAME} — {title}"
+        lines = _lines(combined, width) if _display_cols(combined) <= max(8, width - 2) else (
+            _lines(C.APP_NAME, width) + _lines(title, width)
         )
-    return out
+    else:
+        lines = _lines(C.APP_NAME, width)
+    if wizard.preview:
+        lines.extend(_lines(C.PREVIEW_BANNER, width))
+    return lines
 
 
-def _identity_text(view) -> str:
-    return view.announcement
+def _identity_field_lines(view, width: int, *, include_path: bool = False, indent: str = "") -> list[str]:
+    """Wrapped identity fields. Capacity, type, and connection share a line."""
+    lines: list[str] = []
+    if view.title:
+        lines.extend(_lines(f"{indent}{view.title}", width))
+    meta = "  ".join(part for part in (view.capacity, view.kind_chip, view.connection) if part)
+    if meta:
+        lines.extend(_lines(f"{indent}{meta}", width))
+    ident = view.id_value
+    lines.extend(_lines(f"{indent}{view.id_label}: {ident}", width))
+    for note in view.notes:
+        lines.extend(_lines(f"{indent}{note}", width))
+    if include_path and view.system_path:
+        lines.extend(_lines(f"{indent}{_identity.SYSTEM_PATH_NOTE}: {view.system_path}", width))
+    return lines
+
+
+def _nested_lines(wizard: Wizard, disk, width: int, indent: str = "  ") -> list[str]:
+    nested = inventory.card_nesting_text(wizard.nested_components(disk))
+    if not nested:
+        return []
+    lines: list[str] = []
+    for line in nested.split("\n"):
+        lines.extend(_lines(f"{indent}{line}", width))
+    return lines
 
 
 def _support_identity_text(wizard: Wizard) -> str:
@@ -112,24 +253,25 @@ def _support_identity_text(wizard: Wizard) -> str:
 
 
 def _pick_blocks(wizard: Wizard, width: int) -> list[tuple[object, list[str]]]:
-    """One wrapped block per eligible disk: heading, identifier, notes."""
-    blocks = []
+    """Wrapped identity blocks. Protected boot is listed first and is not selectable."""
+    blocks: list[tuple[object, list[str]]] = []
+    if wizard.protected_boot:
+        view = wizard.disk_view(wizard.protected_boot)
+        block = _lines(C.CON_PROTECTED_BOOT_MEDIA, width)
+        block.extend(_identity_field_lines(view, width, indent="  "))
+        block.extend(_nested_lines(wizard, wizard.protected_boot, width))
+        blocks.append((None, block))
     for disk in sorted(wizard.selectable, key=lambda d: d.path):
         view = wizard.disk_view(disk)
         star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
-        heading = "  ".join(
-            part
-            for part in (view.title, view.capacity, view.kind_chip, view.connection)
-            if part
-        )
-        block = _lines(f"{star} {heading}", width)
+        block = _lines(f"{star} {view.title}", width)
+        meta = "  ".join(part for part in (view.capacity, view.kind_chip, view.connection) if part)
+        if meta:
+            block.extend(_lines(f"  {meta}", width))
         block.extend(_lines(f"  {view.id_label}: {view.id_value}", width))
         for note in view.notes:
             block.extend(_lines("  " + note, width))
-        nested = inventory.card_nesting_text(wizard.nested_components(disk))
-        if nested:
-            for line in nested.split("\n"):
-                block.extend(_lines("  " + line, width))
+        block.extend(_nested_lines(wizard, disk, width))
         blocks.append((disk, block))
     return blocks
 
@@ -162,19 +304,26 @@ def _paint_paged(stdscr, y: int, lines: list[str], offset: int, y_max: int, widt
     return offset
 
 
-def _keep_selected_visible(blocks, pick_offset: int, page: int, selected_path: str | None) -> tuple[int, int]:
-    """Scroll so the selected disk's identity stays in the window."""
+def _keep_selected_visible(
+    blocks, pick_offset: int, page: int, selected_path: str | None, *, follow: bool = True
+) -> tuple[int, int]:
+    """Keep the selected disk reachable. Tall identity can be paged through."""
     starts: list[int] = []
     total = 0
     for _disk, block in blocks:
         starts.append(total)
         total += len(block)
-    if selected_path:
+    if follow and selected_path:
         try:
-            idx = next(i for i, (d, _) in enumerate(blocks) if d.path == selected_path)
+            idx = next(
+                i for i, (d, _) in enumerate(blocks) if d is not None and d.path == selected_path
+            )
             start = starts[idx]
             end = start + len(blocks[idx][1])
-            if end - start >= page or start < pick_offset:
+            height = end - start
+            if height >= page:
+                pick_offset = min(max(pick_offset, start), max(start, end - page))
+            elif start < pick_offset:
                 pick_offset = start
             elif end > pick_offset + page:
                 pick_offset = max(0, end - page)
@@ -218,23 +367,9 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     if screen == Screen.OWNER:
         return [C.CON_OWNER_FOOTER]
     if screen == Screen.PICK:
-        lines = [C.CON_PICK_NAV, C.CON_DISK_HELP.format(label=C.DISK_HELP_BUTTON)]
-        if len(wizard.selectable) > 1:
-            lines.insert(0, C.CON_COMPARE)
-        if wizard.protected_boot:
-            lines.insert(0, C.CON_BOOT_IDENTITY.format(
-                line=wizard.protected_boot_text.splitlines()[0]))
-        if wizard.other_devices:
-            lines.insert(0, C.CON_OTHER_DEVICES)
-        return lines
+        return [C.CON_PICK_NAV, C.CON_DISK_HELP.format(label=C.DISK_HELP_BUTTON)]
     if screen == Screen.PICK_EMPTY:
-        lines = [C.CON_SHUTDOWN_BACK]
-        if wizard.protected_boot:
-            lines.insert(0, C.CON_BOOT_IDENTITY.format(
-                line=wizard.protected_boot_text.splitlines()[0]))
-        if wizard.other_devices:
-            lines.insert(0, C.CON_OTHER_DEVICES)
-        return lines
+        return [C.CON_SHUTDOWN_BACK]
     if screen == Screen.PICK_BLOCKED:
         return [C.CON_SHUTDOWN_BACK]
     if screen == Screen.CONFIRM:
@@ -306,11 +441,31 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     return [C.CON_BACK]
 
 
+def _assist_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
+    """Inventory and read-more keys. Shown when body space remains."""
+    if inventory_open:
+        return []
+    screen = wizard.screen
+    if screen in (Screen.PICK, Screen.PICK_EMPTY):
+        lines = []
+        if wizard.other_devices:
+            lines.append(C.CON_OTHER_DEVICES)
+        if wizard.protected_boot:
+            lines.append(C.CON_BOOT_IDENTITY.format(line=C.CON_PROTECTED_BOOT_MEDIA))
+        if screen == Screen.PICK and len(wizard.selectable) > 1:
+            lines.append(C.CON_COMPARE)
+        return lines
+    return []
+
+
 def _footer_lines(wizard: Wizard, inventory_open: bool, width: int, height: int) -> list[str]:
-    """Primary actions first. Extra chrome is dropped before an action is clipped."""
-    primary: list[str] = []
+    """Pin next-step actions. Assist and extra chrome drop before actions."""
+    actions: list[str] = []
     for line in _primary_footer(wizard, inventory_open):
-        primary.extend(_lines(line, width) or [""])
+        actions.extend(_lines(line, width) or [""])
+    assist: list[str] = []
+    for line in _assist_footer(wizard, inventory_open):
+        assist.extend(_lines(line, width) or [""])
     extra: list[str] = []
     if not inventory_open and wizard.screen not in {
         Screen.WORKING,
@@ -325,11 +480,14 @@ def _footer_lines(wizard: Wizard, inventory_open: bool, width: int, height: int)
         joined = "    ".join(_chrome_extra(wizard))
         if joined:
             extra.extend(_lines(joined, width))
-    # Keep at least two body rows (title plus one content line).
-    max_footer = max(1, height - 2)
-    if len(primary) >= max_footer:
-        return primary[-max_footer:]
-    return primary + extra[: max_footer - len(primary)]
+    reserved_body = 2
+    if len(actions) > height - 1:
+        actions = actions[-(height - 1):]
+    room = max(0, height - reserved_body - len(actions))
+    assist_shown = assist[:room]
+    room -= len(assist_shown)
+    extra_shown = extra[:room]
+    return extra_shown + assist_shown + actions
 
 
 def _paint_footer(stdscr, lines: list[str]) -> int:
@@ -362,22 +520,24 @@ def _request_or_confirm_refresh(wizard: Wizard) -> None:
         wizard.open_refresh_confirm()
 
 
-def _print_view(view, width: int = 76) -> None:
-    print(textwrap.fill(_identity_text(view), width, break_long_words=True, break_on_hyphens=False))
+def _emit(text: str, width: int = 76) -> None:
+    for line in _lines(text, width):
+        print(line)
+
+
+def _print_view(view, width: int = 76, *, include_path: bool = False) -> None:
+    for line in _identity_field_lines(view, width, include_path=include_path):
+        print(line)
 
 
 def _print_operation_identity(wizard, width: int = 76) -> None:
     """Request-bound disk + method for operation screens. Never substituted."""
-    if wizard.operation_identity_text:
-        print(
-            textwrap.fill(
-                wizard.operation_identity_text,
-                width,
-                break_long_words=True,
-                break_on_hyphens=False,
-            )
-        )
-    print(textwrap.fill(wizard.operation_method_text, width))
+    disk = wizard.operation_disk
+    if disk is not None:
+        _print_view(wizard.disk_view(disk), width)
+    elif wizard.operation_identity_text:
+        _emit(wizard.operation_identity_text, width)
+    _emit(wizard.operation_method_text, width)
 
 
 def _answer(wizard: Wizard, prompt: str) -> str:
@@ -465,19 +625,20 @@ def _plain_loop_body(wizard: Wizard) -> int:
         screen = wizard.screen
         if screen != Screen.WORKING:
             print("\n" + "=" * 60)
-            print(C.APP_NAME, screen.value)
+            print(C.APP_NAME)
+            print(_screen_title(wizard))
             last_working = None
             if wizard.preview:
                 print(C.PREVIEW_BANNER)
             print("=" * 60)
         if screen == Screen.REFRESH_CONFIRM:
-            print(C.TITLE_REFRESH)
-            print(textwrap.fill(C.REFRESH_LEAD, 76))
+            print(_screen_title(wizard))
+            _emit(C.REFRESH_LEAD)
             _answer(wizard, C.CON_REFRESH_PROMPT)
             continue
         if screen == Screen.SHUTDOWN_CONFIRM:
-            print(wizard.exit_confirmation_title)
-            print(textwrap.fill(wizard.exit_confirmation_loss, 76))
+            print(_screen_title(wizard))
+            _emit(wizard.exit_confirmation_loss)
             print(wizard.report_recovery_warning)
             print(C.MEDIA_STEPS_TITLE)
             print(wizard.exit_media_steps)
@@ -619,13 +780,17 @@ def _plain_loop_body(wizard: Wizard) -> int:
             numbered = sorted(wizard.selectable, key=lambda d: d.path)
             for i, disk in enumerate(numbered, 1):
                 view = wizard.disk_view(disk)
-                print(textwrap.fill(f"[{i}] {view.compact_line}", 76, break_long_words=True, break_on_hyphens=False))
+                _emit(f"[{i}] {view.title}")
+                for part in (view.capacity, view.kind_chip, view.connection):
+                    if part:
+                        _emit(f"    {part}")
+                _emit(f"    {view.id_label}: {view.id_value}")
                 for note in view.notes:
-                    print(textwrap.fill("    " + note, 76, break_long_words=True, break_on_hyphens=False))
+                    _emit("    " + note)
                 nested = inventory.card_nesting_text(wizard.nested_components(disk))
                 if nested:
                     for line in nested.split("\n"):
-                        print(textwrap.fill("    " + line, 76, break_long_words=True, break_on_hyphens=False))
+                        _emit("    " + line)
             print(C.CON_DISK_HELP.format(label=C.DISK_HELP_BUTTON))
             choice = _answer(wizard, C.CON_PICK_PROMPT).strip()
             if choice.upper() == "U":
@@ -654,7 +819,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             confirm_spec = wizard.confirm
             if disk:
                 _print_view(wizard.disk_view(disk))
-            print(textwrap.fill(f"{C.SEVERITY_WARNING}: {wizard.warning_text()}", 76, break_long_words=True, break_on_hyphens=False))
+            _emit(f"{C.SEVERITY_WARNING}: {wizard.warning_text()}")
             print(confirm_spec.prompt if confirm_spec else "")
             print(C.CONFIRM_KEYBOARD_LINE.format(
                 layout=_keyboard.LAYOUTS[wizard.keyboard_layout].title,
@@ -716,7 +881,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 _print_operation_identity(wizard)
             elif wizard.selected is not None:
                 _print_view(wizard.disk_view(wizard.selected))
-            print(textwrap.fill(messages[screen], 76))
+            _emit(messages[screen])
             time.sleep(0.2)
             continue
         if screen == Screen.LAST_CHANCE:
@@ -873,9 +1038,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(wizard.report_recovery_warning)
             for paragraph in C.REPORT_HELP_SECTIONS:
                 heading, _, body = paragraph.partition("\n")
-                print(textwrap.fill(heading, 76))
+                _emit(heading)
                 if body:
-                    print(textwrap.fill(body, 76))
+                    _emit(body)
                 _answer(wizard, C.CON_MORE_ENTER)
             print(f"{C.REPORT_WANTED}: {C.CON_YES if wizard.report_wanted else C.CON_NO}")
             print(f"{C.REPORT_SHARE_REDACTED}: {C.CON_YES if wizard.report_share_redacted else C.CON_NO}")
@@ -894,13 +1059,13 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(limits.TITLE)
             for title, body in limits.SECTIONS:
                 print(title)
-                print(textwrap.fill(body, 76))
+                _emit(body)
                 _answer(wizard, C.CON_MORE_ENTER)
             wizard.close_limits()
             continue
         if screen == Screen.ADVANCED:
             print(C.ADVANCED_LEAD)
-            print(textwrap.fill(C.ADVANCED_LOG_NOTE, 76))
+            _emit(C.ADVANCED_LOG_NOTE)
             _answer(wizard, C.CON_PRESS_ENTER_BACK)
             wizard.close_advanced()
             continue
@@ -920,6 +1085,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
     inventory_boot = False
     inventory_offset = 0
     pick_offset = 0
+    pick_follow = True
+    pick_page = 1
     while not wizard.wants_shutdown and not wizard.wants_new_session:
         wizard.tick()
         stdscr.erase()
@@ -927,11 +1094,15 @@ def _loop(stdscr, wizard: Wizard) -> int:
         h, w = max(2, h), max(20, w)
         footer = _footer_lines(wizard, inventory_open, w, h)
         y_max = max(1, h - len(footer))
-        _add(stdscr, 0, 0, C.APP_NAME + "   " + wizard.screen.value, curses.A_BOLD)
-        y = 2
-        if wizard.preview:
-            _add(stdscr, 1, 0, C.PREVIEW_BANNER)
-            y = min(3, y_max)
+        chrome = _chrome_lines(wizard, w)
+        y = 0
+        for i, line in enumerate(chrome):
+            if y >= y_max:
+                break
+            _add(stdscr, y, 0, line, curses.A_BOLD if i == 0 else curses.A_NORMAL)
+            y += 1
+        if y + 2 < y_max:
+            y += 1
         if inventory_open:
             if comparison_open:
                 overlay_title = inventory.COMPARE_TITLE
@@ -1012,8 +1183,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
             blocks = _pick_blocks(wizard, w)
             avail = max(1, y_max - y)
             page = max(1, avail - 2)
+            pick_page = page
             selected_path = wizard.selected.path if wizard.selected is not None else None
-            pick_offset, total = _keep_selected_visible(blocks, pick_offset, page, selected_path)
+            pick_offset, total = _keep_selected_visible(
+                blocks, pick_offset, page, selected_path, follow=pick_follow
+            )
             need_above = pick_offset > 0
             need_below = pick_offset + page < total
             inner_max = y_max - (1 if need_below else 0)
@@ -1037,10 +1211,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if need_below:
                 _add(stdscr, y_max - 1, 0, C.CON_MORE_DISKS_BELOW)
         elif wizard.screen == Screen.REFRESH_CONFIRM:
-            y = _wrap(stdscr, y, C.TITLE_REFRESH, w, y_max)
             _wrap(stdscr, y, C.REFRESH_LEAD, w, y_max)
         elif wizard.screen == Screen.SHUTDOWN_CONFIRM:
-            y = _wrap(stdscr, y, wizard.exit_confirmation_title, w, y_max)
             y = _wrap(stdscr, y, wizard.exit_confirmation_loss, w, y_max)
             rest = (
                 _lines(wizard.report_recovery_warning, w)
@@ -1049,10 +1221,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             )
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
         elif wizard.screen == Screen.DIAGNOSTIC:
-            y = _wrap(stdscr, y, D.report_title(wizard.startup_error_code), w, y_max)
-            y = _wrap(
-                stdscr,
-                y,
+            lines = _lines(
                 format_recovery_text(
                     recovery_for_diagnostic(
                         wizard.startup_error_code,
@@ -1063,47 +1232,53 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     compact=True,
                 ),
                 w,
-                y_max,
             )
             ident = _support_identity_text(wizard)
             if ident:
-                y = _wrap(stdscr, y, ident, w, y_max)
+                lines.extend(_lines(ident, w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.PICK_BLOCKED:
-            y = _wrap(
-                stdscr,
-                y,
+            lines = _lines(
                 C.blocked_title(wizard.error, recovered=wizard._recovered),
                 w,
-                y_max,
             )
-            y = _wrap(
-                stdscr,
-                y,
-                _error_recovery_text(wizard.error, recovered=wizard._recovered),
-                w,
-                y_max,
+            lines.extend(
+                _lines(_error_recovery_text(wizard.error, recovered=wizard._recovered), w)
             )
             if error_needs_support(wizard.error):
-                y = _wrap(stdscr, y, C.support_text(), w, y_max)
+                lines.extend(_lines(C.support_text(), w))
             ident = _support_identity_text(wizard)
             if ident:
-                y = _wrap(stdscr, y, ident, w, y_max)
+                lines.extend(_lines(ident, w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.PICK_EMPTY:
-            y = _wrap(stdscr, y, C.TITLE_EMPTY, w, y_max)
-            _empty_text = format_recovery_text(
-                recovery_for_empty(), include_technical=True, compact=True
+            lines = _lines(
+                format_recovery_text(
+                    recovery_for_empty(), include_technical=True, compact=True
+                ),
+                w,
             )
             if wizard.empty_detail:
-                _empty_text = f"{_empty_text}\n\n{wizard.empty_detail}"
-            y = _wrap(stdscr, y, _empty_text, w, y_max)
-            y = _wrap(stdscr, y, C.support_text(), w, y_max)
+                lines.append("")
+                lines.extend(_lines(wizard.empty_detail, w))
+            if wizard.protected_boot:
+                lines.append("")
+                lines.extend(_lines(C.CON_PROTECTED_BOOT_MEDIA, w))
+                lines.extend(
+                    _identity_field_lines(
+                        wizard.disk_view(wizard.protected_boot), w, indent="  "
+                    )
+                )
+            lines.append("")
+            lines.extend(_lines(C.support_text(), w))
             ident = _support_identity_text(wizard)
             if ident:
-                y = _wrap(stdscr, y, ident, w, y_max)
+                lines.extend(_lines(ident, w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.CONFIRM and wizard.selected:
             view = wizard.disk_view(wizard.selected)
-            y = _wrap_view(stdscr, y, view, w, y_max)
-            rest = _lines(f"{C.SEVERITY_WARNING}: {wizard.warning_text()}", w)
+            rest = _identity_field_lines(view, w)
+            rest.extend(_lines(f"{C.SEVERITY_WARNING}: {wizard.warning_text()}", w))
             confirm_spec = wizard.confirm
             if confirm_spec:
                 rest.extend(_lines(confirm_spec.prompt, w))
@@ -1151,8 +1326,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             lines = []
             if wizard.selected:
                 lines.extend(_lines(C.SELECTED_DISK, w))
-                lines.extend(_lines(_identity_text(wizard.disk_view(wizard.selected)), w))
-                lines.extend(_lines(f"{_identity.SYSTEM_PATH_NOTE}: {wizard.selected.path}", w))
+                lines.extend(_identity_field_lines(wizard.disk_view(wizard.selected), w))
             lines.extend(_lines(f"{C.SEVERITY_LIMITS}: {wizard.storage_notice}", w))
             lines.append("")
             for i, method in enumerate((MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO), 1):
@@ -1165,6 +1339,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     )
                 )
                 lines.append("")
+            if wizard.selected:
+                lines.extend(
+                    _lines(f"{_identity.SYSTEM_PATH_NOTE}: {wizard.selected.path}", w)
+                )
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen in {Screen.LIMITS, Screen.REPORT_HELP, Screen.ADVANCED, Screen.DISK_HELP}:
             content = limits.full_text() if wizard.screen == Screen.LIMITS else C.ADVANCED_LOG_NOTE
@@ -1191,10 +1369,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 _add(stdscr, y, 0, line)
                 y += 1
         elif wizard.screen == Screen.LAST_CHANCE:
-            y = _wrap(stdscr, y, C.LAST_LEAD, w, y_max)
+            rest = _lines(C.LAST_LEAD, w)
             if wizard.selected:
-                y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            rest = []
+                rest.extend(_identity_field_lines(wizard.disk_view(wizard.selected), w))
             rest.extend(_lines(C.POWER_KEEP, w))
             rest.extend(_lines(wizard.power_text, w))
             rest.extend(_lines(wizard.prepare_text(), w))
@@ -1210,15 +1387,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 rest.extend(_lines(ident, w))
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
         elif wizard.screen == Screen.WORKING:
-            if wizard.stop_confirmation is not None:
-                y = _wrap(stdscr, y, f"{C.SEVERITY_WARNING}: {C.STOP_TITLE} {C.STOP_LEAD}", w, y_max)
-            if wizard.error:
-                y = _wrap(stdscr, y, _error_recovery_text(wizard.error), w, y_max)
-                if error_needs_support(wizard.error):
-                    y = _wrap(stdscr, y, C.support_text(), w, y_max)
-            y = _wrap(stdscr, y, wizard.progress_view.status_text, w, y_max)
-            y = _wrap_operation_identity(stdscr, y, wizard, w, y_max)
             lines = []
+            if wizard.stop_confirmation is not None:
+                lines.extend(_lines(f"{C.SEVERITY_WARNING}: {C.STOP_TITLE} {C.STOP_LEAD}", w))
+            if wizard.error:
+                lines.extend(_lines(_error_recovery_text(wizard.error), w))
+                if error_needs_support(wizard.error):
+                    lines.extend(_lines(C.support_text(), w))
+            lines.extend(_lines(wizard.progress_view.status_text, w))
+            disk = wizard.operation_disk
+            if disk is not None:
+                lines.extend(_identity_field_lines(wizard.disk_view(disk), w))
+            elif wizard.operation_identity_text:
+                lines.extend(_lines(wizard.operation_identity_text, w))
+            lines.extend(_lines(wizard.operation_method_text, w))
             if wizard.evidence_warning:
                 lines.extend(_lines(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}", w))
             for text in (C.POWER_KEEP, wizard.power_text):
@@ -1226,74 +1408,71 @@ def _loop(stdscr, wizard: Wizard) -> int:
                     lines.extend(_lines(text, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen in {Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING}:
-            titles = {
-                Screen.CHECKING: C.BUSY_CHECKING_TITLE,
-                Screen.STOPPING: C.BUSY_STOPPING_TITLE,
-                Screen.REFRESHING: C.BUSY_REFRESHING_TITLE,
-            }
             messages = {
                 Screen.CHECKING: C.BUSY_CHECKING_MESSAGE,
                 Screen.STOPPING: C.STOPPING_TEXT,
                 Screen.REFRESHING: C.BUSY_REFRESHING_MESSAGE,
             }
-            y = _wrap(stdscr, y, titles[wizard.screen], w, y_max)
+            lines = []
             if wizard.screen == Screen.STOPPING:
-                y = _wrap_operation_identity(stdscr, y, wizard, w, y_max)
+                disk = wizard.operation_disk
+                if disk is not None:
+                    lines.extend(_identity_field_lines(wizard.disk_view(disk), w))
+                elif wizard.operation_identity_text:
+                    lines.extend(_lines(wizard.operation_identity_text, w))
+                lines.extend(_lines(wizard.operation_method_text, w))
             elif wizard.selected is not None:
-                y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            content = messages[wizard.screen]
+                lines.extend(_identity_field_lines(wizard.disk_view(wizard.selected), w))
+            lines.extend(_lines(messages[wizard.screen], w))
             if wizard.screen != Screen.REFRESHING:
-                content += "\n" + C.POWER_KEEP + "\n" + wizard.power_text
-            lines = [line for text in content.split("\n") for line in _lines(text, w)]
+                lines.extend(_lines(C.POWER_KEEP, w))
+                lines.extend(_lines(wizard.power_text, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.DONE:
             wizard.maybe_play_outcome_sound()
             report = wizard.report_view
-            if wizard.selected:
-                y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
-            y = _wrap(stdscr, y, wizard.method_result, w, y_max)
-            y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
             sections = recovery_for_view(wizard.result_view)
             # First 80x24 page keeps the pre-#107 landmarks: outcome, next
             # step, post-erase note, Report status, then paged aftercare.
-            # Labeled meaning/technical follow in the paged tail.
-            y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
+            # Disk identity stays reachable; support/meaning follow in the tail.
+            lines = []
+            if wizard.selected:
+                lines.extend(_identity_field_lines(wizard.disk_view(wizard.selected), w))
+            lines.extend(_lines(wizard.method_result, w))
+            lines.extend(_lines(wizard.method_summary, w))
+            lines.extend(_lines(wizard.result_view.next_step, w))
             if may_have_erased(wizard.result_view.code):
-                y = _wrap(stdscr, y, C.POST_ERASE_BOOT, w, y_max)
-            y = _wrap(stdscr, y, C.REPORT_STATUS_TITLE, w, y_max)
-            y = _wrap(stdscr, y, _report_headline(wizard, report), w, y_max)
-            paras = []
+                lines.extend(_lines(C.POST_ERASE_BOOT, w))
+            lines.extend(_lines(C.REPORT_STATUS_TITLE, w))
+            lines.extend(_lines(_report_headline(wizard, report), w))
             if not wizard.preview and not report.evidence_error:
-                paras.append(
-                    C.report_aftercare(
-                        can_save=report.can_save, status=report.status, message=report.message
+                lines.extend(
+                    _lines(
+                        C.report_aftercare(
+                            can_save=report.can_save, status=report.status, message=report.message
+                        ),
+                        w,
                     )
                 )
             if report.evidence_error:
-                paras.append(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}")
+                lines.extend(_lines(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}", w))
             if wizard.done_support_needed:
-                paras.append(C.support_text())
+                lines.extend(_lines(C.support_text(), w))
             ident = _support_identity_text(wizard)
             if ident:
-                paras.append(ident)
+                lines.extend(_lines(ident, w))
             if sections:
                 from beamo_wipe import recovery as Rec
 
-                paras.append(f"{Rec.RECOVERY_MEANING}: {sections.meaning}")
+                lines.extend(_lines(f"{Rec.RECOVERY_MEANING}: {sections.meaning}", w))
                 if sections.technical:
-                    paras.append(f"{Rec.RECOVERY_TECHNICAL}: {sections.technical}")
-            paras.append(wizard.elapsed_text)
-            paras.append(C.REPORT_STATUS_NOTICE)
+                    lines.extend(_lines(f"{Rec.RECOVERY_TECHNICAL}: {sections.technical}", w))
+            lines.extend(_lines(wizard.elapsed_text, w))
+            lines.extend(_lines(C.REPORT_STATUS_NOTICE, w))
             if wizard.check_alerts:
-                paras.extend(f"{C.SEVERITY_WARNING}: {alert}" for alert in wizard.check_alerts)
-            content = "\n".join(paras)
-            lines = [line for paragraph in content.split("\n") for line in _lines(paragraph, w)]
-            page_size = max(1, y_max - y)
-            limits_offset = min(limits_offset, max(0, len(lines) - page_size))
-            for row, line in enumerate(lines[limits_offset:limits_offset + page_size], y):
-                if row >= y_max:
-                    break
-                _add(stdscr, row, 0, line)
+                for alert in wizard.check_alerts:
+                    lines.extend(_lines(f"{C.SEVERITY_WARNING}: {alert}", w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         _paint_footer(stdscr, footer)
         stdscr.refresh()
         ch = stdscr.getch()
@@ -1368,7 +1547,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             enter_quiet_since = None
             continue
         _paged = {
-            Screen.WORKING, Screen.CHECKING, Screen.STOPPING,
+            Screen.WORKING, Screen.CHECKING, Screen.STOPPING, Screen.REFRESHING,
             Screen.LIMITS,
             Screen.DISK_HELP,
             Screen.REPORT_HELP,
@@ -1380,7 +1559,24 @@ def _loop(stdscr, wizard: Wizard) -> int:
             Screen.CONFIRM,
             Screen.KEYBOARD,
             Screen.SHUTDOWN_CONFIRM,
+            Screen.PICK_EMPTY,
+            Screen.PICK_BLOCKED,
+            Screen.DIAGNOSTIC,
+            Screen.OWNER,
         }
+        if (
+            wizard.screen == Screen.PICK
+            and not inventory_open
+            and ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE)
+        ):
+            if ch in (curses.KEY_UP, curses.KEY_DOWN):
+                wizard.move_selection(-1 if ch == curses.KEY_UP else 1)
+                pick_follow = True
+            else:
+                delta = -pick_page if ch == curses.KEY_PPAGE else pick_page
+                pick_offset = max(0, pick_offset + delta)
+                pick_follow = False
+            continue
         if wizard.screen in _paged and ch in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE, curses.KEY_NPAGE):
             delta = {curses.KEY_UP: -1, curses.KEY_DOWN: 1,
                      curses.KEY_PPAGE: -(h - 5), curses.KEY_NPAGE: h - 5}[ch]
@@ -1600,7 +1796,13 @@ def _add(stdscr, y, x, text, attr=curses.A_NORMAL) -> None:
     h, w = stdscr.getmaxyx()
     if y < 0 or y >= h:
         return
-    stdscr.addstr(y, x, (text or "")[: max(0, w - 1 - x)], attr)
+    fitted = _fit_cols(text or "", max(0, w - 1 - x))
+    if not fitted:
+        return
+    try:
+        stdscr.addstr(y, x, fitted, attr)
+    except curses.error:
+        pass
 
 
 def _wrap(stdscr, y, text, width, y_max=None) -> int:
@@ -1615,8 +1817,13 @@ def _wrap(stdscr, y, text, width, y_max=None) -> int:
     return y
 
 
-def _wrap_view(stdscr, y, view, width, y_max) -> int:
-    return _wrap(stdscr, y, _identity_text(view), width, y_max)
+def _wrap_view(stdscr, y, view, width, y_max, *, include_path: bool = False) -> int:
+    for line in _identity_field_lines(view, width, include_path=include_path):
+        if y >= y_max:
+            return y
+        _add(stdscr, y, 0, line)
+        y += 1
+    return y
 
 
 def _wrap_operation_identity(stdscr, y, wizard, width, y_max) -> int:

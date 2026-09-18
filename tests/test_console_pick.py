@@ -231,7 +231,7 @@ def test_curses_pick_shows_serial_and_same_size_hint():
     )
     assert "disk_view" in text
     assert "SAME_SIZE_HINT" in text
-    assert "compact_line" in text
+    assert "_identity_field_lines" in text
     assert "listed_disks" in text
     assert "wizard.progress_view.status_text" in text
     assert "AMBIGUOUS_IDENTITY" not in text or "too similar" in text or "compact_line" in text
