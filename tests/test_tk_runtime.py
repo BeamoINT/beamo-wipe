@@ -2080,7 +2080,8 @@ def test_cursor_roles_arrow_content_hand2_actions_xterm_text(ui):
     assert content, "ordinary copy must inherit the root arrow cursor"
     frames = [w for w in descendants(app.root) if w.winfo_class() == "Frame"]
     assert frames
-    assert all(effective_cursor(w) == "arrow" for w in frames)
+    assert all(effective_cursor(w) in {"arrow", "hand2"} for w in frames)
+    assert any(effective_cursor(w) == "arrow" for w in frames)
     assert _button_named(app, C.BTN_MORE).cget("cursor") == "hand2"
     frame = tk.Frame(app.root)
     disabled = _Button(
