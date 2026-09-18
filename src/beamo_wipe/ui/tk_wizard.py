@@ -2711,11 +2711,10 @@ class TkWizard:
             return
         assert parent is not None
         frame = tk.Frame(parent, bg=BG)
-        rows = (
-            (C.SUPPORT_CODE_LABEL, ident.code),
-            *((C.SUPPORT_SAVE_LABEL, ident.extra_code),) if ident.extra_code else (),
-            (C.SUPPORT_BUILD_LABEL, ident.build_id),
-        )
+        rows = [(C.SUPPORT_CODE_LABEL, ident.code)]
+        if ident.extra_code:
+            rows.append((C.SUPPORT_SAVE_LABEL, ident.extra_code))
+        rows.append((C.SUPPORT_BUILD_LABEL, ident.build_id))
         for label, value in rows:
             line = tk.Frame(frame, bg=BG)
             line.pack(fill=tk.X)
