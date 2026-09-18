@@ -1958,15 +1958,15 @@ class TkWizard:
         right.pack(side=tk.RIGHT)
         mid = tk.Frame(row, bg=BG)
         mid.pack(fill=tk.BOTH, expand=True)
+        # Hints never share the action row: Done's four left actions plus
+        # Shut down already fill the 940px content column at 1024x740.
         if self.lay.short:
-            # A separate wrapping hint leaves the full action row available
-            # to Back and Continue at small sizes and enlarged text.
             self._hint = self._p(col, hint, font=self.font_s, fg=MUTED,
                                  wraplength=self.lay.content_w - 8)
-            self._hint.pack(fill=tk.X, before=row, pady=(4, 0))
+            self._hint.configure(width=1)
         else:
-            self._hint = self._hint_bar(mid, hint)
-            self._hint.pack(fill=tk.BOTH, expand=True)
+            self._hint = self._hint_bar(col, hint)
+        self._hint.pack(fill=tk.X, before=row, pady=(4, 0))
         row._left_host = left_host  # type: ignore[attr-defined]
         row._left = left  # type: ignore[attr-defined]
         row._left_width = 0  # type: ignore[attr-defined]
