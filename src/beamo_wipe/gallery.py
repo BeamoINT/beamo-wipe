@@ -16,7 +16,7 @@ from beamo_wipe.support_code import (
     code_for_startup,
     public_build_id,
 )
-from beamo_wipe.support_export import USB_FAT32_ONLY
+from beamo_wipe import support_export as _export
 from beamo_wipe import inventory
 from beamo_wipe.outcomes import preview_view
 from beamo_wipe.demo import discovery_for_scenario
@@ -247,7 +247,7 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "supportCodeHint": C.SUPPORT_CODE_HINT,
         "sampleBlockedCode": code_for_startup("boot_unidentified"),
         "sampleEmptyCode": code_for_startup("no_eligible_disks"),
-        "sampleExportCode": code_for_export_detail(USB_FAT32_ONLY),
+        "sampleExportCode": code_for_export_detail(_export.USB_FAT32_ONLY),
         "sampleBuild": public_build_id(),
         "ssd": C.SSD_FOOTER,
         "sameSize": C.SAME_SIZE_HINT,
