@@ -90,3 +90,19 @@ Guidance baseline (verified by reading the code):
 - `support_export._emit_export_failure` records the
   identity as well as the existing export marker.
 - Tests: `tests/test_support_code.py`.
+
+## Verification (Cloud Agent, 2026-09-18)
+
+Source: `03eb021b7ddef5d141c6b6cccafe61403ff6f7be`
+(`cursor/export-unavailable-support-code-6f1b`, includes merge of PR #62).
+
+```bash
+dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest
+```
+
+Result: exit 0. `.pytest_cache/v/cache/lastfailed` is `{}`. Never `DISPLAY=:1`. Fake lsblk / demo wizard only. No nwipe on a host disk. No ISO/QEMU.
+
+Hosted `beamo-wipe-pr-gate` on this HEAD: **pass**
+(`97fb5646-601e-4fc3-a12f-5869b1aaf2b0`, 16m52s). QEMU skipped by the PR trigger. ISO phase ran in that gate (not an ISO release).
+
+Rendered: Tk blocked `BW-S-BUND`, empty `BW-S-EMPTY`, diagnostic FAT32 `BW-S-DSCV` + Save `BW-X-FAT`, gallery blocked/empty matching, helper “Saving the report” instructs reading the on-screen lines. Build shows `unavailable` in this unpackaged checkout (injected `build-identity.json` only).
