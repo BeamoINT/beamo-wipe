@@ -2715,6 +2715,7 @@ class TkWizard:
         if ident.extra_code:
             rows.append((C.SUPPORT_SAVE_LABEL, ident.extra_code))
         rows.append((C.SUPPORT_BUILD_LABEL, ident.build_id))
+        wrap = max(120, self.lay.wrap - 40)
         for label, value in rows:
             line = tk.Frame(frame, bg=BG)
             line.pack(fill=tk.X)
@@ -2728,11 +2729,14 @@ class TkWizard:
                 fg=INK,
                 bg=BG,
                 anchor="w",
+                wraplength=wrap,
+                justify=tk.LEFT,
             ).pack(side=tk.LEFT, padx=(12, 0))
-        self._p(frame, C.SUPPORT_CODE_HINT, font=self.font_s, fg=MUTED).pack(
-            fill=tk.X, pady=(4, 0)
-        )
-        frame.pack(fill=tk.X, pady=(12, 0))
+        if not self.lay.short:
+            self._p(frame, C.SUPPORT_CODE_HINT, font=self.font_s, fg=MUTED, wraplength=wrap).pack(
+                fill=tk.X, pady=(4, 0)
+            )
+        frame.pack(fill=tk.X, pady=(8, 0))
 
     def _support_block(self, parent: Optional[tk.Widget]) -> None:
         """QR code plus the support destination as real text.
@@ -2821,13 +2825,14 @@ class TkWizard:
             elif self.w.operation_identity_text:
                 self._p(col, self.w.operation_identity_text, font=self.font_b, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
             self._p(col, self.w.operation_method_text, font=self.font_s, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
+        if self.w.screen == Screen.PICK_BLOCKED:
+            if error_needs_support(self.w.error):
+                self._support_block(col)
+            self._support_identity_block(col)
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
 
     def _blocked(self) -> None:
         self._status_screen("danger", C.blocked_title(self.w.error, recovered=self.w._recovered), self.w.error or C.IDENTIFY_ERROR)
-        if error_needs_support(self.w.error):
-            self._support_block(self._body)
-        self._support_identity_block(self._body)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2839,6 +2844,8 @@ class TkWizard:
         _icon_badge(col, "info", 40).pack(anchor="w")
         msg = C.EMPTY_DISKS
         self._title_block(col, C.TITLE_EMPTY, msg)
+        self._support_block(col)
+        self._support_identity_block(col)
         region = tk.Frame(col, bg=BG)
         region.pack(fill=tk.BOTH, expand=True)
         canvas = tk.Canvas(region, bg=BG, highlightthickness=0)
@@ -2873,8 +2880,6 @@ class TkWizard:
         self._protected_boot(cards)
         self._other_devices(cards)
         bind_wheel(cards)
-        self._support_block(col)
-        self._support_identity_block(col)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)

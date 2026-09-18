@@ -24,6 +24,7 @@ from beamo_wipe.support_code import (
     PHONE_ALPHABET,
     STARTUP_TOKENS,
     SupportIdentity,
+    TOKEN_RE,
     UNKNOWN,
     all_codes,
     code_for_evidence,
@@ -102,6 +103,7 @@ def test_assigned_codes_are_unique():
         + [token for _message, token in SC._export_pairs()]
     )
     displayed = [display_code(token) for token in raw]
+    assert all(TOKEN_RE.fullmatch(token.split("-", 1)[1]) for token in raw)
     assert len(displayed) == len(set(displayed))
     assert UNKNOWN not in displayed
     assert all_codes() == frozenset(displayed) | {UNKNOWN}
