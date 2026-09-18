@@ -223,6 +223,87 @@ def test_busy_screens_keep_identity_and_reachable_status(screen, monkeypatch):
         assert "wait" in shown.lower() or "Stopping" in shown or "Checking" in shown
 
 
+def test_working_stale_progress_shows_meaning_and_next_steps(monkeypatch):
+    from unittest.mock import PropertyMock, patch
+
+    from beamo_wipe.progress import STALE_MEANING, STALE_NEXT, ProgressView
+
+    wiz = _at_pick()
+    disk = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    wiz.select_disk(disk.path)
+    wiz.screen = Screen.WORKING
+    view = ProgressView("Writing", 42, 120, None, stale_for=65, percent_is_old=True)
+    with patch.object(
+        Wizard, "progress_view", new_callable=PropertyMock, return_value=view
+    ):
+        shown, packed, term = _draw(monkeypatch, wiz)
+    assert "No new progress update for 1 minute." in shown
+    assert STALE_MEANING in shown
+    for fragment in ("Keep the USB in", "wall power", "Do not turn off", '"Stop erase"'):
+        assert fragment in shown, fragment
+    assert STALE_NEXT.split(". ")[0] in packed.replace("  ", " ")
+    last = term.frames[-1]
+    assert max(last) < 24
+    assert all(len(line) < 80 for line in last.values())
+
+
+def test_working_sounds_keys_toggle_and_hear(monkeypatch):
+    from beamo_wipe import sound as sound_module
+
+    monkeypatch.setattr(
+        sound_module, "_run",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("spawned audio")),
+    )
+    monkeypatch.setattr(
+        sound_module, "_popen",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("spawned audio")),
+    )
+    wiz = _at_pick()
+    disk = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    wiz.select_disk(disk.path)
+    wiz.screen = Screen.WORKING
+    shown, packed, term = _draw(
+        monkeypatch, wiz, keys=[ord("o"), ord("h")]
+    )
+    assert wiz.sounds_enabled is True
+    assert wiz.sound_message == C.SOUND_OUTCOME_OFF_LIVE
+    footer = _footer(term)
+    assert "O: Sounds on" in footer
+    assert "H: Hear sounds" in footer
+    last = term.frames[-1]
+    assert max(last) < 24
+    assert all(len(line) < 80 for line in last.values())
+
+
+def test_done_sounds_auto_play_once_with_replay_footer(monkeypatch):
+    from beamo_wipe import sound as sound_module
+    from beamo_wipe.models import WipeResult
+
+    wiz = _at_pick()
+    disk = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    wiz.select_disk(disk.path)
+    wiz.preview = False
+    wiz.screen = Screen.DONE
+    wiz.wipe_result = WipeResult(True, 0, "Erase completed", "/tmp/x.log")
+    wiz.set_sounds_enabled(True)
+    calls = []
+    monkeypatch.setattr(
+        sound_module,
+        "play_outcome",
+        lambda kind: calls.append(kind) or sound_module.SoundResult(True, ""),
+    )
+    shown, packed, term = _draw(
+        monkeypatch, wiz, keys=[console.curses.KEY_DOWN, ord("h")]
+    )
+    assert calls == [sound_module.KIND_ATTENTION]
+    assert wiz.sound_message == C.SOUND_OUTCOME_OFF_LIVE
+    footer = _footer(term)
+    assert "O: Sounds on" in footer
+    assert "H: Hear again" in footer
+    last = term.frames[-1]
+    assert max(last) < 24
+
+
 def test_unicode_identity_wraps_on_80x24(monkeypatch):
     wiz = _at_pick()
     disk = sorted(wiz.selectable, key=lambda d: d.path)[0]
@@ -243,12 +324,13 @@ def test_short_terminal_scrolls_power_warning_into_view(monkeypatch):
     shown, packed, term = _draw(
         monkeypatch,
         wiz,
-        keys=[console.curses.KEY_DOWN] * 8,
-        sizes=[(16, 60)] * 10,
+        keys=[console.curses.KEY_DOWN] * 10,
+        sizes=[(16, 60)] * 12,
     )
     all_text = " ".join(" ".join(frame[y] for y in sorted(frame)) for frame in term.frames)
     assert "Enter: I understand" in all_text
     assert "wall power" in all_text
+    assert C.REPORT_MEDIA_WHAT.split(".")[0] in all_text
     assert all(max(frame) < 16 for frame in term.frames if frame)
     assert all(len(row) < 60 for frame in term.frames for row in frame.values())
 

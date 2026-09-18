@@ -46,6 +46,9 @@ CODES = frozenset(
     }
 )
 TITLE = "Diagnostic report — wipe could not start"
+TITLE_RECOVERY = "Diagnostic report — previous result unavailable"
+INVALID_CLASSIFICATION = "Invalid diagnostic classification."
+INVALID_REPORT = "Invalid or unsanitized diagnostic report."
 NOTICE = (
     "Support diagnostics only. This is not erase evidence and does not establish "
     "that an operation ran. No disk identifiers or raw logs are included."
@@ -58,7 +61,7 @@ PREPARE = (
 
 def report_title(code: str) -> str:
     if code == "recovery_indeterminate":
-        return "Diagnostic report — previous result unavailable"
+        return TITLE_RECOVERY
     return TITLE
 
 
@@ -112,7 +115,7 @@ def application_identity() -> dict:
 
 def create_report(code: str, discovery, *, ui: str, session_started: float) -> bytes:
     if code not in CODES or ui not in {"graphical", "accessible", "console"}:
-        raise SafetyError("Invalid diagnostic classification.")
+        raise SafetyError(INVALID_CLASSIFICATION)
     try:
         wall = (
             datetime.datetime.now(datetime.timezone.utc)
@@ -292,7 +295,7 @@ def validate_report(data: bytes) -> dict:
             raise ValueError()
         return p
     except (ValueError, TypeError, KeyError, AttributeError) as exc:
-        raise SafetyError("Invalid or unsanitized diagnostic report.") from exc
+        raise SafetyError(INVALID_REPORT) from exc
 
 
 def verified_report(data: bytes):

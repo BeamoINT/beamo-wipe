@@ -10,12 +10,16 @@ from urllib.parse import quote
 
 from beamo_wipe import copy as C
 from beamo_wipe import storage_limits as limits
+from beamo_wipe.support_contact import qr_svg as _support_qr_svg
 from beamo_wipe import inventory
 from beamo_wipe.outcomes import preview_view
 from beamo_wipe.demo import discovery_for_scenario
-from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS
+from beamo_wipe import keyboard as _keyboard
+from beamo_wipe.keyboard import LAYOUT_ORDER
+from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER, current as current_language, is_supported, set_language
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
+from beamo_wipe import progress as _progress
 from beamo_wipe.power import PowerStatus
 from beamo_wipe.identity import present_disk
 from beamo_wipe.safety import SafetyError, confirm_spec, listed_disks, same_size_conflict
@@ -113,11 +117,22 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
     return out
 
 
-def gallery_html() -> str:
+def gallery_html(lang: str = "en") -> str:
+    """Render the click-through in one language (preview only)."""
+    if not is_supported(lang):
+        raise ValueError(f"unsupported language: {lang!r}")
+    previous = current_language()
+    set_language(lang)
+    try:
+        return _gallery_html_for_current_language(lang)
+    finally:
+        set_language(previous)
+
+
+def _gallery_html_for_current_language(lang: str) -> str:
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
-        "eraseStatusTitle": C.ERASE_STATUS_TITLE,
         "reportStatusTitle": C.REPORT_STATUS_TITLE,
         "reportPreview": C.REPORT_PREVIEW,
         "reportStatusNotice": C.REPORT_STATUS_NOTICE,
@@ -126,6 +141,10 @@ def gallery_html() -> str:
         "serialLabel": C.SERIAL_LABEL,
         "reviewCheck": C.REVIEW_CHECK,
         "splashRoadmap": C.SPLASH_ROADMAP,
+        "sevWarning": C.SEVERITY_WARNING,
+        "sevError": C.SEVERITY_ERROR,
+        "sevSaved": C.SEVERITY_SAVED,
+        "sevLimits": C.SEVERITY_LIMITS,
         "previewResults": {
             "ok": preview_view(True).payload(),
             "failed": preview_view(False).payload(),
@@ -148,6 +167,8 @@ def gallery_html() -> str:
         "reportHelpTitle": C.REPORT_HELP_TITLE,
         "reportHelpText": C.REPORT_HELP_TEXT,
         "reportWanted": C.REPORT_WANTED,
+        "reportMediaWhat": C.REPORT_MEDIA_WHAT,
+        "reportMediaWanted": C.REPORT_MEDIA_WANTED,
         "anotherTitle": C.ANOTHER_TITLE,
         "anotherLoss": C.ANOTHER_LOSS,
         "anotherDiscard": C.ANOTHER_DISCARD,
@@ -157,6 +178,9 @@ def gallery_html() -> str:
         "shutdownKeep": C.SHUTDOWN_KEEP,
         "shutdownDiscard": C.SHUTDOWN_DISCARD,
         "shutdownHint": C.SHUTDOWN_HINT,
+        "mediaStepsTitle": C.MEDIA_STEPS_TITLE,
+        "mediaSteps": C.media_steps(),
+        "mediaStepsAnother": C.media_steps(stay_in_session=True),
         "limitsButton": limits.BUTTON,
         "limitsText": limits.full_text(),
         "previewBanner": C.PREVIEW_BANNER,
@@ -166,7 +190,7 @@ def gallery_html() -> str:
         "keyboardCheck": C.KEYBOARD_CHECK_LABEL,
         "keyboardHint": C.KEYBOARD_CHECK_HINT,
         "keyboardLayouts": [
-            {"id": layout_id, "title": LAYOUTS[layout_id].title, "note": LAYOUTS[layout_id].note}
+            {"id": layout_id, "title": _keyboard.LAYOUTS[layout_id].title, "note": _keyboard.LAYOUTS[layout_id].note}
             for layout_id in LAYOUT_ORDER
         ],
         "titles": {
@@ -181,7 +205,7 @@ def gallery_html() -> str:
             "working": C.TITLE_WORKING,
             "doneOk": C.TITLE_DONE_OK,
             "doneFail": C.TITLE_DONE_FAIL,
-            "blocked": C.TITLE_BLOCKED,
+            "blocked": C.BLOCKED_HEADING_IDENTIFY,
             "empty": C.TITLE_EMPTY,
             "refresh": C.TITLE_REFRESH,
         },
@@ -209,16 +233,30 @@ def gallery_html() -> str:
         "bootUsb": C.BOOT_USB_BANNER,
         "identify": C.IDENTIFY_ERROR,
         "empty": C.EMPTY_DISKS,
+        "supportLead": C.support_lead(),
+        "supportQr": _support_qr_svg(),
         "ssd": C.SSD_FOOTER,
         "sameSize": C.SAME_SIZE_HINT,
         "sameSizeConflict": same_size_conflict(listed_disks(result)),
         "working": C.WORKING_PULSE,
+        "stageStep": _progress.STAGE_STEP,
+        "stageStepPct": _progress.STEP_PCT,
+        "stageDone": _progress.STAGE_DONE_MARK,
+        "stageNow": _progress.STAGE_NOW_MARK,
+        "stageNotReported": _progress.STAGE_NOT_REPORTED,
         "stop": {"title": C.STOP_TITLE, "lead": C.STOP_LEAD, "ask": C.STOP_ASK,
                  "keep": C.STOP_KEEP, "confirm": C.STOP_CONFIRM, "stopping": C.STOPPING_TEXT,
                  "stopped": C.VIEWS["cancelled"].payload(),
                  "unconfirmed": C.VIEWS["stop_unconfirmed"].payload()},
         "doneOk": C.DONE_OK_PREVIEW,
         "doneFail": C.DONE_FAIL_PREVIEW,
+        "sounds": {
+            "toggleOff": C.SOUND_TOGGLE_OFF,
+            "toggleOn": C.SOUND_TOGGLE_ON,
+            "hear": C.SOUND_HEAR,
+            "hearAgain": C.SOUND_HEAR_AGAIN,
+            "offLive": C.SOUND_OUTCOME_OFF_LIVE,
+        },
         "pickSubtitle": C.pick_subtitle(),
         "confirmLead": C.CONFIRM_LEAD,
         "methodLead": C.METHOD_LEAD,
@@ -255,7 +293,7 @@ def gallery_html() -> str:
             "splash": C.HINT_SPLASH,
             "keyboard": C.HINT_KEYBOARD,
         },
-        "helperHref": "../helper/index.html",
+        "helperHref": helper_href_for(lang),
         "methods": {
             mid.value: {
                 "title": C.METHOD_CARDS[mid]["title"],
@@ -266,11 +304,53 @@ def gallery_html() -> str:
                 "nwipe": METHODS[mid].nwipe_method,
                 "summary": METHODS[mid].summary,
                 "operation": METHODS[mid].operation_summary,
+                "stages": [
+                    _progress.stage_label(stage)
+                    for stage in _progress.plan_stages(
+                        METHODS[mid].overwrite_passes,
+                        bool(METHODS[mid].verification_passes),
+                    )
+                ],
                 "result": preview_view(True).message,
             }
             for mid in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO)
         },
         "disks": _disks_payload("happy"),
+        "lang": lang,
+        "chrome": {
+            "title": C.GALLERY_TITLE,
+            "note": C.GALLERY_NOTE.format(helper=helper_href_for(lang)),
+            "happy": C.GALLERY_HAPPY,
+            "empty": C.GALLERY_EMPTY,
+            "blocked": C.GALLERY_BLOCKED,
+            "fail": C.GALLERY_FAIL,
+            "fakePower": C.GALLERY_FAKE_POWER,
+            "powerUnknown": C.GALLERY_POWER_UNKNOWN,
+            "powerAc": C.GALLERY_POWER_AC,
+            "powerBattery": C.GALLERY_POWER_BATTERY,
+            "powerLow": C.GALLERY_POWER_LOW,
+            "powerDesktop": C.GALLERY_POWER_DESKTOP,
+            "eraseSteps": C.GALLERY_ERASE_STEPS,
+            "previewPower": C.GALLERY_PREVIEW_POWER,
+            "closeTab": C.GALLERY_CLOSE_TAB,
+        },
+        "languageTitle": C.TITLE_LANGUAGE,
+        "languageLead": C.LANGUAGE_LEAD,
+        "languages": [
+            {"id": code, "name": LANGUAGE_NAMES[code], "active": code == lang}
+            for code in LANGUAGE_ORDER
+        ],
+        "confirmKeyboard": C.CONFIRM_KEYBOARD_LINE.format(
+            layout=_keyboard.LAYOUTS["us"].title, language=LANGUAGE_NAMES[lang]
+        ),
+        "steps": {str(n): C.STEP_OF.format(n=n, total=8) for n in range(1, 9)},
+        "stepPrefix": C.STEP_PREFIX,
+        "stepIdentify": C.STEP_IDENTIFY,
+        "stepOwnership": C.STEP_OWNERSHIP,
+        "stoppingErase": C.BUSY_STOPPING_TITLE,
+        "eraseProgress": C.ERASE_PROGRESS_LABEL,
+        "noWipeYet": C.NO_WIPE_YET,
+        "refreshHint": C.HINT_REFRESH,
     }
     # JSON is embedded in a script element. Escaping HTML-significant code
     # points prevents a future fixture/copy string containing </script> from
@@ -281,16 +361,37 @@ def gallery_html() -> str:
         .replace(">", "\\u003e")
         .replace("&", "\\u0026")
     )
+    chrome = payload["chrome"]
     return (
         _TEMPLATE
         .replace("__PAYLOAD__", data)
         .replace("__LOGO_HEADER__", _logo_svg(36, 30))
         .replace("__LOGO_SPLASH__", _logo_svg(70, 58))
         .replace("__FAVICON__", _favicon_uri())
+        .replace("__GALLERY_LANG__", lang)
+        .replace("__GALLERY_TITLE__", chrome["title"])
+        .replace("__GALLERY_NOTE__", chrome["note"])
+        .replace("__GALLERY_HAPPY__", chrome["happy"])
+        .replace("__GALLERY_EMPTY__", chrome["empty"])
+        .replace("__GALLERY_BLOCKED__", chrome["blocked"])
+        .replace("__GALLERY_FAIL__", chrome["fail"])
+        .replace("__GALLERY_FAKE_POWER__", chrome["fakePower"])
+        .replace("__GALLERY_POWER_UNKNOWN__", chrome["powerUnknown"])
+        .replace("__GALLERY_POWER_AC__", chrome["powerAc"])
+        .replace("__GALLERY_POWER_BATTERY__", chrome["powerBattery"])
+        .replace("__GALLERY_POWER_LOW__", chrome["powerLow"])
+        .replace("__GALLERY_POWER_DESKTOP__", chrome["powerDesktop"])
+        .replace("__GALLERY_ERASE_STEPS__", chrome["eraseSteps"])
     )
 
 
-def write_gallery(dest: Path | None = None) -> Path:
+def helper_href_for(lang: str) -> str:
+    if lang == "en":
+        return "../helper/index.html"
+    return f"../helper/{lang}.html"
+
+
+def write_gallery(dest: Path | None = None, lang: str = "en") -> Path:
     if dest is None:
         root = project_root()
         if (root / "helper" / "index.html").is_file():
@@ -298,14 +399,14 @@ def write_gallery(dest: Path | None = None) -> Path:
         else:
             dest = Path.cwd() / "web-preview" / "index.html"
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(gallery_html(), encoding="utf-8")
+    dest.write_text(gallery_html(lang), encoding="utf-8")
     return dest
 
 
-def open_gallery(dest: Path | None = None) -> Path:
+def open_gallery(dest: Path | None = None, lang: str = "en") -> Path:
     import webbrowser
 
-    path = write_gallery(dest)
+    path = write_gallery(dest, lang)
     webbrowser.open(path.resolve().as_uri())
     return path
 
@@ -314,12 +415,12 @@ def open_gallery(dest: Path | None = None) -> Path:
 # same components (cards, panels, buttons, key-caps, countdown ring), same
 # screen layouts. Keep the two in sync when the design changes.
 _TEMPLATE = r"""<!DOCTYPE html>
-<html lang="en">
+<html lang="__GALLERY_LANG__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="__FAVICON__">
-<title>Beamo Wipe — screen preview</title>
+<title>__GALLERY_TITLE__</title>
 <style>
   :root {
     /* Shared palette, pinned against ui/tk_wizard.py by tests/test_ui_system.py. */
@@ -329,7 +430,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     --navy: #0A1B34; --navy-soft: #16315C; --navy-muted: #C9D6E8;
     --primary: #1C4A73; --primary-dark: #163A5C; --primary-press: #102A44; --primary-tint: #F0F5FA;
     --danger: #B3261E; --danger-dark: #8E1D16; --danger-press: #6E1510; --danger-tint: #FBEBE9; --danger-border: #E6A79E;
-    --ok: #17703F; --ok-tint: #E7F2EB;
+    --ok: #17703F; --ok-tint: #E7F2EB; --ok-border: #9CC3AB;
     --warn: #7A5200; --warn-bg: #FBF1D5; --warn-border: #E3CE96;
     --usb-bg: #F7F1E6; --usb-border: #D9CEB5;
     --focus: #2563EB; --accent: #E6A817;
@@ -369,7 +470,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .serialpair { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   .serialpair .ser { min-width: 0; }
   .serial-label { flex-shrink: 0; font-size: 12px; color: var(--muted); }
-  .splash-roadmap { font-size: 14px; color: var(--muted); margin-top: 24px; line-height: 1.6; }
+  .splash-roadmap { font-size: 14px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
   .pick-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 8px; }
   .pick-tools .morelink { margin-top: 0; }
   .steptext { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; }
@@ -379,25 +480,24 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .col { max-width: 940px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; }
   /* The one screen-header pattern, mirroring _title_block: bold title,
      optional muted subtitle. compact is for the tightest screens. */
-  h1 { font-size: 32px; margin: 28px 0 16px; color: var(--ink); letter-spacing: -.03em; font-weight: 700; overflow-wrap: break-word; }
-  h1.sub { margin-bottom: 6px; }
+  h1 { font-size: 32px; margin: 16px 0 10px; color: var(--ink); letter-spacing: -.03em; font-weight: 700; overflow-wrap: break-word; }
+  h1.sub { margin-bottom: 4px; }
   h1.compact { margin: 12px 0 6px; }
-  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; line-height: 1.45; }
-  /* Vertically centered content band between title and footer, mirroring
-     _center_zone: short content floating at the top reads as unfinished. */
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 10px; line-height: 1.45; }
+  /* Content stays at the top of the remaining band, matching _center_zone. */
   .cz { flex: 1; display: flex; flex-direction: column; }
-  .czc { margin: 0; padding: 8px 0; }
+  .czc { margin: 0; padding: 4px 0; }
   .lead { font-size: 18px; line-height: 1.45; margin: 0 0 12px; }
   .muted { color: var(--muted); }
   .small { font-size: 14px; }
   .mono { font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
   .kbd { display: inline-block; background: var(--surface-alt); border: 1px solid var(--border-strong); border-radius: 8px; padding: 2px 8px; font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.35; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin: 0 0 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin: 0 0 8px; }
   .card.hero { box-shadow: var(--shadow); margin-left: 0; margin-right: 0; padding: 18px 22px; }
   .card.pickable { cursor: pointer; transition: border-color .12s ease, background .12s ease, box-shadow .12s ease; }
   .card.pickable:hover { background: var(--surface-alt); }
   .card.pickable:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 15px 19px; box-shadow: var(--halo); }
+  .card.sel { border: 2px solid var(--primary); background: var(--primary-tint); padding: 13px 17px; box-shadow: var(--halo); }
   .card.sel:hover { background: var(--primary-tint); }
   .card.boot { background: var(--usb-bg); border-color: var(--usb-border); cursor: not-allowed; }
   .card .row { display: flex; align-items: flex-start; gap: 14px; }
@@ -422,6 +522,13 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .panel.warn { background: var(--warn-bg); border-color: var(--warn-border); }
   .panel.danger { background: var(--danger-tint); border-color: var(--danger-border); }
   .panel.info { background: var(--surface-alt); border-color: var(--border); }
+  .panel.ok { background: var(--ok-tint); border-color: var(--ok-border); }
+  .panel.limits { background: var(--surface-alt); border-color: var(--border); }
+  .panel .sev { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .panel.warn .sev { color: var(--warn); }
+  .panel.danger .sev { color: var(--danger); }
+  .panel.ok .sev { color: var(--ok); }
+  .panel.limits .sev { color: var(--primary); }
   .panel .extra { font-size: 14px; color: var(--muted); margin-top: 4px; }
   /* One-row footer, mirroring _footer_shell: secondary actions left, key
      hints centered, the primary action right, hairline on top. */
@@ -458,10 +565,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .fill { height: 100%; background: var(--primary); width: 2%; border-radius: var(--pill); transition: width .2s ease; }
   .fill.indet { width: 30%; animation: slide 1.7s ease-in-out infinite alternate; }
   @keyframes slide { from { margin-left: 0; } to { margin-left: 70%; } }
-  .status { width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+  .status { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
   .status.ok { background: var(--ok-tint); }
   .status.bad { background: var(--danger-tint); }
-  .status .core { width: 72px; height: 72px; border-radius: 50%; color: #fff; font-size: 40px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .status .core { width: 56px; height: 56px; border-radius: 50%; color: #fff; font-size: 32px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .status.ok .core { background: var(--ok); }
   .status.bad .core { background: var(--danger); }
   .badgehalo { width: 88px; height: 88px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
@@ -469,14 +576,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .badgehalo.danger { background: var(--danger-tint); }
   .badgehalo.info { background: var(--surface-alt); }
   .ok { color: var(--ok); } .bad { color: var(--danger); }
-  ul.bullets { list-style: none; margin: 0; padding: 22px 26px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  ul.bullets { list-style: none; margin: 0; padding: 14px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
   ul.bullets li { font-size: 17px; line-height: 1.5; padding: 2px 0; display: flex; }
-  ul.bullets li + li { margin-top: 12px; }
+  ul.bullets li + li { margin-top: 8px; }
   ul.bullets li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin: 10px 14px 0 1px; flex: none; }
-  .ownercard { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 22px 24px; cursor: pointer; font-size: 18px; line-height: 1.45; }
+  .ownercard { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 14px 18px; cursor: pointer; font-size: 18px; line-height: 1.45; }
   .ownercard:hover { background: var(--surface-alt); }
   .ownercard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 21px 23px; box-shadow: var(--halo); }
+  .ownercard.checked { border: 2px solid var(--primary); background: var(--primary-tint); padding: 13px 17px; box-shadow: var(--halo); }
   .ownercard.checked:hover { background: var(--primary-tint); }
   .cbox { flex: none; width: 28px; height: 28px; margin-top: 1px; border: 2px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: #fff; font-size: 18px; font-weight: 700; line-height: 24px; text-align: center; }
   .ownercard.checked .cbox { background: var(--primary); border-color: var(--primary); }
@@ -497,15 +604,21 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .methodpace svg { flex: none; margin-top: 1px; }
   .centerstage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .centerstage h1 { margin: 22px 0 8px; }
+  .result { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; padding-top: 12px; }
+  .result h1 { margin: 12px 0 4px; }
+  .result h2 { font-size: 16px; margin: 16px 0 6px; }
   .statustext { font-size: 16px; color: var(--muted); max-width: 700px; margin: 0 auto; line-height: 1.45; }
+  .support { display: flex; gap: 12px; align-items: center; max-width: 700px; margin: 16px auto 0; text-align: left; }
+  .support svg { width: 110px; height: auto; flex: none; border: 1px solid var(--muted); background: #fff; }
+  .support p { margin: 0; }
   /* Splash: a plain white field, the navy-on-transparent brand mark,
      huge simple type, and one primary action — mirroring TkWizard._splash. */
   .splashwrap { min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
   .marktile { display: flex; }
   .marktile svg { display: block; }
-  .wordmark { font-size: 56px; font-weight: 700; color: var(--ink); letter-spacing: -.04em; margin-top: 28px; line-height: 1.02; }
-  .splashlead { font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 620px; margin: 14px 0 0; }
-  .splashwrap .btn.primary { min-width: 240px; padding: 14px 34px; margin-top: 36px; }
+  .wordmark { font-size: 56px; font-weight: 700; color: var(--ink); letter-spacing: -.04em; margin-top: 16px; line-height: 1.02; }
+  .splashlead { font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 620px; margin: 8px 0 0; }
+  .splashwrap .btn.primary { min-width: 240px; padding: 14px 34px; margin-top: 24px; }
   .anykeycap { margin-top: 14px; font-size: 12px; color: var(--muted); }
   .disklist { flex: 1; min-height: 160px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
   .disklist::-webkit-scrollbar { width: 10px; }
@@ -576,24 +689,22 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <body>
 <div class="page">
   <div class="note">
-    This is a <strong>preview</strong>. It does not erase disks. Click through like the USB wizard.
-    The real window (same Tk screens as the live USB): <code>./preview</code>
-    &nbsp;·&nbsp; <a href="../helper/index.html">Boot-menu helper</a>
+    __GALLERY_NOTE__
   </div>
   <div class="scenarios">
-    <button type="button" onclick="boot('happy')">Happy path</button>
-    <button type="button" onclick="boot('empty')">No other disks</button>
-    <button type="button" onclick="boot('blocked')">Cannot identify USB</button>
-    <button type="button" onclick="boot('fail')">Failed wipe</button>
-    <label>Fake power <select id="power-choice" onchange="updatePower(this.value)">
-      <option value="unknown">Unknown</option><option value="ac">Wall power connected</option>
-      <option value="battery">On battery</option><option value="low">Low battery</option>
-      <option value="desktop">No battery reported</option>
+    <button type="button" onclick="boot('happy')">__GALLERY_HAPPY__</button>
+    <button type="button" onclick="boot('empty')">__GALLERY_EMPTY__</button>
+    <button type="button" onclick="boot('blocked')">__GALLERY_BLOCKED__</button>
+    <button type="button" onclick="boot('fail')">__GALLERY_FAIL__</button>
+    <label>__GALLERY_FAKE_POWER__ <select id="power-choice" onchange="updatePower(this.value)">
+      <option value="unknown">__GALLERY_POWER_UNKNOWN__</option><option value="ac">__GALLERY_POWER_AC__</option>
+      <option value="battery">__GALLERY_POWER_BATTERY__</option><option value="low">__GALLERY_POWER_LOW__</option>
+      <option value="desktop">__GALLERY_POWER_DESKTOP__</option>
     </select></label>
   </div>
   <div class="shell">
     <div class="preview-stripe" id="stripe"></div>
-    <div class="hdr"><div class="brandrow"><span class="brandchip">__LOGO_HEADER__</span><div id="brand"></div></div><ol class="journey" id="journey" aria-label="Erase steps"></ol><span class="steptext" id="step"></span></div>
+    <div class="hdr"><div class="brandrow"><span class="brandchip">__LOGO_HEADER__</span><div id="brand"></div></div><ol class="journey" id="journey" aria-label="__GALLERY_ERASE_STEPS__"></ol><span class="steptext" id="step"></span></div>
     <div class="strip"><div class="sfill" id="sfill"></div></div>
     <div class="body" id="body"><div class="col" id="main"></div></div>
     <div class="foot" id="foot"><div class="utilities" id="utilities"></div><div class="footrow"><div class="fleft" id="btnsL"></div><div class="fhint" id="hint"></div><div class="fright" id="btnsR"></div></div></div>
@@ -602,7 +713,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <script>
 const P = __PAYLOAD__;
 let powerChoice = "unknown";
-function powerText() { return "Preview power (not a hardware reading). " + P.powerScenarios[powerChoice]; }
+function powerText() { return P.chrome.previewPower + P.powerScenarios[powerChoice]; }
 function powerPanel(reminder=true) {
   return `<div class="panel info"><div>${reminder ? `<div>${P.powerKeep}</div>` : ""}<div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>`;
 }
@@ -612,6 +723,7 @@ function updatePower(value) {
   if (status) status.textContent = powerText();
 }
 let screen = "splash";
+let soundsOn = false;
 let renderedScreen = null;
 let reportWanted = false;
 let reportHelpFrom = "what";
@@ -633,7 +745,9 @@ let showMore = false;
 document.getElementById("stripe").textContent = P.previewBanner;
 document.getElementById("brand").textContent = P.app;
 
-// Filled badge icons, mirroring _icon_alert in the Tk UI.
+// Filled badge icons, mirroring _icon_alert in the Tk UI. Every severity
+// differs by shape, not color: triangle warn, circle-X danger, circle-i
+// info, circle-check ok, document limits.
 function badge(kind, size) {
   const s = size;
   if (kind === "info") {
@@ -643,7 +757,28 @@ function badge(kind, size) {
       `<circle cx="${s/2}" cy="${s*0.26}" r="${s*0.075}" fill="#fff"/>` +
       `<line x1="${s/2}" y1="${s*0.46}" x2="${s/2}" y2="${s*0.74}" stroke="#fff" stroke-width="${s*0.09}" stroke-linecap="round"/></svg>`;
   }
-  const c = kind === "warn" ? "#7A5200" : "#B3261E";
+  if (kind === "danger") {
+    const c = "#B3261E";
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
+      `<circle cx="${s/2}" cy="${s/2}" r="${s/2-2}" fill="${c}"/>` +
+      `<line x1="${s*0.30}" y1="${s*0.30}" x2="${s*0.70}" y2="${s*0.70}" stroke="#fff" stroke-width="${s*0.10}" stroke-linecap="round"/>` +
+      `<line x1="${s*0.30}" y1="${s*0.70}" x2="${s*0.70}" y2="${s*0.30}" stroke="#fff" stroke-width="${s*0.10}" stroke-linecap="round"/></svg>`;
+  }
+  if (kind === "ok") {
+    const c = "#17703F";
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
+      `<circle cx="${s/2}" cy="${s/2}" r="${s/2-2}" fill="${c}"/>` +
+      `<path d="M ${s*0.26} ${s*0.54} L ${s*0.44} ${s*0.70} L ${s*0.74} ${s*0.30}" fill="none" stroke="#fff" stroke-width="${s*0.10}" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  if (kind === "limits") {
+    const c = "#1C4A73";
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
+      `<rect x="2" y="2" width="${s-4}" height="${s-4}" rx="${s*0.22}" fill="${c}"/>` +
+      `<line x1="${s*0.28}" y1="${s*0.36}" x2="${s*0.72}" y2="${s*0.36}" stroke="#fff" stroke-width="${s*0.07}" stroke-linecap="round"/>` +
+      `<line x1="${s*0.28}" y1="${s*0.52}" x2="${s*0.72}" y2="${s*0.52}" stroke="#fff" stroke-width="${s*0.07}" stroke-linecap="round"/>` +
+      `<line x1="${s*0.28}" y1="${s*0.68}" x2="${s*0.72}" y2="${s*0.68}" stroke="#fff" stroke-width="${s*0.07}" stroke-linecap="round"/></svg>`;
+  }
+  const c = "#7A5200";
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">` +
     `<path d="M ${s/2} ${2} L ${s-2} ${s-3} L 2 ${s-3} Z" fill="${c}" stroke="${c}" stroke-width="${s*0.18}" stroke-linejoin="round"/>` +
     `<line x1="${s/2}" y1="${s*0.36}" x2="${s/2}" y2="${s*0.62}" stroke="#fff" stroke-width="${s*0.09}" stroke-linecap="round"/>` +
@@ -705,16 +840,20 @@ function disks() {
 }
 function selectable() { return disks().filter(d => d.eligible); }
 function stepInfo() {
-  const map = {splash:[0,"",""], keyboard:[0,"",P.titles.keyboard], what:[1,"Step 1 of 8",P.titles.what], owner:[2,"Step 2 of 8","Ownership"],
-    pick:[3,"Step 3 of 8",P.titles.pick], blocked:[3,"Step 3 of 8",P.titles.pick], empty:[3,"Step 3 of 8",P.titles.pick],
-    confirm:[4,"Step 4 of 8",P.titles.confirm], method:[5,"Step 5 of 8",P.titles.method],
-    disk_help:[3,P.diskHelpTitle,P.diskHelpTitle], limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,"Step 6 of 8",P.titles.last],
-    stop_confirm:[7,"Step 7 of 8",P.stop.title], stopping:[7,"Step 7 of 8","Stopping erase"],
-    stop_unconfirmed:[7,"Step 7 of 8",P.stop.unconfirmed.message], stopped:[8,"Step 8 of 8",P.stop.stopped.message],
+  const stepOf = (n) => P.steps[n];
+  const map = {splash:[0,"",""], keyboard:[0,"",P.titles.keyboard], what:[1,stepOf(1),P.titles.what], owner:[2,stepOf(2),P.stepOwnership],
+    pick:[3,stepOf(3),P.titles.pick], blocked:[3,stepOf(3),P.titles.pick], empty:[3,stepOf(3),P.titles.pick],
+    confirm:[4,stepOf(4),P.titles.confirm], method:[5,stepOf(5),P.titles.method],
+    disk_help:[3,P.diskHelpTitle,P.diskHelpTitle], limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,stepOf(6),P.titles.last],
+    stop_confirm:[7,stepOf(7),P.stop.title], stopping:[7,stepOf(7),P.stoppingErase],
+    stop_unconfirmed:[7,stepOf(7),P.stop.unconfirmed.message], stopped:[8,stepOf(8),P.stop.stopped.message],
 
-    working:[7,"Step 7 of 8",P.titles.working], done:[8,"Step 8 of 8",P.titles.doneOk],
+    working:[7,stepOf(7),P.titles.working], done:[8,stepOf(8),P.titles.doneOk],
     refresh_confirm:[0,"",P.titles.refresh]};
   return map[screen] || [0,"",""];
+}
+function supportBlock() {
+  return `<div class="support"><div aria-hidden="true">${P.supportQr}</div><p>${P.supportLead}</p></div>`;
 }
 function btn(label, fn, cls, disabled) {
   const b = document.createElement("button");
@@ -729,13 +868,17 @@ function closePreview() {
   if (reportWanted && screen !== "shutdown_confirm") {
     shutdownFrom = screen; screen = "shutdown_confirm"; draw(); return;
   }
-  alert("Preview only. Close this tab when you are done.");
+  alert(P.chrome.closeTab);
 }
 function tokenOk() {
   return selected && token.trim().toLowerCase() === selected.token.toLowerCase();
 }
 function panel(kind, text, compact = false) {
-  return `<div class="panel ${kind}${compact ? " compact-notice" : ""}">${badge(kind, 28)}<div>${text}</div></div>`;
+  const sev = {warn: P.sevWarning, danger: P.sevError, ok: P.sevSaved, limits: P.sevLimits}[kind];
+  const role = kind === "warn" || kind === "danger" ? ' role="alert"'
+    : kind === "ok" ? ' role="status"' : kind === "limits" ? ' role="note"' : "";
+  const label = sev ? `<div class="sev">${sev}</div>` : "";
+  return `<div class="panel ${kind}${compact ? " compact-notice" : ""}"${role}>${badge(kind, 28)}<div>${label}${text}</div></div>`;
 }
 function moreLink() {
   return `<button type="button" class="linkbtn morelink" id="more" aria-expanded="${showMore}">${showMore ? P.buttons.less : P.buttons.more}</button>`;
@@ -806,7 +949,7 @@ function refreshPreview() {
 }
 function headerCaption(info) {
   const n = info[0], label = info[1];
-  if (n && String(label).indexOf("Step ") === 0) return P.journey[n - 1] + " · " + label;
+  if (n && String(label).indexOf(P.stepPrefix) === 0) return P.journey[n - 1] + " · " + label;
   return label;
 }
 function draw() {
@@ -850,9 +993,12 @@ function draw() {
       const selected = (keyboardLayout || "us") === item.id;
       return `<div class="card pickable${selected ? " sel" : ""}" data-layout="${item.id}" tabindex="0" role="button" aria-pressed="${selected}"><div class="row"><span class="radio"></span><div class="grow"><div class="title">${item.title}</div><p class="small muted">${item.note}</p></div><span class="kbd">${i+1}</span></div></div>`;
     }).join("");
+    const langs = P.languages.map(l => `<div class="small">${l.active ? ">" : "&nbsp;"} ${l.name}</div>`).join("");
     main.innerHTML = `<h1 class="sub">${P.titles.keyboard}</h1><p class="subtitle">${P.keyboardLead}</p>
       <p class="small muted">${P.keyboardLimits}</p>
       <div class="cz"><div class="czc">${layouts}
+      <p class="small" style="margin-top:12px"><strong>${P.languageTitle}</strong></p>
+      <p class="small muted">${P.languageLead}</p>${langs}
       <p class="small">${P.keyboardCheck}</p>
       <div class="entryshell"><input class="token" id="kbcheck" type="text" autocomplete="off" spellcheck="false" value=""></div>
       </div></div>`;
@@ -869,6 +1015,7 @@ function draw() {
   } else if (screen === "what") {
     main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
+      <div style="margin-top:12px">${panel("info", esc(P.reportMediaWhat), true)}</div>
       <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div>
       <div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>
@@ -891,13 +1038,13 @@ function draw() {
     renderHint(P.hints.owner);
     btnsR.append(btn(P.buttons.continue, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
-    main.innerHTML = `<div class="centerstage"><div class="badgehalo warn">${badge("warn", 51)}</div>
+    main.innerHTML = `<div class="centerstage"><div class="badgehalo danger">${badge("danger", 51)}</div>
       <h1>${P.titles.blocked}</h1><p class="statustext">${P.identify}</p></div>`;
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
     btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "empty") {
     let html = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
-      <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p></div>`;
+      <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p>${supportBlock()}</div>`;
     html += `<div class="disklist">` + disks().map(diskCard).join("") + `</div>`;
     main.innerHTML = html;
     renderOtherDevices();
@@ -906,7 +1053,8 @@ function draw() {
   } else if (screen === "pick") {
     let html = `<h1 class="sub">${P.titles.pick}</h1><p class="subtitle">${P.pickSubtitle}</p>`;
     if (P.sameSizeConflict && mode === "happy") html += `<div style="margin-bottom:12px">${panel("warn", P.sameSize)}</div>`;
-    if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("info", P.ssd, true)}</div>`;
+    if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("limits", P.ssd, true)}</div>`;
+    if (reportWanted) html += `<div style="margin-bottom:12px">${panel("info", esc(P.reportMediaWanted), true)}</div>`;
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
     disks().filter(d => d.isBoot).forEach(d => { html += diskCard(d); });
@@ -944,6 +1092,7 @@ function draw() {
       ${summaryCard(d)}
       ${moreLink()}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
+      <p class="small muted" style="margin-top:8px">${P.confirmKeyboard}</p>
       <p style="font-size:16px;margin:14px 0 8px;overflow-wrap:anywhere"><label for="tok">${d.prompt}</label></p>
       <div class="entryshell"><input class="token" id="tok" aria-describedby="match" autocomplete="off" spellcheck="false"></div>
       <p class="match" id="match" role="status" aria-live="polite"></p></div></div>`;
@@ -968,7 +1117,7 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<div id="storage-notice" role="note">${panel("info", selected ? selected.storageNotice : P.ssd, true)}</div><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<div id="storage-notice" role="note">${panel("limits", selected ? selected.storageNotice : P.ssd, true)}</div><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
@@ -1001,13 +1150,14 @@ function draw() {
     btnsL.append(btn(P.buttons.back, () => { screen = refreshFrom; draw(); }));
     const go = btn(P.refreshButton, refreshPreview, "primary");
     btnsR.append(go);
-    renderHint("Esc keeps your answers. Enter checks disks again.");
+    renderHint(P.refreshHint);
     go.focus();
   } else if (screen === "shutdown_confirm") {
-    main.innerHTML = `<h1>${anotherPending ? P.anotherTitle : P.shutdownTitle}</h1><p>${anotherPending ? P.anotherLoss : P.shutdownLoss}</p>`;
+    main.innerHTML = `<h1>${anotherPending ? P.anotherTitle : P.shutdownTitle}</h1><p>${anotherPending ? P.anotherLoss : P.shutdownLoss}</p>
+      <h2>${esc(P.mediaStepsTitle)}</h2><p style="white-space:pre-wrap">${esc(anotherPending ? P.mediaStepsAnother : P.mediaSteps)}</p>`;
     btnsL.append(btn(anotherPending ? P.anotherDiscard : P.shutdownDiscard, () => {
       if (anotherPending) { anotherPending = false; boot(fail ? "fail" : mode); }
-      else alert("Preview only. Close this tab when you are done.");
+      else alert(P.chrome.closeTab);
     }));
     const keep = btn(P.shutdownKeep, () => { screen = shutdownFrom; draw(); }, "primary");
     btnsR.append(keep);
@@ -1045,7 +1195,7 @@ function draw() {
       const m = P.methods[id];
       html += `<p class="mono advrow">${id}: nwipe --method=${m.nwipe} &nbsp;(${m.docs})</p>`;
     });
-    html += `</div><p class="muted small" style="margin:14px 0 4px">${P.advancedLogLabel}<span class="mono" style="color:var(--ink)">(no wipe yet)</span></p>
+    html += `</div><p class="muted small" style="margin:14px 0 4px">${P.advancedLogLabel}<span class="mono" style="color:var(--ink)">${P.noWipeYet}</span></p>
       <p class="muted small">${P.advancedNote}</p></div></div>`;
     main.innerHTML = html;
     btnsL.append(btn(P.buttons.back, () => { screen = "method"; draw(); }));
@@ -1057,7 +1207,7 @@ function draw() {
     const frac = ready ? 1 : Math.max(0, Math.min(1, tLeft / 5));
     const ringColor = "var(--primary)";
     main.innerHTML = `<h1 class="sub">${P.titles.last}</h1><p class="subtitle">${P.lastLead}</p>
-      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
+      <div class="review-grid"><div>${summaryCard(selected)}<p style="font-weight:700">${esc(P.methods[method].operation)}</p><p class="review-warning">${P.sevWarning}: ${esc(selected.eraseLabel)}</p><p class="small">${P.methods[method].summary}</p>${powerPanel()}</div><div class="ringwrap"><div style="position:relative;width:64px;height:64px">
         <svg width="64" height="64" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="81" fill="none" stroke="var(--track)" stroke-width="11"/>
           ${ready ? `<circle cx="95" cy="95" r="81" fill="none" stroke="var(--primary)" stroke-width="11"/>` :
@@ -1078,25 +1228,39 @@ function draw() {
       ${summaryCard(selected)}
       ${moreLink()}
       <div class="cz"><div class="czc">
-      <div class="progress-card"><div class="progress-label">Erase progress</div>
+      <div class="progress-card"><div class="progress-label">${P.eraseProgress}</div>
       <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>
       <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
       <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${P.working}</p>
+      <p class="small" id="step" role="status" style="font-weight:700;margin:10px 0 4px">${esc(stepText(m.stages))}</p>
+      <ol class="small muted" id="seq" style="margin:0 0 4px;padding-left:22px">${seqItems(m.stages)}</ol>
       <div id="power-status" role="status" aria-live="polite" class="small muted">${powerText()}</div>
-      <p class="small muted">${m.summary}</p></div></div></div>`;
+      <p class="small muted">${m.summary}</p>
+      <p class="small muted" id="soundsNote" role="status"></p></div></div></div>`;
     bindMore();
     btnsL.append(btn(P.stop.ask, () => {
       if (screen === "working") { screen = "stop_confirm"; draw(); }
     }));
+    btnsL.append(btn(soundsOn ? P.sounds.toggleOn : P.sounds.toggleOff, function() {
+      soundsOn = !soundsOn;
+      this.textContent = soundsOn ? P.sounds.toggleOn : P.sounds.toggleOff;
+      document.getElementById("soundsNote").textContent = this.textContent;
+    }));
+    btnsL.append(btn(P.sounds.hear, () => {
+      document.getElementById("soundsNote").textContent = P.sounds.offLive;
+    }));
     renderHint(P.hints.working);
   } else if (["stop_confirm", "stopping", "stopped", "stop_unconfirmed"].includes(screen)) {
     const result = screen === "stopped" ? P.stop.stopped : P.stop.unconfirmed;
-    const title = screen === "stop_confirm" ? P.stop.title : screen === "stopping" ? "Stopping erase" : result.message;
+    const title = screen === "stop_confirm" ? P.stop.title : screen === "stopping" ? P.stoppingErase : result.message;
     const detail = screen === "stop_confirm" ? P.stop.lead : screen === "stopping" ? P.stop.stopping : result.next_step;
+    const stopSupport = (screen === "stopped" || screen === "stop_unconfirmed") ? supportBlock() : "";
     main.innerHTML = `<h1 tabindex="-1" id="stop-heading">${title}</h1>
       <p role="status" aria-live="polite">${detail}</p>
       <p>Preview only. Nothing on this computer was erased.</p>
-      ${selected ? summaryCard(selected) : ""}`;
+      ${selected ? summaryCard(selected) : ""}
+      ${stopSupport}
+      <p class="small muted" id="stop-method">${P.methods[method].operation}</p>`;
     renderHint("Keep the disk and Beamo USB connected.");
     if (screen === "stop_confirm") {
       const confirmation = main.firstElementChild;
@@ -1123,15 +1287,16 @@ function draw() {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
     const result = P.previewResults[ok ? "ok" : "failed"];
-    main.innerHTML = `<div class="centerstage"><div class="status" aria-hidden="true"><div class="core">i</div></div>
-      <section aria-labelledby="erase-status-heading"><h1 id="erase-status-heading">${P.eraseStatusTitle}</h1>
-      <p class="statustext">${result.message}</p>
+    main.innerHTML = `<div class="result"><div class="status" aria-hidden="true"><div class="core">i</div></div>
+      <section aria-labelledby="erase-status-heading"><h1 id="erase-status-heading">${result.message}</h1>
       <p class="statustext" style="color:var(--ink)">${result.next_step}</p>
       <p>${P.methods[method].summary}</p>
-      </section><section aria-labelledby="report-status-heading">
+      </section>
+      <div style="width:100%;margin-top:12px">${summaryCard(selected)}</div>
+      <section aria-labelledby="report-status-heading">
       <h2 id="report-status-heading">${P.reportStatusTitle}</h2>
       <p>${P.reportPreview}</p><p class="small">${P.reportStatusNotice}</p></section>
-      <div style="width:100%;margin-top:24px">${summaryCard(selected)}</div>
+      <p class="small muted" id="soundsNote" role="status"></p>
       ${moreLink()}</div>`;
     bindMore();
     utilities.append(btn(P.eraseAnother, () => {
@@ -1139,6 +1304,14 @@ function draw() {
       anotherPending = true; shutdownFrom = "done"; screen = "shutdown_confirm"; draw();
     }, "secondary"));
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
+    btnsL.append(btn(soundsOn ? P.sounds.toggleOn : P.sounds.toggleOff, function() {
+      soundsOn = !soundsOn;
+      this.textContent = soundsOn ? P.sounds.toggleOn : P.sounds.toggleOff;
+      document.getElementById("soundsNote").textContent = this.textContent;
+    }));
+    btnsL.append(btn(P.sounds.hearAgain, () => {
+      document.getElementById("soundsNote").textContent = P.sounds.offLive;
+    }));
     btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
   }
   if (["what", "method", "advanced"].includes(screen)) {
@@ -1208,6 +1381,29 @@ function startCount() {
     if (screen === "last") draw();
   }, 1000);
 }
+function stagePos(stages) {
+  if (demoPct === null) return -1;
+  return Math.min(Math.floor(demoPct / 100 * stages.length), stages.length - 1);
+}
+function stepText(stages) {
+  const pos = stagePos(stages);
+  if (pos < 0) return P.stageNotReported;
+  const step = P.stageStep.replace("{k}", pos + 1).replace("{total}", stages.length).replace("{stage}", stages[pos]);
+  const frac = demoPct / 100 * stages.length - pos;
+  const seg = Math.max(0, Math.min(99, Math.floor(frac * 100)));
+  return P.stageStepPct.replace("{step}", step).replace("{pct}", seg + "%");
+}
+function seqItems(stages) {
+  const pos = stagePos(stages);
+  return stages.map((s, i) => `<li>${esc(s)}${i < pos ? esc(P.stageDone) : i === pos ? esc(P.stageNow) : ""}</li>`).join("");
+}
+function refreshStages() {
+  const m = P.methods[method];
+  const stepEl = document.getElementById("step");
+  const seqEl = document.getElementById("seq");
+  if (stepEl) stepEl.textContent = stepText(m.stages);
+  if (seqEl) seqEl.innerHTML = seqItems(m.stages);
+}
 function startWork() {
   screen = "working";
   demoPct = null;
@@ -1221,6 +1417,7 @@ function startWork() {
     const fill = document.getElementById("fill");
     if (pctEl) pctEl.textContent = demoPct + "%";
     if (fill) { fill.classList.remove("indet"); fill.style.width = demoPct + "%"; }
+    refreshStages();
     if (p >= 100) { clearInterval(timer); screen = "done"; draw(); }
   }, 280);
 }

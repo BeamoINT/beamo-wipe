@@ -215,6 +215,8 @@ def live_build_inputs() -> Dict[str, Any]:
     inputs["desktop/"] = desktop_h.hexdigest()
     for rel in (
         "helper/index.html",
+        "helper/fr.html",
+        "helper/de.html",
         "scripts/build-iso.sh",
         "scripts/build-desktop.sh",
         "scripts/build-usb-image.sh",

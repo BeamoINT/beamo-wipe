@@ -60,6 +60,26 @@ or [Diagnostic report](startup-diagnostics.md) for Prepare-before-insertion.
 Returning from the shutdown decision never bypasses final rediscovery,
 confirmation, the ownership checkbox, or the five-second delay.
 
+## Ordered removal steps
+
+The shutdown decision screen shows one ordered block, shared by every
+renderer, so removal guidance is not scattered across paragraphs. Safe
+order: report first (keep the session open, save, wait for the saved
+message; only then may the report USB be removed), leave the Beamo USB
+and the erased disk plugged in while the session runs, the Beamo USB is
+safe to remove only after the computer is fully off (removing it earlier
+ends the session immediately), restart keeps the Beamo USB plugged in to
+come back while unsaved work is still lost, and unsure or changed media
+means shut down first and sort the sticks while the computer is off
+rather than guessing. The erase-another variant replaces the removal
+line: the Beamo USB stays plugged in because the next erase runs from
+it. The offline helper repeats these steps in its removing-usb card.
+The keyboard text screen keeps the question and loss text fixed and pages
+the steps with Up/Down when a translation runs past the visible rows.
+Direct one-step shutdown (no report requested, or a current verified
+export) shows no decision screen by design; the verified-export receipt
+carries the report-USB safe-to-remove line for that path.
+
 Same-boot evidence recovery is now provided separately from report preference
 recovery. See [session recovery](session-recovery.md) for validation, runner
 ownership, rejected records, constrained export and the private-tmp boundary.

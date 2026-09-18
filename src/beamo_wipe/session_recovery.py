@@ -26,6 +26,24 @@ NOTICE = (
 )
 
 
+RECOVERY_UNSAFE_RECOVERY_FILE = "Unsafe recovery file"
+RECOVERY_INVALID_RECOVERY_FILENAME = "Invalid recovery filename"
+RECOVERY_RECOVERY_FILE_TOO_LARGE = "Recovery file too large"
+RECOVERY_UNSAFE_RECOVERY_DIRECTORY = "Unsafe recovery directory"
+RECOVERY_DIRECTORY_NOT_VOLATILE = "Recovery directory is not on the volatile filesystem"
+RECOVERY_RECOVERY_IDENTITY_UNAVAILABLE = "Recovery identity unavailable"
+RECOVERY_RECOVERY_IS_UNAVAILABLE = "Recovery is unavailable"
+RECOVERY_RECOVERY_RECORD_TOO_LARGE = "Recovery record too large"
+RECOVERY_PREVIOUS_ERASE_IS_NOT_CONFIRMED_STOPPED = "Previous erase is not confirmed stopped"
+RECOVERY_THIS_SESSION_CANNOT_START_ANOTHER_ERASE = "This session cannot start another erase"
+RECOVERY_FOREIGN_EVIDENCE_DIRECTORY = "Foreign evidence directory"
+RECOVERY_INCOMPLETE_TERMINAL_EVIDENCE = "Incomplete terminal evidence"
+RECOVERY_TERMINAL_EVIDENCE_CHANGED = "Terminal evidence changed"
+RECOVERY_CONTRADICTORY_TERMINAL_EVIDENCE = "Contradictory terminal evidence"
+RECOVERY_STALE_TERMINAL_EVIDENCE = "Stale terminal evidence"
+RECOVERY_TERMINAL_RESULT_CANNOT_BE_PROVED = "Terminal result cannot be proved"
+
+
 def _bytes(value):
     return json.dumps(
         value, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -104,7 +122,7 @@ class SessionStore:
                 or stat.S_IMODE(st.st_mode) != 0o600
                 or st.st_nlink != 1
             ):
-                raise SafetyError("Unsafe recovery file")
+                raise SafetyError(RECOVERY_UNSAFE_RECOVERY_FILE)
         except BaseException:
             os.close(fd)
             raise
@@ -112,7 +130,7 @@ class SessionStore:
 
     def read(self, name):
         if Path(name).name != name or name in {".", ".."}:
-            raise SafetyError("Invalid recovery filename")
+            raise SafetyError(RECOVERY_INVALID_RECOVERY_FILENAME)
         fd = self._file(name)
         try:
             chunks = []
@@ -124,7 +142,7 @@ class SessionStore:
                 chunks.append(chunk)
                 remaining -= len(chunk)
             if not remaining:
-                raise SafetyError("Recovery file too large")
+                raise SafetyError(RECOVERY_RECOVERY_FILE_TOO_LARGE)
             return b"".join(chunks)
         finally:
             os.close(fd)
@@ -137,9 +155,9 @@ class SessionStore:
         self.fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         st = os.fstat(self.fd)
         if st.st_uid != os.getuid() or stat.S_IMODE(st.st_mode) != 0o700:
-            raise SafetyError("Unsafe recovery directory")
+            raise SafetyError(RECOVERY_UNSAFE_RECOVERY_DIRECTORY)
         if self._production_directory and st.st_dev != os.stat("/tmp").st_dev:
-            raise SafetyError("Recovery directory is not on the volatile filesystem")
+            raise SafetyError(RECOVERY_DIRECTORY_NOT_VOLATILE)
         self.owner = self._file("interface.lock", os.O_RDWR | os.O_CREAT)
         fcntl.flock(self.owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if self.boot is None:
@@ -156,7 +174,7 @@ class SessionStore:
             or not isinstance(self.build, str)
             or not re.fullmatch(r"[0-9a-f]{64}", self.build)
         ):
-            raise SafetyError("Recovery identity unavailable")
+            raise SafetyError(RECOVERY_RECOVERY_IDENTITY_UNAVAILABLE)
         try:
             raw = self.read(NAME)
         except FileNotFoundError:
@@ -274,7 +292,7 @@ class SessionStore:
 
     def save(self, changes):
         if self.invalid or self.owner < 0:
-            raise SafetyError("Recovery is unavailable")
+            raise SafetyError(RECOVERY_RECOVERY_IS_UNAVAILABLE)
         record = {
             "schema": 1,
             "boot": self.boot,
@@ -289,7 +307,7 @@ class SessionStore:
             {"payload": record, "sha256": hashlib.sha256(_bytes(record)).hexdigest()}
         )
         if len(data) > LIMIT:
-            raise SafetyError("Recovery record too large")
+            raise SafetyError(RECOVERY_RECOVERY_RECORD_TOO_LARGE)
         name = ".recovery-" + secrets.token_hex(12)
         fd = self._file(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         try:
@@ -316,7 +334,7 @@ class SessionStore:
         The runner lock proves that no old process can still be writing.
         """
         if self.invalid or self.record is None or not self.is_quiescent():
-            raise SafetyError("Previous erase is not confirmed stopped")
+            raise SafetyError(RECOVERY_PREVIOUS_ERASE_IS_NOT_CONFIRMED_STOPPED)
         self.save({"phase": "preflight", "context": None, "terminal": None,
                    "session": secrets.token_hex(16), "created": time.monotonic()})
         self.previous = False
@@ -325,7 +343,7 @@ class SessionStore:
 
     def arm(self, discovery, request):
         if self.record is None or self.record["phase"] != "preflight" or self.previous:
-            raise SafetyError("This session cannot start another erase")
+            raise SafetyError(RECOVERY_THIS_SESSION_CANNOT_START_ANOTHER_ERASE)
         disks = []
         for disk in discovery.disks:
             item = asdict(disk)
@@ -349,12 +367,12 @@ class SessionStore:
 
     def finish(self, path):
         if Path(path).parent != self.directory:
-            raise SafetyError("Foreign evidence directory")
+            raise SafetyError(RECOVERY_FOREIGN_EVIDENCE_DIRECTORY)
         data = self.read(Path(path).name)
         sidecar = self.read(Path(path).name + ".sha256")
         digest = hashlib.sha256(data).hexdigest()
         if sidecar != f"{digest}  {Path(path).name}\n".encode():
-            raise SafetyError("Incomplete terminal evidence")
+            raise SafetyError(RECOVERY_INCOMPLETE_TERMINAL_EVIDENCE)
         self.save(
             {
                 "phase": "terminal",
@@ -398,7 +416,7 @@ class SessionStore:
             or self.read(reference["name"] + ".sha256")
             != f"{digest}  {path.name}\n".encode()
         ):
-            raise SafetyError("Terminal evidence changed")
+            raise SafetyError(RECOVERY_TERMINAL_EVIDENCE_CHANGED)
         evidence = json.loads(raw, object_pairs_hook=_object)
         context, _, target = self.context()
         from beamo_wipe.evidence import _device_identity
@@ -414,7 +432,7 @@ class SessionStore:
             or evidence.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS
             or evidence.get("provenance", {}).get("evidence_file") != str(path)
         ):
-            raise SafetyError("Contradictory terminal evidence")
+            raise SafetyError(RECOVERY_CONTRADICTORY_TERMINAL_EVIDENCE)
         times = evidence.get("timestamps", {})
         start, end = times.get("started_monotonic"), times.get("ended_monotonic")
         if (
@@ -422,10 +440,10 @@ class SessionStore:
             or type(end) not in {int, float}
             or not self.record["created"] <= start <= end <= time.monotonic()
         ):
-            raise SafetyError("Stale terminal evidence")
+            raise SafetyError(RECOVERY_STALE_TERMINAL_EVIDENCE)
         view = recover_result(path)
         if view.code == "indeterminate" or view != present_evidence(evidence):
-            raise SafetyError("Terminal result cannot be proved")
+            raise SafetyError(RECOVERY_TERMINAL_RESULT_CANNOT_BE_PROVED)
         if view.success:
             # recover_result validates the exact log suffix; additionally reject
             # unsafe log modes/links before using that verdict for startup.

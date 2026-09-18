@@ -52,6 +52,7 @@ _KEEP_ROOT = frozenset(
         "interruption",
         "presentation",
         "result_description",
+        "locale",
     }
 )
 _KEEP_DEVICE = frozenset({"model", "size_bytes", "size_gb_label", "kind", "bus"})

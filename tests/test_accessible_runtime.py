@@ -650,6 +650,39 @@ def test_accessible_startup_diagnostic_path(ui):
     assert w.evidence is None and not w.can_save_report
 
 
+def test_accessible_done_fail_shows_focusable_support(ui):
+    from beamo_wipe import copy as C
+
+    w, _, _ = case_evidence(next(c for c in CASES if c[0] == "engine_failed"))
+    w.preview = False
+    w.screen = Screen.DONE
+    app = ui(w)
+    app.render()
+    drain()
+    labels = [
+        label
+        for label in widgets(app.window)
+        if isinstance(label, Gtk.Label) and label.get_text() == C.support_text()
+    ]
+    assert len(labels) == 1
+    assert labels[0].get_can_focus()
+
+
+def test_accessible_blocked_leads_with_specific_heading(ui):
+    from beamo_wipe import copy as C
+
+    w = make_demo_wizard()
+    w.preview = False
+    w.error = C.IDENTIFY_ERROR
+    w.screen = Screen.PICK_BLOCKED
+    app = ui(w)
+    app.render()
+    drain()
+    shown = text(app)
+    assert C.BLOCKED_HEADING_IDENTIFY in shown
+    assert shown.index(C.BLOCKED_HEADING_IDENTIFY) < shown.index(C.SEVERITY_ERROR)
+
+
 @pytest.mark.parametrize("wanted", [True, False])
 def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     from beamo_wipe import copy as C
@@ -884,6 +917,30 @@ def test_accessible_progress_has_shared_text_without_duplicate_announcements(ui)
         assert "Estimated time remaining: about 2 hours" in text(app)
 
 
+def test_accessible_stale_progress_announces_meaning_and_next_steps_once(ui):
+    from unittest.mock import PropertyMock, patch
+    from beamo_wipe.progress import STALE_MEANING, STALE_NEXT, ProgressView
+    from beamo_wipe.wizard import Wizard
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.WORKING
+    view = ProgressView("Writing", 42, 120, None, stale_for=65, percent_is_old=True)
+    with patch.object(Wizard, "progress_view", new_callable=PropertyMock, return_value=view):
+        app = ui(wizard)
+        label = app.progress_label
+        changes = []
+        label.connect("notify::label", lambda *_: changes.append(True))
+        app.update_status()
+        baseline = len(changes)
+        for _ in range(20):
+            app.update_status()
+        assert len(changes) == baseline
+        assert label.get_text() == view.status_text
+        assert label.get_accessible().get_name() == view.status_text
+        assert STALE_MEANING in text(app)
+        assert STALE_NEXT in text(app)
+
+
 def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     from beamo_wipe.ui import accessible_wizard as module
 
@@ -1003,9 +1060,12 @@ def test_separate_erase_and_report_headings(ui, case, status):
         for widget in widgets(app.window)
         if widget.get_accessible().get_role() == Atk.Role.HEADING
     }
-    assert {C.ERASE_STATUS_TITLE, C.REPORT_STATUS_TITLE} <= headings
-    assert wizard.report_view.headline in text(app)
+    # #95: the announcement is the erase heading; the generic label is gone.
     assert wizard.result_view == VIEWS[case[0]]
+    assert wizard.result_view.announcement in headings
+    assert C.REPORT_STATUS_TITLE in headings
+    assert "Erase status" not in headings
+    assert wizard.report_view.headline in text(app)
 
 def test_accessible_erase_another_guard(ui):
     from beamo_wipe import copy as C
@@ -1024,3 +1084,300 @@ def test_accessible_erase_another_guard(ui):
     assert not w.wants_new_session
     app.actions[C.ANOTHER_DISCARD].clicked()
     assert w.wants_new_session and app.closed
+
+
+def _canned_sound(monkeypatch, calls, *, available=True, orca=True):
+    from beamo_wipe import sound
+
+    outputs = (
+        sound.SoundOutput("speak-id", "Speakers", "speak-id", True),
+        sound.SoundOutput("phones-id", "Headphones", "phones-id", False),
+    )
+    state = sound.SoundState(
+        available=available,
+        message="" if available else "No sound output was found.",
+        outputs=outputs if available else (),
+        volume_percent=40 if available else None,
+        muted=False if available else None,
+    )
+    monkeypatch.setattr(sound, "list_outputs", lambda: state)
+    monkeypatch.setattr(sound, "orca_running", lambda: orca)
+    monkeypatch.setattr(
+        sound, "set_output",
+        lambda name: calls.append(("set", name)) or sound.SoundResult(True, "ok"),
+    )
+    monkeypatch.setattr(
+        sound, "nudge_volume",
+        lambda name, delta: calls.append(("vol", name, delta))
+        or sound.SoundResult(True, "ok"),
+    )
+    monkeypatch.setattr(
+        sound, "set_muted",
+        lambda name, muted: calls.append(("mute", name, muted))
+        or sound.SoundResult(True, "ok"),
+    )
+    monkeypatch.setattr(
+        sound, "play_speech_test",
+        lambda: calls.append(("play",)) or sound.SoundResult(True, "played"),
+    )
+    return state
+
+
+def _sound_dialog():
+    from beamo_wipe.ui.accessible_wizard import Gtk
+
+    return [
+        w for w in Gtk.Window.list_toplevels()
+        if isinstance(w, Gtk.Dialog) and w.get_mapped()
+    ]
+
+
+def _dialog_button(dialog, label):
+    from beamo_wipe.ui.accessible_wizard import Gtk
+
+    found = [
+        w for w in widgets(dialog)
+        if isinstance(w, Gtk.Button) and w.get_label() == label
+    ]
+    assert len(found) == 1, label
+    return found[0]
+
+
+def test_sound_check_dialog_plays_test_and_switches_output(ui, monkeypatch):
+    """Backlog #86: outputs, test, and persisted choice. Needs display."""
+    from beamo_wipe import copy as C
+    from beamo_wipe.ui.accessible_wizard import Gtk
+
+    calls = []
+    _canned_sound(monkeypatch, calls)
+    app = ui()
+    app.actions[C.SOUND_CHECK_BUTTON].clicked()
+    drain()
+    dialogs = _sound_dialog()
+    assert len(dialogs) == 1
+    dialog = dialogs[0]
+    names = {
+        w.get_text() for w in widgets(dialog) if isinstance(w, Gtk.Label)
+    }
+    assert any("Speakers" in name for name in names)
+    assert any("Headphones" in name for name in names)
+    _dialog_button(dialog, C.SOUND_PLAY_TEST).clicked()
+    drain()
+    assert ("play",) in calls
+    radios = [w for w in widgets(dialog) if isinstance(w, Gtk.RadioButton)]
+    assert len(radios) == 2
+    radios[1].set_active(True)
+    drain()
+    assert ("set", "phones-id") in calls
+    assert app.w.sound_output == "phones-id"
+    _dialog_button(dialog, C.SOUND_LOUDER).clicked()
+    _dialog_button(dialog, C.SOUND_MUTE).clicked()
+    drain()
+    assert ("vol", "phones-id", 10) in calls
+    assert ("mute", "phones-id", True) in calls
+    dialog.destroy()
+    drain()
+    assert _sound_dialog() == []
+
+
+def test_sound_check_dialog_reports_no_audio_and_orca_failure(ui, monkeypatch):
+    """Backlog #86: silence states stay usable with recovery text."""
+    from beamo_wipe import copy as C
+    from beamo_wipe.ui.accessible_wizard import Gtk
+
+    calls = []
+    _canned_sound(monkeypatch, calls, available=False, orca=False)
+    app = ui()
+    app.actions[C.SOUND_CHECK_BUTTON].clicked()
+    drain()
+    dialogs = _sound_dialog()
+    assert len(dialogs) == 1
+    dialog = dialogs[0]
+    shown = "\n".join(
+        w.get_text() for w in widgets(dialog) if isinstance(w, Gtk.Label)
+    )
+    assert C.SOUND_NO_OUTPUT in shown
+    assert C.SOUND_ORCA_MISSING in shown
+    assert C.SOUND_RECOVERY in shown
+    assert not _dialog_button(dialog, C.SOUND_PLAY_TEST).get_sensitive()
+    dialog.emit("close")
+    drain()
+    assert _sound_dialog() == []
+
+
+def test_sound_check_dialog_toggles_and_hears_outcome_sounds(ui, monkeypatch):
+    """Backlog #93: outcome-sound toggle + hear. Needs display."""
+    from beamo_wipe import copy as C
+    from beamo_wipe import sound
+
+    calls = []
+    _canned_sound(monkeypatch, calls)
+    monkeypatch.setattr(
+        sound,
+        "play_test",
+        lambda kind: calls.append(("hear", kind))
+        or sound.SoundResult(True, f"played {kind}"),
+    )
+    app = ui()
+    app.actions[C.SOUND_CHECK_BUTTON].clicked()
+    drain()
+    dialog = _sound_dialog()[0]
+    _dialog_button(dialog, C.SOUND_TOGGLE_OFF).clicked()
+    drain()
+    assert app.w.sounds_enabled is True
+    assert app.w.sound_message == C.SOUND_TOGGLE_ON
+    _dialog_button(dialog, C.SOUND_TOGGLE_ON)
+    _dialog_button(dialog, C.SOUND_HEAR).clicked()
+    drain()
+    assert ("hear", "finished") in calls
+    assert ("hear", "attention") in calls
+    dialog.destroy()
+    drain()
+    assert _sound_dialog() == []
+
+
+def test_accessible_done_auto_plays_once_without_changing_announcement(ui, monkeypatch):
+    """Backlog #93: auto-play + screen-reader coexistence. Needs display."""
+    from beamo_wipe import sound as sound_module
+    from beamo_wipe.models import WipeResult
+
+    calls = []
+    monkeypatch.setattr(
+        sound_module,
+        "play_outcome",
+        lambda kind: calls.append(kind)
+        or sound_module.SoundResult(True, ""),
+    )
+    wizard = make_demo_wizard()
+    wizard.preview = False
+    wizard.screen = Screen.DONE
+    wizard.wipe_result = WipeResult(True, 0, "Erase completed", "/tmp/x.log")
+    app = ui(wizard)
+    off_text = text(app)
+    wizard.set_sounds_enabled(True)
+    app.render()
+    drain()
+    app.render()
+    drain()
+    assert calls == [sound_module.KIND_ATTENTION]
+    assert text(app) == off_text
+
+
+def test_done_announcement_is_first_heading(ui):
+    """Backlog #95: screen-reader order. Needs display."""
+    from gi.repository import Atk
+
+    from beamo_wipe import copy as C
+    from beamo_wipe.models import WipeResult
+
+    wizard = make_demo_wizard()
+    wizard.preview = False
+    wizard.screen = Screen.DONE
+    wizard.wipe_result = WipeResult(True, 0, "Erase completed", "/tmp/x.log")
+    app = ui(wizard)
+    ordered = [
+        widget.get_accessible().get_name()
+        for widget in widgets(app.window)
+        if widget.get_accessible().get_role() == Atk.Role.HEADING
+    ]
+    assert ordered[0] == wizard.result_view.announcement
+    assert "Erase status" not in ordered
+    assert C.REPORT_STATUS_TITLE in ordered
+
+
+@pytest.mark.parametrize(
+    "code,shown",
+    [("verified", True), ("engine_failed", True), ("cancelled", True), ("open_failed", False)],
+)
+def test_done_post_erase_boot_note_announced(ui, code, shown):
+    """Backlog #97: post-erase note. Needs display."""
+    from beamo_wipe import copy as C
+
+    case = next(c for c in CASES if c[0] == code)
+    wizard, _, _ = case_evidence(case)
+    app = ui(wizard)
+    assert (C.POST_ERASE_BOOT in text(app)) == shown
+
+
+@pytest.mark.parametrize("code", ["verified", "engine_failed", "cancelled", "interrupted"])
+def test_shutdown_confirm_media_steps_announced(ui, code):
+    """Backlog #98: ordered removal steps. Needs display."""
+    from beamo_wipe import copy as C
+
+    case = next(c for c in CASES if c[0] == code)
+    wizard, _, _ = case_evidence(case)
+    wizard.report_wanted = True
+    wizard.shutdown()
+    assert wizard.screen == Screen.SHUTDOWN_CONFIRM
+    app = ui(wizard)
+    assert C.SHUTDOWN_LOSS in text(app)
+    assert C.MEDIA_STEPS_TITLE in text(app)
+    assert wizard.exit_media_steps in text(app)
+    names = [w.get_accessible().get_name() for w in widgets(app.window)]
+    assert C.MEDIA_STEPS_TITLE in names
+
+
+def test_what_report_media_notice_announced(ui):
+    """Backlog #99: pre-erase media notice. Needs display."""
+    from beamo_wipe import copy as C
+
+    wizard = make_demo_wizard()
+    wizard.skip_intro()
+    assert wizard.screen == Screen.WHAT
+    app = ui(wizard)
+    assert C.REPORT_MEDIA_WHAT in text(app)
+    names = [w.get_accessible().get_name() for w in widgets(app.window)]
+    assert C.REPORT_MEDIA_WHAT in names
+
+
+@pytest.mark.parametrize("wanted", [True, False])
+def test_pick_report_media_notice_follows_preference(ui, wanted):
+    """Backlog #99: conditional pick notice. Needs display."""
+    from beamo_wipe import copy as C
+
+    wizard = make_demo_wizard()
+    wizard.skip_intro()
+    wizard.accept_what()
+    wizard.set_owner(True)
+    wizard.continue_owner()
+    assert wizard.screen == Screen.PICK
+    wizard.report_wanted = wanted
+    app = ui(wizard)
+    assert (C.REPORT_MEDIA_WANTED in text(app)) == wanted
+
+
+@pytest.mark.parametrize("status", ["idle", "saving", "saved", "error"])
+def test_done_export_stages_announced_per_state(ui, tmp_path, status):
+    """Backlog #100: staged export guidance. Needs display."""
+    from beamo_wipe import copy as C
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+
+    wizard = _done_wizard(_success_receipt, tmp_path)
+    if status == "saved":
+        wizard.save_report_to_usb()
+    elif status == "saving":
+        from beamo_wipe.wizard import REPORT_SAVING
+
+        wizard.report_status = "saving"
+        wizard.report_message = REPORT_SAVING
+    elif status == "error":
+        wizard.report_status = "error"
+        wizard.report_message = "Report USB was removed."
+    app = ui(wizard)
+    body = text(app)
+    for stage in C.EXPORT_STAGES:
+        assert (stage in body) == (status != "error")
+    if status == "error":
+        assert "Save report to USB again" in body
+
+
+def test_diagnostic_rejection_announces_next_step(ui):
+    """Backlog #101: actionable rejection. Needs display."""
+    from beamo_wipe import support_export as E
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.DIAGNOSTIC
+    wizard.diagnostic_message = E.USB_VOLUME_WRITABLE
+    app = ui(wizard)
+    assert E.USB_VOLUME_WRITABLE in text(app)
+    assert E.NEXT_REPLUG in text(app)

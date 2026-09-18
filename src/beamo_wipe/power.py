@@ -13,6 +13,22 @@ REFRESH_SECONDS = 5.0
 STALE_SECONDS = 10.0
 EXTERNAL_TYPES = {'Mains', 'USB', 'USB_DCP', 'USB_CDP', 'USB_ACA', 'USB_C', 'USB_PD', 'USB_PD_DRP', 'Wireless'}
 
+AC_CONNECTED = "connected (reported)"
+AC_NOT_DETECTED = "not detected (reported)"
+AC_UNKNOWN = "unknown"
+WALL_LINE = "Wall power: {ac}."
+BATTERY_UNKNOWN = "Battery charge: unknown."
+BATTERY_LINE = "Battery: {value}% reported."
+BATTERIES_LINE = "{count} batteries reported; {rest}"
+BATTERIES_LOWEST = "lowest available charge: {value}%."
+BATTERIES_UNKNOWN = "charge unknown."
+MISSING_ONE = "{missing} charge reading unavailable."
+MISSING_MANY = "{missing} charge readings unavailable."
+NO_BATTERY = "No system battery reported."
+INCOMPLETE = "Some power information is unavailable."
+LOW_BATTERY = "Low battery. Check wall power now."
+CONNECT_WALL = "Connect wall power now."
+
 
 @dataclass(frozen=True)
 class PowerStatus:
@@ -26,26 +42,26 @@ class PowerStatus:
 
     @property
     def text(self) -> str:
-        ac = {True: 'connected (reported)', False: 'not detected (reported)', None: 'unknown'}[self.ac]
-        parts = [f'Wall power: {ac}.']
+        ac = {True: AC_CONNECTED, False: AC_NOT_DETECTED, None: AC_UNKNOWN}[self.ac]
+        parts = [WALL_LINE.format(ac=ac)]
         if len(self.batteries) == 1:
             value = self.batteries[0]
-            parts.append('Battery charge: unknown.' if value is None else f'Battery: {value}% reported.')
+            parts.append(BATTERY_UNKNOWN if value is None else BATTERY_LINE.format(value=value))
         elif self.batteries:
             known = [v for v in self.batteries if v is not None]
-            parts.append(f'{len(self.batteries)} batteries reported; ' +
-                         (f'lowest available charge: {min(known)}%.' if known else 'charge unknown.'))
+            rest = BATTERIES_LOWEST.format(value=min(known)) if known else BATTERIES_UNKNOWN
+            parts.append(BATTERIES_LINE.format(count=len(self.batteries), rest=rest))
             missing = self.batteries.count(None)
             if missing:
-                parts.append(f'{missing} charge reading unavailable.' if missing == 1 else f'{missing} charge readings unavailable.')
+                parts.append((MISSING_ONE if missing == 1 else MISSING_MANY).format(missing=missing))
         elif self.complete:
-            parts.append('No system battery reported.')
+            parts.append(NO_BATTERY)
         if not self.complete:
-            parts.append('Some power information is unavailable.')
+            parts.append(INCOMPLETE)
         if self.low:
-            parts.append('Low battery. Check wall power now.')
+            parts.append(LOW_BATTERY)
         elif self.ac is False and self.batteries:
-            parts.append('Connect wall power now.')
+            parts.append(CONNECT_WALL)
         return ' '.join(parts)
 
 

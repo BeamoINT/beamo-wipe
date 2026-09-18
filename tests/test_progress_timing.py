@@ -338,6 +338,12 @@ def test_plain_console_deduplicates_and_remains_cancellable(monkeypatch, capsys)
         error=None,
         evidence_warning="",
         selected=None,
+        operation_identity_text="",
+        operation_method_text="One overwrite, followed by verification.",
+        sound_toggle_text="Sounds: off",
+        sound_message="",
+        toggle_sounds=lambda: None,
+        hear_both_sounds=lambda: None,
         tick=lambda: None,
     )
     calls = []

@@ -41,6 +41,8 @@ def test_comparison_is_fail_closed_and_does_not_authorize():
 
 @pytest.mark.parametrize("count,width,columns", [(2,900,2), (7,900,2), (7,500,1)])
 def test_tk_comparison_reflow_keyboard_and_continuity(count, width, columns):
+    from test_tk_runtime import _needs_display
+    _needs_display()
     import tkinter as tk
     from beamo_wipe.ui.tk_wizard import TkWizard
     w = make_demo_wizard()
@@ -146,6 +148,7 @@ def test_browser_comparison_keyboard_reflow_and_selection(tmp_path, width, colum
 
 
 def test_gtk_comparison_disclosure_is_read_only():
+    pytest.importorskip("gi")
     from beamo_wipe.ui.accessible_wizard import AccessibleWizard, Gtk
     from test_accessible_runtime import drain, widgets
     w = make_demo_wizard()
@@ -194,6 +197,8 @@ def test_comparison_keeps_duplicate_warning_from_protected_peer():
 
 
 def test_real_picker_comparison_keeps_selection_and_reveals_keyboard_focus():
+    from test_tk_runtime import _needs_display
+    _needs_display()
     import tkinter as tk
     from beamo_wipe.ui.tk_wizard import TkWizard
     w = make_demo_wizard()

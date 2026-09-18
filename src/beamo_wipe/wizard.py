@@ -16,18 +16,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
+from beamo_wipe import copy as C
 from beamo_wipe.copy import (
-    AUTHORIZATION_STALE,
-    BOOT_USB_BANNER,
-    BOOT_DISC_BANNER,
-    REDISCOVER_ERROR,
     confirm_warning,
     erase_now_label,
 )
+from beamo_wipe import keyboard as _keyboard
 from beamo_wipe.keyboard import (
-    APPLY_FAILED,
     DEFAULT_LAYOUT,
-    UNAVAILABLE,
     apply_layout,
     is_allowed,
 )
@@ -42,6 +38,7 @@ from beamo_wipe.models import (
     WipeResult,
 )
 from beamo_wipe.discover import discover
+from beamo_wipe import safety as _safety
 from beamo_wipe.safety import (
     SafetyError,
     assert_boot_excluded,
@@ -54,8 +51,100 @@ from beamo_wipe.safety import (
     token_matches,
 )
 from beamo_wipe.nwipe_runner import NwipeRunner, ProcessStatusError, build_nwipe_argv
+from beamo_wipe import progress as _progress
 from beamo_wipe.progress import ProgressTiming, ProgressView
 from beamo_wipe.power import PowerMonitor, read_power
+
+
+REPORT_HEAD_PREPARING = "Preparing the report"
+REPORT_HEAD_UNCONFIRMED = "Report preparation could not be confirmed"
+REPORT_HEAD_NOT_SAVED = "Report not saved to USB"
+REPORT_HEAD_SAVING = "Saving and checking the report copy"
+REPORT_HEAD_SAVED = "Report copy saved and checked"
+REPORT_HEAD_FAILED = "Report copy could not be saved and checked"
+REPORT_HEAD_UNKNOWN = "Report status could not be confirmed"
+PREV_RESULT_NOTICE = "The previous result could not be confirmed. {notice}"
+RECOVERY_MAY_RUNNING = "The erase may still be running. Keep disks connected. Contact support. "
+RECOVERY_NO_RESTART = "No erase was restarted or resumed."
+TERMINAL_EVIDENCE_MISSING = "No terminal evidence"
+RECOVERY_UNAVAILABLE_MSG = "Recovery evidence is unavailable. The previous result could not be confirmed."
+BOOT_USB_LINE = "Beamo USB (not erasable): {line}"
+NO_DISK_SELECTED = "No disk is selected."
+PREVIEW_POWER_PREFIX = "Preview power (not a hardware reading). "
+CLEANUP_UNCONFIRMED = "Process status or cleanup could not be confirmed. The disk may still be erasing."
+WAIT_REPORT_USB = "Wait for the report USB to finish before shutting down."
+PREF_NOT_RECOVERED = "Report preference could not be recovered. Shutdown will ask before discarding reports."
+PREF_RECOVERED = "Report preference recovered for this live session. Previous export success could not be confirmed."
+PREF_RECOVERY_UNAVAILABLE = "Report preference recovery is unavailable. Keep this session open until you save the report."
+CHECKING_AGAIN = "Checking disks again."
+FAKE_SOURCE_REQUIRED = "A fresh fake-device discovery source is required."
+INVALID_INVENTORY = "Discovery returned an invalid inventory."
+BOOT_UNIDENTIFIED = "Boot device could not be identified."
+ALREADY_RUNNING = "A wipe is already running."
+PREVIEW_NO_EXEC = "Preview and dry-run cannot exec nwipe."
+CHECKING_NO_START = "Disk checking could not start. Try again."
+REREAD_FAILED = "Could not re-read disks. Erase did not start."
+IDENTITY_UNCONFIRMED_MSG = "Disk identity could not be confirmed. Check disks again."
+NOT_IN_SAFE_LIST = "Selected disk is not in the safe list."
+CLOSED_DURING_CHECK = "Interface closed during disk checking. Erase did not start."
+PREFLIGHT_BLOCKED = "The safety checks prevented startup. Check disks again or save a diagnostic report."
+STARTUP_UNCONFIRMED = "Startup could not be confirmed. Save a diagnostic report for support."
+TMP_NOT_WRITABLE = "Temporary storage is not writable."
+TMP_NO_SPACE = "Temporary storage has no available space."
+FINALIZE_UNCONFIRMED = "Report finalization could not be confirmed."
+EVIDENCE_INVALID = "Report evidence did not pass validation."
+TMP_IO_ERROR = "Temporary storage reported an I/O error."
+TMP_IO_FAILED = "Temporary storage could not be read or written."
+CHANGED_CONTEXT = "Changed evidence context"
+EVIDENCE_UNVERIFIED = "Unverified evidence"
+FOREIGN_PROVENANCE = "Foreign evidence provenance"
+CONTRADICTORY_READBACK = "Contradictory evidence readback"
+CHANGED_TERMINAL = "Changed terminal state"
+EVIDENCE_NOT_SAVING = "Report evidence is not being saved. {error} The erase is still running."
+EVIDENCE_SAVING = "Saving report evidence… The erase result is unchanged."
+RETRY_SAVE_REMAINING = " Retry save ({remaining} left)."
+KEEP_SESSION_OPEN = " Keep this session open and contact support."
+TEMP_EVIDENCE_LOST = " Temporary evidence is lost at shutdown or power loss."
+
+
+def error_needs_support(error: object) -> bool:
+    """True when a wizard error refers the owner to support.
+
+    Compares against the translated constants, never substrings, so the
+    rule holds in every session language.
+    """
+    if not isinstance(error, str) or not error:
+        return False
+    from beamo_wipe.app import STARTUP_BLOCKED  # local: app imports wizard
+    from beamo_wipe.outcomes import VIEWS
+
+    return (
+        error.startswith(RECOVERY_MAY_RUNNING)
+        or error == STARTUP_BLOCKED
+        or error == STARTUP_UNCONFIRMED
+        or error == VIEWS["stop_unconfirmed"].announcement
+    )
+NO_EXPORT_EVIDENCE = "No current verified evidence to export"
+NO_FINISHED_REPORT = "A current finished wipe report is not available."
+EVIDENCE_UNREADABLE = "The saved wipe evidence could not be read. Try saving the report again."
+REPORT_CHANGED_BEFORE_SAVE = "The finished wipe report changed before it could be saved."
+REPORT_SAVING = "Saving and verifying the report USB. Leave it connected."
+EXPORT_FAILED = "The report export failed. Shut down before removing the USB."
+REPORT_NOT_SAVED = "The report was not saved and verified. Shut down before removing the USB."
+REPORT_CHANGED_DURING_SAVE = "The finished wipe report changed while it was being saved. Shut down before removing the USB."
+EXPORT_NO_START = "The report export could not start."
+DIAG_VERIFYING = "Saving and verifying. Leave the USB connected."
+DIAG_CHECKING = "Checking connected disks."
+DIAG_NO_PREVIEW = "Diagnostic USB export is unavailable in preview or dry-run."
+DIAG_BASELINE_READY = "Baseline checked. Now insert one new removable FAT32 USB and choose {action}."
+DIAG_NOT_SAVED = "Diagnostic report was not saved and verified. Shut down before removing the USB."
+DIAG_CONTEXT_CHANGED = "Startup status changed. Save a new diagnostic report before shutting down."
+DIAG_FAILED = "Diagnostic export failed. Shut down before removing the USB."
+DIAG_NO_START = "Diagnostic export could not start. Try again."
+ERASE_STOPPED_BY_YOU = "The erase was stopped by you"
+ERASE_INTERRUPTED_MSG = "The erase was interrupted"
+ERASE_COMPLETION_UNCONFIRMED = "The erase process reported completion; the result could not be confirmed"
+ERASE_UNFINISHED = "The erase did not finish"
 
 
 if TYPE_CHECKING:
@@ -95,21 +184,28 @@ class ReportView:
     @property
     def headline(self) -> str:
         if self.saving_evidence:
-            return "Preparing the report"
+            return REPORT_HEAD_PREPARING
         if self.evidence_error:
-            return "Report preparation could not be confirmed"
+            return REPORT_HEAD_UNCONFIRMED
         return {
-            "idle": "Report not saved to USB",
-            "saving": "Saving and checking the report copy",
-            "saved": "Report copy saved and checked",
-            "error": "Report copy could not be saved and checked",
-        }.get(self.status, "Report status could not be confirmed")
+            "idle": REPORT_HEAD_NOT_SAVED,
+            "saving": REPORT_HEAD_SAVING,
+            "saved": REPORT_HEAD_SAVED,
+            "error": REPORT_HEAD_FAILED,
+        }.get(self.status, REPORT_HEAD_UNKNOWN)
 
     @property
     def tone(self) -> str:
-        # Report warnings never reuse the red erase-failure badge or green
-        # erase-success check. Words identify saved copies explicitly.
-        return "warn" if self.evidence_error or self.status == "error" else "info"
+        # Report warnings never reuse the red erase-failure badge, and a
+        # saved copy never reuses the green erase-success badge: checking a
+        # report copy is not disk read-back verification. The saved state
+        # gets its own small in-panel treatment (Saved label, saved icon,
+        # report wording). Only a fully saved copy takes the success tone.
+        if self.evidence_error or self.status == "error":
+            return "warn"
+        if self.status == "saved" and not self.saving_evidence:
+            return "ok"
+        return "info"
 
 
 @dataclass(frozen=True)
@@ -175,6 +271,10 @@ class Wizard:
         self.screen = Screen.SPLASH
         self.report_wanted = False
         self.report_share_redacted = False
+        self.sound_output = ""
+        self.sounds_enabled = False
+        self.sound_message = ""
+        self._sound_played_for: Optional[str] = None
         self._intent_store = None
         self.report_recovery_warning = ""
         self._shutdown_from: Optional[Screen] = None
@@ -187,6 +287,7 @@ class Wizard:
         self.selected: Optional[Disk] = None
         self.confirm_input = ""
         self.keyboard_layout = DEFAULT_LAYOUT
+        self.language = "en"
         self.typing_check = ""
         self.keyboard_message = ""
         self._keyboard_from: Optional[Screen] = None
@@ -275,7 +376,7 @@ class Wizard:
         self._wipe_request = None
         self.screen = Screen.PICK_BLOCKED
         self.startup_error_code = "recovery_indeterminate"
-        self.error = "The previous result could not be confirmed. " + NOTICE
+        self.error = PREV_RESULT_NOTICE.format(notice=NOTICE)
         self.report_recovery_warning = NOTICE
         self._recover_when_quiescent()
 
@@ -285,12 +386,12 @@ class Wizard:
             return
         try:
             if not store.is_quiescent():
-                self.error = "The erase may still be running. Keep disks connected. Contact support. "
-                self.error += "No erase was restarted or resumed."
+                self.error = RECOVERY_MAY_RUNNING
+                self.error += RECOVERY_NO_RESTART
                 return
             if store.invalid or store.record is None or store.record["context"] is None:
                 from beamo_wipe.session_recovery import NOTICE
-                self.error = "The previous result could not be confirmed. " + NOTICE
+                self.error = PREV_RESULT_NOTICE.format(notice=NOTICE)
                 return
             context, discovery, target = store.context()
             self.discovery = discovery  # historical baseline protects every old disk
@@ -298,7 +399,7 @@ class Wizard:
             self.method = MethodId(context["method"])
             try:
                 if store.record["phase"] != "terminal":
-                    raise SafetyError("No terminal evidence")
+                    raise SafetyError(TERMINAL_EVIDENCE_MISSING)
                 path, evidence = store.terminal()
             except (OSError, SafetyError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
                 # Commit the unknown operation state before attempting its save.
@@ -311,7 +412,8 @@ class Wizard:
                     disk=target, discovery=discovery, method=self.method,
                     request=None, result=None, started_at_wall=None, ended_at_wall=None,
                     started_mono=None, ended_mono=None, argv=[], log_text="", interrupted=True,
-                    wall_provenance="unavailable")
+                    wall_provenance="unavailable", language=self.language,
+                    keyboard_layout=self.keyboard_layout)
                 self._evidence_write_seq += 1
                 self._pending_evidence = (copy.deepcopy(inputs), self._evidence_context(),
                                           self.wipe_result, self._result_evidence_key(self.wipe_result))
@@ -333,7 +435,7 @@ class Wizard:
             self.error = None
             self._touch_report_locked()
         except (OSError, SafetyError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
-            self.error = "Recovery evidence is unavailable. The previous result could not be confirmed."
+            self.error = RECOVERY_UNAVAILABLE_MSG
 
     def _recovery_busy(self) -> bool:
         if not self._recovered or self._session_store is None:
@@ -361,7 +463,7 @@ class Wizard:
         boot = self.protected_boot
         if boot is None:
             return ""
-        title = BOOT_USB_BANNER if boot.bus == "USB" else BOOT_DISC_BANNER
+        title = C.BOOT_USB_BANNER if boot.bus == "USB" else C.BOOT_DISC_BANNER
         lines = [title, self.disk_view(boot).announcement]
         nested = card_nesting_text(self.nested_components(boot))
         if nested:
@@ -379,7 +481,7 @@ class Wizard:
         if boot is None:
             return ""
         view = self.disk_view(boot)
-        return f"Beamo USB (not erasable): {view.compact_line}"
+        return BOOT_USB_LINE.format(line=view.compact_line)
 
     @property
     def selectable(self):
@@ -413,10 +515,41 @@ class Wizard:
 
         target = disk if disk is not None else self.selected
         if target is None:
-            raise SafetyError("No disk is selected.")
+            raise SafetyError(NO_DISK_SELECTED)
         return present_disk(
             target, self.listed_disks, compare_serials=self.screen == Screen.PICK
         )
+
+    @property
+    def operation_disk(self) -> Optional[Disk]:
+        """Wipe-request target. Never a substituted disk."""
+        request = self._wipe_request
+        if request is None:
+            return self.selected
+        for disk in self.listed_disks:
+            if disk.path == request.device:
+                return disk
+        return None
+
+    @property
+    def operation_identity_text(self) -> str:
+        """Compact request-bound identity for operation screens."""
+        disk = self.operation_disk
+        if disk is not None:
+            return self.disk_view(disk).announcement
+        request = self._wipe_request
+        if request is not None:
+            from beamo_wipe.discover import IDENTITY_UNAVAILABLE
+
+            return f"{request.device}: {IDENTITY_UNAVAILABLE}"
+        return ""
+
+    @property
+    def operation_method_text(self) -> str:
+        """Compact request-bound method line for operation screens."""
+        request = self._wipe_request
+        method = request.method if request is not None else self.method
+        return METHODS[method].operation_summary
 
     @property
     def confirm(self) -> Optional[ConfirmSpec]:
@@ -474,13 +607,13 @@ class Wizard:
             timing = self._progress_timing.view(observation, final_operation)
             phase = timing.phase
             if phase == "Preparing" and self.progress is not None:
-                phase = "Phase not reported"
+                phase = _progress.PHASE_UNKNOWN
             remaining = timing.remaining
             if self.screen == Screen.STOPPING:
-                phase, remaining = "Stopping", None
+                phase, remaining = _progress.PHASE_STOPPING, None
                 self._progress_timing.clear_estimate()
             elif getattr(self.runner, "finalizing", False):
-                phase, remaining = "Finalizing", None
+                phase, remaining = _progress.PHASE_FINALIZING, None
                 self._progress_timing.clear_estimate()
             if self.wipe_result is not None or self._recovered:
                 remaining = None
@@ -491,6 +624,7 @@ class Wizard:
                 or bool(getattr(self.runner, "finalizing", False))
             )
             stale_for = None if terminal else timing.stale_for
+            estimate_state = "" if terminal else timing.estimate_state
             percent = self.progress
             now = self.now
             previous = self._display_progress
@@ -502,15 +636,30 @@ class Wizard:
                 percent = previous.percent
             else:
                 self._display_progress_at = now
+            stages = _progress.plan_stages(
+                spec.overwrite_passes, bool(spec.verification_passes)
+            )
+            position, mismatch = _progress.locate_stage(stages, observation)
+            old = bool(percent is not None and stale_for is not None)
+            step_percent = (
+                observation.percent
+                if observation is not None
+                and position is not None
+                and not mismatch
+                else None
+            )
             view = ProgressView(
                 phase,
                 percent,
                 timing.elapsed,
                 remaining,
                 stale_for=stale_for,
-                percent_is_old=bool(
-                    percent is not None and stale_for is not None
-                ),
+                percent_is_old=old,
+                stages=stages,
+                position=position,
+                mismatch=mismatch,
+                step_percent=step_percent,
+                estimate_state=estimate_state,
             )
             self._display_progress = view
             return view
@@ -587,7 +736,7 @@ class Wizard:
         should_finish = None
         with self._lock:
             if self.screen == Screen.WORKING and self._wipe_request is not None:
-                status_warning = "Process status or cleanup could not be confirmed. The disk may still be erasing."
+                status_warning = CLEANUP_UNCONFIRMED
                 try:
                     result = self.runner.poll(self._wipe_request)
                 except Exception:
@@ -609,7 +758,7 @@ class Wizard:
 
     @property
     def power_text(self) -> str:
-        prefix = "Preview power (not a hardware reading). " if self.dry_run else ""
+        prefix = PREVIEW_POWER_PREFIX if self.dry_run else ""
         return prefix + self.power.status.text
 
     def skip_splash(self) -> None:
@@ -685,14 +834,34 @@ class Wizard:
             raw = text if isinstance(text, str) else ""
             self.typing_check = "".join(ch for ch in raw[:64] if ch.isprintable())
 
+    def set_language(self, code: str) -> bool:
+        """Apply a UI language session-wide. Rejects unknown codes unchanged.
+
+        Unlike a layout change, a language change never alters what the
+        keyboard types, so confirmations stay valid.
+        """
+        from beamo_wipe import lang as ui_lang
+
+        with self._lock:
+            if not ui_lang.is_supported(code):
+                return False
+            if code == self.language:
+                return True
+            try:
+                ui_lang.set_language(code)
+            except ValueError:
+                return False
+            self.language = code
+            return True
+
     def set_keyboard_layout(self, layout_id: str) -> bool:
         """Apply an allowlisted layout. Failed applies leave the previous layout."""
         with self._lock:
             if not self.can_open_keyboard:
                 return False
             if not is_allowed(layout_id):
-                self.error = UNAVAILABLE
-                self.keyboard_message = UNAVAILABLE
+                self.error = _keyboard.UNAVAILABLE
+                self.keyboard_message = _keyboard.UNAVAILABLE
                 return False
             if layout_id == self.keyboard_layout:
                 self.error = None
@@ -709,7 +878,7 @@ class Wizard:
         result = applier(layout_id)
         with self._lock:
             if not result.ok:
-                self.error = result.message or APPLY_FAILED
+                self.error = result.message or _keyboard.APPLY_FAILED
                 self.keyboard_message = self.error
                 try:
                     from beamo_wipe.diagnostics import log_diag
@@ -757,6 +926,10 @@ class Wizard:
         self.selected = None
         self.confirm_input = ""
         self.keyboard_layout = DEFAULT_LAYOUT
+        try:
+            self.set_language("en")
+        except Exception:
+            self.language = "en"
         self.typing_check = ""
         self.keyboard_message = ""
         self._keyboard_from = None
@@ -826,6 +999,20 @@ class Wizard:
         from beamo_wipe import copy as C
         return C.ANOTHER_DISCARD if self._new_session_pending else C.SHUTDOWN_DISCARD
 
+    @property
+    def exit_media_steps(self) -> str:
+        from beamo_wipe import copy as C
+        return C.media_steps(stay_in_session=self._new_session_pending)
+
+    @property
+    def diagnostic_step(self) -> str:
+        from beamo_wipe import copy as C
+        from beamo_wipe.support_export import next_step_for, next_step_needs_support
+        step = next_step_for(self.diagnostic_message)
+        if step and next_step_needs_support(self.diagnostic_message):
+            return step + " " + C.support_text()
+        return step
+
     def erase_another_disk(self) -> None:
         """Request replacement by a freshly constructed application session."""
         with self._lock:
@@ -863,7 +1050,7 @@ class Wizard:
                 return
             if self._report_exporting:
                 self._set_report_state_locked(
-                    message="Wait for the report USB to finish before shutting down."
+                    message=WAIT_REPORT_USB
                 )
                 return
             if self.screen == Screen.SHUTDOWN_CONFIRM:
@@ -931,9 +1118,9 @@ class Wizard:
                 self.report_wanted = store.load()
             except Exception:
                 self.report_wanted = True  # Unreadable state must not discard intent.
-                self.report_recovery_warning = "Report preference could not be recovered. Shutdown will ask before discarding reports."
+                self.report_recovery_warning = PREF_NOT_RECOVERED
             if self.report_wanted and not self.report_recovery_warning:
-                self.report_recovery_warning = "Report preference recovered for this live session. Previous export success could not be confirmed."
+                self.report_recovery_warning = PREF_RECOVERED
 
     def arm_done_keyboard(self) -> None:
         """Allow Enter on Done / empty / blocked after the confirming key is up."""
@@ -1025,7 +1212,7 @@ class Wizard:
                 return None
             self._refresh_seq += 1
             self.screen = Screen.REFRESHING
-            self.discovery = DiscoveryResult(error="Checking disks again.", boot_identified=False)
+            self.discovery = DiscoveryResult(error=CHECKING_AGAIN, boot_identified=False)
             self.selected = None
             self.owner_ok = False
             self.confirm_input = ""
@@ -1048,7 +1235,7 @@ class Wizard:
         handling through :meth:`finish_refresh`.
         """
         if self._rediscover is None and (self.dry_run or self.preview):
-            raise SafetyError("A fresh fake-device discovery source is required.")
+            raise SafetyError(FAKE_SOURCE_REQUIRED)
         return (self._rediscover or discover)()
 
     def finish_refresh(self, seq: int, outcome) -> bool:
@@ -1066,14 +1253,14 @@ class Wizard:
                 raise outcome
             fresh = outcome
             if not isinstance(fresh, DiscoveryResult):
-                raise SafetyError("Discovery returned an invalid inventory.")
+                raise SafetyError(INVALID_INVENTORY)
             assert_boot_excluded(fresh)
             if not fresh.boot_identified or fresh.boot is None or fresh.error:
-                raise SafetyError("Boot device could not be identified.")
+                raise SafetyError(BOOT_UNIDENTIFIED)
         except Exception as exc:
             from beamo_wipe.diagnostics import log_diag
             log_diag("discover", "refresh_failed", type(exc).__name__)
-            fresh = DiscoveryResult(error=REDISCOVER_ERROR, boot_identified=False, error_code="refresh_failed")
+            fresh = DiscoveryResult(error=C.REDISCOVER_ERROR, boot_identified=False, error_code="refresh_failed")
         with self._lock:
             # Validation runs outside the lock. A duplicate completion may
             # have committed this scan and allowed a newer scan or navigation.
@@ -1270,7 +1457,7 @@ class Wizard:
             # visible error (checking LAST_CHANCE first would silently
             # swallow it, since the screen is already WORKING).
             if self.screen == Screen.WORKING and self._wipe_request is not None:
-                self.error = "A wipe is already running."
+                self.error = ALREADY_RUNNING
                 return None
             if self.wants_shutdown or self.wants_new_session or self.screen != Screen.LAST_CHANCE:
                 return None
@@ -1280,11 +1467,11 @@ class Wizard:
                 self._authorized_operation = self._operation_key()
             if not self._authorization_matches():
                 self._clear_authorization_locked()
-                self.error = AUTHORIZATION_STALE
+                self.error = C.AUTHORIZATION_STALE
                 self.screen = Screen.CONFIRM if self.selected is not None else Screen.PICK
                 return None
             if (self.dry_run or self.preview) and isinstance(self.runner, NwipeRunner):
-                self.error = "Preview and dry-run cannot exec nwipe."
+                self.error = PREVIEW_NO_EXEC
                 return None
             # Claim on the caller thread before scheduling any work. All screen
             # mutations reject CHECKING; slow I/O never owns the UI state lock.
@@ -1325,7 +1512,7 @@ class Wizard:
                     self._start_claim = None
                     self._cancel_requested = False
                     from beamo_wipe.outcomes import VIEWS
-                    self.error = ("Disk checking could not start. Try again." if screen == Screen.CHECKING
+                    self.error = (CHECKING_NO_START if screen == Screen.CHECKING
                                   else VIEWS["stop_unconfirmed"].announcement)
             return False
 
@@ -1347,22 +1534,22 @@ class Wizard:
                     if not isinstance(discovery, DiscoveryResult):
                         raise TypeError("Invalid discovery result")
                 except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError, AttributeError):
-                    self.error = "Could not re-read disks. Erase did not start."
+                    self.error = REREAD_FAILED
                     self.startup_error_code = "rediscovery_failed"
                     return
                 except Exception:  # noqa: BLE001 — fail closed on any rediscover error
-                    self.error = "Could not re-read disks. Erase did not start."
+                    self.error = REREAD_FAILED
                     self.startup_error_code = "rediscovery_failed"
                     return
                 if not discovery.boot_identified or discovery.boot is None:
-                    self.error = REDISCOVER_ERROR
+                    self.error = C.REDISCOVER_ERROR
                     self.startup_error_code = "rediscovery_failed"
                     return
                 try:
                     assert_boot_excluded(discovery)
                     assert_disk_identity(disk, discovery)
                 except SafetyError:
-                    self.error = "Disk identity could not be confirmed. Check disks again."
+                    self.error = IDENTITY_UNCONFIRMED_MSG
                     self.startup_error_code = "identity_rejected"
                     return
                 self.discovery = discovery
@@ -1373,7 +1560,7 @@ class Wizard:
                         if os.path.realpath(d.path) == os.path.realpath(disk.path)
                     )
                 except StopIteration:
-                    self.error = "Selected disk is not in the safe list."
+                    self.error = NOT_IN_SAFE_LIST
                     self.startup_error_code = "identity_rejected"
                     return
                 self.selected = disk
@@ -1392,12 +1579,12 @@ class Wizard:
                 if self._session_store is not None:
                     self._session_store.arm(discovery, request)
                 if self._start_abort.is_set():
-                    self.error = "Interface closed during disk checking. Erase did not start."
+                    self.error = CLOSED_DURING_CHECK
                     return
                 self.runner.start(request)
             except SafetyError as exc:
-                self.error = ("Confirm token does not match." if str(exc) == "Confirm token does not match." else
-                              "The safety checks prevented startup. Check disks again or save a diagnostic report.")
+                self.error = (_safety.TOKEN_MISMATCH if str(exc) == _safety.TOKEN_MISMATCH else
+                              PREFLIGHT_BLOCKED)
                 self.startup_error_code = "preflight_rejected"
                 return
             except OSError as exc:
@@ -1409,7 +1596,7 @@ class Wizard:
                 log_diag("nwipe", "start_failed", f"{type(exc).__name__}; errno={exc.errno}")
                 return
             except Exception:
-                self.error = "Startup could not be confirmed. Save a diagnostic report for support."
+                self.error = STARTUP_UNCONFIRMED
                 self.startup_error_code = "unexpected_startup_failure"
                 return
             with self._lock:
@@ -1444,7 +1631,7 @@ class Wizard:
             # Malformed discovery metadata must not kill a background worker
             # silently or leave the operator with an apparently idle success.
             with self._lock:
-                self.error = "Startup could not be confirmed. Save a diagnostic report for support."
+                self.error = STARTUP_UNCONFIRMED
                 self.startup_error_code = "unexpected_startup_failure"
         finally:
             with self._lock:
@@ -1716,6 +1903,7 @@ class Wizard:
                 started_mono=start_mono, ended_mono=end_mono, argv=copy.deepcopy(argv),
                 log_text=log_text or "", interrupted=interrupted, cancelled=cancelled,
                 wall_provenance=self._evidence_wall_provenance,
+                language=self.language, keyboard_layout=self.keyboard_layout,
             )
             with self._lock:
                 if write_seq != self._evidence_write_seq:
@@ -1745,17 +1933,17 @@ class Wizard:
                 break
             error = cause
         if number in {errno.EACCES, errno.EPERM, errno.EROFS}:
-            code, message = "permissions", "Temporary storage is not writable."
+            code, message = "permissions", TMP_NOT_WRITABLE
         elif number in {errno.ENOSPC, errno.EDQUOT}:
-            code, message = "storage_full", "Temporary storage has no available space."
+            code, message = "storage_full", TMP_NO_SPACE
         elif stage == "finalization" or isinstance(exc, EvidenceFinalizationError):
-            code, message = "finalization", "Report finalization could not be confirmed."
+            code, message = "finalization", FINALIZE_UNCONFIRMED
         elif isinstance(exc, (SafetyError, ValueError, TypeError, KeyError)):
-            code, message = "invalid_data", "Report evidence did not pass validation."
+            code, message = "invalid_data", EVIDENCE_INVALID
         elif number in {errno.EIO, errno.EAGAIN, errno.EINTR, errno.ETIMEDOUT}:
-            code, message = "transient_io", "Temporary storage reported an I/O error."
+            code, message = "transient_io", TMP_IO_ERROR
         else:
-            code, message = "io", "Temporary storage could not be read or written."
+            code, message = "io", TMP_IO_FAILED
         with self._lock:
             if seq != self._evidence_write_seq:
                 return
@@ -1780,7 +1968,7 @@ class Wizard:
                     return False
                 inputs, context, result, key = copy.deepcopy(pending)
                 if context != self._evidence_context():
-                    raise SafetyError("Changed evidence context")
+                    raise SafetyError(CHANGED_CONTEXT)
                 path = self._pending_evidence_path
             ev = build_evidence(**inputs)
             if self._recovered:
@@ -1798,21 +1986,21 @@ class Wizard:
             from beamo_wipe.evidence import _read_regular_nofollow
             _read_regular_nofollow(Path(str(path) + ".sha256"), private=True)
             if not verify_evidence_checksum(path):
-                raise SafetyError("Unverified evidence")
+                raise SafetyError(EVIDENCE_UNVERIFIED)
             # Compare the actual bytes' meaning to the frozen observation;
             # provenance is the only information supplied by the writer.
             expected = copy.deepcopy(ev)
             provenance = written.get("provenance", {})
             if provenance.get("evidence_file") != str(path):
-                raise SafetyError("Foreign evidence provenance")
+                raise SafetyError(FOREIGN_PROVENANCE)
             expected["provenance"] = provenance
             if json.dumps(written, sort_keys=True, allow_nan=False) != json.dumps(expected, sort_keys=True, allow_nan=False):
-                raise SafetyError("Contradictory evidence readback")
+                raise SafetyError(CONTRADICTORY_READBACK)
             with self._lock:
                 if seq != self._evidence_write_seq:
                     return False
                 if context != self._evidence_context() or (result is not None and self.wipe_result != result):
-                    raise SafetyError("Changed terminal state")
+                    raise SafetyError(CHANGED_TERMINAL)
                 self._pending_evidence_path = path
             stage = "finalization"
             if self._session_store is not None and result is not None and not self._recovered:
@@ -1821,7 +2009,7 @@ class Wizard:
                 if seq != self._evidence_write_seq:
                     return False
                 if context != self._evidence_context() or (result is not None and self.wipe_result != result):
-                    raise SafetyError("Changed terminal state")
+                    raise SafetyError(CHANGED_TERMINAL)
                 written["provenance"]["verified"] = True
                 self.evidence = written
                 self.evidence_path = str(path)
@@ -1896,17 +2084,46 @@ class Wizard:
             if not self.evidence_error:
                 return ""
             if self.screen == Screen.WORKING:
-                return "Report evidence is not being saved. " + self.evidence_error + " The erase is still running."
+                return EVIDENCE_NOT_SAVING.format(error=self.evidence_error)
             if self._evidence_saving:
-                return "Saving report evidence… The erase result is unchanged."
+                return EVIDENCE_SAVING
             remaining = max(0, EVIDENCE_RETRIES - self._evidence_retries)
-            action = f" Retry save ({remaining} left)." if self._can_retry_evidence_locked() else " Keep this session open and contact support."
-            return self.evidence_error + action + " Temporary evidence is lost at shutdown or power loss."
+            if self._can_retry_evidence_locked():
+                action = RETRY_SAVE_REMAINING.format(remaining=remaining)
+                return self.evidence_error + action + TEMP_EVIDENCE_LOST
+            return (
+                self.evidence_error
+                + KEEP_SESSION_OPEN
+                + TEMP_EVIDENCE_LOST
+                + " "
+                + C.support_text()
+            )
+
+    @property
+    def done_support_needed(self) -> bool:
+        """True when the DONE screen must show the support destination."""
+        from beamo_wipe.engine_checks import HIDDEN_MAYBE
+        from beamo_wipe.outcomes import view_needs_support
+
+        return view_needs_support(self.result_view.code) or (
+            HIDDEN_MAYBE in self.check_alerts
+        )
+
+    @property
+    def evidence_support_needed(self) -> bool:
+        """True when the evidence warning refers the owner to support."""
+        with self._lock:
+            return bool(
+                self.evidence_error
+                and self.screen != Screen.WORKING
+                and not self._evidence_saving
+                and not self._can_retry_evidence_locked()
+            )
 
     def export_evidence(self, dest_dir: str) -> str:
         """Copy evidence JSON + sidecar to a second USB directory. Returns dest path or raises."""
         if not self.can_save_report or not self.evidence_path:
-            raise SafetyError("No current verified evidence to export")
+            raise SafetyError(NO_EXPORT_EVIDENCE)
         from pathlib import Path
 
         from beamo_wipe.evidence import export_evidence as _export
@@ -1991,7 +2208,7 @@ class Wizard:
                 if self.report_status != "saved":
                     self._set_report_state_locked(
                         status="error",
-                        message="A current finished wipe report is not available.",
+                        message=NO_FINISHED_REPORT,
                     )
                 return None
             path = Path(self.evidence_path or "")
@@ -2030,7 +2247,7 @@ class Wizard:
             with self._lock:
                 if not self._report_exporting:
                     message = (
-                        "The saved wipe evidence could not be read. Try saving the report again."
+                        EVIDENCE_UNREADABLE
                         if isinstance(exc, OSError) else str(exc)
                     )
                     self._set_report_state_locked(status="error", message=message)
@@ -2077,14 +2294,14 @@ class Wizard:
             ):
                 self._set_report_state_locked(
                     status="error",
-                    message="The finished wipe report changed before it could be saved.",
+                    message=REPORT_CHANGED_BEFORE_SAVE,
                 )
                 return None
             self._active_report_claim = claim
             self._done_keyboard_armed = False
             self._set_report_state_locked(
                 status="saving",
-                message="Saving and verifying the report USB. Leave it connected.",
+                message=REPORT_SAVING,
                 session="",
                 exporting=True,
             )
@@ -2092,7 +2309,7 @@ class Wizard:
 
     def _perform_report_export(self, claim: _ReportExportClaim) -> None:
         final_status = "error"
-        final_message = "The report export failed. Shut down before removing the USB."
+        final_message = EXPORT_FAILED
         final_session = ""
         try:
             exporter = self._report_exporter
@@ -2125,10 +2342,7 @@ class Wizard:
                 final_session = receipt.session_name
                 final_message = present_export_receipt(receipt)
             else:
-                final_message = (
-                    "The report was not saved and verified. "
-                    "Shut down before removing the USB."
-                )
+                final_message = REPORT_NOT_SAVED
         except SafetyError as exc:
             final_message = str(exc)
         except Exception as exc:  # noqa: BLE001 - keep failure visible on Done
@@ -2155,10 +2369,7 @@ class Wizard:
                 )
                 if final_status == "saved" and not claim_is_current:
                     final_status = "error"
-                    final_message = (
-                        "The finished wipe report changed while it was being saved. "
-                        "Shut down before removing the USB."
-                    )
+                    final_message = REPORT_CHANGED_DURING_SAVE
                     final_session = ""
                 # Publish the terminal UI state and re-enable Shutdown in one
                 # lock transition so Tk cannot render a permanently disabled
@@ -2198,7 +2409,7 @@ class Wizard:
                 self._set_report_state_locked(
                     exporting=False,
                     status="error",
-                    message="The report export could not start.",
+                    message=EXPORT_NO_START,
                 )
             try:
                 from beamo_wipe.diagnostics import log_diag
@@ -2253,19 +2464,19 @@ class Wizard:
             self._diagnostic_busy = True
             baseline = self._diagnostic_baseline
             context = self._diagnostic_context()
-            self.diagnostic_message = "Saving and verifying. Leave the USB connected." if baseline else "Checking connected disks."
+            self.diagnostic_message = DIAG_VERIFYING if baseline else DIAG_CHECKING
             self._report_revision += 1
         def perform():
             try:
                 from beamo_wipe import support_export as export
                 from beamo_wipe.diagnostic_report import create_report
                 if self.dry_run:
-                    raise SafetyError("Diagnostic USB export is unavailable in preview or dry-run.")
+                    raise SafetyError(DIAG_NO_PREVIEW)
                 if not baseline:
                     prepared = export.capture_diagnostic_baseline()
                     with self._lock:
                         self._diagnostic_baseline = prepared
-                        self.diagnostic_message = "Baseline checked. Now insert one new removable FAT32 USB and choose Save diagnostic report."
+                        self.diagnostic_message = DIAG_BASELINE_READY.format(action=C.SAVE_DIAGNOSTIC_REPORT)
                 else:
                     code = self.startup_error_code or (
                         "no_eligible_disks" if self._diagnostic_from == Screen.PICK_EMPTY else "boot_unidentified")
@@ -2284,11 +2495,11 @@ class Wizard:
                         owner_file=OWNER_DIAGNOSTIC_FILE,
                         share_copy=False,
                     ):
-                        raise SafetyError("Diagnostic report was not saved and verified. Shut down before removing the USB.")
+                        raise SafetyError(DIAG_NOT_SAVED)
                     with self._lock:
                         if context != self._diagnostic_context():
                             raise SafetyError(
-                                "Startup status changed. Save a new diagnostic report before shutting down."
+                                DIAG_CONTEXT_CHANGED
                             )
                         self._saved_diagnostic_context = context
                         self.diagnostic_message = present_export_receipt(receipt)
@@ -2298,7 +2509,7 @@ class Wizard:
                     self.diagnostic_message = str(exc)
             except Exception:
                 with self._lock:
-                    self.diagnostic_message = "Diagnostic export failed. Shut down before removing the USB."
+                    self.diagnostic_message = DIAG_FAILED
             finally:
                 with self._lock:
                     self._diagnostic_busy = False
@@ -2309,7 +2520,7 @@ class Wizard:
             except Exception:
                 with self._lock:
                     self._diagnostic_busy = False
-                    self.diagnostic_message = "Diagnostic export could not start. Try again."
+                    self.diagnostic_message = DIAG_NO_START
                     self._report_revision += 1
                 return False
         else:
@@ -2330,13 +2541,13 @@ class Wizard:
             from dataclasses import replace
             inputs = self._pending_evidence[0] if self._pending_evidence else {}
             if inputs.get("cancelled"):
-                message = "The erase was stopped by you"
+                message = ERASE_STOPPED_BY_YOU
             elif inputs.get("interrupted"):
-                message = "The erase was interrupted"
+                message = ERASE_INTERRUPTED_MSG
             elif self.wipe_result.ok:
-                message = "The erase process reported completion; the result could not be confirmed"
+                message = ERASE_COMPLETION_UNCONFIRMED
             else:
-                message = "The erase did not finish"
+                message = ERASE_UNFINISHED
             view = replace(view, message=message)
         if self._recovered:
             from dataclasses import replace
@@ -2359,6 +2570,100 @@ class Wizard:
             if self.screen == Screen.REPORT_HELP and type(wanted) is bool:
                 self.report_share_redacted = wanted
 
+    def set_sound_output(self, sink_id: str) -> None:
+        """Record the session's chosen output. Session memory only."""
+        with self._lock:
+            if type(sink_id) is str:
+                self.sound_output = sink_id
+
+    def set_sounds_enabled(self, enabled: bool) -> None:
+        """Outcome sounds on/off. Silent by default; session memory only."""
+        with self._lock:
+            if type(enabled) is bool:
+                self.sounds_enabled = enabled
+
+    @property
+    def sound_toggle_text(self) -> str:
+        from beamo_wipe import copy as _copy
+
+        return (
+            _copy.SOUND_TOGGLE_ON
+            if self.sounds_enabled
+            else _copy.SOUND_TOGGLE_OFF
+        )
+
+    def toggle_sounds(self) -> None:
+        """Flip outcome sounds and report the state. Session memory only."""
+        from beamo_wipe import copy as _copy
+
+        with self._lock:
+            self.sounds_enabled = not self.sounds_enabled
+            self.sound_message = (
+                _copy.SOUND_TOGGLE_ON
+                if self.sounds_enabled
+                else _copy.SOUND_TOGGLE_OFF
+            )
+
+    def maybe_play_outcome_sound(self):
+        """Auto-play the final outcome's earcon at most once. Silent rules:
+
+        Only on a real Done screen with a result and sounds enabled;
+        re-renders never replay. Never touches sound_message.
+        """
+        from beamo_wipe import sound as _sound
+
+        with self._lock:
+            if (
+                self.screen != Screen.DONE
+                or self.preview
+                or self.wipe_result is None
+                or not self.sounds_enabled
+            ):
+                return None
+            key = self._result_evidence_key(self.wipe_result)
+            if key == self._sound_played_for:
+                return None
+            self._sound_played_for = key
+            code = self.result_view.code
+        return _sound.play_outcome(_sound.kind_for_code(code))
+
+    def hear_outcome_sound(self):
+        """Explicit replay of the final outcome's sound.
+
+        Works while sounds are off; preview reports silence honestly.
+        """
+        from beamo_wipe import sound as _sound
+
+        with self._lock:
+            if self.screen != Screen.DONE or self.wipe_result is None:
+                return None
+            code = self.result_view.code
+        result = _sound.play_test(_sound.kind_for_code(code))
+        with self._lock:
+            self.sound_message = result.message
+        return result
+
+    def hear_both_sounds(self):
+        """Explicit preview: finished, then attention. Works while off."""
+        from beamo_wipe import sound as _sound
+
+        first = _sound.play_test(_sound.KIND_FINISHED)
+        if not first.ok:
+            with self._lock:
+                self.sound_message = first.message
+            return first
+        second = _sound.play_test(_sound.KIND_ATTENTION)
+        combined = (
+            first.message + " " + second.message
+            if second.ok
+            else second.message
+        )
+        with self._lock:
+            self.sound_message = combined
+        from beamo_wipe.sound import SoundResult
+
+        return SoundResult(second.ok, combined)
+
     def set_report_wanted(self, wanted: bool) -> None:
         with self._lock:
             if self.screen == Screen.REPORT_HELP and type(wanted) is bool:
@@ -2368,7 +2673,7 @@ class Wizard:
                         self._intent_store.save(wanted)
                         self.report_recovery_warning = ""
                     except Exception:
-                        self.report_recovery_warning = "Report preference recovery is unavailable. Keep this session open until you save the report."
+                        self.report_recovery_warning = PREF_RECOVERY_UNAVAILABLE
 
     def close_report_help(self) -> None:
         with self._lock:

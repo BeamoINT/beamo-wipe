@@ -11,9 +11,8 @@ import time
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple, Mapping
 
+from beamo_wipe import copy as _copy
 from beamo_wipe.copy import (
-    IDENTIFY_ERROR,
-    NOT_LIVE_ERROR,
     confirm_type_chars,
     confirm_type_four,
     confirm_type_size,
@@ -200,7 +199,7 @@ def require_live_or_dry_run(
         env=env, cmdline=cmdline, live_medium_mounted=live_medium_mounted
     ):
         return
-    raise SafetyError(NOT_LIVE_ERROR)
+    raise SafetyError(_copy.NOT_LIVE_ERROR)
 
 
 def require_real_live_for_nwipe(env: Optional[Mapping[str, str]] = None) -> None:
@@ -347,20 +346,25 @@ def token_matches(typed: str, spec: ConfirmSpec) -> bool:
     return got.casefold() == want.casefold()
 
 
+BOOT_APPEARED_SELECTABLE = "Boot USB appeared as a selectable disk. Refusing to continue."
+BOOT_APPEARED_ALIAS = "Boot USB appeared through another device path. Refusing to continue."
+TOKEN_MISMATCH = "Confirm token does not match."  # noqa: S105 — UI message, not a secret
+
+
 def assert_boot_excluded(discovery: DiscoveryResult) -> None:
     if not discovery.boot_identified or discovery.boot is None:
-        raise SafetyError(IDENTIFY_ERROR)
+        raise SafetyError(_copy.IDENTIFY_ERROR)
     if boot_device_in_selectable(discovery):
-        raise SafetyError("Boot USB appeared as a selectable disk. Refusing to continue.")
+        raise SafetyError(BOOT_APPEARED_SELECTABLE)
     selectable_paths = {os.path.realpath(s.path) for s in discovery.selectable}
     if any(d.is_boot and os.path.realpath(d.path) in selectable_paths for d in discovery.disks):
-        raise SafetyError("Boot USB appeared as a selectable disk. Refusing to continue.")
+        raise SafetyError(BOOT_APPEARED_SELECTABLE)
     boot_wwn = (discovery.boot.wwn or "").strip().casefold()
     if boot_wwn and any(
         (disk.wwn or "").strip().casefold() == boot_wwn
         for disk in discovery.selectable
     ):
-        raise SafetyError("Boot USB appeared through another device path. Refusing to continue.")
+        raise SafetyError(BOOT_APPEARED_ALIAS)
 
 
 def assert_not_boot(device: str, boot_path: str, *, required: bool = False) -> None:
@@ -800,7 +804,7 @@ def assert_ready_to_wipe(
     assert_not_system_mounted(disk)
     spec = confirm_spec(disk, listed_disks(discovery))
     if not token_matches(typed_token, spec):
-        raise SafetyError("Confirm token does not match.")
+        raise SafetyError(TOKEN_MISMATCH)
     if not countdown_complete:
         raise SafetyError("Erase delay has not finished.")
     boot = discovery.boot

@@ -269,3 +269,83 @@ def test_curses_done_enter_ignored_until_idle():
     _handle(wiz, 10)
     assert wiz.wants_shutdown
 
+
+
+def test_plain_working_sounds_command_toggles(monkeypatch, tmp_path, capsys):
+    import select as select_module
+    import sys
+
+    from beamo_wipe import copy as C
+    from beamo_wipe import sound as sound_module
+    from test_wizard_flow import _drive_to_working, _wiz
+
+    def _boom(*a, **k):
+        raise AssertionError("spawned audio")
+
+    monkeypatch.setattr(sound_module, "_run", _boom)
+    monkeypatch.setattr(sound_module, "_popen", _boom)
+    monkeypatch.setattr(
+        "beamo_wipe.safety.default_log_dir", lambda: tmp_path
+    )
+    wiz, clock = _wiz()
+    wiz.preview = False
+    _drive_to_working(wiz, clock)
+    lines = ["sounds\n", "hear\n", ""]
+    pos = {"i": 0}
+
+    class FakeStdin:
+        def readline(self):
+            line = lines[min(pos["i"], len(lines) - 1)]
+            pos["i"] += 1
+            return line
+
+    monkeypatch.setattr(sys, "stdin", FakeStdin())
+    monkeypatch.setattr(
+        select_module, "select", lambda r, w, x, t=0: (r, [], [])
+    )
+    assert _plain_loop(wiz) == 0
+    assert wiz.sounds_enabled is True
+    assert wiz.sound_message == C.SOUND_OUTCOME_OFF_LIVE
+    out = capsys.readouterr().out
+    assert C.SOUND_TOGGLE_ON in out
+    assert "SOUNDS" in out
+
+
+def test_plain_done_sounds_words_and_auto_play(monkeypatch, tmp_path, capsys):
+    from beamo_wipe import copy as C
+    from beamo_wipe import sound as sound_module
+    from beamo_wipe.models import WipeResult
+    from test_wizard_flow import _drive_to_working, _wiz
+
+    monkeypatch.setattr(
+        "beamo_wipe.safety.default_log_dir", lambda: tmp_path
+    )
+    wiz, clock = _wiz()
+    wiz.preview = False
+    _drive_to_working(wiz, clock)
+    wiz.runner.duration_s = 1000
+    wiz._finish(
+        WipeResult(True, 0, "Erase completed", str(tmp_path / "x.log"))
+    )
+    calls = []
+    monkeypatch.setattr(
+        sound_module,
+        "play_outcome",
+        lambda kind: calls.append(kind) or sound_module.SoundResult(True, ""),
+    )
+    answers = ["SOUNDS", "HEAR", "SHUTDOWN"]
+
+    def fake_input(_prompt=""):
+        if answers:
+            return answers.pop(0)
+        wiz.shutdown()
+        return "x"
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    assert _plain_loop(wiz) == 0
+    assert wiz.sounds_enabled is True
+    assert calls == [sound_module.KIND_ATTENTION]
+    assert wiz.sound_message == C.SOUND_OUTCOME_OFF_LIVE
+    out = capsys.readouterr().out
+    assert C.SOUND_TOGGLE_ON in out
+    assert "HEAR" in out

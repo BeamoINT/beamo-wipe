@@ -1194,10 +1194,13 @@ def test_no_shipped_ui_accepts_a_report_destination_path():
     console_source = Path("src/beamo_wipe/ui/console_wizard.py").read_text(
         encoding="utf-8"
     )
+    from beamo_wipe import copy as C
+
     assert "filedialog" not in tk_source
     assert "askdirectory" not in tk_source
     assert "destination path" not in console_source.casefold()
-    assert "Type SAVE" in console_source
+    assert "Type SAVE" in C.CON_SAVE_TYPE
+    assert "CON_SAVE_TYPE" in console_source
     assert "_confirm_report_save" in console_source
 
 

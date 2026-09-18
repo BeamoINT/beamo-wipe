@@ -141,6 +141,25 @@ def _target_lines(log_text: str, names: frozenset[str]) -> list[str]:
     return out
 
 
+HIDDEN_UNAVAILABLE = "The hidden-storage check was not available. That is not a pass."
+HIDDEN_NO_DEVICE = "No target device path was supplied."
+HIDDEN_CONTRADICTORY = "Contradictory hidden-storage lines were present in the pinned nwipe v0.42 log."
+HIDDEN_MAYBE = "This disk may have hidden storage the erase did not reach. Save the report and ask support."
+HIDDEN_REPORTED = "Pinned nwipe v0.42 reported hidden or reduced host-visible capacity. Beamo does not expand hidden areas."
+HIDDEN_INDETERMINATE = "Pinned nwipe v0.42 could not determine HPA/DCO status for this disk."
+HIDDEN_NONE = "No hidden storage was reported for this disk."
+HIDDEN_NONE_DETAIL = "Pinned nwipe v0.42 logged that no hidden sectors were found on the target."
+HIDDEN_NO_RESULT = "The pinned nwipe v0.42 log did not contain a usable hidden-storage result for this disk."
+IO_UNAVAILABLE = "Disk error counts were not available. That is not a pass."
+IO_NOT_INCLUDED = "The pinned nwipe v0.42 Error Summary did not include this disk."
+IO_ERRORS = "The disk reported write or read-back errors. Files may still be on the disk."
+IO_ERROR_DETAIL = "Error Summary pass={p} verify={v} fsync={f} for the target."
+IO_CLEAN = "No write or read-back errors were counted for this disk."
+IO_CLEAN_DETAIL = "Error Summary listed zero pass, verification, and fdatasync errors for the target."
+IO_FAILURE_MARK = "Pinned nwipe v0.42 logged a failure marker for the target."
+COVERAGE_SUMMARY = "Overwrite reaches only storage the disk exposes. Hidden copies may remain."
+
+
 def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
     parser = f"{PARSER}.hidden_capacity"
     names = _names(device)
@@ -148,8 +167,8 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
         return _check(
             "hidden_capacity",
             "unavailable",
-            "The hidden-storage check was not available. That is not a pass.",
-            "No target device path was supplied.",
+            HIDDEN_UNAVAILABLE,
+            HIDDEN_NO_DEVICE,
             _provenance(parser, source="missing"),
         )
     lines = _target_lines(log_text, names)
@@ -176,8 +195,8 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
         return _check(
             "hidden_capacity",
             "unavailable",
-            "The hidden-storage check was not available. That is not a pass.",
-            "Contradictory hidden-storage lines were present in the pinned nwipe v0.42 log.",
+            HIDDEN_UNAVAILABLE,
+            HIDDEN_CONTRADICTORY,
             _provenance(parser, sample),
         )
     if detected or reduced is True:
@@ -185,8 +204,8 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
         return _check(
             "hidden_capacity",
             "warning",
-            "This disk may have hidden storage the erase did not reach. Save the report and ask support.",
-            "Pinned nwipe v0.42 reported hidden or reduced host-visible capacity. Beamo does not expand hidden areas.",
+            HIDDEN_MAYBE,
+            HIDDEN_REPORTED,
             _provenance(parser, sample or "Erasure Summary shortfall"),
         )
     if unknown or missing_tool:
@@ -194,23 +213,23 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
         return _check(
             "hidden_capacity",
             "unavailable",
-            "The hidden-storage check was not available. That is not a pass.",
-            "Pinned nwipe v0.42 could not determine HPA/DCO status for this disk.",
+            HIDDEN_UNAVAILABLE,
+            HIDDEN_INDETERMINATE,
             _provenance(parser, sample),
         )
     if none and reduced is not True:
         return _check(
             "hidden_capacity",
             "pass",
-            "No hidden storage was reported for this disk.",
-            "Pinned nwipe v0.42 logged that no hidden sectors were found on the target.",
+            HIDDEN_NONE,
+            HIDDEN_NONE_DETAIL,
             _provenance(parser, none[0]),
         )
     return _check(
         "hidden_capacity",
         "unavailable",
-        "The hidden-storage check was not available. That is not a pass.",
-        "The pinned nwipe v0.42 log did not contain a usable hidden-storage result for this disk.",
+        HIDDEN_UNAVAILABLE,
+        HIDDEN_NO_RESULT,
         _provenance(parser, source="missing" if not (log_text or "").strip() else "nwipe_log"),
     )
 
@@ -246,8 +265,8 @@ def _parse_io_media(log_text: str, device: str) -> CheckResult:
         return _check(
             "io_media",
             "unavailable",
-            "Disk error counts were not available. That is not a pass.",
-            "No target device path was supplied.",
+            IO_UNAVAILABLE,
+            HIDDEN_NO_DEVICE,
             _provenance(parser, source="missing"),
         )
     fail_lines = [
@@ -260,8 +279,8 @@ def _parse_io_media(log_text: str, device: str) -> CheckResult:
         return _check(
             "io_media",
             "unavailable",
-            "Disk error counts were not available. That is not a pass.",
-            "The pinned nwipe v0.42 Error Summary did not include this disk.",
+            IO_UNAVAILABLE,
+            IO_NOT_INCLUDED,
             _provenance(
                 parser,
                 source="missing" if not (log_text or "").strip() else "nwipe_log",
@@ -273,25 +292,24 @@ def _parse_io_media(log_text: str, device: str) -> CheckResult:
             return _check(
                 "io_media",
                 "fail",
-                "The disk reported write or read-back errors. Files may still be on the disk.",
-                (
-                    f"Error Summary pass={pass_errors} verify={verify_errors} "
-                    f"fsync={fsync_errors} for the target."
+                IO_ERRORS,
+                IO_ERROR_DETAIL.format(
+                    p=pass_errors, v=verify_errors, f=fsync_errors
                 ),
                 _provenance(parser, fail_lines[0] if fail_lines else "Error Summary"),
             )
         return _check(
             "io_media",
             "pass",
-            "No write or read-back errors were counted for this disk.",
-            "Error Summary listed zero pass, verification, and fdatasync errors for the target.",
+            IO_CLEAN,
+            IO_CLEAN_DETAIL,
             _provenance(parser, "Error Summary"),
         )
     return _check(
         "io_media",
         "fail",
-        "The disk reported write or read-back errors. Files may still be on the disk.",
-        "Pinned nwipe v0.42 logged a failure marker for the target.",
+        IO_ERRORS,
+        IO_FAILURE_MARK,
         _provenance(parser, fail_lines[0]),
     )
 
@@ -338,7 +356,7 @@ def _parse_coverage(disk: Optional[Disk]) -> CheckResult:
     return _check(
         "coverage",
         "warning",
-        "Overwrite reaches only storage the disk exposes. Hidden copies may remain.",
+        COVERAGE_SUMMARY,
         text,
         _provenance(f"{PARSER}.coverage", source="storage_limits"),
     )

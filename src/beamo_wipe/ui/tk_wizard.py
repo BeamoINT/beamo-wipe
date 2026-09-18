@@ -23,15 +23,25 @@ from typing import Callable, List, Literal, Optional
 
 from beamo_wipe import copy as C
 from beamo_wipe import diagnostic_report as D
+from beamo_wipe.outcomes import may_have_erased
 from beamo_wipe.diagnostics import emit_serial_marker
 from beamo_wipe.methods import DEFAULT_METHOD
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
-from beamo_wipe.keyboard import LAYOUT_ORDER, LAYOUTS
+from beamo_wipe import keyboard as _keyboard
+from beamo_wipe.keyboard import LAYOUT_ORDER
+from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
 from beamo_wipe.ui.layout import DEFAULT_SIZE, MIN_SIZE, layout_for
-from beamo_wipe.wizard import COUNTDOWN_S, ReportView, Wizard, format_progress_percent
+from beamo_wipe.support_export import next_step_needs_support
+from beamo_wipe.wizard import (
+    COUNTDOWN_S,
+    ReportView,
+    Wizard,
+    error_needs_support,
+    format_progress_percent,
+)
 
 # --- Design tokens ---------------------------------------------------------
 #
@@ -66,6 +76,7 @@ DANGER_TINT = "#FBEBE9"
 DANGER_BORDER = "#E6A79E"
 OK = "#17703F"
 OK_TINT = "#E7F2EB"
+OK_BORDER = "#9CC3AB"
 WARN = "#7A5200"
 WARN_BG = "#FBF1D5"
 WARN_BORDER = "#E3CE96"
@@ -107,23 +118,23 @@ def header_caption(step_n: int, step_label: str) -> str:
 
 _STEP_ORDER = {
     Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
-    Screen.WHAT: (1, "Step 1 of 8", C.TITLE_WHAT),
-    Screen.OWNER: (2, "Step 2 of 8", "Ownership"),
-    Screen.DISK_HELP: (3, "Identify the disk", C.DISK_HELP_TITLE),
-    Screen.PICK: (3, "Step 3 of 8", C.TITLE_PICK),
-    Screen.PICK_EMPTY: (3, "Step 3 of 8", C.TITLE_PICK),
-    Screen.PICK_BLOCKED: (3, "Step 3 of 8", C.TITLE_PICK),
-    Screen.CONFIRM: (4, "Step 4 of 8", C.TITLE_CONFIRM),
-    Screen.METHOD: (5, "Step 5 of 8", C.TITLE_METHOD),
+    Screen.WHAT: (1, C.STEP_OF.format(n=1, total=8), C.TITLE_WHAT),
+    Screen.OWNER: (2, C.STEP_OF.format(n=2, total=8), C.STEP_OWNERSHIP),
+    Screen.DISK_HELP: (3, C.STEP_IDENTIFY, C.DISK_HELP_TITLE),
+    Screen.PICK: (3, C.STEP_OF.format(n=3, total=8), C.TITLE_PICK),
+    Screen.PICK_EMPTY: (3, C.STEP_OF.format(n=3, total=8), C.TITLE_PICK),
+    Screen.PICK_BLOCKED: (3, C.STEP_OF.format(n=3, total=8), C.TITLE_PICK),
+    Screen.CONFIRM: (4, C.STEP_OF.format(n=4, total=8), C.TITLE_CONFIRM),
+    Screen.METHOD: (5, C.STEP_OF.format(n=5, total=8), C.TITLE_METHOD),
     Screen.ADVANCED: (5, C.TITLE_ADVANCED, C.TITLE_ADVANCED),
     Screen.LIMITS: (5, limits.TITLE, limits.TITLE),
-    Screen.REFRESHING: (0, "", "Checking disks again"),
+    Screen.REFRESHING: (0, "", C.BUSY_REFRESHING_TITLE),
     Screen.REFRESH_CONFIRM: (0, "", C.TITLE_REFRESH),
-    Screen.LAST_CHANCE: (6, "Step 6 of 8", C.TITLE_LAST),
-    Screen.CHECKING: (6, "Step 6 of 8", "Checking disk"),
-    Screen.STOPPING: (7, "Step 7 of 8", "Stopping erase"),
-    Screen.WORKING: (7, "Step 7 of 8", C.TITLE_WORKING),
-    Screen.DONE: (8, "Step 8 of 8", C.TITLE_DONE_OK),
+    Screen.LAST_CHANCE: (6, C.STEP_OF.format(n=6, total=8), C.TITLE_LAST),
+    Screen.CHECKING: (6, C.STEP_OF.format(n=6, total=8), C.BUSY_CHECKING_TITLE),
+    Screen.STOPPING: (7, C.STEP_OF.format(n=7, total=8), C.BUSY_STOPPING_TITLE),
+    Screen.WORKING: (7, C.STEP_OF.format(n=7, total=8), C.TITLE_WORKING),
+    Screen.DONE: (8, C.STEP_OF.format(n=8, total=8), C.TITLE_DONE_OK),
 }
 
 # Spans of hint copy that render as key-caps instead of plain text.
@@ -255,7 +266,9 @@ def _icon_clock(parent: tk.Widget, size: int = 18) -> tk.Canvas:
 
 
 def _draw_alert_glyph(cv: tk.Canvas, x: float, y: float, size: float, kind: str) -> None:
-    """Filled badge at (x, y): triangle for warn/danger, circle for info."""
+    """Filled badge at (x, y). Every severity differs by shape, not color:
+    triangle for warn, circle-X for danger, circle-i for info, circle-check
+    for ok, document square for limits."""
     if kind == "info":
         cv.create_oval(x + 2, y + 2, x + size - 2, y + size - 2, fill=PRIMARY, outline="")
         cv.create_oval(
@@ -266,11 +279,10 @@ def _draw_alert_glyph(cv: tk.Canvas, x: float, y: float, size: float, kind: str)
             x + size / 2, y + size * 0.46, x + size / 2, y + size * 0.74,
             fill="#FFFFFF", width=3, capstyle="round",
         )
-    else:
-        color = WARN if kind == "warn" else DANGER
+    elif kind == "warn":
         cv.create_polygon(
             x + size / 2, y + 2, x + size - 2, y + size - 3, x + 2, y + size - 3,
-            fill=color, outline=color, width=6, joinstyle="round",
+            fill=WARN, outline=WARN, width=6, joinstyle="round",
         )
         cv.create_line(
             x + size / 2, y + size * 0.36, x + size / 2, y + size * 0.62,
@@ -280,10 +292,43 @@ def _draw_alert_glyph(cv: tk.Canvas, x: float, y: float, size: float, kind: str)
             x + size / 2 - 2, y + size * 0.72, x + size / 2 + 2, y + size * 0.72 + 4,
             fill="#FFFFFF", outline="",
         )
+    elif kind == "danger":
+        cv.create_oval(x + 2, y + 2, x + size - 2, y + size - 2, fill=DANGER, outline="")
+        cross = max(3.0, size * 0.10)
+        cv.create_line(
+            x + size * 0.30, y + size * 0.30, x + size * 0.70, y + size * 0.70,
+            fill="#FFFFFF", width=cross, capstyle="round",
+        )
+        cv.create_line(
+            x + size * 0.30, y + size * 0.70, x + size * 0.70, y + size * 0.30,
+            fill="#FFFFFF", width=cross, capstyle="round",
+        )
+    elif kind == "ok":
+        cv.create_oval(x + 2, y + 2, x + size - 2, y + size - 2, fill=OK, outline="")
+        cv.create_line(
+            [x + size * 0.26, y + size * 0.54,
+             x + size * 0.44, y + size * 0.70,
+             x + size * 0.74, y + size * 0.30],
+            fill="#FFFFFF", width=max(3.0, size * 0.10),
+            capstyle="round", joinstyle="round",
+        )
+    elif kind == "limits":
+        _round_rect(
+            cv, x + 2, y + 2, x + size - 2, y + size - 2, size * 0.22,
+            fill=PRIMARY, outline="",
+        )
+        for frac in (0.36, 0.52, 0.68):
+            cv.create_line(
+                x + size * 0.28, y + size * frac, x + size * 0.72, y + size * frac,
+                fill="#FFFFFF", width=max(2.0, size * 0.07), capstyle="round",
+            )
+    else:
+        raise ValueError(f"unknown severity glyph: {kind!r}")
 
 
 def _icon_alert(parent: tk.Widget, kind: str, size: int = 34) -> tk.Canvas:
-    """Filled badge: triangle for warn/danger, circle for info. White glyph."""
+    """Filled badge: triangle warn, circle-X danger, circle-i info,
+    circle-check ok, document limits. White glyph."""
     cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
     _draw_alert_glyph(cv, 0, 0, size, kind)
     return cv
@@ -292,7 +337,10 @@ def _icon_alert(parent: tk.Widget, kind: str, size: int = 34) -> tk.Canvas:
 def _icon_badge(parent: tk.Widget, kind: str, size: int = 96) -> tk.Canvas:
     """Status-screen badge: the alert glyph on a tinted halo circle."""
     cv = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
-    tint = {"warn": WARN_BG, "danger": DANGER_TINT, "info": SURFACE_ALT}[kind]
+    tint = {
+        "warn": WARN_BG, "danger": DANGER_TINT, "info": SURFACE_ALT,
+        "ok": OK_TINT, "limits": SURFACE_ALT,
+    }[kind]
     cv.create_oval(1, 1, size - 1, size - 1, fill=tint, outline="")
     glyph = size * 0.58
     off = (size - glyph) / 2
@@ -961,7 +1009,11 @@ class TkWizard:
         if wizard.preview:
             title = f"{C.APP_NAME} — PREVIEW (nothing is erased)"
         self.root.title(title)
-        self.root.configure(bg=BG)
+        # Familiar arrow over ordinary content. The bare startx kiosk has
+        # no window manager or cursor theme, so an unset root inherits the
+        # X-server X cursor. Children inherit this; explicit hand2/xterm
+        # cursors on actions and text are unaffected.
+        self.root.configure(bg=BG, cursor="arrow")
         self.root.minsize(*MIN_SIZE)
         if fullscreen:
             # The live startx kiosk has no window manager to honor the EWMH
@@ -1003,6 +1055,7 @@ class TkWizard:
         # process, and an unbound PhotoImage dies with the first root.
         self._logo_header = self._load_image("logo-header.png")
         self._logo_splash = self._load_image("logo-splash.png")
+        self._support_qr: Optional[tk.PhotoImage] = None
         self._confirm_var = tk.StringVar()
         self._typing_var = tk.StringVar()
         self._owner_var = tk.IntVar(value=0)
@@ -1454,11 +1507,11 @@ class TkWizard:
             Screen.METHOD: self._method,
             Screen.LAST_CHANCE: self._last,
             Screen.CHECKING: lambda: self._status_screen(
-                "info", "Checking disk",
-                "Confirming disk identity and boot USB exclusions. Please wait; controls are unavailable during this check.",
+                "info", C.BUSY_CHECKING_TITLE,
+                C.BUSY_CHECKING_MESSAGE,
             ),
             Screen.STOPPING: lambda: self._status_screen(
-                "warn", "Stopping erase",
+                "warn", C.BUSY_STOPPING_TITLE,
                 C.STOPPING_TEXT,
             ),
             Screen.WORKING: self._working,
@@ -1469,8 +1522,8 @@ class TkWizard:
             Screen.REFRESH_CONFIRM: self._refresh_confirm,
             Screen.REFRESHING: lambda: self._status_screen(
                 "info",
-                "Checking disks again",
-                "Previous selections and confirmations have been cleared.",
+                C.BUSY_REFRESHING_TITLE,
+                C.BUSY_REFRESHING_MESSAGE,
             ),
         }
         if report_view is not None:
@@ -1559,7 +1612,7 @@ class TkWizard:
         zone = tk.Frame(col, bg=BG)
         zone.pack(fill=tk.BOTH, expand=True)
         content = tk.Frame(zone, bg=BG)
-        content.pack(fill=tk.X, pady=(8, 0))
+        content.pack(fill=tk.X, pady=(4, 0))
         return content
 
     def _reader(
@@ -1592,6 +1645,7 @@ class TkWizard:
             insertbackground=INK,
             selectbackground=PRIMARY_TINT,
             selectforeground=INK,
+            cursor="xterm",
         )
 
     def _chip(self, parent: tk.Widget, text: str, *, fg: str, bg: str) -> _Box:
@@ -1643,6 +1697,16 @@ class TkWizard:
             "warn": (WARN_BG, WARN_BORDER),
             "danger": (DANGER_TINT, DANGER_BORDER),
             "info": (SURFACE_ALT, BORDER),
+            "ok": (OK_TINT, OK_BORDER),
+            "limits": (SURFACE_ALT, BORDER),
+        }
+        # Severity words: the label line keeps every non-neutral panel
+        # readable in monochrome. Neutral info stays unlabeled.
+        labels = {
+            "warn": (C.SEVERITY_WARNING, WARN),
+            "danger": (C.SEVERITY_ERROR, DANGER),
+            "ok": (C.SEVERITY_SAVED, OK),
+            "limits": (C.SEVERITY_LIMITS, PRIMARY),
         }
         bg, border = colors[kind]
         box = _Box(parent, radius=RADIUS, fill=bg, outline=border, ow=1,
@@ -1654,6 +1718,10 @@ class TkWizard:
         icon.pack(side=tk.LEFT, anchor="n", pady=1)
         lines = tk.Frame(row, bg=bg)
         lines.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
+        if kind in labels:
+            word, color = labels[kind]
+            tk.Label(lines, text=word, font=self.font_s_bold, fg=color, bg=bg,
+                     anchor="w").pack(fill=tk.X, pady=(0, 2))
         # Panels carry disk names, models, and errors: same wrapping as
         # identity labels, including unbroken serials and paths.
         self._wrapping_label(
@@ -1808,7 +1876,7 @@ class TkWizard:
         """The selected disk, shared across confirmation, method, and result screens."""
         box = _Box(
             parent, radius=RADIUS, fill=PRIMARY_TINT, outline=PRIMARY, ow=1,
-            padx=22, pady=16, shadow=False,
+            padx=18, pady=12, shadow=False,
         )
         inner = box.inner
         tk.Label(inner, text=C.SELECTED_DISK, font=self.font_tiny,
@@ -1861,12 +1929,12 @@ class TkWizard:
             if self.w.can_open_report_help:
                 utility(C.REPORT_HELP_TITLE, self._nav(self.w.open_report_help))
             if sys.platform.startswith("linux"):
-                utility("Screen-reader view (F8)", self._click_accessible)
+                utility(C.SCREEN_READER_VIEW, self._click_accessible)
         if self.w.screen == Screen.DONE and not self.w.preview:
             tk.Label(tools, text=C.ANOTHER_HINT, font=self.font_s, bg=BG,
                      fg=MUTED, wraplength=600, justify=tk.LEFT).pack(side=tk.LEFT, padx=12)
         if self.w.can_open_diagnostic:
-            utility("Diagnostic report", self._nav(self.w.open_diagnostic))
+            utility(C.DIAGNOSTIC_TITLE, self._nav(self.w.open_diagnostic))
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
         row = tk.Frame(col, bg=BG)
         pad = self.lay.footer_pad_y
@@ -1967,13 +2035,13 @@ class TkWizard:
             canvas_mark = tk.Canvas(col, width=70, height=58, bg=BG, highlightthickness=0, bd=0)
             _draw_emblem(canvas_mark, 35.0, 29.0, 54)
             canvas_mark.pack()
-        tk.Label(col, text=C.APP_NAME, font=self.font_hero, fg=INK, bg=BG).pack(pady=(26, 0))
+        tk.Label(col, text=C.APP_NAME, font=self.font_hero, fg=INK, bg=BG).pack(pady=(16, 0))
         self._p(
             col, C.SPLASH_TAGLINE, fg=MUTED, font=self.font_lead,
             wraplength=620, justify=tk.CENTER, anchor="center",
-        ).pack(fill=tk.X, pady=(12, 0))
+        ).pack(fill=tk.X, pady=(8, 0))
         self._p(col, C.SPLASH_ROADMAP, fg=MUTED, font=self.font_s,
-                justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(24, 0))
+                justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(14, 0))
         hero = _Button(
             col,
             text=C.BTN_CONTINUE,
@@ -1983,7 +2051,7 @@ class TkWizard:
             large=True,
             min_width=240,
         )
-        hero.pack(pady=(34, 0))
+        hero.pack(pady=(24, 0))
         self._primary = hero
         tk.Label(col, text=C.HINT_SPLASH, font=self.font_meta, fg=MUTED, bg=BG).pack(pady=(14, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
@@ -1995,7 +2063,7 @@ class TkWizard:
         zone = self._center_zone(col)
         self._p(zone, C.KEYBOARD_LIMITS, font=self.font_s, fg=MUTED).pack(fill=tk.X)
         for index, layout_id in enumerate(LAYOUT_ORDER, 1):
-            spec = LAYOUTS[layout_id]
+            spec = _keyboard.LAYOUTS[layout_id]
             selected = self.w.keyboard_layout == layout_id
             fill = PRIMARY_TINT if selected else SURFACE
             outline = PRIMARY if selected else BORDER_STRONG
@@ -2035,10 +2103,38 @@ class TkWizard:
                     partial(card.set_style, fill=SURFACE_ALT),
                     partial(card.set_style, fill=SURFACE),
                 )
-        if self.w.keyboard_message:
+        tk.Label(
+            zone, text=C.TITLE_LANGUAGE, font=self.font_bold, fg=INK, bg=BG, anchor="w",
+        ).pack(fill=tk.X, pady=(14, 2))
+        self._p(zone, C.LANGUAGE_LEAD, font=self.font_s, fg=MUTED).pack(fill=tk.X)
+        lang_row = tk.Frame(zone, bg=BG)
+        lang_row.pack(fill=tk.X, pady=(6, 0))
+        for code in LANGUAGE_ORDER:
+            selected = self.w.language == code
+
+            def _pick_language(_e=None, lang_code=code):
+                self.w.set_language(lang_code)
+                self._draw()
+                return "break"
+
+            chip = _Box(
+                lang_row, radius=PILL, fill=PRIMARY_TINT if selected else SURFACE,
+                outline=PRIMARY if selected else BORDER_STRONG, ow=2 if selected else 1,
+                padx=14, pady=6, halo=False,
+            )
+            chip.pack(side=tk.LEFT, padx=(0, 8))
+            tk.Label(
+                chip.inner, text=LANGUAGE_NAMES[code], font=self.font_s_bold,
+                fg=PRIMARY if selected else INK,
+                bg=PRIMARY_TINT if selected else SURFACE,
+            ).pack()
+            self._bind_tree(chip, _pick_language)
+            chip.configure(cursor="hand2")
+            chip.inner.configure(cursor="hand2")
+        if self.w.error:
+            self._panel(zone, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+        elif self.w.keyboard_message:
             self._panel(zone, kind="warn", text=self.w.keyboard_message).pack(fill=tk.X, pady=(12, 0))
-        elif self.w.error:
-            self._panel(zone, kind="warn", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
         tk.Label(
             zone, text=C.KEYBOARD_CHECK_LABEL, font=self.font_s, fg=INK, bg=BG, anchor="w",
         ).pack(fill=tk.X, pady=(10, 4))
@@ -2058,6 +2154,7 @@ class TkWizard:
             highlightthickness=0,
             show="",
             bd=0,
+            cursor="xterm",
         )
         self._typing_var.set(self.w.typing_check)
         entry.pack(fill=tk.X, ipady=4)
@@ -2090,12 +2187,12 @@ class TkWizard:
         zone = self._center_zone(col)
         card = _Box(
             zone, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
-            padx=24, pady=20, shadow=False,
+            padx=20, pady=14, shadow=False,
         )
         card.pack(fill=tk.X)
         for i, bullet in enumerate(C.WHAT_BULLETS):
             line = tk.Frame(card.inner, bg=SURFACE)
-            line.pack(fill=tk.X, pady=(2 if i == 0 else 14, 2 if i == len(C.WHAT_BULLETS) - 1 else 0))
+            line.pack(fill=tk.X, pady=(2 if i == 0 else 8, 2 if i == len(C.WHAT_BULLETS) - 1 else 0))
             marker = tk.Canvas(line, width=10, height=26, bg=SURFACE, highlightthickness=0)
             marker.create_oval(1, 9, 8, 16, fill=ACCENT, outline="")
             marker.pack(side=tk.LEFT, anchor="n")
@@ -2103,6 +2200,9 @@ class TkWizard:
                 line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
                 wraplength=max(200, self.lay.wrap - 80), justify=tk.LEFT, anchor="w",
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
+        self._panel(
+            zone, kind="info", text=C.REPORT_MEDIA_WHAT, compact=True
+        ).pack(fill=tk.X, pady=(12, 0))
         power = self._panel(
             zone, kind="info", text=C.POWER_REMINDER, extra=C.POWER_BLANKING
         )
@@ -2130,8 +2230,8 @@ class TkWizard:
             fill=PRIMARY_TINT if checked else SURFACE,
             outline=PRIMARY if checked else BORDER_STRONG,
             ow=2 if checked else 1,
-            padx=22,
-            pady=20,
+            padx=16,
+            pady=14,
             ring=True,
             halo=False,
         )
@@ -2245,17 +2345,22 @@ class TkWizard:
             self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
+            if error_needs_support(self.w.error):
+                self._support_block(col)
         elif any(not self.w.disk_view(disk).confirmable for disk in self.w.selectable):
             from beamo_wipe.identity import AMBIGUOUS_IDENTITY
 
             self._panel(col, kind="warn", text=AMBIGUOUS_IDENTITY).pack(fill=tk.X, pady=(0, 12))
         if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
-            self._panel(col, kind="info", text=C.SSD_FOOTER, compact=True).pack(fill=tk.X, pady=(0, 8))
+            self._panel(col, kind="limits", text=C.SSD_FOOTER, compact=True).pack(fill=tk.X, pady=(0, 8))
+        if self.w.report_wanted:
+            self._panel(col, kind="info", text=C.REPORT_MEDIA_WANTED, compact=True).pack(fill=tk.X, pady=(0, 8))
         tools = tk.Frame(col, bg=BG)
         tools.pack(fill=tk.X, pady=(0, 4))
         count = len(self.w.selectable)
-        selection = "1 selected" if self.w.selected else "Choose one disk"
-        tk.Label(tools, text=f"{count} {'disk available' if count == 1 else 'disks available'} · {selection}",
+        selection = C.PICK_SELECTED_ONE if self.w.selected else C.PICK_CHOOSE
+        count_text = (C.PICK_COUNT_ONE if count == 1 else C.PICK_COUNT_MANY).format(count=count)
+        tk.Label(tools, text=f"{count_text} · {selection}",
                  font=self.font_s, fg=MUTED, bg=BG).pack(side=tk.LEFT)
         more = tk.Frame(tools, bg=BG)
         more.pack(side=tk.RIGHT)
@@ -2385,7 +2490,10 @@ class TkWizard:
         grid.pack(fill=tk.X)
         cells = []
         for entry in entries:
-            cell = tk.Frame(grid, bg=BG)
+            cell = tk.Frame(
+                grid, bg=SURFACE_ALT, highlightbackground=BORDER,
+                highlightthickness=1, padx=8, pady=8,
+            )
             cells.append(cell)
             reader = self._reader(cell, height=8, wrap=tk.CHAR, padx=10)
             reader.insert("1.0", entry)
@@ -2416,7 +2524,7 @@ class TkWizard:
             for column in range(2):
                 grid.columnconfigure(column, weight=1 if column < columns else 0, uniform="compare")
             for i, cell in enumerate(cells):
-                cell.grid(row=i // columns, column=i % columns, sticky="nsew", padx=3, pady=3)
+                cell.grid(row=i // columns, column=i % columns, sticky="nsew", padx=6, pady=6)
         grid.bind("<Configure>", reflow)
 
     def _protected_boot(self, parent):
@@ -2536,6 +2644,43 @@ class TkWizard:
         self.w.select_disk(path)
         self._draw()
 
+    def _support_block(self, parent: Optional[tk.Widget]) -> None:
+        """QR code plus the support destination as real text.
+
+        The text is the offline fallback: the block still helps when the
+        QR library is unavailable or the code cannot be scanned.
+        """
+        from beamo_wipe.support_contact import qr_matrix
+
+        assert parent is not None
+        frame = tk.Frame(parent, bg=BG)
+        image: Optional[tk.PhotoImage] = None
+        try:
+            matrix = qr_matrix()
+            scale = 3
+            rows = []
+            for modules in matrix:
+                line = " ".join(
+                    "#000000" if dark else "#ffffff"
+                    for dark in modules
+                    for _ in range(scale)
+                )
+                rows.extend(["{" + line + "}"] * scale)
+            image = tk.PhotoImage(
+                master=self.root, width=len(matrix) * scale, height=len(matrix) * scale
+            )
+            image.put(" ".join(rows))
+        except Exception:
+            image = None
+        if image is not None:
+            self._support_qr = image
+            code = tk.Label(frame, image=image, bg="#ffffff", bd=1, relief=tk.SOLID)
+            code.pack(side=tk.LEFT, anchor="n")
+        self._p(frame, C.support_lead(), font=self.font_s).pack(
+            side=tk.LEFT, anchor="w", padx=(12, 0)
+        )
+        frame.pack(fill=tk.X, pady=(12, 0))
+
     def _status_screen(self, kind: str, title: str, message: str) -> None:
         """Centered status layout shared by the blocked and empty screens."""
         col = self._column(self._body, fill_height=True)
@@ -2559,10 +2704,18 @@ class TkWizard:
         if self.w.screen == Screen.STOPPING:
             self._progress_label = self._p(col, self.w.progress_view.timing_text, fg=MUTED)
             self._progress_label.pack(fill=tk.X, pady=(12, 0))
+            stopping_disk = self.w.operation_disk
+            if stopping_disk is not None:
+                self._disk_summary(col, stopping_disk).pack(fill=tk.X, pady=(12, 0))
+            elif self.w.operation_identity_text:
+                self._p(col, self.w.operation_identity_text, font=self.font_b, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
+            self._p(col, self.w.operation_method_text, font=self.font_s, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
 
     def _blocked(self) -> None:
-        self._status_screen("warn", "Session recovery" if self.w._recovered else C.TITLE_BLOCKED, self.w.error or C.IDENTIFY_ERROR)
+        self._status_screen("danger", C.blocked_title(self.w.error, recovered=self.w._recovered), self.w.error or C.IDENTIFY_ERROR)
+        if error_needs_support(self.w.error):
+            self._support_block(self._body)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2608,6 +2761,7 @@ class TkWizard:
         self._protected_boot(cards)
         self._other_devices(cards)
         bind_wheel(cards)
+        self._support_block(col)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2619,9 +2773,13 @@ class TkWizard:
         self._title_block(col, D.report_title(self.w.startup_error_code), D.NOTICE)
         self._p(col, D.PREPARE, font=self.font_s).pack(fill=tk.X, pady=8)
         self._p(col, view.message, font=self.font_s).pack(fill=tk.X, pady=8)
-        row = self._footer_shell("No operation outcome is recorded in this report.")
-        self._secondary_btn(row, "Back", self.w.close_diagnostic, enabled=not view.busy)
-        self._primary_btn(row, "Save diagnostic report" if view.ready else "Prepare",
+        if self.w.diagnostic_step:
+            self._p(col, self.w.diagnostic_step, font=self.font_s).pack(fill=tk.X)
+            if next_step_needs_support(self.w.diagnostic_message):
+                self._support_block(col)
+        row = self._footer_shell(C.NO_OUTCOME_RECORDED)
+        self._secondary_btn(row, C.BTN_BACK, self.w.close_diagnostic, enabled=not view.busy)
+        self._primary_btn(row, C.SAVE_DIAGNOSTIC_REPORT if view.ready else C.BTN_PREPARE,
                           self._click_diagnostic_action,
                           enabled=not view.busy)
 
@@ -2645,6 +2803,15 @@ class TkWizard:
         self._disk_summary(zone, disk).pack(fill=tk.X)
         self._more_link(zone)
         self._panel(zone, kind="warn", text=self.w.warning_text()).pack(fill=tk.X, pady=(12, 0))
+        self._p(
+            zone,
+            C.CONFIRM_KEYBOARD_LINE.format(
+                layout=_keyboard.LAYOUTS[self.w.keyboard_layout].title,
+                language=LANGUAGE_NAMES[self.w.language],
+            ),
+            font=self.font_s,
+            fg=MUTED,
+        ).pack(fill=tk.X, pady=(8, 0))
         # The prompt can carry a full serial as the typed token: same
         # character-level wrapping as identity labels, never a clipped tail.
         self._wrapping_label(zone, spec.prompt, font=self.font_b, bg=BG).pack(
@@ -2665,6 +2832,7 @@ class TkWizard:
             relief=tk.FLAT,
             highlightthickness=0,
             bd=0,
+            cursor="xterm",
         )
         self._confirm_var.set(self.w.confirm_input)
         entry.pack(fill=tk.X, ipady=4)
@@ -2758,9 +2926,9 @@ class TkWizard:
         outline = PRIMARY if selected else BORDER
         card = _Box(
             parent, radius=RADIUS, fill=fill, outline=outline, ow=2 if selected else 1,
-            padx=20, pady=12, halo=False,
+            padx=18, pady=8, halo=False,
         )
-        card.pack(fill=tk.X, pady=(0, 10), padx=4)
+        card.pack(fill=tk.X, pady=(0, 6), padx=4)
         inner = card.inner
         top = tk.Frame(inner, bg=fill)
         top.pack(fill=tk.X)
@@ -2831,7 +2999,7 @@ class TkWizard:
             self._more_link(col)
         notice = self.w.storage_notice
         if notice:
-            self._panel(col, kind="info", text=notice, compact=True).pack(
+            self._panel(col, kind="limits", text=notice, compact=True).pack(
                 fill=tk.X, pady=(8, 0)
             )
         _Button(
@@ -2854,6 +3022,10 @@ class TkWizard:
             self._p(col, self.w.report_recovery_warning, font=self.font_s).pack(
                 fill=tk.X
             )
+        self._p(col, C.MEDIA_STEPS_TITLE, font=self.font_s_bold).pack(
+            fill=tk.X, pady=(12, 4)
+        )
+        self._p(col, self.w.exit_media_steps, font=self.font_s).pack(fill=tk.X)
         row = self._footer_shell(C.SHUTDOWN_HINT)
         generation = self.w.shutdown_generation
         self._secondary_btn(
@@ -2876,7 +3048,7 @@ class TkWizard:
 
     def _report_help(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, C.REPORT_HELP_TITLE, "Optional. Read before inserting report media.", compact=True)
+        self._title_block(col, C.REPORT_HELP_TITLE, C.REPORT_MEDIA_NOTE, compact=True)
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
         text = self._reader(frame, height=10, padx=14, pady=12)
@@ -2912,12 +3084,12 @@ class TkWizard:
             col, text=C.REPORT_SHARE_REDACTED, variable=share,
             command=set_share, font=self.font_s, wraplength=wrap,
         ).pack(anchor="w", fill=tk.X, pady=(0, 8))
-        self._back_btn(self._footer_shell("Enter or Esc returns. Nothing is saved here."))
+        self._back_btn(self._footer_shell(C.HINT_READ_RETURN))
         text.focus_set()
 
     def _disk_help(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, C.DISK_HELP_TITLE, "Up/Down or Page Up/Page Down to read. Esc returns.", compact=True)
+        self._title_block(col, C.DISK_HELP_TITLE, C.HINT_READ_KEYS, compact=True)
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
         text = self._reader(frame, height=10, padx=14, pady=12)
@@ -2928,13 +3100,13 @@ class TkWizard:
         text.insert("1.0", C.DISK_HELP_TEXT)
         text.configure(state=tk.DISABLED)
         text.focus_set()
-        row = self._footer_shell("Esc returns with no disk selected.")
+        row = self._footer_shell(C.HINT_ESC_NO_SELECTION)
         self._back_btn(row)
         self._secondary_btn(row, C.DISK_HELP_STOP, self.w.shutdown)
 
     def _limits(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, limits.TITLE, "Up/Down or Page Up/Page Down to read. Esc returns.", compact=True)
+        self._title_block(col, limits.TITLE, C.HINT_READ_KEYS, compact=True)
         frame = tk.Frame(col, bg=BG)
         frame.pack(fill=tk.BOTH, expand=True)
         text = self._reader(frame, height=10, padx=14, pady=12)
@@ -2945,7 +3117,7 @@ class TkWizard:
         text.insert("1.0", limits.full_text())
         text.configure(state=tk.DISABLED)
         text.focus_set()
-        row = self._footer_shell("Esc returns to method selection.")
+        row = self._footer_shell(C.HINT_ESC_METHOD)
         self._back_btn(row)
 
     def _choose_method(self, method: MethodId) -> None:
@@ -2977,8 +3149,8 @@ class TkWizard:
         self._wrapping_label(
             details, self.w.operation_summary, font=self.font_bold, bg=BG
         ).pack_configure(pady=(12, 0))
-        self._wrapping_label(details, self.w.erase_label(), font=self.font_bold,
-                             bg=BG, fg=DANGER).pack_configure(pady=(16, 8))
+        self._wrapping_label(details, f"{C.SEVERITY_WARNING}: {self.w.erase_label()}",
+                             font=self.font_bold, bg=BG, fg=DANGER).pack_configure(pady=(16, 8))
         self._wrapping_label(details, self.w.method_summary, font=self.font_s, bg=BG)
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
@@ -3051,14 +3223,17 @@ class TkWizard:
     def _working(self) -> None:
         self._shown_report_revision = self.w.report_view.revision
         col = self._column(self._body, fill_height=True)
-        disk = self.w.selected
+        disk = self.w.operation_disk
         if self.w.stop_confirmation is not None:
             confirmation = self.w.stop_confirmation
             self._title_block(col, C.STOP_TITLE)
             self._panel(col, kind="warn", text=C.STOP_LEAD).pack(fill=tk.X, pady=(12, 0))
             if disk is not None:
                 self._disk_summary(col, disk).pack(fill=tk.X, pady=(12, 0))
-            row = self._footer_shell("Keep the disk and Beamo USB connected.")
+            elif self.w.operation_identity_text:
+                self._p(col, self.w.operation_identity_text, font=self.font_b, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
+            self._p(col, self.w.operation_method_text, font=self.font_s, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
+            row = self._footer_shell(C.POWER_KEEP_CONNECTED)
             keep = self._secondary_btn(row, C.STOP_KEEP, self.w.keep_erasing)
             self._primary_btn(row, C.STOP_CONFIRM, lambda: self.w.confirm_stop(confirmation), danger=True)
             keep.focus_set()
@@ -3068,15 +3243,19 @@ class TkWizard:
                           else C.TITLE_WORKING)
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
+            if error_needs_support(self.w.error):
+                self._support_block(col)
         if disk is not None:
             self._disk_summary(col, disk).pack(fill=tk.X)
             self._more_link(col)
+        elif self.w.operation_identity_text:
+            self._p(col, self.w.operation_identity_text, font=self.font_b, fg=MUTED).pack(fill=tk.X)
         container = self._center_zone(col)
         progress_card = _Box(container, radius=RADIUS, fill=SURFACE_ALT,
                              outline=BORDER, ow=1, padx=20, pady=16)
         progress_card.pack(fill=tk.X)
         zone = progress_card.inner
-        tk.Label(zone, text="Erase progress", font=self.font_s_bold,
+        tk.Label(zone, text=C.ERASE_PROGRESS_LABEL, font=self.font_s_bold,
                  fg=MUTED, bg=SURFACE_ALT, anchor="w").pack(fill=tk.X, pady=(0, 8))
         self._progress_pct = tk.Label(
             zone, text="", font=self.font_stat, fg=INK, bg=SURFACE_ALT, anchor="w"
@@ -3094,10 +3273,16 @@ class TkWizard:
         self._p(zone, self.w.method_summary, font=self.font_s,
                 fg=MUTED, bg=SURFACE_ALT).pack(fill=tk.X, pady=(10, 0))
         if self.w.evidence_warning:
-            self._p(col, self.w.evidence_warning, font=self.font_s_bold).pack(fill=tk.X, pady=(8, 0))
+            self._p(col, f"{C.SEVERITY_WARNING}: {self.w.evidence_warning}", font=self.font_s_bold).pack(fill=tk.X, pady=(8, 0))
+        if self.w.sound_message:
+            self._p(col, self.w.sound_message, font=self.font_s, fg=MUTED).pack(
+                fill=tk.X, pady=(8, 0)
+            )
         # Stopping is always reachable, with consent before signalling.
         row = self._footer_shell(C.HINT_WORKING)
         self._secondary_btn(row, C.STOP_ASK, self._click_cancel)
+        self._secondary_btn(row, self.w.sound_toggle_text, self.w.toggle_sounds)
+        self._secondary_btn(row, C.SOUND_HEAR, self.w.hear_both_sounds)
         self._refresh_working()
 
     def _refresh_working(self) -> None:
@@ -3156,25 +3341,21 @@ class TkWizard:
 
     def _done(self, report: ReportView) -> None:
         col = self._column(self._body, fill_height=True)
+        self.w.maybe_play_outcome_sound()
         result = self.w.result_view
         # Erase status heading stays independent of report chrome.
         # Cancelled copy remains in result.message ("Stopped by you").
-        title = C.ERASE_STATUS_TITLE
+        # The specific outcome is the main heading; the badge carries color.
+        title = result.message
 
-        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
-        badge_size = 64 if self.lay.short else 96
+        badge_size = 64 if self.lay.short else 72
         icon = (_icon_status(col, True, badge_size) if result.icon == "check"
                 else _icon_badge(col, result.icon, badge_size))
         icon.configure(bg=BG)
-        icon.pack()
+        icon.pack(pady=(8 if self.lay.short else 12, 0))
         heading = self._h(col, title)
         heading.configure(anchor="center", justify=tk.CENTER)
-        heading.pack(fill=tk.X, pady=(8, 4) if self.lay.short else (22, 8))
-        msg = result.message
-        # The badge carries the state color; the message stays readable ink.
-        self._p(
-            col, msg, font=self.font_b, wraplength=min(700, self.lay.wrap), justify=tk.CENTER, anchor="center"
-        ).pack(fill=tk.X)
+        heading.pack(fill=tk.X, pady=(8, 4) if self.lay.short else (12, 4))
         self._p(col, self.w.elapsed_text, fg=MUTED, font=self.font_s,
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(4, 0))
         # Keep the selected-disk summary in the first viewport so Show more
@@ -3182,9 +3363,15 @@ class TkWizard:
         # independent of the erase badge.
         if self.w.selected is not None:
             self._disk_summary(col, self.w.selected).pack(
-                fill=tk.X, pady=(8 if self.lay.short else 24, 0)
+                fill=tk.X, pady=(8 if self.lay.short else 12, 0)
             )
             self._more_link(col)
+        if (
+            self.w.done_support_needed
+            or self.w.evidence_support_needed
+            or (report.status == "error" and next_step_needs_support(report.message))
+        ):
+            self._support_block(col)
         self._p(col, C.REPORT_STATUS_TITLE, font=self.font_s_bold).pack(
             fill=tk.X, pady=(12, 4)
         )
@@ -3199,16 +3386,25 @@ class TkWizard:
         ).pack(fill=tk.X)
         self._p(col, self.w.method_summary, font=self.font_s).pack(fill=tk.X, pady=(8, 0))
         self._p(col, result.next_step, font=self.font_s).pack(fill=tk.X)
+        if may_have_erased(result.code):
+            self._p(col, C.POST_ERASE_BOOT, font=self.font_s, fg=MUTED).pack(
+                fill=tk.X, pady=(8, 0)
+            )
         for alert in self.w.check_alerts:
             self._panel(col, kind="warn", text=alert).pack(fill=tk.X, pady=(8, 0))
-        tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
+        if self.w.sound_message:
+            self._p(col, self.w.sound_message, font=self.font_s, fg=MUTED).pack(
+                fill=tk.X, pady=(8, 0)
+            )
         row = self._footer_shell(C.HINT_DEFAULT if self.w.preview else C.HINT_DONE)
         if self.w.preview:
             self._secondary_btn(row, C.BTN_CLOSE_PREVIEW, self._click_shutdown)
+            self._secondary_btn(row, self.w.sound_toggle_text, self.w.toggle_sounds)
+            self._secondary_btn(row, C.SOUND_HEAR_AGAIN, self.w.hear_outcome_sound)
             self._primary_btn(row, C.BTN_RUN_AGAIN, self.w.reset_for_preview)
         else:
             if report.evidence_error:
-                self._secondary_btn(row, "Retry evidence save", self._click_retry_evidence,
+                self._secondary_btn(row, C.RETRY_SAVE, self._click_retry_evidence,
                                     enabled=report.can_retry_evidence)
             self._secondary_btn(
                 row,
@@ -3216,6 +3412,8 @@ class TkWizard:
                 self._click_save_report,
                 enabled=report.can_save,
             )
+            self._secondary_btn(row, self.w.sound_toggle_text, self.w.toggle_sounds)
+            self._secondary_btn(row, C.SOUND_HEAR_AGAIN, self.w.hear_outcome_sound)
             _Button(row._left, text=C.BTN_ERASE_ANOTHER,
                     command=self._nav(self.w.erase_another_disk),
                     font=self.font_s_bold, variant="ghost", compact=True,
@@ -3256,7 +3454,7 @@ class TkWizard:
                 wraplength=max(200, self.lay.wrap - 40),
                 justify=tk.LEFT,
             ).pack(fill=tk.X, pady=(7, 7))
-        log = self.w._wipe_request.logfile if self.w._wipe_request else "(no wipe yet)"
+        log = self.w._wipe_request.logfile if self.w._wipe_request else C.NO_WIPE_YET
         log_row = tk.Frame(zone, bg=BG)
         log_row.pack(fill=tk.X, pady=(14, 4))
         tk.Label(
@@ -3724,7 +3922,7 @@ def run_tk_startup(build, *, fullscreen: bool = False,
                      wraplength=540)
     stall.pack(fill=tk.X)
 
-    _STATUS_WORDS = {"pending": "Waiting", "active": "Working…", "done": "Done"}
+    _STATUS_WORDS = {"pending": C.STARTUP_STATE_WAITING, "active": C.STARTUP_STATE_WORKING, "done": C.STARTUP_STATE_DONE}
 
     def render() -> None:
         snap = run.drain()

@@ -11,26 +11,53 @@ from beamo_wipe.models import Disk, DiscoveryResult, ExcludedDevice
 TITLE = "Other detected devices"
 INTRO = "Information only. These devices cannot be selected for erasure."
 NESTED_INTRO = "On this disk (cannot be erased separately):"
+REASON_UNSUPPORTED = "unsupported device"
+REASON_PROTECTED = "boot or system protected"
+REASON_MOUNTED = "mounted or in use"
+REASON_READ_ONLY = "read-only"
+REASON_CAPACITY_UNKNOWN = "capacity could not be confirmed"
+REASON_ZERO_CAPACITY = "zero capacity"
+REASON_ELIGIBILITY = "eligibility could not be confirmed"
 # Nested cards already say they cannot be erased separately. Keep other
 # reasons (mounted, protected) visible; drop the generic whole-disk label.
-NESTED_SILENT_REASONS = frozenset({"unsupported device"})
+NESTED_SILENT_REASONS = frozenset({REASON_UNSUPPORTED})
 EMPTY_STEPS = (
     "No eligible disk is available. Review the reasons below. Keep the Beamo USB "
     "connected. Shut down before checking drive connections. If a disk remains "
     "unavailable or its identity is uncertain, contact support. Do not bypass protection."
 )
 
-_KIND_LABELS = {
-    "part": "Partition",
-    "crypt": "Encrypted volume",
-    "lvm": "Mapped volume",
-    "dm": "Mapped volume",
-    "loop": "Loop device",
-    "rom": "Optical disc",
-    "md": "RAID volume",
-    "mpath": "RAID volume",
-    "disk": "Disk",
-}
+KIND_PART = "Partition"
+KIND_CRYPT = "Encrypted volume"
+KIND_MAPPED = "Mapped volume"
+KIND_LOOP = "Loop device"
+KIND_ROM = "Optical disc"
+KIND_RAID = "RAID volume"
+KIND_DISK = "Disk"
+KIND_TECHNICAL = "Technical component"
+
+
+def _build_kind_labels() -> dict[str, str]:
+    return {
+        "part": KIND_PART,
+        "crypt": KIND_CRYPT,
+        "lvm": KIND_MAPPED,
+        "dm": KIND_MAPPED,
+        "loop": KIND_LOOP,
+        "rom": KIND_ROM,
+        "md": KIND_RAID,
+        "mpath": KIND_RAID,
+        "disk": KIND_DISK,
+    }
+
+
+_KIND_LABELS = _build_kind_labels()
+
+
+def _apply_language() -> None:
+    global _KIND_LABELS, NESTED_SILENT_REASONS
+    _KIND_LABELS = _build_kind_labels()
+    NESTED_SILENT_REASONS = frozenset({REASON_UNSUPPORTED})
 
 
 def kind_label_for_type(node_type: str) -> str:
@@ -38,15 +65,15 @@ def kind_label_for_type(node_type: str) -> str:
     if key in _KIND_LABELS:
         return _KIND_LABELS[key]
     if key.startswith("raid"):
-        return "RAID volume"
-    return "Technical component"
+        return KIND_RAID
+    return KIND_TECHNICAL
 
 
 def component_summary(disk: Disk, kind_label: str) -> str:
     """Plain nested label. Parent serial/model stay on the parent card."""
     from beamo_wipe.identity import UNKNOWN_MODEL
 
-    heading = kind_label or "Technical component"
+    heading = kind_label or KIND_TECHNICAL
     parts = [heading]
     parts.append(disk.size_phrase)
     label = (disk.label or "").strip()
@@ -77,23 +104,23 @@ def excluded_device(
 
     reasons = []
     if disk.is_boot or has_protected_mount(disk):
-        reasons.append("boot or system protected")
+        reasons.append(REASON_PROTECTED)
     if has_any_mount(disk):
-        reasons.append("mounted or in use")
+        reasons.append(REASON_MOUNTED)
     if disk.read_only:
-        reasons.append("read-only")
+        reasons.append(REASON_READ_ONLY)
     if disk.size_bytes <= 0:
         reasons.append(
-            "capacity could not be confirmed" if capacity_unknown else "zero capacity"
+            REASON_CAPACITY_UNKNOWN if capacity_unknown else REASON_ZERO_CAPACITY
         )
     try:
         normalize_whole_disk(disk.path)
     except SafetyError:
         unsupported = True
     if unsupported or is_remote_disk(disk):
-        reasons.append("unsupported device")
+        reasons.append(REASON_UNSUPPORTED)
     if not reasons:
-        reasons.append("eligibility could not be confirmed")
+        reasons.append(REASON_ELIGIBILITY)
     from beamo_wipe.identity import present_disk
 
     view = present_disk(disk)
@@ -102,7 +129,7 @@ def excluded_device(
         f"{view.id_label}: {view.id_value}"
     )
     kind = kind_label_for_type(node_type) if node_type else (
-        "Disk" if not parent_path else "Technical component"
+        KIND_DISK if not parent_path else KIND_TECHNICAL
     )
     return ExcludedDevice(
         identity,
@@ -264,13 +291,27 @@ def serial_comparison(disk: Disk, peers: tuple[Disk, ...]) -> tuple[int, int, st
            and len({v[-suffix - 1].casefold() for v in values}) == 1):
         suffix += 1
     end = len(serial) - suffix
-    reminder = "Check the full ID before choosing."
+    reminder = REMINDER_CHECK_ID
     if start == end:
-        unit = "character" if len(serial) == 1 else "characters"
-        return 0, 0, f"Serial has {len(serial)} {unit}; other serials are longer. {reminder}"
-    position = (f"character {start + 1}" if end == start + 1
-                else f"characters {start + 1} to {end}")
-    return start, end, f"Compare serial {position}: {serial[start:end]}. {reminder}"
+        unit = UNIT_CHAR if len(serial) == 1 else UNIT_CHARS
+        return 0, 0, SERIAL_LONGER.format(count=len(serial), unit=unit, reminder=reminder)
+    position = (POSITION_ONE.format(n=start + 1) if end == start + 1
+                else POSITION_RANGE.format(a=start + 1, b=end))
+    return start, end, COMPARE_SERIAL.format(position=position, span=serial[start:end], reminder=reminder)
+
+
+REMINDER_CHECK_ID = "Check the full ID before choosing."
+UNIT_CHAR = "character"
+UNIT_CHARS = "characters"
+SERIAL_LONGER = "Serial has {count} {unit}; other serials are longer. {reminder}"
+POSITION_ONE = "character {n}"
+POSITION_RANGE = "characters {a} to {b}"
+COMPARE_SERIAL = "Compare serial {position}: {span}. {reminder}"
+ENTRY_DISK = "Disk {number}"
+ENTRY_MODEL = "Model: {value}"
+ENTRY_CAPACITY = "Capacity: {value}"
+ENTRY_SERIAL = "Serial: {value}"
+ENTRY_CONNECTION = "Connection: {value}"
 
 
 COMPARE_TITLE = "Compare disks"
@@ -284,7 +325,7 @@ def comparison_entries(
     disks: Iterable[Disk], *, peers: Iterable[Disk] | None = None
 ) -> tuple[str, ...]:
     """Accept only the caller's eligible snapshot; never discover or select."""
-    from beamo_wipe.identity import present_disk, SERIAL_NOT_REPORTED
+    from beamo_wipe.identity import present_disk, SERIAL_LABEL, SERIAL_NOT_REPORTED
 
     candidates = tuple(disks)
     identity_peers = tuple(peers) if peers is not None else candidates
@@ -297,13 +338,13 @@ def comparison_entries(
     for number, disk in ordered:
         view = present_disk(disk, identity_peers)
         lines = [
-            f"Disk {number}",
-            f"Model: {view.title}",
-            f"Capacity: {view.capacity}",
-            f"Serial: {(disk.serial or '').strip() or SERIAL_NOT_REPORTED}",
-            f"Connection: {view.connection}",
+            ENTRY_DISK.format(number=number),
+            ENTRY_MODEL.format(value=view.title),
+            ENTRY_CAPACITY.format(value=view.capacity),
+            ENTRY_SERIAL.format(value=(disk.serial or '').strip() or SERIAL_NOT_REPORTED),
+            ENTRY_CONNECTION.format(value=view.connection),
         ]
-        if view.id_label != "Serial":
+        if view.id_label != SERIAL_LABEL:
             lines.append(f"{view.id_label}: {view.id_value}")
         lines.extend(view.notes)
         entries.append("\n".join(lines))

@@ -22,7 +22,8 @@ from typing import Any, List, Optional, Sequence, Tuple
 from beamo_wipe import NWIPE_PINNED_COMMIT, NWIPE_PINNED_VERSION, __version__
 from beamo_wipe.build_identity import evidence_identity
 from beamo_wipe.methods import METHODS
-from beamo_wipe.storage_limits import VERIFICATION_SCOPE, notice
+from beamo_wipe import storage_limits as _limits
+from beamo_wipe.storage_limits import notice
 from beamo_wipe.models import Disk, MethodId, WipeRequest, WipeResult
 import beamo_wipe.safety as safety
 from beamo_wipe.safety import SafetyError, assert_log_not_on_target
@@ -252,6 +253,8 @@ def build_evidence(
     interrupted: bool = False,
     cancelled: bool = False,
     wall_provenance: str = "unavailable",
+    language: str = "en",
+    keyboard_layout: str = "us",
 ) -> dict[str, Any]:
     """Build a truthful, user-safe evidence dict."""
     spec = METHODS.get(method)
@@ -414,7 +417,7 @@ def build_evidence(
         "verification": {
             "requested": verification_requested,
             "verified": verified,
-            "scope": VERIFICATION_SCOPE,
+            "scope": _limits.VERIFICATION_SCOPE,
         },
         "warnings": warnings,
         "checks": checks,
@@ -432,6 +435,10 @@ def build_evidence(
         "provenance": {
             "evidence_file": "",  # filled by writer
             "written_at_wall": "",
+        },
+        "locale": {
+            "language": language if _is_supported_language(language) else "en",
+            "keyboard_layout": keyboard_layout if _is_allowed_layout(keyboard_layout) else "us",
         },
     }
 
@@ -732,6 +739,22 @@ def export_evidence(
 
 
 # For testing: allow injection of wall clock
+def _is_supported_language(code: object) -> bool:
+    try:
+        from beamo_wipe.lang import is_supported
+    except Exception:
+        return code == "en"
+    return is_supported(code)
+
+
+def _is_allowed_layout(layout_id: object) -> bool:
+    try:
+        from beamo_wipe.keyboard import is_allowed
+    except Exception:
+        return layout_id == "us"
+    return isinstance(layout_id, str) and is_allowed(layout_id)
+
+
 def build_evidence_for_wizard(
     *,
     disk: Optional[Disk],
@@ -747,6 +770,8 @@ def build_evidence_for_wizard(
     log_text: str,
     cancelled: bool = False,
     interrupted: bool = False,
+    language: str = "en",
+    keyboard_layout: str = "us",
 ) -> dict[str, Any]:
     return build_evidence(
         disk=disk,
@@ -762,4 +787,6 @@ def build_evidence_for_wizard(
         log_text=log_text,
         interrupted=interrupted,
         cancelled=cancelled,
+        language=language,
+        keyboard_layout=keyboard_layout,
     )

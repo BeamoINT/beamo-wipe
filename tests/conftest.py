@@ -15,3 +15,11 @@ def _isolate_beamo_env(monkeypatch):
 @pytest.fixture(autouse=True)
 def _never_a_live_wipe_session(monkeypatch):
     monkeypatch.setattr("beamo_wipe.app.running_on_live_usb", lambda: False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_ui_language():
+    yield
+    from beamo_wipe import lang
+
+    lang.set_language("en")

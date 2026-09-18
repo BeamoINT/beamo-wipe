@@ -48,7 +48,11 @@ def discovery_for_scenario(scenario: Scenario) -> DiscoveryResult:
     )
 
 
-def make_demo_wizard(fail: bool = False, scenario: Scenario = "happy") -> Wizard:
+def make_demo_wizard(
+    fail: bool = False,
+    scenario: Scenario = "happy",
+    synthesize_stages: bool = False,
+) -> Wizard:
     import os
 
     os.environ["BEAMO_WIPE_DRY_RUN"] = "1"
@@ -57,7 +61,9 @@ def make_demo_wizard(fail: bool = False, scenario: Scenario = "happy") -> Wizard
         fail = True
         scenario = "happy"
     discovery = discovery_for_scenario(scenario)
-    runner = DryRunRunner(duration_s=DEMO_DURATION_S, fail=fail)
+    runner = DryRunRunner(
+        duration_s=DEMO_DURATION_S, fail=fail, synthesize_stages=synthesize_stages
+    )
     wiz = Wizard(discovery, runner, dry_run=True, rediscover=lambda: discovery_for_scenario(scenario))
     wiz.preview = True
     return wiz

@@ -134,7 +134,9 @@ def test_wizard_success_message_comes_from_the_receipt(tmp_path):
     aftercare = C.report_aftercare(
         can_save=False, status="saved", message=wizard.report_message
     )
-    assert aftercare == wizard.report_message
+    assert aftercare == (
+        C.export_stage_lines("saved") + "\n" + wizard.report_message
+    )
 
 
 def test_privacy_reduced_success_names_the_sharing_copy(tmp_path):
@@ -310,10 +312,18 @@ def test_console_wraps_long_success_copy_at_80x24(tmp_path, monkeypatch):
     monkeypatch.setattr(console.curses, "curs_set", lambda *a: None)
     monkeypatch.setattr(console.curses, "use_default_colors", lambda *a: None)
     console._loop(terminal, wizard)
-    shown = " ".join(terminal.rows[y] for y in sorted(terminal.rows))
-    assert "Folder:" in shown
-    assert "RESULT.txt" in shown
-    assert "Engine log:" in shown
+    first = " ".join(terminal.rows[y] for y in sorted(terminal.rows))
+    assert C.EXPORT_STAGE_REMOVE in first
+    wizard.wants_shutdown = False
+    from test_console_parity import _draw
+
+    _, _, term = _draw(monkeypatch, wizard, keys=[console.curses.KEY_DOWN] * 8)
+    all_text = " ".join(
+        " ".join(frame[y] for y in sorted(frame)) for frame in term.frames
+    )
+    assert "Folder:" in all_text
+    assert "RESULT.txt" in all_text
+    assert "Engine log:" in all_text
     wrapped = textwrap.wrap(wizard.report_message.replace("\n", " "), 78)
     assert all(len(line) <= 78 for line in wrapped)
 

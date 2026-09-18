@@ -8,6 +8,24 @@ from dataclasses import dataclass
 from beamo_wipe.models import MethodId
 
 
+TITLE_PRNG = "Everyday"
+TITLE_DODSHORT = "Three overwrites"
+TITLE_ZERO = "Quick zero"
+PATTERN_PRNG = "random data"
+PATTERN_DODSHORT = "a pattern, its inverse, then random data"
+PATTERN_ZERO = "zeros"
+OVERWRITE_ONE = "{count} overwrite pass: {pattern}."
+OVERWRITE_MANY = "{count} overwrite passes: {pattern}."
+NO_VERIFY = "This method does not check the overwrite."
+VERIFY_LAST = "Then we check the last overwrite."
+VERIFY_N = "Then we check the overwrite {n} times."
+OPERATION_ONE = "One overwrite"
+OPERATION_THREE = "Three overwrites"
+OPERATION_N = "{count} overwrites"
+OPERATION_VERIFIED = "{overwrites}, followed by verification."
+OPERATION_UNVERIFIED = "{overwrites}. Verification is not performed."
+
+
 @dataclass(frozen=True)
 class NwipeMethodSpec:
     method_id: MethodId
@@ -29,29 +47,30 @@ class NwipeMethodSpec:
     @property
     def title(self) -> str:
         return {
-            "prng": "Everyday",
-            "dodshort": "Three overwrites",
-            "zero": "Quick zero",
+            "prng": TITLE_PRNG,
+            "dodshort": TITLE_DODSHORT,
+            "zero": TITLE_ZERO,
         }[self.nwipe_method]
 
     @property
     def overwrite_description(self) -> str:
         pattern = {
-            "prng": "random data",
-            "dodshort": "a pattern, its inverse, then random data",
-            "zero": "zeros",
+            "prng": PATTERN_PRNG,
+            "dodshort": PATTERN_DODSHORT,
+            "zero": PATTERN_ZERO,
         }[self.nwipe_method]
         count = self.overwrite_passes
-        return f"{count} overwrite {'pass' if count == 1 else 'passes'}: {pattern}."
+        template = OVERWRITE_ONE if count == 1 else OVERWRITE_MANY
+        return template.format(count=count, pattern=pattern)
 
     @property
     def verification_description(self) -> str:
         if self.verify == "off":
-            return "This method does not check the overwrite."
+            return NO_VERIFY
         n = self.verification_passes
         if n == 1:
-            return "Then we check the last overwrite."
-        return f"Then we check the overwrite {n} times."
+            return VERIFY_LAST
+        return VERIFY_N.format(n=n)
 
     @property
     def description(self) -> str:
@@ -65,11 +84,11 @@ class NwipeMethodSpec:
     def operation_summary(self) -> str:
         """Last-chance line. Same overwrite/verify counts as argv and reports."""
         count = self.overwrite_passes
-        names = {1: "One overwrite", 3: "Three overwrites"}
-        overwrites = names.get(count, f"{count} overwrites")
+        names = {1: OPERATION_ONE, 3: OPERATION_THREE}
+        overwrites = names.get(count, OPERATION_N.format(count=count))
         if self.verification_passes:
-            return f"{overwrites}, followed by verification."
-        return f"{overwrites}. Verification is not performed."
+            return OPERATION_VERIFIED.format(overwrites=overwrites)
+        return OPERATION_UNVERIFIED.format(overwrites=overwrites)
 
     @property
     def docs_name(self) -> str:

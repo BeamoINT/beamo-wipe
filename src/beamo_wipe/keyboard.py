@@ -46,47 +46,59 @@ class ApplyResult:
     layout_id: str = ""
 
 
-LAYOUTS: Mapping[str, KeyboardLayout] = {
-    "us": KeyboardLayout(
-        id="us",
-        title="QWERTY (US)",
-        family="qwerty",
-        note=(
-            "Letters and digits match a US QWERTY keyboard. "
-            "Numbers do not need Shift."
+TITLE_US = "QWERTY (US)"
+NOTE_US = (
+    "Letters and digits match a US QWERTY keyboard. "
+    "Numbers do not need Shift."
+)
+TITLE_FR = "AZERTY (French)"
+NOTE_FR = (
+    "Letters match a French AZERTY keyboard. Digit keys usually need Shift. "
+    "Accented letters use dead keys: press the accent, then the letter."
+)
+TITLE_DE = "QWERTZ (German)"
+NOTE_DE = (
+    "Letters match a German QWERTZ keyboard. Y and Z are swapped from QWERTY. "
+    "Some accents use dead keys: press the accent, then the letter."
+)
+
+
+def _build_layouts() -> Mapping[str, KeyboardLayout]:
+    return {
+        "us": KeyboardLayout(
+            id="us",
+            title=TITLE_US,
+            family="qwerty",
+            note=NOTE_US,
+            xkb_layout="us",
+            console_map="us",
+            dead_keys=False,
+            digits_need_shift=False,
         ),
-        xkb_layout="us",
-        console_map="us",
-        dead_keys=False,
-        digits_need_shift=False,
-    ),
-    "fr": KeyboardLayout(
-        id="fr",
-        title="AZERTY (French)",
-        family="azerty",
-        note=(
-            "Letters match a French AZERTY keyboard. Digit keys usually need Shift. "
-            "Accented letters use dead keys: press the accent, then the letter."
+        "fr": KeyboardLayout(
+            id="fr",
+            title=TITLE_FR,
+            family="azerty",
+            note=NOTE_FR,
+            xkb_layout="fr",
+            console_map="fr",
+            dead_keys=True,
+            digits_need_shift=True,
         ),
-        xkb_layout="fr",
-        console_map="fr",
-        dead_keys=True,
-        digits_need_shift=True,
-    ),
-    "de": KeyboardLayout(
-        id="de",
-        title="QWERTZ (German)",
-        family="qwertz",
-        note=(
-            "Letters match a German QWERTZ keyboard. Y and Z are swapped from QWERTY. "
-            "Some accents use dead keys: press the accent, then the letter."
+        "de": KeyboardLayout(
+            id="de",
+            title=TITLE_DE,
+            family="qwertz",
+            note=NOTE_DE,
+            xkb_layout="de",
+            console_map="de",
+            dead_keys=True,
+            digits_need_shift=False,
         ),
-        xkb_layout="de",
-        console_map="de",
-        dead_keys=True,
-        digits_need_shift=False,
-    ),
-}
+    }
+
+
+LAYOUTS: Mapping[str, KeyboardLayout] = _build_layouts()
 
 LAYOUT_ORDER = ("us", "fr", "de")
 
@@ -102,11 +114,20 @@ SESSION_ONLY = (
     "This change lasts until this USB session restarts. "
     "It does not change firmware or BIOS keyboards."
 )
-LIMITS = (
+LIMITS_LEAD = (
     "Only US QWERTY, French AZERTY, and German QWERTZ are offered. "
     "This USB does not include other layouts. "
-    + SESSION_ONLY
 )
+LIMITS = LIMITS_LEAD + SESSION_ONLY
+GRAPHICAL_ONLY = (
+    "The graphical layout changed. The text console could not be updated. "
+)
+
+
+def _apply_language() -> None:
+    global LAYOUTS, LIMITS
+    LAYOUTS = _build_layouts()
+    LIMITS = LIMITS_LEAD + SESSION_ONLY
 CONSOLE_DEAD_KEYS = (
     "On the text console, dead keys may not compose. "
     "Check letters and digits here. Confirm tokens use letters and digits only."
@@ -177,8 +198,7 @@ def apply_layout(layout_id: str, *, graphical: Optional[bool] = None) -> ApplyRe
     if graphical and not c_ok:
         return ApplyResult(
             True,
-            "The graphical layout changed. The text console could not be updated. "
-            + SESSION_ONLY,
+            GRAPHICAL_ONLY + SESSION_ONLY,
             spec.id,
         )
     return ApplyResult(True, "", spec.id)

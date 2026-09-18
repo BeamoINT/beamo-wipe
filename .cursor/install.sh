@@ -67,6 +67,7 @@ REQUIRED_PKGS=(
   python3-pip
   python3-venv
   python3-tk
+  python3-qrcode
   python3-gi
   gir1.2-gtk-3.0 librsvg2-common
   python3-pyatspi

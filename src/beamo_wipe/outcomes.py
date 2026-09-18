@@ -33,91 +33,151 @@ AFTERCARE_SUCCESS = (
     "Only this validated selected disk was processed. Other disks were not. "
     "Putting an operating system back on is a separate task."
 )
-VIEWS = {
-    "start_failed": ResultView(
-        "start_failed",
-        "The erase could not start",
-        "Keep the disks connected and contact support. Do not bypass protection.",
-        "danger",
-        "danger",
-    ),
-    "verified": ResultView(
-        "verified",
-        "Erase completed; verification passed",
-        "Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. "
-        + AFTERCARE_SUCCESS,
-        "ok",
-        "check",
-        True,
-    ),
-    "unverified": ResultView(
-        "unverified",
-        "Erase completed; verification was not performed",
-        "The erase was not checked by a read-back pass. Save the report if needed. "
-        + AFTERCARE_SUCCESS,
-        "warn",
-        "warn",
-        True,
-    ),
-    "occupied": ResultView(
-        "occupied",
-        "The disk is in use",
-        "The erase did not complete. Save the report and ask support what is using the disk. Do not force access.",
-        "danger",
-        "danger",
-    ),
-    "open_failed": ResultView(
-        "open_failed", "The disk could not be opened", SUPPORT, "danger", "danger"
-    ),
-    "geometry_unusable": ResultView(
-        "geometry_unusable",
-        "The disk could not be used safely",
-        SUPPORT,
-        "danger",
-        "danger",
-    ),
-    "verification_failed": ResultView(
-        "verification_failed",
-        "Read-back verification failed",
-        SUPPORT,
-        "danger",
-        "danger",
-    ),
-    "interrupted": ResultView(
-        "interrupted", "The erase was interrupted", STOP_WARNING + " " + SUPPORT, "warn", "warn"
-    ),
-    "cancelled": ResultView("cancelled", "Stopped by you", STOP_WARNING + " " + SUPPORT, "warn", "warn"),
-    "completion_missing": ResultView(
-        "completion_missing",
-        "Erase completion could not be confirmed",
-        SUPPORT,
-        "warn",
-        "warn",
-    ),
-    "process_failed": ResultView(
-        "process_failed", "The erase did not finish", SUPPORT, "danger", "danger"
-    ),
-    "engine_failed": ResultView(
-        "engine_failed", "The disk reported an erase error", SUPPORT, "danger", "danger"
-    ),
-    "indeterminate": ResultView(
-        "indeterminate", "The result could not be confirmed", SUPPORT, "warn", "warn"
-    ),
-    "stop_unconfirmed": ResultView(
-        "stop_unconfirmed",
-        "Stop could not be confirmed",
-        "The erase may still be running. Keep the disk and Beamo USB connected. Do not start another erase. Contact support.",
-        "danger",
-        "danger",
-    ),
-}
+MSG_START_FAILED = "The erase could not start"
+NEXT_START_FAILED = "Keep the disks connected and contact support. Do not bypass protection."
+MSG_VERIFIED = "Erase completed; verification passed"
+# Trailing space joins the lead to AFTERCARE_SUCCESS in every language.
+NEXT_VERIFIED_LEAD = "Read-back checked exposed storage only. Hidden copies may remain. Save the report if needed. "
+MSG_UNVERIFIED = "Erase completed; verification was not performed"
+NEXT_UNVERIFIED_LEAD = "The erase was not checked by a read-back pass. Save the report if needed. "
+MSG_OCCUPIED = "The disk is in use"
+NEXT_OCCUPIED = "The erase did not complete. Save the report and ask support what is using the disk. Do not force access."
+MSG_OPEN_FAILED = "The disk could not be opened"
+MSG_GEOMETRY = "The disk could not be used safely"
+MSG_VERIFICATION_FAILED = "Read-back verification failed"
+MSG_INTERRUPTED = "The erase was interrupted"
+MSG_CANCELLED = "Stopped by you"
+MSG_COMPLETION_MISSING = "Erase completion could not be confirmed"
+MSG_PROCESS_FAILED = "The erase did not finish"
+MSG_ENGINE_FAILED = "The disk reported an erase error"
+MSG_INDETERMINATE = "The result could not be confirmed"
+MSG_STOP_UNCONFIRMED = "Stop could not be confirmed"
+NEXT_STOP_UNCONFIRMED = "The erase may still be running. Keep the disk and Beamo USB connected. Do not start another erase. Contact support."
+PREVIEW_OK = "Preview finished"
+PREVIEW_FAILED = "Preview of a failed erase"
+PREVIEW_NEXT = "Nothing on this computer was erased. No overwrite or verification was performed."
+
+
+def _build_views() -> dict[str, ResultView]:
+    stop_next = STOP_WARNING + " " + SUPPORT
+    return {
+        "start_failed": ResultView(
+            "start_failed",
+            MSG_START_FAILED,
+            NEXT_START_FAILED,
+            "danger",
+            "danger",
+        ),
+        "verified": ResultView(
+            "verified",
+            MSG_VERIFIED,
+            NEXT_VERIFIED_LEAD + AFTERCARE_SUCCESS,
+            "ok",
+            "check",
+            True,
+        ),
+        "unverified": ResultView(
+            "unverified",
+            MSG_UNVERIFIED,
+            NEXT_UNVERIFIED_LEAD + AFTERCARE_SUCCESS,
+            "warn",
+            "warn",
+            True,
+        ),
+        "occupied": ResultView(
+            "occupied",
+            MSG_OCCUPIED,
+            NEXT_OCCUPIED,
+            "danger",
+            "danger",
+        ),
+        "open_failed": ResultView(
+            "open_failed", MSG_OPEN_FAILED, SUPPORT, "danger", "danger"
+        ),
+        "geometry_unusable": ResultView(
+            "geometry_unusable",
+            MSG_GEOMETRY,
+            SUPPORT,
+            "danger",
+            "danger",
+        ),
+        "verification_failed": ResultView(
+            "verification_failed",
+            MSG_VERIFICATION_FAILED,
+            SUPPORT,
+            "danger",
+            "danger",
+        ),
+        "interrupted": ResultView(
+            "interrupted", MSG_INTERRUPTED, stop_next, "warn", "warn"
+        ),
+        "cancelled": ResultView("cancelled", MSG_CANCELLED, stop_next, "warn", "warn"),
+        "completion_missing": ResultView(
+            "completion_missing",
+            MSG_COMPLETION_MISSING,
+            SUPPORT,
+            "warn",
+            "warn",
+        ),
+        "process_failed": ResultView(
+            "process_failed", MSG_PROCESS_FAILED, SUPPORT, "danger", "danger"
+        ),
+        "engine_failed": ResultView(
+            "engine_failed", MSG_ENGINE_FAILED, SUPPORT, "danger", "danger"
+        ),
+        "indeterminate": ResultView(
+            "indeterminate", MSG_INDETERMINATE, SUPPORT, "warn", "warn"
+        ),
+        "stop_unconfirmed": ResultView(
+            "stop_unconfirmed",
+            MSG_STOP_UNCONFIRMED,
+            NEXT_STOP_UNCONFIRMED,
+            "danger",
+            "danger",
+        ),
+    }
+
+
+VIEWS = _build_views()
+
+NOTHING_ERASED_CODES = frozenset(
+    {"preview", "start_failed", "occupied", "open_failed", "geometry_unusable"}
+)
+
+# Outcome codes whose message or next step refers the owner to support.
+# Derived from the vocabulary so copy edits cannot silently orphan the
+# support destination shown beside them.
+SUPPORT_CODES = frozenset(
+    code
+    for code, view in VIEWS.items()
+    if "support" in (view.message + " " + view.next_step).lower()
+)
+
+
+def view_needs_support(code: object) -> bool:
+    """True when the outcome's copy refers the owner to support."""
+    return isinstance(code, str) and code in SUPPORT_CODES
+
+
+def may_have_erased(code: str) -> bool:
+    """True unless the outcome proves nothing was erased.
+
+    Unknown codes show guidance: the post-erase note is conditional
+    ("may"), so it stays honest when the erase state is uncertain.
+    """
+    return code not in NOTHING_ERASED_CODES
+
+
+def _apply_language() -> None:
+    global VIEWS
+    VIEWS = _build_views()
 
 
 def preview_view(ok: bool) -> ResultView:
     return ResultView(
         "preview",
-        "Preview finished" if ok else "Preview of a failed erase",
-        "Nothing on this computer was erased. No overwrite or verification was performed.",
+        PREVIEW_OK if ok else PREVIEW_FAILED,
+        PREVIEW_NEXT,
         "info",
         "info",
         ok,

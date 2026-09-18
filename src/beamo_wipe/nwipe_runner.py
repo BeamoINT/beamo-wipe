@@ -967,6 +967,36 @@ class NwipeRunner:
             )
 
 
+def _synthetic_observation(
+    method, frac: float, pct: float, duration_s: float
+) -> Observation:
+    """Pretend engine observation spread evenly across the method plan.
+
+    Preview/demo only: the stage locator sees the same shape as real
+    SIGUSR1 telemetry (verify holds the last overwrite counters), and
+    the estimator sees a shrinking ETA so preview shows estimate states.
+    """
+    spec = METHODS[method]
+    overwrites = max(1, spec.overwrite_passes)
+    total = overwrites + (1 if spec.verification_passes else 0)
+    seg = min(int(frac * total), total - 1)
+    if seg < overwrites:
+        phase = "Writing"
+        counters = (1, 1, seg + 1, overwrites)
+    else:
+        phase = "Verifying"
+        counters = (1, 1, overwrites, overwrites)
+    return Observation(
+        record=f"dry-run:{pct:.1f}",
+        percent=pct,
+        phase=phase,
+        counters=counters,
+        engine_eta=max(1, int(duration_s * (1.0 - frac))),
+        quantum=0.1,
+        engine_time=None,
+    )
+
+
 class DryRunRunner:
     """Pretend wipe. Never opens a real disk. Used by tests and --demo."""
 
@@ -975,11 +1005,14 @@ class DryRunRunner:
         duration_s: float = 2.5,
         fail: bool = False,
         clock=None,
+        synthesize_stages: bool = False,
     ) -> None:
         self.duration_s = duration_s
         self.fail = fail
         self._clock = clock or time.monotonic
+        self.synthesize_stages = synthesize_stages
         self.progress: Optional[float] = None
+        self.progress_observation: Optional[Observation] = None
         self.result: Optional[WipeResult] = None
         self._log_tail = ""
         self._started: Optional[float] = None
@@ -994,6 +1027,7 @@ class DryRunRunner:
         self.started = True
         self.cancelled = False
         self.progress = None
+        self.progress_observation = None
         self.result = None
         self._log_tail = ""
 
@@ -1020,6 +1054,10 @@ class DryRunRunner:
             pct = round(frac * 100.0, 1)
             if self.progress is None or pct > self.progress:
                 self.progress = min(99.9, pct)
+            if self.synthesize_stages:
+                self.progress_observation = _synthetic_observation(
+                    request.method, frac, pct, self.duration_s
+                )
             return None
         if self.fail:
             self.result = WipeResult(

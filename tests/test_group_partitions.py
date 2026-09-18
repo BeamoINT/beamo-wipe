@@ -326,6 +326,11 @@ def test_usb_sata_bridge_fixture_nests_partition():
 
 def test_tk_nested_rows_are_not_independent_targets():
     tk = pytest.importorskip("tkinter")
+    from test_tk_runtime import WINDOW, _needs_display
+
+    # Guard first: on macOS without DISPLAY, tk.Tk() aborts the process
+    # and no except can catch it.
+    _needs_display()
     try:
         from beamo_wipe.ui.tk_wizard import TkWizard
     except ImportError:
@@ -337,9 +342,6 @@ def test_tk_nested_rows_are_not_independent_targets():
     except Exception as exc:  # noqa: BLE001
         pytest.skip(f"no display: {exc}")
 
-    from test_tk_runtime import WINDOW, _needs_display
-
-    _needs_display()
     wiz = make_demo_wizard()
     app = TkWizard(wiz)
     app.root.geometry(f"{WINDOW[0]}x{WINDOW[1]}+40+40")

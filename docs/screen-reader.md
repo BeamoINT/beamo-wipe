@@ -4,7 +4,8 @@ Shutdown actions described below now request the shared shutdown decision:
 when a report was requested but no current verified export is confirmed,
 **Shut down without saving?** requires a separate choice. **Keep session open**
 is the safe default. Tk Enter/Escape returns; Tab and Space select an action.
-The screen-reader view exposes Keep first and both native buttons. See
+The screen-reader view exposes Keep first and both native buttons, and
+announces the same ordered USB-removal steps as text below the question. See
 [the state, console, and recovery rules](report-shutdown.md). No report survives
 live-session shutdown or power loss unless it has been exported.
 
@@ -73,6 +74,34 @@ AT-SPI client, and real Orca speech-generation diagnostics. Run with a private
 D-Bus session and Xvfb at 72 DPI, as described in [CI](ci.md). These checks do not
 prove physical speaker output, braille hardware behavior, or compatibility with
 every sound card. No test uses host disks or audio-device passthrough.
+
+## Sound check
+
+The actions footer on every screen starts with a Sound check button. It
+opens a dialog that lists the sound outputs in plain words (Speakers,
+Headphones, HDMI sound, and so on, with the technical device name kept
+as each choice's screen-reader description), shows the volume and mute
+state, and offers Louder,
+Quieter, Mute, and a Play speech test button that speaks through the
+same chain Orca uses. Choosing an output makes it the session default
+and records it, so the choice survives dialog reopens and sound-server
+restarts within the session.
+
+When no output exists, when the test cannot play, or when Orca itself
+is not running, the dialog says so in words and always shows written,
+offline recovery steps. The dialog uses native controls only: Tab
+moves, Enter activates, Esc closes. In the developer preview, sound
+devices are unreachable and the dialog says so instead of touching
+host audio. Speech belongs to this path alone, but outcome earcons
+are shared: the dialog also offers a Sounds off/on toggle and a Hear
+sounds button that plays the finished sound then the attention sound
+through the chosen output. The finished earcon plays once for a
+verified erase and the attention earcon once for any other final
+outcome; muted, missing, or preview audio stays silent. The earcon
+never changes the Done announcement, heading, or roles, and never
+blocks speech: text and sound stay independent channels. Tk, console,
+and gallery expose the same toggle and hear/replay actions in their
+own idioms; helper has no sound UI (boot guidance, no outcome).
 
 ## Automated boot evidence
 

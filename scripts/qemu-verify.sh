@@ -296,6 +296,12 @@ if find "$SQUASH_MOUNT/usr/lib/beamo-wipe" \
   echo "ISO contains writable or non-root-owned boot assets" >&2
   exit 2
 fi
+for earcon in finished.wav attention.wav; do
+  if [ ! -f "$SQUASH_MOUNT/usr/share/beamo-wipe/sounds/$earcon" ]; then
+    echo "ISO lost outcome sound: $earcon" >&2
+    exit 2
+  fi
+done
 for forbidden in nano less iproute2 pciutils usbutils eject gcc git; do
   if dpkg-query --admindir="$SQUASH_MOUNT/var/lib/dpkg" -W -f='${db:Status-Abbrev}' "$forbidden" 2>/dev/null | grep -q '^ii'; then
     echo "forbidden package present in ISO: $forbidden" >&2

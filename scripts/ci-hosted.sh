@@ -33,6 +33,7 @@ install_test_deps() {
     python3-gi gir1.2-gtk-3.0 librsvg2-common python3-pyatspi at-spi2-core dbus-x11 orca speech-dispatcher speech-dispatcher-espeak-ng pulseaudio \
     python3-pip \
     python3-setuptools \
+    python3-qrcode \
     git \
     ca-certificates
   python3 -m pip install --break-system-packages -q 'pytest==9.0.3' 'cryptography==49.0.0'
@@ -54,7 +55,7 @@ install_lint_deps() {
 install_preview_deps() {
   if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
   apt-get update -qq
-  apt-get install -y -qq --no-install-recommends python3 python3-tk git
+  apt-get install -y -qq --no-install-recommends python3 python3-tk python3-qrcode git
 }
 
 install_qemu_deps() {
@@ -136,8 +137,8 @@ run_negative() {
 import pathlib
 p = pathlib.Path("src/beamo_wipe/safety.py")
 t = p.read_text()
-orig = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if not discovery.boot_identified or discovery.boot is None:\n        raise SafetyError(IDENTIFY_ERROR)'
-broken = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if False:  # BROKEN for negative test\n        raise SafetyError(IDENTIFY_ERROR)'
+orig = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if not discovery.boot_identified or discovery.boot is None:\n        raise SafetyError(_copy.IDENTIFY_ERROR)'
+broken = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if False:  # BROKEN for negative test\n        raise SafetyError(_copy.IDENTIFY_ERROR)'
 if orig not in t:
     raise SystemExit("pattern not found for negative test")
 p.write_text(t.replace(orig, broken))

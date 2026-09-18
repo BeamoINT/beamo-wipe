@@ -392,8 +392,13 @@ def test_tk_wizard_working_has_cancel_and_escape_wires():
 
 
 def test_console_working_shows_cancel_hint():
+    import inspect
+
+    from beamo_wipe import copy as C
+    from beamo_wipe.ui import console_wizard
+    assert "Esc: stop erase" in C.CON_WORKING_IDLE
+    assert "CON_WORKING_IDLE" in inspect.getsource(console_wizard._primary_footer)
     text = Path("src/beamo_wipe/ui/console_wizard.py").read_text(encoding="utf-8")
-    assert "Esc: stop erase" in text
     assert "wizard.confirm_stop" in text and "wizard.keep_erasing" in text
 
 

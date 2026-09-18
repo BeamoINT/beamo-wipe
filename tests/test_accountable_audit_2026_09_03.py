@@ -547,6 +547,12 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
         evidence_error=None,
         error=None,
         selected=None,
+        operation_identity_text="",
+        operation_method_text="One overwrite, followed by verification.",
+        sound_toggle_text="Sounds: off",
+        sound_message="",
+        toggle_sounds=lambda: None,
+        hear_both_sounds=lambda: None,
         tick=lambda: None,
     )
 

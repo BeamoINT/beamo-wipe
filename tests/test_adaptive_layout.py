@@ -169,7 +169,13 @@ def test_empty_and_blocked_keep_shutdown(ui, size, scenario, screen):  # noqa: F
     assert wiz.screen == screen
     _assert_actions_on_window(app)
     shown = _texts(app.root)
-    assert C.TITLE_EMPTY in shown or C.TITLE_BLOCKED in shown or "cannot tell" in shown.lower() or "no disk" in shown.lower()
+    assert (
+        C.TITLE_EMPTY in shown
+        or C.TITLE_BLOCKED in shown
+        or C.BLOCKED_HEADING_IDENTIFY in shown
+        or "cannot tell" in shown.lower()
+        or "no disk" in shown.lower()
+    )
 
 
 @pytest.mark.parametrize("size", SIZES)
@@ -266,3 +272,31 @@ def test_large_window_uses_larger_type_than_compact(ui):  # noqa: F811
     assert abs(int(str(compact.font_h.cget("size")))) < abs(int(str(large.font_h.cget("size"))))
     assert compact.lay.scale < large.lay.scale
     assert large.lay.scale <= 1.2
+
+
+@pytest.mark.parametrize("size", SIZES)
+@pytest.mark.parametrize("code,want", [("engine_failed", True), ("verified", False)])
+def test_done_support_block_matches_outcome(size, code, want):
+    from beamo_wipe import support_contact as SC
+    from beamo_wipe.ui.tk_wizard import TkWizard
+    from test_tk_runtime import _needs_display
+
+    _needs_display()
+    wiz, _, _ = case_evidence(next(c for c in CASES if c[0] == code))
+    wiz.preview = False
+    wiz.screen = Screen.DONE
+    app = TkWizard(wiz)
+    try:
+        app.root.minsize(*MIN_SIZE)
+        app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+        app._draw()
+        app.root.update()
+        shown = _texts(app.root)
+        assert (C.support_lead() in shown) == want
+        assert (SC.SUPPORT_SHORT in shown) == want
+        if want:
+            assert app._support_qr is not None
+            assert _clipping_problems(app) == []
+            assert _off_window_problems(app) == []
+    finally:
+        app._teardown()

@@ -77,8 +77,8 @@ def layout_for(width: int, height: int) -> Layout:
         gutter = 48
         header_h = 56
         ring = 64
-        title_top = 24
-        title_bottom = 14
+        title_top = 18
+        title_bottom = 12
         footer_pad_y = 16
     else:
         scale = 1.0
@@ -86,8 +86,8 @@ def layout_for(width: int, height: int) -> Layout:
         gutter = 40
         header_h = 56
         ring = 64
-        title_top = 24
-        title_bottom = 14
+        title_top = 16
+        title_bottom = 10
         footer_pad_y = 16
     content_w = min(cap, max(280, width - 2 * gutter))
     wrap = max(200, content_w - (40 if compact else 72))

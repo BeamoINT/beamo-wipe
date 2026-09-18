@@ -23,6 +23,10 @@ cd /
 if [ -n "${DISPLAY:-}" ]; then
   xset s 600 s blank s on 2>/dev/null || true
   xset dpms 0 0 0 2>/dev/null || true
+  # Familiar arrow on the X root window (startup gap, uncovered areas).
+  # left_ptr is in the server core cursor font; xsetroot ships with xset
+  # in x11-xserver-utils. Failure keeps the stock cursor, never aborts.
+  xsetroot -cursor_name left_ptr 2>/dev/null || true
 fi
 if [ -n "${DISPLAY:-}" ] && [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
   exec dbus-run-session -- python3 -sP -m beamo_wipe --fullscreen "$@"

@@ -10,6 +10,8 @@ systemd-sysv
 python3
 python3-tk
 python3-gi
+# QR matrix for the support code on error screens (pure Python use only).
+python3-qrcode
 gir1.2-gtk-3.0
 librsvg2-common
 at-spi2-core
@@ -20,6 +22,8 @@ speech-dispatcher-espeak-ng
 espeak-ng
 speech-dispatcher
 pulseaudio
+# pactl for the accessible Sound check (output choice, volume, mute).
+pulseaudio-utils
 python3-minimal
 xserver-xorg
 xserver-xorg-core

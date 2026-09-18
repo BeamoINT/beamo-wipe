@@ -46,6 +46,12 @@ def _parser() -> argparse.ArgumentParser:
         help="Open a browser click-through of the screens. Does not wipe.",
     )
     p.add_argument(
+        "--lang",
+        choices=("en", "fr", "de"),
+        default="en",
+        help="Gallery language: en, fr, or de. Preview only; ignored on the live USB.",
+    )
+    p.add_argument(
         "--helper",
         action="store_true",
         help="Open the boot-menu helper page (does not wipe).",
@@ -98,7 +104,7 @@ def _scenario(args: argparse.Namespace) -> Scenario:
 
 def _open_html(path: Path) -> int:
     if not path.is_file():
-        print(f"Missing file: {path}", file=sys.stderr)
+        print(MISSING_FILE.format(path=path), file=sys.stderr)
         return 2
     if os.environ.get("BEAMO_WIPE_NO_OPEN") == "1":
         print(path)
@@ -127,6 +133,7 @@ def apply_live_session_overrides(args: argparse.Namespace) -> None:
             ("dry_run", args.dry_run),
             ("web", args.web),
             ("helper", args.helper),
+            ("lang", args.lang != "en"),
         )
         if was_set
     ]
@@ -140,6 +147,7 @@ def apply_live_session_overrides(args: argparse.Namespace) -> None:
     args.dry_run = False
     args.web = False
     args.helper = False
+    args.lang = "en"
     os.environ.pop("BEAMO_WIPE_BOOT_DEVICE", None)
     os.environ.pop("BEAMO_WIPE_DRY_RUN", None)
     os.environ.pop("BEAMO_WIPE_DEMO", None)
@@ -160,7 +168,9 @@ def _build_wizard(args: argparse.Namespace, progress=None) -> Wizard:
     if args.demo:
         os.environ["BEAMO_WIPE_DEMO"] = "1"
         os.environ["BEAMO_WIPE_DRY_RUN"] = "1"
-        return make_demo_wizard(fail=args.fail_demo, scenario=_scenario(args))
+        return make_demo_wizard(
+            fail=args.fail_demo, scenario=_scenario(args), synthesize_stages=True
+        )
 
     if args.lsblk_json:
         args.dry_run = True
@@ -203,10 +213,12 @@ def _build_wizard(args: argparse.Namespace, progress=None) -> Wizard:
         or os.environ.get("BEAMO_WIPE_DRY_RUN") == "1"
     )
     if use_dry:
-        runner = DryRunRunner(duration_s=3.0, fail=args.fail_demo)
+        runner = DryRunRunner(
+            duration_s=3.0, fail=args.fail_demo, synthesize_stages=True
+        )
         def fresh_fake_discovery():
             if not args.lsblk_json:
-                raise SafetyError("A fake lsblk JSON file is required for refresh.")
+                raise SafetyError(FAKE_REQUIRED)
             with open(args.lsblk_json, encoding="utf-8") as fh:
                 fresh_payload = load_lsblk_json_text(fh.read())
             return discover(lsblk_payload=fresh_payload, boot_path=args.boot_device)
@@ -258,7 +270,7 @@ def _shutdown() -> bool:
         log_diag("app", "shutdown_failed", detail)
     except Exception:
         pass
-    print("Shutdown failed: could not power off. Hold the power button.", file=sys.stderr)
+    print(SHUTDOWN_FAILED, file=sys.stderr)
     return False
 
 
@@ -267,13 +279,13 @@ def _blocked_wizard(exc: Exception) -> Wizard:
     from beamo_wipe.diagnostic_report import exception_code
     from beamo_wipe.models import DiscoveryResult
     startup_code = exception_code(exc)
-    discovery = DiscoveryResult(error="Startup was blocked. Save a diagnostic report for support.",
+    discovery = DiscoveryResult(error=STARTUP_BLOCKED,
                                 error_code=startup_code)
     wizard = Wizard(discovery, DryRunRunner(), dry_run=not running_on_live_usb())
     wizard._startup_blocked = True
     wizard.screen = Screen.PICK_BLOCKED
     wizard.error = discovery.error
-    print(f"Startup blocked ({startup_code}).", file=sys.stderr)
+    print(STARTUP_BLOCKED_LOG.format(code=startup_code), file=sys.stderr)
     return wizard
 
 
@@ -386,10 +398,10 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
         if not (project_root() / "helper" / "index.html").is_file():
             dest = Path.cwd() / "web-preview" / "index.html"
         if os.environ.get("BEAMO_WIPE_NO_OPEN") == "1":
-            path = write_gallery(dest)
+            path = write_gallery(dest, args.lang)
             print(path)
             return 0
-        path = open_gallery(dest)
+        path = open_gallery(dest, args.lang)
         print(path)
         return 0
     if args.helper:
@@ -478,6 +490,10 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
     if keyboard_layout is not None:
         wizard.keyboard_layout = keyboard_layout
     wizard.diagnostic_ui = "console" if use_console else "graphical"
+    if args.lang != "en":
+        # Preview/dev only: the flag is cleared on the live USB, where the
+        # keyboard screen owns the choice.
+        wizard.set_language(args.lang)
     if use_console and os.environ.get("BEAMO_WIPE_GRAPHICAL_UNAVAILABLE") == "1" and not wizard.startup_error_code:
         wizard.startup_error_code = "graphical_unavailable"
     if not use_console:
@@ -499,7 +515,7 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
                 _shutdown()
             return code
         except Exception:  # noqa: BLE001 — fall back to console
-            print("Graphical UI unavailable. Using keyboard screens.", file=sys.stderr)
+            print(GRAPHICAL_UNAVAILABLE, file=sys.stderr)
             if getattr(wizard, "_wipe_request", None) is None and not getattr(wizard, "startup_error_code", ""):
                 wizard.startup_error_code = "graphical_unavailable"
             if not args.demo and not wizard.dry_run:
@@ -538,6 +554,15 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
     return code
 
 
+FAKE_REQUIRED = "A fake lsblk JSON file is required for refresh."
+SHUTDOWN_FAILED = "Shutdown failed: could not power off. Hold the power button."
+STARTUP_BLOCKED = "Startup was blocked. Save a diagnostic report for support."
+STARTUP_BLOCKED_LOG = "Startup blocked ({code})."
+GRAPHICAL_UNAVAILABLE = "Graphical UI unavailable. Using keyboard screens."
+RECOVERY_UNAVAILABLE = "Session recovery or interface ownership is unavailable. Erase startup is blocked."
+MISSING_FILE = "Missing file: {path}"
+
+
 def main(argv: list[str] | None = None) -> int:
     # Help, version and invalid arguments must not create a recovery session.
     args = _parser().parse_args(argv)
@@ -551,7 +576,7 @@ def main(argv: list[str] | None = None) -> int:
         store.open()
         return _main(argv, session_store=store, args=args)
     except (OSError, SafetyError, ValueError):
-        print("Session recovery or interface ownership is unavailable. Erase startup is blocked.", file=sys.stderr)
+        print(RECOVERY_UNAVAILABLE, file=sys.stderr)
         return 3
     finally:
         store.close()

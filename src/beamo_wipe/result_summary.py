@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import html
 import math
 import os
 import re
@@ -10,28 +11,90 @@ import unicodedata
 from typing import Any, Mapping
 
 from beamo_wipe.build_identity import BUILD_ID_RE, COMMIT_RE as WRAPPER_COMMIT_RE, STATUSES
-from beamo_wipe.identity import HARDWARE_ID_LABEL, SERIAL_LABEL, SERIAL_NOT_REPORTED
-from beamo_wipe.outcomes import present_evidence
-from beamo_wipe.privacy import NOTICE as SHARE_NOTICE, SHARE_JSON, UNSUITABLE, is_sharing_copy
+from beamo_wipe import identity as _identity
+from beamo_wipe.lang import LANGUAGE_ORDER, current as _lang_current
+from beamo_wipe.outcomes import ResultView, present_evidence, view_needs_support
+from beamo_wipe.support_contact import qr_svg as _support_qr_svg
+from beamo_wipe import privacy as _privacy
+from beamo_wipe.privacy import SHARE_JSON, is_sharing_copy
 from beamo_wipe.progress import duration
 
 UNAVAILABLE = "unavailable"
 WITHHELD = "withheld"
+TRUNCATED_SUFFIX = " (truncated)"
 MAX_VALUE = 240
 WALL_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 RESULT_FILE_RE = re.compile(r"^result-[A-Za-z0-9._-]{1,120}\.json$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
-STATUS_LABELS = {
-    "production": "production",
-    "development": "development",
-    "dirty": "dirty",
-    "source_mismatch": "source mismatch",
-    "unavailable": UNAVAILABLE,
-}
+STATUS_PRODUCTION = "production"
+STATUS_DEVELOPMENT = "development"
+STATUS_DIRTY = "dirty"
+STATUS_MISMATCH = "source mismatch"
+
+
+def _build_status_labels() -> dict[str, str]:
+    return {
+        "production": STATUS_PRODUCTION,
+        "development": STATUS_DEVELOPMENT,
+        "dirty": STATUS_DIRTY,
+        "source_mismatch": STATUS_MISMATCH,
+        "unavailable": UNAVAILABLE,
+    }
+
+
+STATUS_LABELS = _build_status_labels()
+
+
+def _apply_language() -> None:
+    global STATUS_LABELS
+    STATUS_LABELS = _build_status_labels()
+
+
+H_DISK = "Disk"
+H_CAPACITY = "Capacity"
+H_CONNECTION = "Connection"
+H_METHOD = "Method"
+H_OVERWRITES = "Overwrites"
+METHOD_BOTH = "{title}. {summary}"
+H_APPLICATION = "Application"
+H_WRAPPER_COMMIT = "Wrapper commit"
+H_RELEASE_BUILD = "Release build"
+H_BUILD_STATUS = "Build status"
+H_ENGINE = "Engine"
+H_ENGINE_COMMIT = "Engine commit"
+H_REPORT_FILE = "Report file"
+H_REPORT_CHECKSUM = "Report checksum"
+H_ELAPSED = "Elapsed"
+H_RESULT = "Result"
+H_VERIFICATION = "Verification"
+H_WARNINGS = "Warnings"
+H_LIMITATIONS = "Limitations"
+H_CLOCK = "Clock"
+H_STARTED = "Started (clock not verified)"
+H_ENDED = "Ended (clock not verified)"
+H_IDENTITY_EVIDENCE = "Identity evidence"
+WARNINGS_NONE = "None recorded"
+VERIFY_PASSED = "Read-back verification passed"
+VERIFY_SKIPPED = "Verification was not performed"
+CLOCK_UNVERIFIED = "unverified"
+CLOCK_UNVERIFIED_SRC = "unverified ({source})"
+SHARING_REDACTED_NOTICE = "Sharing copy. Serials and hardware IDs withheld."
+HEADER_RESULT = "Beamo Wipe result"
+HTML_CAPTION = "Report details"
+HTML_NOTE = "Readable copy of RESULT.txt. result.json is the machine-readable original."
+HTML_SUPPORT_TITLE = "Support"
 
 def _object_mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _current_language() -> str:
+    try:
+        code = _lang_current()
+    except Exception:
+        return "en"
+    return code if code in LANGUAGE_ORDER else "en"
 
 
 def sanitize_value(text: object, *, limit: int = MAX_VALUE) -> str:
@@ -51,7 +114,7 @@ def sanitize_value(text: object, *, limit: int = MAX_VALUE) -> str:
     if not cleaned:
         return UNAVAILABLE
     if len(cleaned) > limit:
-        return cleaned[:limit].rstrip() + " (truncated)"
+        return cleaned[:limit].rstrip() + TRUNCATED_SUFFIX
     return cleaned
 
 
@@ -106,12 +169,12 @@ def _clock_line(timestamps: Mapping[str, Any], schema_version: int) -> str:
         if confidence == "verified":
             return UNAVAILABLE
         if confidence == "unverified" and provenance in {"os_utc", "injected"}:
-            return f"unverified ({provenance})"
+            return CLOCK_UNVERIFIED_SRC.format(source=provenance)
         return UNAVAILABLE
     if _wall(timestamps.get("started_at_wall")) != UNAVAILABLE or _wall(
         timestamps.get("ended_at_wall")
     ) != UNAVAILABLE:
-        return "unverified"
+        return CLOCK_UNVERIFIED
     return UNAVAILABLE
 
 
@@ -148,7 +211,7 @@ def _secrets(device: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _maybe_withhold(value: str) -> str:
-    if value in {UNAVAILABLE, SERIAL_NOT_REPORTED}:
+    if value in {UNAVAILABLE, _identity.SERIAL_NOT_REPORTED}:
         return value
     return WITHHELD
 
@@ -195,9 +258,9 @@ def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[st
     hardware = _optional_text(device, "wwn")
     presented = _optional_text(presentation, "id_value")
     label = _optional_text(presentation, "id_label")
-    if serial == UNAVAILABLE and label == SERIAL_LABEL:
+    if serial == UNAVAILABLE and label == _identity.SERIAL_LABEL:
         serial = presented
-    if hardware == UNAVAILABLE and label == HARDWARE_ID_LABEL:
+    if hardware == UNAVAILABLE and label == _identity.HARDWARE_ID_LABEL:
         hardware = presented
     if redacted or is_sharing_copy(evidence):
         title = _scrub(title, secrets)
@@ -206,11 +269,11 @@ def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[st
         serial = WITHHELD
         hardware = WITHHELD
     return [
-        ("Disk", title),
-        ("Capacity", capacity),
-        ("Connection", connection),
-        (SERIAL_LABEL, serial if serial else UNAVAILABLE),
-        (HARDWARE_ID_LABEL, hardware if hardware else UNAVAILABLE),
+        (H_DISK, title),
+        (H_CAPACITY, capacity),
+        (H_CONNECTION, connection),
+        (_identity.SERIAL_LABEL, serial if serial else UNAVAILABLE),
+        (_identity.HARDWARE_ID_LABEL, hardware if hardware else UNAVAILABLE),
     ]
 
 
@@ -219,13 +282,13 @@ def _method_lines(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
     title = _optional_text(method, "title")
     summary = _optional_text(method, "operation_summary")
     if title != UNAVAILABLE and summary != UNAVAILABLE:
-        method_line = f"{title}. {summary}"
+        method_line = METHOD_BOTH.format(title=title, summary=summary)
     elif summary != UNAVAILABLE:
         method_line = summary
     else:
         method_line = title
     overwrites = _int_text(method.get("overwrite_passes"))
-    return [("Method", method_line), ("Overwrites", overwrites)]
+    return [(H_METHOD, method_line), (H_OVERWRITES, overwrites)]
 
 
 def _warnings(evidence: Mapping[str, Any], secrets: tuple[str, ...]) -> str:
@@ -243,7 +306,7 @@ def _warnings(evidence: Mapping[str, Any], secrets: tuple[str, ...]) -> str:
             text = _scrub(text, secrets)
         items.append(text)
     if not items:
-        return "None recorded"
+        return WARNINGS_NONE
     return "\n".join(f"- {item}" for item in items)
 
 
@@ -261,9 +324,9 @@ def _limitations(evidence: Mapping[str, Any]) -> str:
 def _verification_status(evidence: Mapping[str, Any]) -> str:
     view = present_evidence(evidence)
     if view.code == "verified":
-        return "Read-back verification passed"
+        return VERIFY_PASSED
     if view.code == "unverified":
-        return "Verification was not performed"
+        return VERIFY_SKIPPED
     if view.code == "verification_failed":
         return view.message
     return UNAVAILABLE
@@ -296,13 +359,129 @@ def _application(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
         wrapper_text = UNAVAILABLE
         build_text = UNAVAILABLE
     return [
-        ("Application", application),
-        ("Wrapper commit", wrapper_text),
-        ("Release build", build_text),
-        ("Build status", status_text),
-        ("Engine", engine),
-        ("Engine commit", commit_text),
+        (H_APPLICATION, application),
+        (H_WRAPPER_COMMIT, wrapper_text),
+        (H_RELEASE_BUILD, build_text),
+        (H_BUILD_STATUS, status_text),
+        (H_ENGINE, engine),
+        (H_ENGINE_COMMIT, commit_text),
     ]
+
+
+def _result_fields(
+    payload: Mapping[str, Any],
+    view: ResultView,
+    secrets: tuple[str, ...],
+    checksum: str,
+    timestamps: Mapping[str, Any],
+    *,
+    redacted: bool = False,
+) -> list[tuple[str, str]]:
+    """Canonical owner field list shared by RESULT.txt and REPORT.html."""
+    return [
+        (H_REPORT_FILE, _report_file(payload)),
+        (H_REPORT_CHECKSUM, checksum),
+        *_disk_lines(payload, redacted=redacted),
+        *_method_lines(payload),
+        (H_ELAPSED, _elapsed(timestamps)),
+        (H_RESULT, view.message),
+        (H_VERIFICATION, _verification_status(payload)),
+        (H_WARNINGS, _warnings(payload, secrets)),
+        (H_LIMITATIONS, _limitations(payload)),
+        *_application(payload),
+        (H_CLOCK, _clock_line(timestamps, _schema_version(payload))),
+        (H_STARTED, _wall_display(timestamps, "started_at_wall", _schema_version(payload))),
+        (H_ENDED, _wall_display(timestamps, "ended_at_wall", _schema_version(payload))),
+    ]
+
+
+def _html_value(value: str) -> str:
+    if "\n" in value:
+        items = []
+        for line in value.split("\n"):
+            item = line[2:] if line.startswith("- ") else line
+            items.append(f"<li>{html.escape(item, quote=True)}</li>")
+        return "<ul>" + "".join(items) + "</ul>"
+    return html.escape(value, quote=True)
+
+
+_REPORT_HTML_STYLE = (
+    "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.5;"
+    "color:#111;background:#fff;max-width:48rem;margin:2rem auto;padding:0 1rem}"
+    "table{border-collapse:collapse;width:100%;margin-top:1rem}"
+    ".table-wrap{overflow-x:auto}"
+    "td{overflow-wrap:anywhere}"
+    "caption{text-align:left;font-weight:bold;padding:.4rem 0}"
+    "th,td{border:1px solid #666;padding:.4rem .6rem;text-align:left;vertical-align:top}"
+    "th{background:#f2f2f2;white-space:nowrap}"
+    "td ul{margin:0;padding-left:1.2rem}"
+    ".announcement{font-size:1.05rem}"
+    ".note{font-size:.9rem;color:#333}"
+    "h2{font-size:1.1rem;margin:1.4rem 0 .4rem}"
+    ".supportqr{width:132px;height:auto;border:1px solid #666;background:#fff}"
+    "@media print{body{margin:0;max-width:none}th{background:#fff}}"
+)
+
+
+def build_result_report_html(
+    evidence: object,
+    *,
+    evidence_sha256: str = "",
+) -> str:
+    """Self-contained offline readable report. Same canonical fields as RESULT.txt.
+
+    No scripts, images, links, or external references: safe to open from the
+    report USB on any browser, including without network access. Every value is
+    escaped; headings never come from evidence or logs.
+    """
+    payload = evidence if isinstance(evidence, dict) else {}
+    view = present_evidence(payload)
+    checksum = evidence_sha256 if HEX64_RE.fullmatch(evidence_sha256 or "") else UNAVAILABLE
+    timestamps = _object_mapping(payload.get("timestamps"))
+    fields = _result_fields(payload, view, (), checksum, timestamps)
+    page_lang = _current_language()
+    support_section = ""
+    if view_needs_support(view.code):
+        from beamo_wipe import copy as C
+
+        support_section = (
+            f"<h2>{html.escape(HTML_SUPPORT_TITLE, quote=True)}</h2>\n"
+            f"<p>{html.escape(C.support_lead(), quote=True)}</p>\n"
+            f'<div class="supportqr" aria-hidden="true">{_support_qr_svg()}</div>\n'
+        )
+    rows = "\n".join(
+        f'    <tr><th scope="row">{html.escape(label, quote=True)}</th>'
+        f"<td>{_html_value(value)}</td></tr>"
+        for label, value in fields
+    )
+    return (
+        "<!DOCTYPE html>\n"
+        f'<html lang="{page_lang}">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f"<title>{html.escape(HEADER_RESULT, quote=True)}</title>\n"
+        f"<style>{_REPORT_HTML_STYLE}</style>\n"
+        "</head>\n"
+        "<body>\n"
+        "<main>\n"
+        f"<h1>{html.escape(HEADER_RESULT, quote=True)}</h1>\n"
+        '<p class="announcement">'
+        f"{html.escape(view.announcement, quote=True)}</p>\n"
+        '<div class="table-wrap">\n'
+        "<table>\n"
+        f"<caption>{html.escape(HTML_CAPTION, quote=True)}</caption>\n"
+        "<tbody>\n"
+        f"{rows}\n"
+        "</tbody>\n"
+        "</table>\n"
+        "</div>\n"
+        f"{support_section}"
+        f'<p class="note">{html.escape(HTML_NOTE, quote=True)}</p>\n'
+        "</main>\n"
+        "</body>\n"
+        "</html>\n"
+    )
 
 
 def build_result_summary(
@@ -320,29 +499,17 @@ def build_result_summary(
     checksum = evidence_sha256 if HEX64_RE.fullmatch(evidence_sha256 or "") else UNAVAILABLE
     timestamps = _object_mapping(payload.get("timestamps"))
     if sharing:
-        header = SHARE_NOTICE
+        header = _privacy.NOTICE
     elif redacted:
-        header = "Sharing copy. Serials and hardware IDs withheld."
+        header = SHARING_REDACTED_NOTICE
     else:
-        header = "Beamo Wipe result"
+        header = HEADER_RESULT
     lines: list[str] = [header]
-    fields: list[tuple[str, str]] = [
-        ("Report file", _report_file(payload)),
-        ("Report checksum", checksum),
-        *_disk_lines(payload, redacted=redacted),
-        *_method_lines(payload),
-        ("Elapsed", _elapsed(timestamps)),
-        ("Result", view.message),
-        ("Verification", _verification_status(payload)),
-        ("Warnings", _warnings(payload, secrets)),
-        ("Limitations", _limitations(payload)),
-        *_application(payload),
-        ("Clock", _clock_line(timestamps, _schema_version(payload))),
-        ("Started (clock not verified)", _wall_display(timestamps, "started_at_wall", _schema_version(payload))),
-        ("Ended (clock not verified)", _wall_display(timestamps, "ended_at_wall", _schema_version(payload))),
-    ]
+    fields = _result_fields(
+        payload, view, secrets, checksum, timestamps, redacted=redacted
+    )
     if sharing:
-        fields.append(("Identity evidence", UNSUITABLE))
+        fields.append((H_IDENTITY_EVIDENCE, _privacy.UNSUITABLE))
     for label, value in fields:
         if "\n" in value:
             lines.append(f"{label}:")

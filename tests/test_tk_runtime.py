@@ -52,6 +52,12 @@ WINDOW = (1280, 820)
 MIN_WINDOW = (1024, 740)  # TkWizard.minsize; oldest laptops the USB targets
 
 
+def descendants(widget):
+    for child in widget.winfo_children():
+        yield child
+        yield from descendants(child)
+
+
 @pytest.fixture
 def ui():
     created = []
@@ -1518,7 +1524,7 @@ def test_timing_text_readable_and_working_controls_stable(ui, size):
 
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 def test_stale_progress_is_marked_old_and_does_not_animate(ui, size):
-    from beamo_wipe.progress import ProgressView
+    from beamo_wipe.progress import STALE_MEANING, STALE_NEXT, ProgressView
     from unittest.mock import PropertyMock, patch
     from beamo_wipe.wizard import Wizard
 
@@ -1531,6 +1537,11 @@ def test_stale_progress_is_marked_old_and_does_not_animate(ui, size):
         app.root.update_idletasks()
         assert app._progress_pct.cget("text") == "42% (old)"
         assert "No new progress update for less than 1 minute." in app._progress_label.cget("text")
+        assert STALE_MEANING in app._progress_label.cget("text")
+        assert STALE_NEXT in app._progress_label.cget("text")
+        label = app._progress_label
+        assert label.winfo_height() >= label.winfo_reqheight()
+        assert label.winfo_rooty() + label.winfo_height() < app.root.winfo_rooty() + app.root.winfo_height()
         before = [app._progress_bar.coords(item) for item in app._progress_bar.find_all()]
         for _ in range(10):
             app._refresh_working()
@@ -2003,10 +2014,13 @@ def test_done_separates_report_status_at_minimum_size(ui, case, status):
         for child in widget.winfo_children():
             yield from walk(child)
     labels = {widget.cget("text"): widget for widget in walk(app.root) if isinstance(widget, tk.Label)}
-    assert C.ERASE_STATUS_TITLE in labels
+    # #95: the specific outcome is the main heading; the generic label is gone.
+    message = app.w.result_view.message
+    assert message in labels
+    assert "Erase status" not in labels
     assert C.REPORT_STATUS_TITLE in labels
     assert app.w.report_view.headline in labels
-    assert labels[C.ERASE_STATUS_TITLE].winfo_rooty() < labels[C.REPORT_STATUS_TITLE].winfo_rooty()
+    assert labels[message].winfo_rooty() < labels[C.REPORT_STATUS_TITLE].winfo_rooty()
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
 
@@ -2038,3 +2052,307 @@ def test_erase_another_report_guard_and_layout(ui, evidence_failed):
     _button_named(app, C.BTN_ERASE_ANOTHER)._command()
     _button_named(app, C.ANOTHER_DISCARD)._command()
     assert w.wants_new_session and not w.wants_shutdown
+
+
+def test_cursor_roles_arrow_content_hand2_actions_xterm_text(ui):
+    """Backlog #85: ordinary content resolves to arrow, never the X cursor.
+
+    Enabled actions keep hand2, disabled buttons keep arrow, text entry
+    and readers keep the xterm I-beam. Needs a display; skips headless.
+    """
+    from beamo_wipe import copy as C
+    from test_arrow_cursor import effective_cursor
+
+    wiz, app = ui()
+    assert app.root.cget("cursor") == "arrow"
+
+    def descendants(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from descendants(child)
+
+    _drive_to(wiz, app, Screen.PICK)
+    labels = [w for w in descendants(app.root) if w.winfo_class() == "Label"]
+    assert labels
+    assert all(w.cget("cursor") == "" for w in labels)
+    assert all(effective_cursor(w) == "arrow" for w in labels)
+    frames = [w for w in descendants(app.root) if w.winfo_class() == "Frame"]
+    assert frames
+    assert all(effective_cursor(w) == "arrow" for w in frames)
+    assert _button_named(app, C.BTN_MORE).cget("cursor") == "hand2"
+    frame = tk.Frame(app.root)
+    disabled = _Button(
+        frame, text="Off", command=lambda: None, font=app.font_btn, enabled=False
+    )
+    assert disabled.cget("cursor") == "arrow"
+    disabled.set_enabled(True)
+    assert disabled.cget("cursor") == "hand2"
+    assert app._reader(frame, height=2).cget("cursor") == "xterm"
+    _drive_to(wiz, app, Screen.CONFIRM)
+    entries = [w for w in descendants(app.root) if w.winfo_class() == "Entry"]
+    assert entries
+    assert all(e.cget("cursor") == "xterm" for e in entries)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_working_sounds_toggle_and_hear(ui, size, monkeypatch):
+    from beamo_wipe import copy as C
+    from beamo_wipe import sound as sound_module
+
+    monkeypatch.setattr(
+        sound_module, "_run",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("spawned audio")),
+    )
+    monkeypatch.setattr(
+        sound_module, "_popen",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("spawned audio")),
+    )
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.WORKING
+    wiz.selected = wiz.selectable[0]
+    app._draw()
+    app.root.update_idletasks()
+    toggle = _button_named(app, C.SOUND_TOGGLE_OFF)
+    hear = _button_named(app, C.SOUND_HEAR)
+    toggle._command()
+    assert wiz.sounds_enabled is True
+    assert wiz.sound_message == C.SOUND_TOGGLE_ON
+    _button_named(app, C.SOUND_TOGGLE_ON)
+    hear._command()
+    assert wiz.sound_message == C.SOUND_OUTCOME_OFF_LIVE
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_done_auto_plays_once_and_offers_replay(ui, size):
+    from unittest.mock import patch
+
+    from beamo_wipe import copy as C
+    from beamo_wipe import sound as sound_module
+    from beamo_wipe.models import WipeResult
+
+    wiz, app = ui(size=size)
+    wiz.preview = False
+    wiz.screen = Screen.DONE
+    wiz.wipe_result = WipeResult(True, 0, "Erase completed", "/tmp/x.log")
+    wiz.set_sounds_enabled(True)
+    calls = []
+    with patch.object(
+        sound_module, "play_outcome",
+        lambda kind: calls.append(kind) or sound_module.SoundResult(True, ""),
+    ):
+        app._draw()
+        app.root.update_idletasks()
+        message_before = wiz.result_view.message
+        app._draw()
+        app.root.update_idletasks()
+    assert calls == [sound_module.KIND_ATTENTION]
+    assert wiz.result_view.message == message_before
+    _button_named(app, C.SOUND_TOGGLE_ON)
+    replay = _button_named(app, C.SOUND_HEAR_AGAIN)
+    with patch.object(
+        sound_module, "play_test",
+        lambda kind: calls.append(("hear", kind))
+        or sound_module.SoundResult(True, "played"),
+    ):
+        replay._command()
+    assert calls[-1] == ("hear", sound_module.KIND_ATTENTION)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("code", ["verified", "unverified", "cancelled", "engine_failed"])
+def test_done_heading_is_outcome_message(ui, size, code):
+    import tkinter.font as tkfont
+
+    from beamo_wipe import copy as C
+    from beamo_wipe.outcomes import VIEWS
+
+    case = next(c for c in RESULT_CASES if c[0] == code)
+    _, app = ui(size=size)
+    app.w, _, _ = case_evidence(case)
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text"): w for w in descendants(app.root) if isinstance(w, tk.Label)}
+    message = VIEWS[code].message
+    assert app.w.result_view.message == message
+    assert message in labels
+    assert "Erase status" not in labels
+    font_size = tkfont.nametofont(labels[message].cget("font")).actual("size")
+    assert font_size == app.font_h.actual("size")
+    assert labels[message].winfo_rooty() < labels[C.REPORT_STATUS_TITLE].winfo_rooty()
+    assert not _clipping_problems(app)
+
+
+def test_done_heading_long_german_text_no_clip(ui):
+    from beamo_wipe import lang
+    from beamo_wipe.outcomes import VIEWS
+
+    try:
+        lang.set_language("de")
+        code = max(VIEWS, key=lambda c: len(VIEWS[c].message))
+        case = next(c for c in RESULT_CASES if c[0] == code)
+        _, app = ui(size=MIN_WINDOW)
+        app.w, _, _ = case_evidence(case)
+        app._draw()
+        app.root.update()
+        labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
+        assert VIEWS[code].message in labels
+        assert not _clipping_problems(app)
+    finally:
+        lang.set_language("en")
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize(
+    "code,shown",
+    [("verified", True), ("engine_failed", True), ("cancelled", True), ("open_failed", False)],
+)
+def test_done_post_erase_boot_note(ui, size, code, shown):
+    from beamo_wipe import copy as C
+
+    case = next(c for c in RESULT_CASES if c[0] == code)
+    _, app = ui(size=size)
+    app.w, _, _ = case_evidence(case)
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text"): w for w in descendants(app.root) if isinstance(w, tk.Label)}
+    assert (C.POST_ERASE_BOOT in labels) == shown
+    if shown:
+        message = app.w.result_view.message
+        assert labels[message].winfo_rooty() < labels[C.POST_ERASE_BOOT].winfo_rooty()
+        assert labels[C.POST_ERASE_BOOT].winfo_rooty() < labels[C.REPORT_STATUS_TITLE].winfo_rooty()
+    assert not _clipping_problems(app)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_shutdown_confirm_media_steps(ui, size):
+    from beamo_wipe import copy as C
+
+    case = next(c for c in RESULT_CASES if c[0] == "verified")
+    _, app = ui(size=size)
+    app.w, _, _ = case_evidence(case)
+    app.w.report_wanted = True
+    app.w.shutdown()
+    assert app.w.screen == Screen.SHUTDOWN_CONFIRM
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text"): w for w in descendants(app.root) if isinstance(w, tk.Label)}
+    assert C.SHUTDOWN_LOSS in labels
+    assert C.MEDIA_STEPS_TITLE in labels
+    assert app.w.exit_media_steps in labels
+    assert (
+        labels[C.SHUTDOWN_LOSS].winfo_rooty()
+        < labels[C.MEDIA_STEPS_TITLE].winfo_rooty()
+        < labels[app.w.exit_media_steps].winfo_rooty()
+    )
+    assert not _clipping_problems(app)
+
+
+def test_shutdown_confirm_media_steps_erase_another(ui):
+    from beamo_wipe import copy as C
+
+    case = next(c for c in RESULT_CASES if c[0] == "verified")
+    _, app = ui(size=MIN_WINDOW)
+    app.w, _, _ = case_evidence(case)
+    app.w.report_wanted = True
+    app.w.shutdown()
+    app.w.keep_report_session()
+    assert app.w.can_erase_another
+    app.w.erase_another_disk()
+    assert app.w.screen == Screen.SHUTDOWN_CONFIRM
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
+    assert C.MEDIA_STEP_ANOTHER in app.w.exit_media_steps
+    assert app.w.exit_media_steps in labels
+    assert not _clipping_problems(app)
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+def test_what_report_media_notice_above_power(ui, size):
+    from beamo_wipe import copy as C
+
+    wiz, app = ui(size=size)
+    wiz.preview = False
+    wiz.skip_intro()
+    assert wiz.screen == Screen.WHAT
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text"): w for w in descendants(app.root) if isinstance(w, tk.Label)}
+    assert C.REPORT_MEDIA_WHAT in labels
+    assert labels[C.REPORT_MEDIA_WHAT].winfo_rooty() < labels[C.POWER_REMINDER].winfo_rooty()
+    assert not _clipping_problems(app)
+
+
+@pytest.mark.parametrize("wanted", [True, False])
+def test_pick_report_media_notice_follows_preference(ui, wanted):
+    from beamo_wipe import copy as C
+
+    wiz, app = ui(size=MIN_WINDOW)
+    wiz.preview = False
+    wiz.skip_intro()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    assert wiz.screen == Screen.PICK
+    wiz.report_wanted = wanted
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
+    assert (C.REPORT_MEDIA_WANTED in labels) == wanted
+    assert not _clipping_problems(app)
+
+
+@pytest.mark.parametrize(
+    "status,message,marked,unmarked",
+    [
+        ("idle", "", ("1. ", "(now)"), ()),
+        ("saving", None, ("(done)", "(now)"), ()),
+        ("saved", None, ("(done)", "(now)"), ()),
+        ("error", "Report USB was removed.", ("Save report to USB again",), ("Insert the report USB",)),
+    ],
+)
+def test_done_export_stages_per_state(ui, tmp_path, status, message, marked, unmarked):
+    from beamo_wipe import copy as C
+    from test_usb_report_workflow import _done_wizard, _success_receipt
+
+    _, app = ui(size=MIN_WINDOW)
+    wiz = _done_wizard(_success_receipt, tmp_path)
+    if status == "saved":
+        wiz.save_report_to_usb()
+    elif status == "saving":
+        from beamo_wipe.wizard import REPORT_SAVING
+
+        wiz.report_status = "saving"
+        wiz.report_message = REPORT_SAVING
+    elif status == "error":
+        wiz.report_status = "error"
+        wiz.report_message = message
+    app.w = wiz
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
+    blob = "\n".join(labels)
+    for stage in C.EXPORT_STAGES:
+        assert (stage in blob) == (status != "error")
+    for needle in marked:
+        assert needle in blob
+    for needle in unmarked:
+        assert needle not in blob
+    assert not _clipping_problems(app)
+
+
+def test_diagnostic_rejection_shows_next_step(ui):
+    from beamo_wipe import support_export as E
+    from beamo_wipe.demo import make_demo_wizard
+
+    _, app = ui(size=MIN_WINDOW)
+    wiz = make_demo_wizard()
+    wiz.screen = Screen.DIAGNOSTIC
+    wiz.diagnostic_message = E.USB_FAT32_ONLY
+    app.w = wiz
+    app._draw()
+    app.root.update()
+    labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
+    assert E.USB_FAT32_ONLY in labels
+    assert E.NEXT_DIFFERENT_STICK in labels
+    assert not _clipping_problems(app)

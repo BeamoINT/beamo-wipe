@@ -263,9 +263,10 @@ def test_aftercare_never_promises_unavailable_report_or_safe_removal():
     )
     assert "removed" in text and C.REPORT_VOLATILE in text
     assert "Insert" not in text and "safe to remove" not in text
-    assert C.report_aftercare(can_save=True, status="idle", message="").startswith(
-        C.REPORT_INSERT
-    )
+    assert "Save report to USB again" in text
+    idle = C.report_aftercare(can_save=True, status="idle", message="")
+    assert C.EXPORT_STAGE_INSERT in idle and "(now)" in idle
+    assert C.REPORT_INSERT in idle and C.REPORT_VOLATILE in idle
 
 
 def test_plain_console_advanced_is_reachable_and_displays_synchronized_guidance(

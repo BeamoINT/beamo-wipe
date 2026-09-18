@@ -103,6 +103,12 @@ except RuntimeError as exc:
     raise SystemExit(str(exc)) from exc
 PYIDENTITY
 cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"
+cp "$ROOT/helper/fr.html" "$STAGE_SHARE/helper/fr.html"
+cp "$ROOT/helper/de.html" "$STAGE_SHARE/helper/de.html"
+# Outcome earcons (tracked source; missing files fail the build loudly).
+mkdir -p "$STAGE_SHARE/sounds"
+cp "$ROOT/packaging/sounds/finished.wav" "$STAGE_SHARE/sounds/finished.wav"
+cp "$ROOT/packaging/sounds/attention.wav" "$STAGE_SHARE/sounds/attention.wav"
 cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"
 # A local build compiles launchers; hosted CI supplies the exact tested pair.
 if [ ! -f "$ROOT/dist/desktop/desktop-build.json" ]; then

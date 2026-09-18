@@ -11,7 +11,11 @@ import unicodedata
 from dataclasses import replace
 from typing import Callable, Mapping, Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from beamo_wipe.copy import IDENTIFY_ERROR as CANNOT_IDENTIFY
+from beamo_wipe import copy as _copy
+
+IDENTITY_UNAVAILABLE = "Device identity unavailable"
+IDENTITY_UNCONFIRMED = "identity could not be confirmed"
+UNKNOWN_MODEL = "Unknown model"
 from beamo_wipe.startup_stages import STAGE_BOOT_USB, STAGE_FINDING
 from beamo_wipe.models import (
     CONTENTS_DATA,
@@ -600,7 +604,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
     return Disk(
         path=path,
         name=name,
-        model=raw_model or label or "Unknown model",
+        model=raw_model or label or UNKNOWN_MODEL,
         serial=_clean(node.get("serial")) or _first_descendant_field(node, "serial"),
         size_bytes=_as_int(node.get("size")),
         size_gb_label=size_gb_label(_as_int(node.get("size"))),
@@ -899,7 +903,7 @@ def parse_lsblk_json(
     if blockdevices and not isinstance(blockdevices, (list, tuple)):
         raise ValueError("lsblk JSON blockdevices must be a list")
     if require_boot and not boot_path:
-        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
+        return DiscoveryResult(error=_copy.IDENTIFY_ERROR, boot_identified=False)
 
     flat_mounts: Dict[str, List[str]] = {}
     flat_nodes = list(flatten_blockdevices(blockdevices))
@@ -1011,7 +1015,7 @@ def parse_lsblk_json(
     # --exclude= target and left the live USB selectable).
     boot = identified_boot
     if require_boot and boot is None:
-        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False)
+        return DiscoveryResult(error=_copy.IDENTIFY_ERROR, boot_identified=False)
     from beamo_wipe.safety import is_wipeable_disk
 
     # A distinct path with the boot medium's WWN may be a multipath/LUN alias.
@@ -1084,7 +1088,7 @@ def parse_lsblk_json(
                 node_type=_node_type(node),
             ))
         except ValueError:
-            excluded.append(ExcludedDevice("Device identity unavailable", ("identity could not be confirmed",)))
+            excluded.append(ExcludedDevice(IDENTITY_UNAVAILABLE, (IDENTITY_UNCONFIRMED,)))
     return DiscoveryResult(
         excluded=tuple(excluded),
         disks=tuple(disks),
@@ -1466,7 +1470,7 @@ def discover(
             pass
         diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()
         from beamo_wipe.diagnostic_report import exception_code
-        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic, error_code=exception_code(exc))
+        return DiscoveryResult(error=_copy.IDENTIFY_ERROR, boot_identified=False, diagnostic=diagnostic, error_code=exception_code(exc))
     except Exception as exc:  # noqa: BLE001 — catch unexpected, still fail-closed
         try:
             from beamo_wipe.diagnostics import log_diag
@@ -1476,4 +1480,4 @@ def discover(
             pass
         diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()
         from beamo_wipe.diagnostic_report import exception_code
-        return DiscoveryResult(error=CANNOT_IDENTIFY, boot_identified=False, diagnostic=diagnostic, error_code=exception_code(exc))
+        return DiscoveryResult(error=_copy.IDENTIFY_ERROR, boot_identified=False, diagnostic=diagnostic, error_code=exception_code(exc))

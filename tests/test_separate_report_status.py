@@ -30,8 +30,12 @@ def test_report_state_never_changes_erase_or_receipt(case, status, monkeypatch, 
     monkeypatch.setattr("builtins.input", lambda _: (_ for _ in ()).throw(EOFError()))
     console._plain_loop(w)
     output = capsys.readouterr().out
-    assert output.index("Erase status") < output.index("Report status")
-    assert w.report_view.tone == ("warn" if status == "error" else "info")
+    # #95: the specific outcome heads the erase area; the generic label is
+    # gone, but erase content still precedes report content.
+    assert output.index(expected.message) < output.index("Report status")
+    assert w.report_view.tone == (
+        "warn" if status == "error" else "ok" if status == "saved" else "info"
+    )
     assert w.report_view.headline in output
     assert C.REPORT_STATUS_NOTICE in output
     assert expected.message in output
@@ -45,7 +49,8 @@ def test_report_state_never_changes_erase_or_receipt(case, status, monkeypatch, 
 def test_all_result_vocabulary_and_report_styles_are_independent(code, status):
     erase = VIEWS[code]
     report = ReportView(0, status, "", "", status == "saving", False, None)
-    assert report.tone in {"info", "warn"}
+    assert report.tone in {"info", "warn", "ok"}
+    assert (report.tone == "ok") == (status == "saved")
     assert report.headline.startswith("Report") or report.headline.startswith("Saving")
     assert erase == VIEWS[code]
 
@@ -114,7 +119,8 @@ def test_browser_preview_exposes_two_named_status_sections():
     from beamo_wipe.gallery import gallery_html
     html = gallery_html()
     assert '<section aria-labelledby="erase-status-heading">' in html
-    assert '<h1 id="erase-status-heading">${P.eraseStatusTitle}</h1>' in html
+    # #95: the erase section heading is the specific outcome message.
+    assert '<h1 id="erase-status-heading">${result.message}</h1>' in html
     assert '<section aria-labelledby="report-status-heading">' in html
     assert '<h2 id="report-status-heading">${P.reportStatusTitle}</h2>' in html
     assert C.REPORT_PREVIEW in html
