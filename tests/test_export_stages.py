@@ -126,13 +126,23 @@ def test_done_console_narrow_pages_full_stage_block(monkeypatch, tmp_path):
     assert all(max(frame) < 24 for frame in term.frames if frame)
 
 
-def test_done_console_saved_marks_removal_now(monkeypatch, tmp_path, capsys):
+def test_done_console_saved_marks_removal_now(monkeypatch, tmp_path):
+    import curses
+
     wiz = _eligible_wizard(lambda **kw: _ok_receipt(**kw), tmp_path)
     wiz.save_report_to_usb()
     assert wiz.report_view.status == "saved"
-    shown, _, _ = _draw(monkeypatch, wiz)
-    assert C.EXPORT_STAGE_REMOVE in shown
-    assert "safe to remove" in shown
+    shown, packed, term = _draw(
+        monkeypatch, wiz, keys=[curses.KEY_DOWN] * 12
+    )
+    all_text = " ".join(
+        " ".join(frame[y] for y in sorted(frame)) for frame in term.frames if frame
+    )
+    assert C.EXPORT_STAGE_REMOVE in all_text
+    assert "safe to remove" in all_text
+    view = wiz.disk_view(wiz.selected) if wiz.selected else None
+    if view is not None:
+        assert view.id_value in all_text
 
 
 def test_done_console_error_shows_retry_without_stages(monkeypatch, tmp_path):

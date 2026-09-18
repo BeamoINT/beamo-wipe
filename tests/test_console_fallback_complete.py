@@ -118,7 +118,9 @@ def test_boot_identity_is_not_truncated_to_first_footer_line(monkeypatch):
         wiz.discovery,
         boot=replace(boot, serial=serial, model="Beamo Live USB " + ("W" * 30)),
     )
-    shown, packed, term = _draw(monkeypatch, wiz)
+    shown, packed, term = _draw(
+        monkeypatch, wiz, keys=[console.curses.KEY_PPAGE] * 6
+    )
     all_packed = "".join(
         "".join(frame.get(y, "") for y in sorted(frame)) for frame in term.frames
     )
@@ -214,3 +216,27 @@ def test_add_does_not_drop_identity_characters_when_wrapping():
     painted = "".join(lines)
     assert serial in painted
     assert all(console._display_cols(line) <= 22 for line in lines)
+
+
+def test_narrow_terminal_shows_selectable_identity_and_actions(monkeypatch):
+    wiz = _at_pick()
+    assert wiz.selected is None
+    first = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    view = wiz.disk_view(first)
+    shown, packed, term = _draw(monkeypatch, wiz, h=16, w=48)
+    assert view.title in packed or view.id_value in packed
+    assert view.id_value in packed
+    footer = _footer(term, rows=4)
+    assert "Enter" in footer or "PgUp" in footer or "PgDn" in footer
+    assert C.TITLE_PICK in shown
+    assert all(console._display_cols(row) < 48 for row in term.frames[-1].values())
+
+
+def test_unselected_pick_keeps_first_selectable_serial_on_80x24(monkeypatch):
+    wiz = _at_pick()
+    assert wiz.selected is None
+    first = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    shown, packed, term = _draw(monkeypatch, wiz, h=24, w=80)
+    assert first.serial in packed
+    assert ">" in shown or first.serial in packed
+    assert C.TITLE_PICK in shown

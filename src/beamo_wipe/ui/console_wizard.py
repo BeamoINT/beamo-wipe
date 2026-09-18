@@ -307,16 +307,21 @@ def _paint_paged(stdscr, y: int, lines: list[str], offset: int, y_max: int, widt
 def _keep_selected_visible(
     blocks, pick_offset: int, page: int, selected_path: str | None, *, follow: bool = True
 ) -> tuple[int, int]:
-    """Keep the selected disk reachable. Tall identity can be paged through."""
+    """Keep the highlighted disk reachable. Tall identity can be paged through."""
     starts: list[int] = []
     total = 0
     for _disk, block in blocks:
         starts.append(total)
         total += len(block)
-    if follow and selected_path:
+    target_path = selected_path
+    if follow and not target_path:
+        first = next((d for d, _ in blocks if d is not None), None)
+        if first is not None:
+            target_path = first.path
+    if follow and target_path:
         try:
             idx = next(
-                i for i, (d, _) in enumerate(blocks) if d is not None and d.path == selected_path
+                i for i, (d, _) in enumerate(blocks) if d is not None and d.path == target_path
             )
             start = starts[idx]
             end = start + len(blocks[idx][1])
@@ -459,7 +464,7 @@ def _assist_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
 
 
 def _footer_lines(wizard: Wizard, inventory_open: bool, width: int, height: int) -> list[str]:
-    """Pin next-step actions. Assist and extra chrome drop before actions."""
+    """Pin next-step actions. Assist and extra chrome drop before identity."""
     actions: list[str] = []
     for line in _primary_footer(wizard, inventory_open):
         actions.extend(_lines(line, width) or [""])
@@ -480,13 +485,14 @@ def _footer_lines(wizard: Wizard, inventory_open: bool, width: int, height: int)
         joined = "    ".join(_chrome_extra(wizard))
         if joined:
             extra.extend(_lines(joined, width))
-    reserved_body = 2
+    min_body = 8 if height >= 14 else 2
     if len(actions) > height - 1:
         actions = actions[-(height - 1):]
-    room = max(0, height - reserved_body - len(actions))
-    assist_shown = assist[:room]
-    room -= len(assist_shown)
-    extra_shown = extra[:room]
+    max_optional = max(0, height - min_body - len(actions))
+    if height < 20:
+        return extra[: min(1, max_optional)] + actions
+    assist_shown = assist[:max_optional]
+    extra_shown = extra[: max(0, max_optional - len(assist_shown))]
     return extra_shown + assist_shown + actions
 
 
@@ -532,12 +538,12 @@ def _print_view(view, width: int = 76, *, include_path: bool = False) -> None:
 
 def _print_operation_identity(wizard, width: int = 76) -> None:
     """Request-bound disk + method for operation screens. Never substituted."""
-    disk = wizard.operation_disk
+    disk = getattr(wizard, "operation_disk", None)
     if disk is not None:
         _print_view(wizard.disk_view(disk), width)
-    elif wizard.operation_identity_text:
+    elif getattr(wizard, "operation_identity_text", None):
         _emit(wizard.operation_identity_text, width)
-    _emit(wizard.operation_method_text, width)
+    _emit(getattr(wizard, "operation_method_text", "") or "", width)
 
 
 def _answer(wizard: Wizard, prompt: str) -> str:
@@ -1101,7 +1107,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 break
             _add(stdscr, y, 0, line, curses.A_BOLD if i == 0 else curses.A_NORMAL)
             y += 1
-        if y + 2 < y_max:
+        if y + 2 < y_max and y_max - y >= 8:
             y += 1
         if inventory_open:
             if comparison_open:
@@ -1171,16 +1177,30 @@ def _loop(stdscr, wizard: Wizard) -> int:
             mark = "[X]" if wizard.owner_ok else "[ ]"
             _wrap(stdscr, min(y + 1, y_max - 1), C.CON_OWNER_CHECK.format(mark=mark), w, y_max)
         elif wizard.screen == Screen.PICK:
-            y = _wrap(stdscr, y, C.pick_subtitle(), w, y_max) + 1
+            intro: list[str] = []
+            intro.extend(_lines(C.pick_subtitle(), w))
+            intro.append("")
             if same_size_conflict(wizard.listed_disks):
-                y = _wrap(stdscr, y, f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}", w, y_max) + 1
+                intro.extend(_lines(f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}", w))
+                intro.append("")
             if wizard.error:
-                y = _wrap(stdscr, y, _error_recovery_text(wizard.error), w, y_max) + 1
+                intro.extend(_lines(_error_recovery_text(wizard.error), w))
                 if error_needs_support(wizard.error):
-                    y = _wrap(stdscr, y, C.support_text(), w, y_max) + 1
+                    intro.extend(_lines(C.support_text(), w))
+                intro.append("")
             if wizard.report_wanted:
-                y = _wrap(stdscr, y, C.REPORT_MEDIA_WANTED, w, y_max) + 1
+                intro.extend(_lines(C.REPORT_MEDIA_WANTED, w))
+                intro.append("")
             blocks = _pick_blocks(wizard, w)
+            avail = max(1, y_max - y)
+            if len(intro) + 4 > avail:
+                blocks = [(None, intro)] + blocks
+            else:
+                for line in intro:
+                    if y >= y_max:
+                        break
+                    _add(stdscr, y, 0, line)
+                    y += 1
             avail = max(1, y_max - y)
             page = max(1, avail - 2)
             pick_page = page
@@ -1193,7 +1213,6 @@ def _loop(stdscr, wizard: Wizard) -> int:
             inner_max = y_max - (1 if need_below else 0)
             if need_above:
                 y = _wrap(stdscr, y, C.CON_MORE_DISKS_ABOVE, w, inner_max)
-            shown = 0
             line_no = 0
             for _disk, block in blocks:
                 for line in block:
@@ -1204,7 +1223,6 @@ def _loop(stdscr, wizard: Wizard) -> int:
                         break
                     _add(stdscr, y, 0, line)
                     y += 1
-                    shown += 1
                     line_no += 1
                 if y >= inner_max:
                     break
@@ -1815,22 +1833,3 @@ def _wrap(stdscr, y, text, width, y_max=None) -> int:
         _add(stdscr, y, 0, line)
         y += 1
     return y
-
-
-def _wrap_view(stdscr, y, view, width, y_max, *, include_path: bool = False) -> int:
-    for line in _identity_field_lines(view, width, include_path=include_path):
-        if y >= y_max:
-            return y
-        _add(stdscr, y, 0, line)
-        y += 1
-    return y
-
-
-def _wrap_operation_identity(stdscr, y, wizard, width, y_max) -> int:
-    """Request-bound disk + method for operation screens. Never substituted."""
-    disk = wizard.operation_disk
-    if disk is not None:
-        y = _wrap_view(stdscr, y, wizard.disk_view(disk), width, y_max)
-    elif wizard.operation_identity_text:
-        y = _wrap(stdscr, y, wizard.operation_identity_text, width, y_max)
-    return _wrap(stdscr, y, wizard.operation_method_text, width, y_max)

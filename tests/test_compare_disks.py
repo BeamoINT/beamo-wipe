@@ -93,7 +93,9 @@ def test_tk_comparison_reflow_keyboard_and_continuity(count, width, columns):
 def test_console_offers_read_only_comparison():
     w = make_demo_wizard()
     w.screen = Screen.PICK
-    assert any("Compare disks (C)" in line for line in console._primary_footer(w, False))
+    assist = console._assist_footer(w, False)
+    footer = console._footer_lines(w, False, 80, 24)
+    assert any("Compare disks (C)" in line for line in assist + footer)
 
 
 def test_console_comparison_scroll_and_escape_preserve_selection(monkeypatch):

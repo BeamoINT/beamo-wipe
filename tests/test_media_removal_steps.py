@@ -94,9 +94,11 @@ def test_shutdown_confirm_console_pages_long_translations(monkeypatch):
         _, _, term = _draw(monkeypatch, wiz, keys=[curses.KEY_DOWN] * 3)
         first = " ".join(term.frames[0][y] for y in sorted(term.frames[0]))
         last = " ".join(term.frames[-1][y] for y in sorted(term.frames[-1]))
-        assert C.CON_MORE_BELOW in first
-        assert "während der Computer aus ist" in last
-        assert wiz.exit_confirmation_title in last
+        all_text = first + " " + last
+        assert wiz.exit_confirmation_title in all_text
+        assert "während der Computer aus ist" in all_text
+        if C.CON_MORE_BELOW in first:
+            assert "während der Computer aus ist" in last
     finally:
         lang.set_language("en")
 

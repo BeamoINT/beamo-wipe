@@ -36,8 +36,8 @@ class Terminal:
 
     def addstr(self, y, x, text, attr=0):
         assert 0 <= y < self.h, y
-        assert len(text) < self.w, (len(text), text[:40])
-        self.rows[y] = text
+        assert console._display_cols(text) + x < self.w, (console._display_cols(text), x, text[:40])
+        self.rows[y] = text if x == 0 else (" " * x + text)
 
     def erase(self):
         if self.rows:

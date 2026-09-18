@@ -269,12 +269,12 @@ def test_plain_console_nests_unnumbered_and_keeps_numbers_for_disks(monkeypatch,
 def test_curses_pick_block_includes_nested_lines():
     wiz = _wizard()
     blocks = console._pick_blocks(wiz, 80)
-    sata = next(block for disk, block in blocks if disk.path == "/dev/sda")
+    sata = next(block for disk, block in blocks if disk is not None and disk.path == "/dev/sda")
     joined = "\n".join(sata)
     assert NESTED_INTRO in joined
     assert "Partition" in joined
     assert "Encrypted volume" in joined
-    nvme = next(block for disk, block in blocks if disk.path == "/dev/nvme0n1")
+    nvme = next(block for disk, block in blocks if disk is not None and disk.path == "/dev/nvme0n1")
     assert sum(1 for line in nvme if "Partition" in line) == 8
 
 
