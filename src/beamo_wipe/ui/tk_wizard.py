@@ -1477,7 +1477,9 @@ class TkWizard:
         self._clear(self._body)
         self._clear(self._footer)
         self._support_lead = None
-        self._unbind_support_copy()
+        unbind = getattr(self, "_unbind_support_copy", None)
+        if callable(unbind):
+            unbind()
         prepare = getattr(self, "_prepare_body_host", None)
         if callable(prepare):
             prepare()
@@ -2684,7 +2686,7 @@ class TkWizard:
         self._draw()
 
     def _unbind_support_copy(self) -> None:
-        if not self._support_copy_bound:
+        if not getattr(self, "_support_copy_bound", False):
             return
         self.root.unbind("<Control-c>")
         self.root.unbind("<Control-C>")
