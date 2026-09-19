@@ -969,6 +969,7 @@ class _CheckRow(tk.Frame):
             wraplength=wraplength or 0,
         )
         self._label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 4), pady=2)
+        self.bind("<Configure>", self._flow_label, add="+")
         self._sync()
         variable.trace_add("write", lambda *_: self._sync())
         self.bind("<Button-1>", lambda _e: self.invoke())
@@ -976,6 +977,14 @@ class _CheckRow(tk.Frame):
         self.bind("<Return>", self._activate)
         self.bind("<KP_Enter>", self._activate)
         self._label.bind("<Button-1>", lambda _e: self.invoke())
+        self.after_idle(self._flow_label)
+
+    def _flow_label(self, event=None) -> None:
+        width = int(event.width) if event is not None else int(self.winfo_width())
+        icon_w = self._icon.winfo_reqwidth() if self._icon is not None else 22
+        wrap = max(80, width - icon_w - 24)
+        if int(float(str(self._label.cget("wraplength") or 0))) != wrap:
+            self._label.configure(wraplength=wrap)
 
     def cget(self, key):
         if key == "text":
@@ -1226,6 +1235,12 @@ class TkWizard:
         self._apply_grid()
         return True
 
+    def _type_scale(self) -> float:
+        try:
+            return max(1.0, min(1.5, float(getattr(self.w, "text_scale", 1.0))))
+        except (TypeError, ValueError):
+            return 1.0
+
     def _on_root_configure(self, event) -> None:
         if event.widget is not self.root or self._layout_drawing:
             return
@@ -1326,7 +1341,7 @@ class TkWizard:
         self._body_canvas = None
         if self._body is None or not (
             self.lay.short
-            or self.w.text_scale > 1.0
+            or self._type_scale() > 1.05
             or self.w.screen in {
                 Screen.WHAT, Screen.METHOD, Screen.LAST_CHANCE,
                 Screen.WORKING, Screen.DONE, Screen.DIAGNOSTIC, Screen.KEYBOARD,
@@ -1585,14 +1600,31 @@ class TkWizard:
 
     # -- text / small components --------------------------------------------
 
+    def _flow_wrap(self, label: tk.Label, parent: tk.Widget, pad: int = 8) -> None:
+        """Keep wraplength on the allocated parent, not a snapshot of lay.wrap."""
+
+        def fit(event=None) -> None:
+            try:
+                width = int(event.width) if event is not None else int(parent.winfo_width())
+            except (tk.TclError, AttributeError, TypeError, ValueError):
+                return
+            wrap = max(80, width - pad)
+            current = int(float(label.cget("wraplength") or 0))
+            if current != wrap:
+                label.configure(wraplength=wrap)
+
+        parent.bind("<Configure>", fit, add="+")
+
     def _h(self, parent: tk.Widget, text: str, *, bg: str = BG, fg: str = INK) -> tk.Label:
-        return tk.Label(
+        label = tk.Label(
             parent, text=text, font=self.font_h, fg=fg, bg=bg,
-            wraplength=self.lay.wrap, justify=tk.LEFT,
+            wraplength=self.lay.wrap, justify=tk.LEFT, anchor="w",
         )
+        self._flow_wrap(label, parent)
+        return label
 
     def _p(self, parent: tk.Widget, text: str, **kw) -> tk.Label:
-        return tk.Label(
+        label = tk.Label(
             parent,
             text=text,
             font=kw.get("font", self.font_lead),
@@ -1602,6 +1634,9 @@ class TkWizard:
             justify=kw.get("justify", tk.LEFT),
             anchor=kw.get("anchor", "w"),
         )
+        if kw.get("flow", True):
+            self._flow_wrap(label, parent, pad=int(kw.get("flow_pad", 8)))
+        return label
 
     def _title_block(
         self,
@@ -1619,10 +1654,7 @@ class TkWizard:
         """
         top = min(10, self.lay.title_top) if compact else self.lay.title_top
         bottom = min(6, self.lay.title_bottom) if compact else self.lay.title_bottom
-        tk.Label(
-            col, text=title, font=self.font_h, fg=INK, bg=BG,
-            wraplength=self.lay.wrap, justify=tk.LEFT, anchor="w",
-        ).pack(fill=tk.X, pady=(top, 4 if subtitle else bottom))
+        self._h(col, title).pack(fill=tk.X, pady=(top, 4 if subtitle else bottom))
         if subtitle:
             self._p(col, subtitle, fg=MUTED, font=self.font_b).pack(
                 fill=tk.X, pady=(0, bottom)
@@ -1670,14 +1702,16 @@ class TkWizard:
         )
 
     def _chip(self, parent: tk.Widget, text: str, *, fg: str, bg: str) -> _Box:
-        chip = _Box(parent, radius=PILL, fill=bg, outline=None, ow=0, padx=10, pady=2)
+        pad = max(2, int(round(2 * self._type_scale())))
+        chip = _Box(parent, radius=PILL, fill=bg, outline=None, ow=0, padx=10, pady=pad)
         tk.Label(chip.inner, text=text, font=self.font_tiny, fg=fg, bg=bg).pack()
         chip.fit_now()
         return chip
 
     def _kbd(self, parent: tk.Widget, text: str) -> _Box:
         """A quiet keyboard key-cap. Makes keyboard affordances scannable."""
-        cap = _Box(parent, radius=8, fill=SURFACE_ALT, outline=BORDER_STRONG, ow=1, padx=8, pady=2)
+        pad = max(2, int(round(2 * self._type_scale())))
+        cap = _Box(parent, radius=8, fill=SURFACE_ALT, outline=BORDER_STRONG, ow=1, padx=8, pady=pad)
         tk.Label(cap.inner, text=text, font=self.font_tiny, fg=INK, bg=SURFACE_ALT).pack()
         cap.fit_now()
         return cap
@@ -2014,10 +2048,9 @@ class TkWizard:
             if sys.platform.startswith("linux"):
                 utility(C.SCREEN_READER_VIEW, self._click_accessible)
         if self.w.screen == Screen.DONE and not self.w.preview:
-            note = tk.Label(
-                tools, text=C.ANOTHER_HINT, font=self.font_s, bg=BG,
-                fg=MUTED, wraplength=self.lay.content_w, justify=tk.LEFT,
-                anchor="w",
+            note = self._p(
+                tools, C.ANOTHER_HINT, font=self.font_s, fg=MUTED,
+                wraplength=max(200, self.lay.content_w - 24),
             )
             # width=1 so the unwrapped sentence cannot stretch the footer
             # past an 1024-wide window; fill=X uses the content column.
@@ -2043,9 +2076,10 @@ class TkWizard:
         mid.pack(fill=tk.BOTH, expand=True)
         # Hints never share the action row: Done's four left actions plus
         # Shut down already fill the 940px content column at 1024x740.
-        if self.lay.short:
+        # Enlarged type also wraps the hint as prose instead of key-caps.
+        if self.lay.short or self._type_scale() > 1.05:
             self._hint = self._p(col, hint, font=self.font_s, fg=MUTED,
-                                 wraplength=self.lay.content_w - 8)
+                                 wraplength=max(80, self.lay.content_w - 8))
             self._hint.configure(width=1)
         else:
             self._hint = self._hint_bar(col, hint)
@@ -2156,7 +2190,8 @@ class TkWizard:
         tk.Label(col, text=C.APP_NAME, font=self.font_hero, fg=INK, bg=BG).pack(pady=(16, 0))
         self._p(
             col, C.SPLASH_TAGLINE, fg=MUTED, font=self.font_lead,
-            wraplength=620, justify=tk.CENTER, anchor="center",
+            wraplength=max(200, self.lay.content_w - 24),
+            justify=tk.CENTER, anchor="center",
         ).pack(fill=tk.X, pady=(8, 0))
         self._p(col, C.SPLASH_ROADMAP, fg=MUTED, font=self.font_s,
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(14, 0))
@@ -2215,9 +2250,8 @@ class TkWizard:
             tk.Label(
                 text_col, text=spec.title, font=self.font_bold, fg=INK, bg=fill, anchor="w",
             ).pack(fill=tk.X)
-            tk.Label(
-                text_col, text=spec.note, font=self.font_s, fg=MUTED, bg=fill,
-                wraplength=max(200, self.lay.wrap - 110), justify=tk.LEFT, anchor="w",
+            self._p(
+                text_col, spec.note, font=self.font_s, fg=MUTED, bg=fill,
             ).pack(fill=tk.X, pady=(4, 0))
 
             def _click(_e=None, lid=layout_id):
@@ -2331,9 +2365,8 @@ class TkWizard:
             marker = tk.Canvas(line, width=10, height=26, bg=SURFACE, highlightthickness=0)
             marker.create_oval(1, 9, 8, 16, fill=ACCENT, outline="")
             marker.pack(side=tk.LEFT, anchor="n")
-            tk.Label(
-                line, text=bullet, font=self.font_lead, fg=INK, bg=SURFACE,
-                wraplength=max(200, self.lay.wrap - 80), justify=tk.LEFT, anchor="w",
+            self._p(
+                line, bullet, font=self.font_lead, fg=INK, bg=SURFACE, flow_pad=24,
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
         self._panel(
             zone, kind="info", text=C.REPORT_MEDIA_WHAT, compact=True
@@ -2376,15 +2409,13 @@ class TkWizard:
         box = _icon_check_box(card.inner, checked, 28)
         box.configure(bg=card._fill)
         box.pack(side=tk.LEFT, anchor="n", pady=2)
-        text = tk.Label(
+        text = self._p(
             card.inner,
-            text=C.OWNER_CHECKBOX,
+            C.OWNER_CHECKBOX,
             font=self.font_lead,
             fg=INK,
             bg=card._fill,
-            wraplength=max(200, self.lay.wrap - 100),
-            justify=tk.LEFT,
-            anchor="w",
+            flow_pad=48,
         )
         text.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
         self._bind_tree(card, self._owner_clicked)
@@ -2442,8 +2473,9 @@ class TkWizard:
         title_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(14, 0))
         if disk.is_boot:
             banner = C.BOOT_USB_BANNER if disk.bus == "USB" else C.BOOT_DISC_BANNER
-            self._p(title_col, banner, font=self.font_s_bold, bg=fill,
-                    wraplength=max(200, self.lay.wrap - 100)).pack(fill=tk.X, pady=(0, 6))
+            self._p(title_col, banner, font=self.font_s_bold, bg=fill).pack(
+                fill=tk.X, pady=(0, 6)
+            )
         self._disk_heading(title_col, disk, fill)
         self._meta_line(title_col, disk, fill).pack(fill=tk.X, pady=(4, 0))
         nested = inventory.card_nesting_text(self.w.nested_components(disk))
@@ -2663,7 +2695,7 @@ class TkWizard:
                             canvas.yview_moveto((canvas.canvasy(0) + top) / max(1, bounds[3]))
             reader.bind("<FocusIn>", reveal)
         def reflow(event):
-            columns = 2 if event.width >= 700 else 1
+            columns = 1 if (event.width < 700 or self._type_scale() > 1.05) else 2
             for column in range(2):
                 grid.columnconfigure(column, weight=1 if column < columns else 0, uniform="compare")
             for i, cell in enumerate(cells):
@@ -3202,15 +3234,8 @@ class TkWizard:
             self._chip(title_row, mark, fg=fg, bg=bg_chip).pack(
                 side=tk.LEFT, padx=(10, 0)
             )
-        tk.Label(
-            text_col,
-            text=blurb,
-            font=self.font_s,
-            fg=MUTED,
-            bg=fill,
-            wraplength=max(200, self.lay.wrap - 90),
-            justify=tk.LEFT,
-            anchor="w",
+        self._p(
+            text_col, blurb, font=self.font_s, fg=MUTED, bg=fill,
         ).pack(fill=tk.X, pady=(4, 0))
         pace_row = tk.Frame(text_col, bg=fill)
         pace_row.pack(fill=tk.X, pady=(4, 0))
@@ -3218,26 +3243,12 @@ class TkWizard:
             clock = _icon_clock(pace_row, 16)
             clock.configure(bg=fill)
             clock.pack(side=tk.LEFT, anchor="n", pady=1)
-        tk.Label(
-            pace_row,
-            text=pace,
-            font=self.font_s,
-            fg=MUTED,
-            bg=fill,
-            wraplength=max(200, self.lay.wrap - 110),
-            justify=tk.LEFT,
-            anchor="w",
+        self._p(
+            pace_row, pace, font=self.font_s, fg=MUTED, bg=fill,
         ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(7 if checks else 0, 0))
         if extra:
-            tk.Label(
-                text_col,
-                text=extra,
-                font=self.font_s,
-                fg=MUTED,
-                bg=fill,
-                wraplength=max(200, self.lay.wrap - 90),
-                justify=tk.LEFT,
-                anchor="w",
+            self._p(
+                text_col, extra, font=self.font_s, fg=MUTED, bg=fill,
             ).pack(fill=tk.X, pady=(4, 0))
 
         def _click(_e, m=method):
@@ -3409,7 +3420,6 @@ class TkWizard:
                 self.w.prepare_text(),
                 font=self.font_s,
                 bg=BG,
-                wraplength=max(200, self.lay.wrap - 120),
             ).pack(fill=tk.X, pady=(8, 0))
         self._wrapping_label(
             details, self.w.operation_summary, font=self.font_bold, bg=BG
@@ -3440,6 +3450,7 @@ class TkWizard:
             zone, text="", font=self.font_b, fg=MUTED, bg=BG, anchor="center",
             justify=tk.CENTER, wraplength=max(120, ring_px + 40),
         )
+        self._flow_wrap(self._countdown_label, zone)
         self._countdown_label.pack(fill=tk.X, pady=(12, 0))
         row = self._footer_shell(C.HINT_LAST_CHANCE_TK)
         back = self._back_btn(row)
@@ -3730,17 +3741,17 @@ class TkWizard:
         for i, spec in enumerate(METHODS.values()):
             if i:
                 tk.Frame(card.inner, bg=BORDER, height=1).pack(fill=tk.X)
-            tk.Label(
+            row = tk.Label(
                 card.inner,
                 text=f"{spec.method_id.value}: nwipe --method={spec.nwipe_method}  ({spec.docs_name})",
                 font=self.font_mono_sm,
                 fg=INK,
                 bg=SURFACE,
                 anchor="w",
-                # Long method names must wrap inside the card, never clip.
-                wraplength=max(200, self.lay.wrap - 40),
                 justify=tk.LEFT,
-            ).pack(fill=tk.X, pady=(7, 7))
+            )
+            self._flow_wrap(row, card.inner)
+            row.pack(fill=tk.X, pady=(7, 7))
         log = self.w._wipe_request.logfile if self.w._wipe_request else C.NO_WIPE_YET
         log_row = tk.Frame(zone, bg=BG)
         log_row.pack(fill=tk.X, pady=(14, 4))
