@@ -287,6 +287,7 @@ class Wizard:
         self.selected: Optional[Disk] = None
         self.confirm_input = ""
         self.keyboard_layout = DEFAULT_LAYOUT
+        self.text_size = "standard"
         self.language = "en"
         self.typing_check = ""
         self.keyboard_message = ""
@@ -788,6 +789,25 @@ class Wizard:
                 self.typing_check = ""
                 self.screen = Screen.OWNER
 
+    def set_text_size(self, size: str) -> bool:
+        """Session-only type size. Unknown values are refused."""
+        if size not in {"standard", "large", "extra"}:
+            return False
+        with self._lock:
+            self.text_size = size
+            return True
+
+    def cycle_text_size(self) -> str:
+        order = ("standard", "large", "extra")
+        with self._lock:
+            index = order.index(self.text_size) if self.text_size in order else 0
+            self.text_size = order[(index + 1) % len(order)]
+            return self.text_size
+
+    @property
+    def text_scale(self) -> float:
+        return {"standard": 1.0, "large": 1.2, "extra": 1.35}.get(self.text_size, 1.0)
+
     def accept_keyboard(self) -> None:
         with self._lock:
             if self.screen != Screen.KEYBOARD:
@@ -939,6 +959,7 @@ class Wizard:
         self.selected = None
         self.confirm_input = ""
         self.keyboard_layout = DEFAULT_LAYOUT
+        self.text_size = "standard"
         try:
             self.set_language("en")
         except Exception:
