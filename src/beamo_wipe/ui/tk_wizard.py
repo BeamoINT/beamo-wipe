@@ -2058,11 +2058,11 @@ class TkWizard:
         # of the content column. Hints stay in the assist strip so Done's
         # four left actions plus Shut down still fit the 940px column.
         left_host = tk.Frame(row, bg=BG)
-        left_host.pack(side=tk.LEFT)
+        left_host.pack(side=tk.LEFT, anchor="n")
         left = tk.Frame(left_host, bg=BG)
         left.pack(anchor="w")
         right = tk.Frame(row, bg=BG)
-        right.pack(side=tk.RIGHT)
+        right.pack(side=tk.RIGHT, anchor="n")
         row._left_host = left_host  # type: ignore[attr-defined]
         row._left = left  # type: ignore[attr-defined]
         row._left_width = 0  # type: ignore[attr-defined]
