@@ -43,7 +43,7 @@ def test_refresh_rereads_fake_json_and_reidentifies_boot(change, tmp_path, monke
     if change == "invalid":
         assert wiz.screen == Screen.PICK_BLOCKED and not wiz.selectable
     else:
-        assert wiz.screen == Screen.WHAT
+        assert wiz.screen == Screen.OWNER
         assert wiz.discovery.boot.path == (
             "/dev/sdy" if change == "boot_changed" else "/dev/sdb"
         )
@@ -99,13 +99,11 @@ def test_refresh_requires_every_authorization_again(change):
     wiz._rediscover = lambda: calls.append(True) or fresh
     assert wiz.refresh_disks()
     assert calls == [True] and wiz.discovery is fresh
-    assert wiz.screen == Screen.WHAT and not wiz.owner_ok
+    assert wiz.screen == Screen.OWNER and not wiz.owner_ok
     assert wiz.selected is None and wiz.confirm_input == ""
     assert wiz.method == MethodId.EVERYDAY and wiz._erase_until is None
     wiz.confirm_erase()
-    wiz.back()
     assert not wiz.runner.started
-    wiz.accept_what()
     wiz.continue_owner()
     assert wiz.screen == Screen.OWNER
     wiz.set_owner(True)
@@ -169,7 +167,7 @@ def test_refresh_claim_blocks_repeat_navigation_and_start():
         release.set()
         worker.join(5)
     assert not worker.is_alive() and calls == [True]
-    assert wiz.screen == Screen.WHAT and wiz.selected is None
+    assert wiz.screen == Screen.OWNER and wiz.selected is None
 
 
 def test_running_wipe_cannot_refresh(tmp_path, monkeypatch):
@@ -219,7 +217,7 @@ def test_selection_already_in_flight_cannot_restore_stale_target(monkeypatch):
             refresh.join(5)
     assert refreshed.is_set()
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
 
 
 @pytest.mark.parametrize(
@@ -231,5 +229,5 @@ def test_refresh_after_back_navigation_clears_token_and_method(screen):
     wiz.screen = screen
     wiz.back()
     assert wiz.refresh_disks()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.selected is None and not wiz.confirm_input and not wiz.owner_ok

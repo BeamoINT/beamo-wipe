@@ -134,4 +134,4 @@ def test_help_keyboard_and_refresh_return_paths():
     fresh = w.discovery
     w._rediscover = lambda: fresh
     w.refresh_disks()
-    assert w.screen == Screen.WHAT and not w.owner_ok and w.selected is None
+    assert w.screen == Screen.OWNER and not w.owner_ok and w.selected is None

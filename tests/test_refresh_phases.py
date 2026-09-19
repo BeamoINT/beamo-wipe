@@ -69,18 +69,18 @@ def test_duplicate_begin_refused_while_scan_in_flight():
     assert wiz.begin_refresh() is None
     assert wiz.screen == Screen.REFRESHING
     assert wiz.finish_refresh(first, discovery_for_scenario("happy")) is True
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     # Unknown sequences never apply, even on the checking screen.
     second = wiz.begin_refresh()
     assert wiz.finish_refresh(first + 999, discovery_for_scenario("happy")) is False
     assert wiz.screen == Screen.REFRESHING
     # After a completed scan, refresh is available again (retry works).
     assert wiz.finish_refresh(second, discovery_for_scenario("happy")) is True
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert (
         wiz.finish_refresh(wiz.begin_refresh(), discovery_for_scenario("happy")) is True
     )
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
 
 
 def test_finish_failure_goes_fail_closed_blocked():
@@ -104,15 +104,15 @@ def test_finish_after_screen_moved_on_drops():
     wiz = make_wiz()
     seq = wiz.begin_refresh()
     with wiz._lock:
-        wiz.screen = Screen.WHAT  # some other transition won the race
+        wiz.screen = Screen.OWNER  # some other transition won the race
     assert wiz.finish_refresh(seq, discovery_for_scenario("happy")) is False
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
 
 
 def test_sync_refresh_success_preserved():
     wiz = make_wiz()
     assert wiz.refresh_disks() is True
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.selected is None
 
 

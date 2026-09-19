@@ -61,7 +61,7 @@ def test_late_duplicate_refresh_completion_cannot_overwrite_newer_scan(
         assert not wizard.selectable
         assert wizard.finish_refresh(new_seq, newer_inventory)
         assert wizard.discovery is newer_inventory
-        assert wizard.screen == Screen.WHAT
+        assert wizard.screen == Screen.OWNER
 
 
 @pytest.mark.parametrize("screen", [Screen.CHECKING, Screen.WORKING, Screen.STOPPING, Screen.WHAT])

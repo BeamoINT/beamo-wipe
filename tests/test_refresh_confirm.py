@@ -69,7 +69,7 @@ def test_confirm_refresh_resets_and_returns_to_preparation():
     wiz = authorized()
     assert wiz.open_refresh_confirm() is True
     assert wiz.confirm_refresh() is True
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.selected is None
     assert not wiz.owner_ok
     assert wiz.confirm_input == ""
@@ -94,11 +94,11 @@ def test_repeated_refresh_shows_wording_again():
     wiz = authorized()
     assert wiz.open_refresh_confirm()
     assert wiz.confirm_refresh()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.open_refresh_confirm()
     assert wiz.screen == Screen.REFRESH_CONFIRM
     wiz.back()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.selected is None and not wiz.owner_ok
 
 

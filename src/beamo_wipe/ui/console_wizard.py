@@ -161,7 +161,7 @@ def _screen_title(wizard: Wizard) -> str:
     if screen == Screen.KEYBOARD:
         return C.TITLE_KEYBOARD
     if screen == Screen.WHAT:
-        return C.TITLE_WHAT
+        return C.TITLE_OWNER
     if screen == Screen.OWNER:
         return C.TITLE_OWNER
     if screen == Screen.PICK:
@@ -379,10 +379,8 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
             C.CON_KEYBOARD_FOOTER,
             C.CON_INPUT_PREFIX + wizard.typing_check,
         ]
-    if screen == Screen.WHAT:
-        return [C.CON_WHAT_FOOTER, C.CON_READ_MORE]
-    if screen == Screen.OWNER:
-        return [C.CON_OWNER_FOOTER]
+    if screen in (Screen.WHAT, Screen.OWNER):
+        return [C.CON_OWNER_FOOTER, C.CON_READ_MORE]
     if screen == Screen.PICK:
         return [C.CON_PICK_NAV, C.CON_DISK_HELP.format(label=C.DISK_HELP_BUTTON)]
     if screen == Screen.PICK_EMPTY:
@@ -734,7 +732,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             else:
                 wizard.set_typing_check(typed)
             continue
-        if screen == Screen.WHAT:
+        if screen in (Screen.WHAT, Screen.OWNER):
+            print(C.TITLE_OWNER)
+            print(C.SPLASH_TAGLINE)
+            print(C.WHAT_LEAD)
             for b in C.WHAT_BULLETS:
                 print(" -", b)
             print(C.this_usb_line())
@@ -746,10 +747,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             ident = _support_identity_text(wizard)
             if ident:
                 print(ident)
-            _answer(wizard, C.CON_PRESS_ENTER_CONTINUE)
-            wizard.accept_what()
-            continue
-        if screen == Screen.OWNER:
+            print(C.OWNER_LEAD)
             print(C.OWNER_CHECKBOX)
             ans = _answer(wizard, C.CON_OWNER_PROMPT).strip()
             wizard.set_owner(ans.upper() == "YES")
@@ -1180,8 +1178,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 lines.extend(_lines(f"{C.SEVERITY_WARNING}: {wizard.keyboard_message}", w))
             lines.extend(_lines(C.KEYBOARD_CHECK_LABEL, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
-        elif wizard.screen == Screen.WHAT:
+        elif wizard.screen in (Screen.WHAT, Screen.OWNER):
             lines = []
+            lines.extend(_lines(C.TITLE_OWNER, w))
+            lines.extend(_lines(C.WHAT_LEAD, w))
+            lines.append("")
             for bullet in C.WHAT_BULLETS:
                 lines.extend(_lines(" * " + bullet, w))
                 lines.append("")
@@ -1194,11 +1195,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
             ident = _support_identity_text(wizard)
             if ident:
                 lines.extend(_lines(ident, w))
-            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
-        elif wizard.screen == Screen.OWNER:
-            y = _wrap(stdscr, y, C.OWNER_CHECKBOX, w, y_max)
+            lines.append("")
+            lines.extend(_lines(C.OWNER_LEAD, w))
+            lines.extend(_lines(C.OWNER_CHECKBOX, w))
             mark = "[X]" if wizard.owner_ok else "[ ]"
-            _wrap(stdscr, min(y + 1, y_max - 1), C.CON_OWNER_CHECK.format(mark=mark), w, y_max)
+            lines.extend(_lines(C.CON_OWNER_CHECK.format(mark=mark), w))
+            limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.PICK:
             blocks = _pick_blocks(wizard, w)
             first_disk = next((disk for disk, _block in blocks if disk is not None), None)
@@ -1830,13 +1832,11 @@ def _handle(wizard: Wizard, ch: int) -> None:
     if ch == 27:
         wizard.back()
         return
-    if ch in (ord("s"), ord("S")) and wizard.screen in {Screen.WHAT, Screen.DIAGNOSTIC}:
+    if ch in (ord("s"), ord("S")) and wizard.screen == Screen.DIAGNOSTIC:
         wizard.shutdown()
         return
     if ch in (curses.KEY_ENTER, 10, 13):
-        if wizard.screen == Screen.WHAT:
-            wizard.accept_what()
-        elif wizard.screen == Screen.OWNER and wizard.owner_ok:
+        if wizard.screen in (Screen.WHAT, Screen.OWNER) and wizard.owner_ok:
             wizard.continue_owner()
         elif wizard.screen == Screen.PICK:
             wizard.continue_pick()
@@ -1850,7 +1850,7 @@ def _handle(wizard: Wizard, ch: int) -> None:
     if wizard.preview and wizard.screen == Screen.DONE and ch in (ord("c"), ord("C")):
         wizard.shutdown()
         return
-    if wizard.screen == Screen.OWNER and ch == ord(" "):
+    if wizard.screen in (Screen.WHAT, Screen.OWNER) and ch == ord(" "):
         wizard.set_owner(not wizard.owner_ok)
     if wizard.screen == Screen.PICK and ch in (
         curses.KEY_UP,
