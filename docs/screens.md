@@ -48,7 +48,12 @@ Tk scaling stays pinned so X DPI does not change the layout.
 
 Tk and the keyboard console support Tab, Enter, Escape, disk-selection arrows,
 1–2–3 for keyboard layouts and methods. L opens full limits from method selection. The 80×24
-console offers O for the read-only excluded inventory. The sequential console
+console uses the same customer screen titles as Tk and the gallery, wraps every identity
+field to the terminal's display columns, and pages with Up/Down and PgUp/PgDn so a serial
+longer than the window is never cut off. It omits the graphical step strip to keep identity
+and recovery actions on 24 rows. On terminals shorter than 20 rows it also drops Compare,
+Other devices, and Keyboard footer hints so a serial still fits; C, O, B, and K still work.
+The console offers O for the read-only excluded inventory. The sequential console
 accepts `CHECK DISKS AGAIN` at its pre-erase prompts.
 On the Last chance screen the interfaces differ by design: Tk starts erasure
 only from the focused, countdown-enabled Erase control (Enter, Space, or

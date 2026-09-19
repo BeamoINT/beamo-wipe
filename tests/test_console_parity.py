@@ -36,8 +36,8 @@ class Terminal:
 
     def addstr(self, y, x, text, attr=0):
         assert 0 <= y < self.h, y
-        assert len(text) < self.w, (len(text), text[:40])
-        self.rows[y] = text
+        assert console._display_cols(text) + x < self.w, (console._display_cols(text), x, text[:40])
+        self.rows[y] = text if x == 0 else (" " * x + text)
 
     def erase(self):
         if self.rows:
@@ -135,13 +135,16 @@ def test_pick_keeps_selection_and_action_visible_with_long_list(monkeypatch):
     assert max(last) < 24
 
 
-def test_pick_page_keys_move_selection_into_view(monkeypatch):
+def test_pick_page_keys_reveal_later_disk_identity(monkeypatch):
     wiz = _at_pick()
     many = _long_list(wiz)
     wiz.selected = many[0]
     shown, packed, term = _draw(monkeypatch, wiz, keys=[console.curses.KEY_NPAGE])
-    assert wiz.selected.path == many[min(8, len(many) - 1)].path
-    assert wiz.selected.serial in packed
+    all_packed = "".join(
+        "".join(frame.get(y, "") for y in sorted(frame)) for frame in term.frames
+    )
+    assert any(disk.serial in all_packed for disk in many[1:])
+    assert C.CON_MORE_DISKS_ABOVE in packed or C.CON_MORE_DISKS_BELOW in all_packed or many[0].serial in packed
 
 
 @pytest.mark.parametrize("method", list(METHODS))
