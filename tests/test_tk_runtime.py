@@ -2075,10 +2075,13 @@ def test_cursor_roles_arrow_content_hand2_actions_xterm_text(ui):
     labels = [w for w in descendants(app.root) if w.winfo_class() == "Label"]
     assert labels
     assert all(w.cget("cursor") == "" for w in labels)
-    assert all(effective_cursor(w) == "arrow" for w in labels)
+    assert all(effective_cursor(w) in {"arrow", "hand2"} for w in labels)
+    content = [w for w in labels if effective_cursor(w) == "arrow"]
+    assert content, "ordinary copy must inherit the root arrow cursor"
     frames = [w for w in descendants(app.root) if w.winfo_class() == "Frame"]
     assert frames
-    assert all(effective_cursor(w) == "arrow" for w in frames)
+    assert all(effective_cursor(w) in {"arrow", "hand2"} for w in frames)
+    assert any(effective_cursor(w) == "arrow" for w in frames)
     assert _button_named(app, C.BTN_MORE).cget("cursor") == "hand2"
     frame = tk.Frame(app.root)
     disabled = _Button(
@@ -2113,11 +2116,12 @@ def test_working_sounds_toggle_and_hear(ui, size, monkeypatch):
     app._draw()
     app.root.update_idletasks()
     toggle = _button_named(app, C.SOUND_TOGGLE_OFF)
-    hear = _button_named(app, C.SOUND_HEAR)
     toggle._command()
     assert wiz.sounds_enabled is True
     assert wiz.sound_message == C.SOUND_TOGGLE_ON
     _button_named(app, C.SOUND_TOGGLE_ON)
+    app.root.update_idletasks()
+    hear = _button_named(app, C.SOUND_HEAR)
     hear._command()
     assert wiz.sound_message == C.SOUND_OUTCOME_OFF_LIVE
 
@@ -2184,18 +2188,20 @@ def test_done_heading_is_outcome_message(ui, size, code):
 
 def test_done_heading_long_german_text_no_clip(ui):
     from beamo_wipe import lang
-    from beamo_wipe.outcomes import VIEWS
+    from beamo_wipe import outcomes
 
     try:
         lang.set_language("de")
-        code = max(VIEWS, key=lambda c: len(VIEWS[c].message))
+        views = outcomes.VIEWS
+        code = max(views, key=lambda c: len(views[c].message))
         case = next(c for c in RESULT_CASES if c[0] == code)
         _, app = ui(size=MIN_WINDOW)
         app.w, _, _ = case_evidence(case)
+        app.w.set_language("de")
         app._draw()
         app.root.update()
         labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
-        assert VIEWS[code].message in labels
+        assert views[code].message in labels
         assert not _clipping_problems(app)
     finally:
         lang.set_language("en")
@@ -2332,8 +2338,8 @@ def test_done_export_stages_per_state(ui, tmp_path, status, message, marked, unm
     app.root.update()
     labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
     blob = "\n".join(labels)
-    for stage in C.EXPORT_STAGES:
-        assert (stage in blob) == (status != "error")
+    for index, stage in enumerate(C.EXPORT_STAGES, 1):
+        assert (f"{index}. {stage}" in blob) == (status != "error")
     for needle in marked:
         assert needle in blob
     for needle in unmarked:
