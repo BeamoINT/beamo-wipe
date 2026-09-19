@@ -142,9 +142,8 @@ def test_gallery_owner_includes_explanation_and_requires_checkbox():
     assert 'screen = "owner"' in html
     assert "btnsR.append(btn(P.buttons.continue, () => { screen = \"what\"" not in html
     assert "btnsR.append(btn(P.buttons.understand" not in html
-    assert C.JOURNEY_LABELS[0] == "Owner"
-    assert len(C.JOURNEY_LABELS) == 7
-    assert "Step 1 of 7" in html
+    assert C.JOURNEY_LABELS == ("Preparation", "Erase", "Result")
+    assert "Step 1 of 7" not in html
     assert "Step 1 of 8" not in html
 
 
