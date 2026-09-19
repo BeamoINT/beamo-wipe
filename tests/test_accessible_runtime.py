@@ -574,7 +574,7 @@ sys.exit(entry['main']())
             target.grab_focus()
             drain()
 
-    def wait_for(phrase, *, since=0, timeout=40):
+    def wait_for(phrase, *, since=0, timeout=70):
         # Bookworm Orca can spend >15s draining defunct children-changed
         # events after a dense screen is destroyed before it speaks again.
         deadline = time.monotonic() + timeout
@@ -600,7 +600,7 @@ sys.exit(entry['main']())
                         break
                     time.sleep(0.01)
                 return
-            if app_box and nudges < 2 and time.monotonic() >= next_nudge:
+            if app_box and nudges < 8 and time.monotonic() >= next_nudge:
                 nudge_focus(phrase)
                 nudges += 1
                 next_nudge = time.monotonic() + 2
