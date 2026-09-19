@@ -1185,30 +1185,25 @@ def _loop(stdscr, wizard: Wizard) -> int:
         elif wizard.screen == Screen.PICK:
             intro: list[str] = []
             intro.extend(_lines(C.pick_subtitle(), w))
-            intro.append("")
             intro.extend(_lines(wizard.inventory_count, w))
-            intro.append("")
+            if wizard.report_wanted:
+                intro.extend(_lines(C.REPORT_MEDIA_WANTED, w))
             if same_size_conflict(wizard.listed_disks):
                 intro.extend(_lines(f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}", w))
-                intro.append("")
             if wizard.error:
                 intro.extend(_lines(_error_recovery_text(wizard.error), w))
                 if error_needs_support(wizard.error):
                     intro.extend(_lines(C.support_text(), w))
-                intro.append("")
-            if wizard.report_wanted:
-                intro.extend(_lines(C.REPORT_MEDIA_WANTED, w))
-                intro.append("")
             blocks = _pick_blocks(wizard, w)
-            avail = max(1, y_max - y)
-            if len(intro) + 4 > avail:
-                blocks = [(None, intro)] + blocks
-            else:
-                for line in intro:
-                    if y >= y_max:
-                        break
-                    _add(stdscr, y, 0, line)
-                    y += 1
+            # Keep count and report-media notice on the first screen. Page
+            # disk cards only — prepending intro as a follow-block lets
+            # _keep_selected_visible scroll the notice and serial off 80x24.
+            reserved = 4
+            for line in intro:
+                if y >= y_max - reserved:
+                    break
+                _add(stdscr, y, 0, line)
+                y += 1
             avail = max(1, y_max - y)
             page = max(1, avail - 2)
             pick_page = page

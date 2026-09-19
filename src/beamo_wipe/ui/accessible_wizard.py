@@ -733,6 +733,7 @@ class AccessibleWizard:
         self.window.present()
         if self.window.get_window():
             self.window.get_window().focus(Gdk.CURRENT_TIME)
+        self.arrival = arrival
         arrival.grab_focus()
         self.update_status()
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")

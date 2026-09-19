@@ -540,24 +540,27 @@ sys.exit(entry['main']())
             return
         app = app_box[0]
         drain()
-        # Rebuilds can Notify:True-focus an identical heading without
-        # generating speech. Blur, then refocus the matching widget so
+        # Rebuilds can Notify:True-focus the window frame without generating
+        # speech. Blur to a control, then refocus the arrival heading so
         # Orca emits a fresh SPEECH OUTPUT line. Accessible-name-only
         # still fails this wait.
+        arrival = getattr(app, "arrival", None)
         other = None
-        match = None
+        match = arrival if arrival is not None else None
         for widget in widgets(app.window):
+            if widget is arrival or isinstance(widget, Gtk.Window):
+                continue
             accessible = widget.get_accessible()
             name = accessible.get_name() if accessible is not None else ""
             label = widget.get_text() if isinstance(widget, Gtk.Label) else ""
             if match is None and (phrase in (name or "") or phrase in (label or "")):
                 match = widget
-            elif other is None and widget.get_can_focus():
+            elif other is None and widget.get_can_focus() and isinstance(widget, Gtk.Button):
                 other = widget
         if other is not None:
             other.grab_focus()
             drain()
-        target = match or app.window.get_focus()
+        target = match or arrival or app.window.get_focus()
         if target is not None:
             target.grab_focus()
             drain()
@@ -567,7 +570,7 @@ sys.exit(entry['main']())
         # events after a dense screen is destroyed before it speaks again.
         deadline = time.monotonic() + timeout
         nudges = 0
-        next_nudge = time.monotonic() + 2
+        next_nudge = time.monotonic()
         content = ""
         while time.monotonic() < deadline:
             drain()
