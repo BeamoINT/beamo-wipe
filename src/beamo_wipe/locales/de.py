@@ -455,6 +455,12 @@ STRINGS = {
         "OPERATION_N": "{count} Überschreibvorgänge",
         "OPERATION_VERIFIED": "{overwrites}, gefolgt von Prüfung.",
         "OPERATION_UNVERIFIED": "{overwrites}. Prüfung wird nicht durchgeführt.",
+        "MARK_NO_CHECK": "Keine Prüfung",
+        "MARK_MORE_OVERWRITES": "Mehr Überschreibungen",
+        "EXTRA_WORK_DOD": (
+            "Dreimal so viele Überschreibungen wie {everyday}. "
+            "Zusätzliche Durchgänge erreichen keinen versteckten Speicher."
+        ),
     },
     "power": {
         "AC_CONNECTED": "angeschlossen (gemeldet)",

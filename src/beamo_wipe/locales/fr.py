@@ -455,6 +455,12 @@ STRINGS = {
         "OPERATION_N": "{count} écrasements",
         "OPERATION_VERIFIED": "{overwrites}, suivi d’une vérification.",
         "OPERATION_UNVERIFIED": "{overwrites}. Vérification non effectuée.",
+        "MARK_NO_CHECK": "Sans contrôle",
+        "MARK_MORE_OVERWRITES": "Plus d’écrasements",
+        "EXTRA_WORK_DOD": (
+            "Trois fois plus d’écrasements que {everyday}. "
+            "Les passes supplémentaires n’atteignent pas le stockage caché."
+        ),
     },
     "power": {
         "AC_CONNECTED": "branché (signalé)",
