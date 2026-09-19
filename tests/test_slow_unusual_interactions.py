@@ -254,6 +254,8 @@ def test_tk_refresh_loop_beats_during_slow_discovery():
             app.root.after(50, beat)
 
     try:
+        app._click_refresh()
+        assert app.w.screen == Screen.REFRESH_CONFIRM
         app.root.after(50, beat)
         start = time.monotonic()
         app._click_refresh()
@@ -1032,6 +1034,9 @@ def test_tk_changed_media_refresh_clears_focus_selection():
     try:
         app._draw()
         app.root.update()
+        app._click_refresh()
+        assert wiz.screen == Screen.REFRESH_CONFIRM
+        assert wiz.selected is not None
         app._click_refresh()
         deadline = time.monotonic() + 5
         while wiz.screen == Screen.REFRESHING and time.monotonic() < deadline:
