@@ -15,7 +15,7 @@ from test_tk_runtime import MIN_WINDOW, _clipping_problems, _drive_to, _off_wind
 
 SCREENS = (
     Screen.KEYBOARD,
-    Screen.WHAT,
+    Screen.OWNER,
     Screen.PICK,
     Screen.CONFIRM,
     Screen.METHOD,
@@ -62,7 +62,7 @@ def _card_wrap_problems(app) -> list[str]:
 
 def _show(wiz, app, screen: Screen) -> None:
     if screen == Screen.REPORT_HELP:
-        _drive_to(wiz, app, Screen.WHAT)
+        _drive_to(wiz, app, Screen.OWNER)
         wiz.open_report_help()
         app._draw()
         app.root.update()
