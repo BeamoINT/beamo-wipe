@@ -1261,7 +1261,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 w,
             )
             lines.extend(
-                _lines(_error_recovery_text(wizard.error, recovered=wizard._recovered), w)
+                _lines(
+                    _error_recovery_text(
+                        wizard.error or C.IDENTIFY_ERROR,
+                        recovered=wizard._recovered,
+                    ),
+                    w,
+                )
             )
             if error_needs_support(wizard.error):
                 lines.extend(_lines(C.support_text(), w))
@@ -1276,6 +1282,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 ),
                 w,
             )
+            lines.extend(_lines(C.support_text(), w))
+            ident = _support_identity_text(wizard)
+            if ident:
+                lines.extend(_lines(ident, w))
             if wizard.empty_detail:
                 lines.append("")
                 lines.extend(_lines(wizard.empty_detail, w))
@@ -1287,11 +1297,6 @@ def _loop(stdscr, wizard: Wizard) -> int:
                         wizard.disk_view(wizard.protected_boot), w, indent="  "
                     )
                 )
-            lines.append("")
-            lines.extend(_lines(C.support_text(), w))
-            ident = _support_identity_text(wizard)
-            if ident:
-                lines.extend(_lines(ident, w))
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         elif wizard.screen == Screen.CONFIRM and wizard.selected:
             view = wizard.disk_view(wizard.selected)
@@ -1453,8 +1458,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             # First 80x24 page keeps the pre-#107 landmarks: outcome, next
             # step, post-erase note, Report status, then paged aftercare.
             # Disk identity stays reachable; support/meaning follow in the tail.
+            error_report = bool(report.evidence_error) or report.status == "error"
             lines = []
-            if wizard.selected:
+            if wizard.selected and not error_report:
                 lines.extend(_identity_field_lines(wizard.disk_view(wizard.selected), w))
             lines.extend(_lines(wizard.method_result, w))
             lines.extend(_lines(wizard.method_summary, w))
@@ -1474,6 +1480,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 )
             if report.evidence_error:
                 lines.extend(_lines(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}", w))
+                if report.status == "error":
+                    lines.extend(_lines(C.EXPORT_GUIDE_RETRY, w))
+            if wizard.selected and error_report:
+                lines.extend(_identity_field_lines(wizard.disk_view(wizard.selected), w))
             if wizard.done_support_needed:
                 lines.extend(_lines(C.support_text(), w))
             ident = _support_identity_text(wizard)
