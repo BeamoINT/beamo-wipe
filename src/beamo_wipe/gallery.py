@@ -1217,8 +1217,8 @@ function panel(kind, text, compact = false) {
   const sev = {warn: P.sevWarning, danger: P.sevError, ok: P.sevSaved, limits: P.sevLimits}[kind];
   const role = kind === "warn" || kind === "danger" ? ' role="alert"'
     : kind === "ok" ? ' role="status"' : kind === "limits" ? ' role="note"' : "";
-  const label = sev ? `<div class="sev">${sev}</div>` : "";
-  return `<div class="panel ${kind}${compact ? " compact-notice" : ""}"${role}>${badge(kind, 28)}<div>${label}${text}</div></div>`;
+  const label = sev ? `<div class="sev">${esc(sev)}</div>` : "";
+  return `<div class="panel ${kind}${compact ? " compact-notice" : ""}"${role}>${badge(kind, 28)}<div>${label}${esc(text)}</div></div>`;
 }
 function moreLink(controlsId) {
   const controls = controlsId ? ` aria-controls="${controlsId}"` : "";
@@ -1375,7 +1375,7 @@ function draw() {
   } else if (screen === "what") {
     main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
       <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
-      <div style="margin-top:12px">${panel("info", esc(P.reportMediaWhat), true)}</div>
+      <div style="margin-top:12px">${panel("info", P.reportMediaWhat, true)}</div>
       <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div>
       <div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>
@@ -1414,7 +1414,7 @@ function draw() {
     let html = `<h1 class="sub">${P.titles.pick}</h1><p class="subtitle">${P.pickSubtitle}</p>`;
     if (P.sameSizeConflict && mode === "happy") html += `<div style="margin-bottom:12px">${panel("warn", P.sameSize)}</div>`;
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("limits", P.ssd, true)}</div>`;
-    if (reportWanted) html += `<div style="margin-bottom:12px">${panel("info", esc(P.reportMediaWanted), true)}</div>`;
+    if (reportWanted) html += `<div style="margin-bottom:12px">${panel("info", P.reportMediaWanted, true)}</div>`;
     html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
     disks().filter(d => d.isBoot).forEach(d => { html += diskCard(d); });
@@ -1453,7 +1453,7 @@ function draw() {
       ${moreLink("more-detail")}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
       <p class="small muted" style="margin-top:8px">${P.confirmKeyboard}</p>
-      <p style="font-size:16px;margin:14px 0 8px;overflow-wrap:anywhere"><label for="tok">${d.prompt}</label></p>
+      <p style="font-size:16px;margin:14px 0 8px;overflow-wrap:anywhere"><label for="tok">${esc(d.prompt)}</label></p>
       <div class="entryshell"><input class="token" id="tok" aria-describedby="match" autocomplete="off" spellcheck="false"></div>
       <p class="match" id="match" role="status" aria-live="polite"></p></div></div>`;
     bindMore();

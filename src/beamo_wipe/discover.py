@@ -1134,8 +1134,12 @@ def run_lsblk() -> Dict[str, Any]:
             try:
                 from beamo_wipe.diagnostics import log_diag
 
-                detail = (exc.stderr or exc.stdout or "")[:300].replace("\n", " ").strip()
-                log_diag("discover", "lsblk_failed", f"exit={exc.returncode} {detail}")
+                detail = (exc.stderr or exc.stdout or "")
+                log_diag(
+                    "discover",
+                    "lsblk_failed",
+                    f"exit={exc.returncode} stderr_bytes={len(detail.encode('utf-8', 'replace'))}",
+                )
             except Exception:
                 pass
             raise
@@ -1162,9 +1166,13 @@ def run_lsblk() -> Dict[str, Any]:
         try:
             from beamo_wipe.diagnostics import log_diag
 
-            detail = (proc.stderr or "")[:300].replace("\n", " ").strip()
+            detail = (proc.stderr or "").strip()
             if detail:
-                log_diag("discover", "lsblk_stderr", detail)
+                log_diag(
+                    "discover",
+                    "lsblk_stderr",
+                    f"stderr_bytes={len(detail.encode('utf-8', 'replace'))}",
+                )
         except Exception:
             pass
     return load_lsblk_json_text(proc.stdout)
@@ -1466,7 +1474,7 @@ def discover(
             # Sanitize: type + first 250 chars of message, no payload dump
             detail = f"{type(exc).__name__}: {str(exc)[:200]}"
             if isinstance(exc, subprocess.CalledProcessError) and getattr(exc, "stderr", None):
-                detail += f" stderr:{str(exc.stderr)[:120].replace(chr(10), ' ')}"
+                detail += f" stderr_bytes={len(str(exc.stderr).encode('utf-8', 'replace'))}"
             log_diag("discover", "failed", detail[:300])
         except Exception:
             pass

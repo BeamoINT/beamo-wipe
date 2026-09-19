@@ -13,6 +13,7 @@ trap 'exit 0' TERM HUP
 trap '' TSTP INT QUIT
 
 boot_ui_mode() {
+  set -f
   # shellcheck disable=SC2013,SC2046
   for word in $(cat "$1" 2>/dev/null); do
     case "$word" in

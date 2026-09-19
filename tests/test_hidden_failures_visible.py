@@ -48,7 +48,8 @@ def test_run_lsblk_stderr_is_logged_and_preserved():
             assert lg.called
             area, code, detail = lg.call_args[0]
             assert area == "discover" and code == "lsblk_failed"
-            assert "permission denied" in detail.lower()
+            assert "stderr_bytes=" in detail
+            assert "permission denied" not in detail.lower()
 
 
 def test_findmnt_timeout_is_logged(tmp_path, monkeypatch):

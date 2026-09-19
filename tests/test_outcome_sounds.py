@@ -147,7 +147,7 @@ def test_outcome_play_is_fire_and_forget(monkeypatch):
             return 0
 
     monkeypatch.setattr(subprocess, "Popen", FakePopen)
-    monkeypatch.setattr(sound.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", lambda name: f"/usr/bin/{name}")
     result = sound.play_outcome(sound.KIND_ATTENTION)
     assert result.ok is True
     assert len(launched) == 1

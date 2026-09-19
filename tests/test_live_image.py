@@ -285,9 +285,12 @@ def test_bootloaders_autostart_the_normal_live_entry():
     assert "default vesamenu.c32" in isolinux
     assert "prompt 0" in isolinux
     assert "timeout 50" in isolinux  # Syslinux units are tenths of a second.
+    assert "NOESCAPE 1" in isolinux
+    assert "ALLOWOPTIONS 0" in isolinux
     assert "timeout 0" not in isolinux
     assert "set default=0" in grub
     assert "set timeout=5" in grub
+    assert 'set superusers="beamo"' in grub
 
 
 def test_live_supervisor_falls_back_to_console_after_x_failure():

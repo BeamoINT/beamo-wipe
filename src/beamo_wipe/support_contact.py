@@ -32,6 +32,8 @@ def qr_error_correction() -> str:
 @functools.lru_cache(maxsize=4)
 def qr_matrix(payload: str = SUPPORT_URL) -> tuple[tuple[bool, ...], ...]:
     """Deterministic dark-module matrix with a quiet-zone border."""
+    if payload != SUPPORT_URL:
+        raise ValueError("QR payload must be the verified support URL.")
     import qrcode
     from qrcode.constants import ERROR_CORRECT_H
 
@@ -46,6 +48,8 @@ def qr_matrix(payload: str = SUPPORT_URL) -> tuple[tuple[bool, ...], ...]:
 
 def qr_svg(payload: str = SUPPORT_URL) -> str:
     """Offline vector QR for gallery and REPORT.html. No scripts, no links."""
+    if payload != SUPPORT_URL:
+        raise ValueError("QR payload must be the verified support URL.")
     matrix = qr_matrix(payload)
     size = len(matrix)
     rects = []

@@ -55,7 +55,7 @@ def _fake_pactl(
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(sound.subprocess, "run", fake_run)
-    monkeypatch.setattr(sound.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(sound, "running_on_live_usb", lambda: True)
 
 
@@ -142,7 +142,7 @@ def test_speech_test_uses_orca_chain_then_falls_back(monkeypatch):
     from beamo_wipe import sound
 
     calls = []
-    monkeypatch.setattr(sound.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(sound, "running_on_live_usb", lambda: True)
 
     def speak_ok(argv, **kwargs):
@@ -176,7 +176,7 @@ def test_orca_status_distinguishes_dead_from_unknown(monkeypatch):
     """Would fail with no Orca check: rc 0/1/other map distinctly."""
     from beamo_wipe import sound
 
-    monkeypatch.setattr(sound.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(sound, "running_on_live_usb", lambda: True)
     for code, expected in ((0, True), (1, False), (2, None)):
         monkeypatch.setattr(
