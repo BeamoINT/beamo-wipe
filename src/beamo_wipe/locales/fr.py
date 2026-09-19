@@ -51,7 +51,7 @@ STRINGS = {
         "PREPARE_SYSTEM": "Ce disque sélectionné montre des partitions de système d’exploitation. L’effacer supprime aussi le système d’exploitation, les applications, les fichiers et les partitions de récupération de ce disque.",
         "PREPARE_DATA": "Ce disque sélectionné ne montre pas de partitions de système d’exploitation. L’effacer supprime quand même tous les fichiers de ce disque.",
         "PREPARE_UNKNOWN": "Effacer ce disque sélectionné supprime tous ses fichiers, y compris tout système d’exploitation, applications, fichiers et partitions de récupération de ce disque.",
-        "SECURE_BOOT_HINT": "Si cette clé USB n’apparaît pas sur un autre ordinateur, vous devrez peut-être autoriser le démarrage USB dans les réglages de cet ordinateur.",
+        "SECURE_BOOT_HINT": "Cette clé USB utilise les fichiers de démarrage signés de Debian. Si elle n’apparaît pas, vous devrez peut-être autoriser le démarrage USB dans les réglages de cet ordinateur. Beamo Wipe ne change pas Secure Boot.",
         "ENGINE_LINE": "Ceci utilise nwipe, un logiciel libre qui efface les disques.",
         "OWNER_CHECKBOX": "Je possède cet ordinateur et ces disques, ou j’ai une autorisation écrite pour les effacer.",
         "STARTUP_TITLE": "Démarrage de Beamo Wipe",

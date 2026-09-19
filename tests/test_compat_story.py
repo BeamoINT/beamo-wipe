@@ -246,3 +246,63 @@ def test_support_sentence_uses_application_identity():
     )
     assert customer_label(STATUS_DIRTY, packaged=True).startswith("This USB was built from changed source")
     assert customer_label(STATUS_PRODUCTION, packaged=False) == SOURCE_STUB
+
+
+def test_this_usb_card_precedes_the_startup_chooser():
+    html = _html()
+    assert html.index('id="this-usb"') < html.index('id="guide"')
+    assert html.index('id="this-usb"') < html.index('aria-label="Startup problems"')
+    assert html.index('id="guide"') < html.index('id="trouble-usb"')
+    assert 'class="support-qr"' in html
+    assert "BitLocker" in html
+    assert "not the same on every PC" in html
+
+
+def test_usb_story_strings_stay_on_the_swept_copy_surface():
+    """Aliases like SECURE_BOOT_HINT = COMPAT_… drop off language sweep."""
+    from beamo_wipe.compat_story import SECURE_BOOT_HINT as STORY_HINT
+    from beamo_wipe.demo import discovery_for_scenario
+    from beamo_wipe.inventory import count_summary
+    from test_language_selection import _swept_surface
+
+    keys = set(_swept_surface()["copy"])
+    assert "WHAT_BULLETS" in keys
+    assert "SECURE_BOOT_HINT" in keys
+    assert PLATFORMS == WHAT_BULLETS[-1]
+    assert STORY_HINT == SECURE_BOOT_HINT
+    summary = count_summary(discovery_for_scenario("happy"))
+    assert isinstance(summary, str) and summary.strip()
+
+
+def test_what_screen_keeps_title_and_shows_this_usb_line():
+    """this_usb_line is supporting copy, not a rewritten WHAT heading."""
+    from gi.repository import Atk, Gtk
+
+    from beamo_wipe import copy as C
+    from beamo_wipe.models import Screen
+    from beamo_wipe.ui.accessible_wizard import AccessibleWizard
+    from test_accessible_runtime import drain, make_demo_wizard, text, widgets
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.WHAT
+    app = AccessibleWizard(wizard)
+    try:
+        drain()
+        heading = app.window.get_focus()
+        assert isinstance(heading, Gtk.Label)
+        assert heading.get_text() == C.TITLE_WHAT
+        shown = text(app)
+        assert C.this_usb_line() in shown
+        assert C.TITLE_WHAT in shown
+        heading_names = [
+            widget.get_accessible().get_name()
+            for widget in widgets(app.window)
+            if widget.get_accessible().get_role() == Atk.Role.HEADING
+        ]
+        assert C.this_usb_line() not in heading_names
+        assert not any(
+            (name or "").startswith(C.this_usb_line()) for name in heading_names
+        )
+    finally:
+        app.close()
+        drain()

@@ -21,10 +21,6 @@ from beamo_wipe.models import (
     Screen,
 )
 from beamo_wipe.methods import METHODS
-from beamo_wipe.compat_story import (
-    PLATFORMS,
-    SECURE_BOOT_HINT as COMPAT_SECURE_BOOT_HINT,
-)
 
 APP_NAME = "Beamo Wipe"
 
@@ -143,7 +139,10 @@ WHAT_BULLETS = (
     "Everything on that disk will be erased. You cannot get the files back.",
     "If that disk holds an operating system, erasing it also removes "
     "Windows or Linux, applications, files, and recovery partitions on that disk.",
-    PLATFORMS,
+    # Literal must stay in lockstep with compat_story.PLATFORMS so language
+    # sweep still sees WHAT_BULLETS (aliases are invisible to ast.literal_eval).
+    "For 64-bit Intel/AMD Windows or Linux PCs that start from this USB. "
+    "Not Apple Silicon Macs. Not Chromebooks.",
 )
 
 POWER_REMINDER = (
@@ -184,7 +183,12 @@ PREPARE_UNKNOWN = (
 )
 
 # Closed-by-default Show more. Help first; nwipe by name only for honesty.
-SECURE_BOOT_HINT = COMPAT_SECURE_BOOT_HINT
+# Literal must stay in lockstep with compat_story.SECURE_BOOT_HINT.
+SECURE_BOOT_HINT = (
+    "This USB uses Debian's signed boot files. If it does not show up, you may "
+    "need to allow USB start in that computer's settings. Beamo Wipe does not "
+    "change Secure Boot."
+)
 
 ENGINE_LINE = "This uses nwipe, free software that erases disks."
 
