@@ -1258,11 +1258,6 @@ def _loop(stdscr, wizard: Wizard) -> int:
             # step, post-erase note, Report status, then paged aftercare.
             # Labeled meaning/technical follow in the paged tail.
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
-            if wizard.done_support_needed:
-                y = _wrap(stdscr, y, C.support_text(), w, y_max)
-            ident = _support_identity_text(wizard)
-            if ident:
-                y = _wrap(stdscr, y, ident, w, y_max)
             if may_have_erased(wizard.result_view.code):
                 y = _wrap(stdscr, y, C.POST_ERASE_BOOT, w, y_max)
             y = _wrap(stdscr, y, C.REPORT_STATUS_TITLE, w, y_max)
@@ -1274,6 +1269,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
                         can_save=report.can_save, status=report.status, message=report.message
                     )
                 )
+            if report.evidence_error:
+                paras.append(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}")
+            if wizard.done_support_needed:
+                paras.append(C.support_text())
+            ident = _support_identity_text(wizard)
+            if ident:
+                paras.append(ident)
             if sections:
                 from beamo_wipe import recovery as Rec
 
@@ -1284,8 +1286,6 @@ def _loop(stdscr, wizard: Wizard) -> int:
             paras.append(C.REPORT_STATUS_NOTICE)
             if wizard.check_alerts:
                 paras.extend(f"{C.SEVERITY_WARNING}: {alert}" for alert in wizard.check_alerts)
-            if report.evidence_error:
-                paras.append(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}")
             content = "\n".join(paras)
             lines = [line for paragraph in content.split("\n") for line in _lines(paragraph, w)]
             page_size = max(1, y_max - y)
