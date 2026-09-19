@@ -291,15 +291,22 @@ LAST_LEAD = (
 )
 AUTHORIZATION_STALE = "The disk or method changed. Confirm again."
 
-METHOD_CARDS = {
-    method: {
-        "title": spec.title,
-        "blurb": spec.overwrite_description,
-        "pace": spec.verification_description,
-        "key": str(index),
+def _method_cards() -> dict:
+    return {
+        method: {
+            "title": spec.title,
+            "blurb": spec.overwrite_description,
+            "pace": spec.verification_description,
+            "mark": spec.comparison_mark,
+            "extra": spec.extra_work,
+            "checks": spec.verification_passes > 0,
+            "key": str(index),
+        }
+        for index, (method, spec) in enumerate(METHODS.items(), 1)
     }
-    for index, (method, spec) in enumerate(METHODS.items(), 1)
-}
+
+
+METHOD_CARDS = _method_cards()
 
 ADVANCED_LEAD = (
     "These are the nwipe names. For technicians. The other screens stay simple."
@@ -936,15 +943,7 @@ def _apply_language() -> None:
     SSD_FOOTER = _limits.OVERWRITE_LIMITS + SSD_FOOTER_SUFFIX
     DONE_OK = _outcomes.VIEWS["verified"].message
     DONE_FAIL = _outcomes.VIEWS["engine_failed"].announcement
-    METHOD_CARDS = {
-        method: {
-            "title": spec.title,
-            "blurb": spec.overwrite_description,
-            "pace": spec.verification_description,
-            "key": str(index),
-        }
-        for index, (method, spec) in enumerate(METHODS.items(), 1)
-    }
+    METHOD_CARDS = _method_cards()
     STOP_LEAD = _outcomes.STOP_WARNING + STOP_LEAD_SUFFIX
     WHAT_MORE = SECURE_BOOT_HINT + " " + ENGINE_LINE
     REPORT_HELP_SECTIONS = (

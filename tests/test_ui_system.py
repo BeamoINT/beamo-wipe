@@ -313,6 +313,36 @@ def test_done_preview_does_not_repeat_the_announcement():
     assert "${result.announcement}" not in html
 
 
+def test_method_tradeoffs_are_comparable():
+    """Would fail when Quick zero looked like the others and Extra hid extra work."""
+    from beamo_wipe.methods import METHODS
+    from beamo_wipe.models import MethodId
+
+    everyday = METHODS[MethodId.EVERYDAY]
+    extra = METHODS[MethodId.EXTRA]
+    quick = METHODS[MethodId.QUICK_ZERO]
+    assert everyday.comparison_mark == ""
+    assert extra.comparison_mark == "More overwrites"
+    assert quick.comparison_mark == "No check"
+    assert "hidden storage" in extra.extra_work
+    assert "Everyday" in extra.extra_work
+    assert not everyday.extra_work and not quick.extra_work
+    cards = C.METHOD_CARDS
+    assert cards[MethodId.QUICK_ZERO]["mark"] == "No check"
+    assert cards[MethodId.QUICK_ZERO]["checks"] is False
+    assert cards[MethodId.EXTRA]["extra"] == extra.extra_work
+    assert cards[MethodId.EVERYDAY]["checks"] is True
+    html = gallery_html()
+    assert "No check" in html
+    assert "More overwrites" in html
+    assert extra.extra_work in html
+    assert "does not check the overwrite" in html
+    method_src = inspect.getsource(tkui.TkWizard._method_card)
+    assert 'card_copy["mark"]' in method_src
+    assert 'card_copy["checks"]' in method_src
+    assert 'card_copy["extra"]' in method_src
+
+
 def test_method_cards_use_plain_check_language():
     """Would fail on 'read-back verification pass' method-card pace."""
     from beamo_wipe.methods import METHODS

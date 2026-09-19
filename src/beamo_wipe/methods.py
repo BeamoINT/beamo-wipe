@@ -24,6 +24,12 @@ OPERATION_THREE = "Three overwrites"
 OPERATION_N = "{count} overwrites"
 OPERATION_VERIFIED = "{overwrites}, followed by verification."
 OPERATION_UNVERIFIED = "{overwrites}. Verification is not performed."
+MARK_NO_CHECK = "No check"
+MARK_MORE_OVERWRITES = "More overwrites"
+EXTRA_WORK_DOD = (
+    "Three times the overwrites of {everyday}. "
+    "Extra passes do not reach hidden storage."
+)
 
 
 @dataclass(frozen=True)
@@ -71,6 +77,21 @@ class NwipeMethodSpec:
         if n == 1:
             return VERIFY_LAST
         return VERIFY_N.format(n=n)
+
+    @property
+    def comparison_mark(self) -> str:
+        """Short scan label for the method list. Everyday uses Recommended."""
+        if self.verify == "off":
+            return MARK_NO_CHECK
+        if self.overwrite_passes > 1:
+            return MARK_MORE_OVERWRITES
+        return ""
+
+    @property
+    def extra_work(self) -> str:
+        if self.overwrite_passes > 1:
+            return EXTRA_WORK_DOD.format(everyday=TITLE_PRNG)
+        return ""
 
     @property
     def description(self) -> str:

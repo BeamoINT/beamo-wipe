@@ -110,6 +110,9 @@ def test_cards_gallery_and_plain_console(
     card = C.METHOD_CARDS[method]
     assert f"{writes} overwrite" in card["blurb"]
     assert card["blurb"] + " " + card["pace"] == spec.description
+    assert card["mark"] == spec.comparison_mark
+    assert card["extra"] == spec.extra_work
+    assert card["checks"] is (reads > 0)
     if reads:
         assert "check the last overwrite" in card["pace"]
     else:
