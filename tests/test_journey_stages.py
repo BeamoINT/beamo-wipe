@@ -125,7 +125,9 @@ def test_accessible_view_announces_stage_separately_from_wipe_percent():
         / "ui"
         / "accessible_wizard.py"
     ).read_text(encoding="utf-8")
-    assert "journey_announcement" in gtk_src or "journey_caption" in gtk_src
+    assert "journey_announcement" in gtk_src
+    assert "set_description" in gtk_src
+    assert 'f"{spoken_stage} {heading.get_text()}"' not in gtk_src
     assert C.journey_announcement(Screen.WORKING) == "Erase."
     assert C.journey_announcement(Screen.DONE) == "Result."
     assert "%" not in C.journey_announcement(Screen.WORKING)
