@@ -1183,25 +1183,38 @@ def _loop(stdscr, wizard: Wizard) -> int:
             mark = "[X]" if wizard.owner_ok else "[ ]"
             _wrap(stdscr, min(y + 1, y_max - 1), C.CON_OWNER_CHECK.format(mark=mark), w, y_max)
         elif wizard.screen == Screen.PICK:
-            intro: list[str] = []
-            intro.extend(_lines(C.pick_subtitle(), w))
-            intro.extend(_lines(wizard.inventory_count, w))
-            if wizard.report_wanted:
-                intro.extend(_lines(C.REPORT_MEDIA_WANTED, w))
-            if same_size_conflict(wizard.listed_disks):
-                intro.extend(_lines(f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}", w))
-            if wizard.error:
-                intro.extend(_lines(_error_recovery_text(wizard.error), w))
-                if error_needs_support(wizard.error):
-                    intro.extend(_lines(C.support_text(), w))
             blocks = _pick_blocks(wizard, w)
-            # Keep count and report-media notice on the first screen. Page
-            # disk cards only — prepending intro as a follow-block lets
-            # _keep_selected_visible scroll the notice and serial off 80x24.
-            reserved = 4
-            for line in intro:
-                if y >= y_max - reserved:
+            first_disk = next((disk for disk, _block in blocks if disk is not None), None)
+            first_block = next((block for disk, block in blocks if disk is first_disk), [])
+            identity_rows = 0
+            serial = first_disk.serial or "" if first_disk is not None else ""
+            for index, line in enumerate(first_block):
+                identity_rows = index + 1
+                if serial and serial in line:
                     break
+            total_block_lines = sum(len(block) for _disk, block in blocks)
+            hint_rows = 2 if total_block_lines > identity_rows else 0
+            intro_budget = max(0, y_max - y - identity_rows - hint_rows)
+            warning_lines: list[str] = []
+            if wizard.report_wanted:
+                warning_lines.extend(_lines(C.REPORT_MEDIA_WANTED, w))
+            if same_size_conflict(wizard.listed_disks):
+                warning_lines.extend(_lines(f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}", w))
+            if wizard.error:
+                warning_lines.extend(_lines(_error_recovery_text(wizard.error), w))
+                if error_needs_support(wizard.error):
+                    warning_lines.extend(_lines(C.support_text(), w))
+            intro: list[str] = []
+            for group in (
+                warning_lines,
+                _lines(wizard.inventory_count, w),
+                _lines(C.pick_subtitle(), w),
+            ):
+                if group and len(intro) + len(group) <= intro_budget:
+                    intro.extend(group)
+            # Keep complete warning/count lines sticky. Page disk cards only
+            # so follow-scroll cannot push serial or the USB notice off-screen.
+            for line in intro:
                 _add(stdscr, y, 0, line)
                 y += 1
             avail = max(1, y_max - y)

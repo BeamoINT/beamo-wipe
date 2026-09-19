@@ -240,6 +240,20 @@ def test_curses_pick_shows_the_count(monkeypatch):
     assert "1 other device not available" in shown
 
 
+def test_curses_narrow_pick_keeps_count_serial_and_same_size_warning(monkeypatch):
+    from test_console_parity import _at_pick, _draw
+
+    wiz = _at_pick()
+    first = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    shown, packed, _term = _draw(monkeypatch, wiz, h=16, w=48)
+    assert "3 disks available to erase" in packed
+    assert "Beamo USB" in packed
+    assert "1 other device not available" in packed
+    assert first.serial in packed
+    assert "same size" in shown.lower()
+    assert "serial or hardware ID" in shown
+
+
 @pytest.mark.parametrize(
     "scenario,screen,phrase",
     [
