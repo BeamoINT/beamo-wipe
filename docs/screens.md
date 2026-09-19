@@ -61,6 +61,10 @@ control is already named. The 80×24 console prints primary actions first
 and drops extra chrome before an action is clipped. The boot helper has no
 wizard footer.
 
+Buttons, compact check rows, refresh, diagnostics, storage limits, and report
+preferences share hover, press, focus, checked, and disabled treatment.
+Disabled ghosts stay quiet. GTK keeps native check and radio roles.
+
 Tk and the keyboard console support Tab, Enter, Escape, disk-selection arrows,
 1–2–3 for keyboard layouts and methods. L opens full limits from method selection. The 80×24
 console uses the same customer screen titles as Tk and the gallery, wraps every identity
