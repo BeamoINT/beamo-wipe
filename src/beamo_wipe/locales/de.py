@@ -413,6 +413,7 @@ STRINGS = {
         "REASON_CAPACITY_UNKNOWN": "Kapazität nicht bestätigt",
         "REASON_ZERO_CAPACITY": "Kapazität null",
         "REASON_ELIGIBILITY": "Eignung nicht bestätigt",
+        "REASON_UNPROVEN_TRANSPORT": "lokale Verbindung nicht bestätigt",
         "EMPTY_STEPS": "Es ist kein geeigneter Datenträger verfügbar. Lesen Sie die Gründe unten. Lassen Sie den Beamo-USB-Stick angeschlossen. Fahren Sie herunter, bevor Sie Anschlüsse prüfen. Wenn ein Datenträger nicht verfügbar bleibt oder seine Identität unsicher ist, wenden Sie sich an den Support. Umgehen Sie den Schutz nicht.",
         "KIND_PART": "Partition",
         "KIND_CRYPT": "Verschlüsseltes Volume",

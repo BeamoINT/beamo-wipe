@@ -47,6 +47,7 @@ def _payload_with_target(*, tran, path="/dev/sda", name="sda"):
 
 def test_empty_or_null_scsi_tran_is_not_wipeable():
     from beamo_wipe.discover import parse_lsblk_json
+    from beamo_wipe.inventory import REASON_UNPROVEN_TRANSPORT, other_devices
     from beamo_wipe.safety import is_unproven_scsi_transport, selectable_disks
 
     for tran in ("", None):
@@ -55,6 +56,8 @@ def test_empty_or_null_scsi_tran_is_not_wipeable():
         assert target.bus == "other"
         assert is_unproven_scsi_transport(target)
         assert target.path not in {d.path for d in selectable_disks(result)}
+        excluded = next(d for d in other_devices(result) if "Serial: TGT1" in d.identity)
+        assert REASON_UNPROVEN_TRANSPORT in excluded.reasons
 
 
 def test_virtio_and_named_local_buses_stay_selectable():

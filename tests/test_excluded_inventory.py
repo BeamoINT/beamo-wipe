@@ -24,6 +24,7 @@ def node(name, **changes):
         ro=False,
         mountpoints=[],
         rota=None,
+        tran="sata",
     )
     data.update(changes)
     return data
@@ -32,7 +33,7 @@ def node(name, **changes):
 def inventory_wizard():
     payload = {
         "blockdevices": [
-            node("sda"),
+            node("sda", tran="sata"),
             node("sdb", mountpoints=["/run/live/medium"]),
             node("sdc", mountpoints=["/media/data"], ro=True),
             node("sdd", size=0),

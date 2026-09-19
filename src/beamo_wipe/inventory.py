@@ -18,6 +18,7 @@ REASON_READ_ONLY = "read-only"
 REASON_CAPACITY_UNKNOWN = "capacity could not be confirmed"
 REASON_ZERO_CAPACITY = "zero capacity"
 REASON_ELIGIBILITY = "eligibility could not be confirmed"
+REASON_UNPROVEN_TRANSPORT = "local connection could not be confirmed"
 # Nested cards already say they cannot be erased separately. Keep other
 # reasons (mounted, protected) visible; drop the generic whole-disk label.
 NESTED_SILENT_REASONS = frozenset({REASON_UNSUPPORTED})
@@ -99,6 +100,7 @@ def excluded_device(
         has_any_mount,
         has_protected_mount,
         is_remote_disk,
+        is_unproven_scsi_transport,
         normalize_whole_disk,
     )
 
@@ -119,6 +121,8 @@ def excluded_device(
         unsupported = True
     if unsupported or is_remote_disk(disk):
         reasons.append(REASON_UNSUPPORTED)
+    if is_unproven_scsi_transport(disk):
+        reasons.append(REASON_UNPROVEN_TRANSPORT)
     if not reasons:
         reasons.append(REASON_ELIGIBILITY)
     from beamo_wipe.identity import present_disk

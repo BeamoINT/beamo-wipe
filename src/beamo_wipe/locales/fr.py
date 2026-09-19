@@ -413,6 +413,7 @@ STRINGS = {
         "REASON_CAPACITY_UNKNOWN": "capacité non confirmée",
         "REASON_ZERO_CAPACITY": "capacité nulle",
         "REASON_ELIGIBILITY": "admissibilité non confirmée",
+        "REASON_UNPROVEN_TRANSPORT": "connexion locale non confirmée",
         "EMPTY_STEPS": "Aucun disque admissible disponible. Lisez les raisons ci-dessous. Gardez la clé USB Beamo branchée. Éteignez avant de vérifier les branchements. Si un disque reste indisponible ou si son identité est incertaine, contactez l’assistance. Ne contournez pas la protection.",
         "KIND_PART": "Partition",
         "KIND_CRYPT": "Volume chiffré",

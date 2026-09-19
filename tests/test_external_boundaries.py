@@ -72,7 +72,16 @@ def test_lsblk_control_chars_truncated_and_no_injection():
     assert "\x00" not in _clean(raw["label"])
     assert "\n" not in _clean(raw["label"])
     assert len(_clean(raw["serial"])) == 128
-    payload = _payload({"name": "sda", "path": "/dev/sda", "size": 10, "type": "disk", "label": "CTRL\nBAD"})
+    payload = _payload(
+        {
+            "name": "sda",
+            "path": "/dev/sda",
+            "size": 10,
+            "type": "disk",
+            "tran": "sata",
+            "label": "CTRL\nBAD",
+        }
+    )
     r = parse_lsblk_json(payload, boot_path=None, require_boot=False)
     # _clean strips control chars without replacement
     assert r.selectable[0].label == "CTRLBAD"
