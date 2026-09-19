@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 from beamo_wipe import copy as C
@@ -28,13 +29,24 @@ from beamo_wipe.recovery import (
 from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe import keyboard as _keyboard
 from beamo_wipe.keyboard import LAYOUT_ORDER
-from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER, current as current_language, is_supported, set_language
+from beamo_wipe.lang import (
+    LANGUAGE_NAMES,
+    LANGUAGE_ORDER,
+    current as current_language,
+    is_supported,
+    set_language,
+)
 from beamo_wipe.methods import METHODS
 from beamo_wipe.models import MethodId
 from beamo_wipe import progress as _progress
 from beamo_wipe.power import PowerStatus
-from beamo_wipe.identity import present_disk
-from beamo_wipe.safety import SafetyError, confirm_spec, listed_disks, same_size_conflict
+from beamo_wipe import identity as _identity
+from beamo_wipe.safety import (
+    SafetyError,
+    confirm_spec,
+    listed_disks,
+    same_size_conflict,
+)
 
 
 def project_root() -> Path:
@@ -100,7 +112,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 spec = confirm_spec(disk, peers)
             except SafetyError:
                 spec = None
-        view = present_disk(disk, peers, compare_serials=True)
+        view = _identity.present_disk(disk, peers, compare_serials=True)
         components = [
             {
                 "heading": inventory.nested_heading(child),
@@ -140,11 +152,255 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
     return out
 
 
+def _serialize_progress(view: _progress.ProgressView) -> dict:
+    """JSON for one ProgressView. Working preview never paints 100%."""
+    from beamo_wipe.wizard import format_progress_percent
+
+    percent = view.percent
+    if percent is not None and percent >= 100.0:
+        percent = None
+        percent_text = ""
+    elif percent is None:
+        percent_text = ""
+    elif view.percent_is_old:
+        percent_text = f"{format_progress_percent(percent)} (old)"
+    else:
+        percent_text = format_progress_percent(percent)
+    marked = None if view.mismatch else view.position
+    return {
+        "percent": percent,
+        "percentText": percent_text,
+        "percentIsOld": view.percent_is_old,
+        "animate": view.animate,
+        "timingText": view.timing_text,
+        "statusText": view.status_text,
+        "stepText": _progress.step_text(
+            view.stages,
+            view.position,
+            view.mismatch,
+            view.step_percent,
+            view.percent_is_old,
+        ),
+        "sequence": (
+            _progress.sequence_text(view.stages, marked).split("\n")
+            if view.stages
+            else []
+        ),
+        "phaseNote": _progress.phase_note(view.phase, view.mismatch),
+        "staleBlock": _progress.stale_block(view.stale_for),
+    }
+
+
+def _progress_preview_payload() -> dict:
+    """Canned ProgressView snapshots. Gallery must render these, not invent stages."""
+    from beamo_wipe.nwipe_runner import _synthetic_observation
+
+    everyday = _progress.plan_stages(
+        METHODS[MethodId.EVERYDAY].overwrite_passes,
+        bool(METHODS[MethodId.EVERYDAY].verification_passes),
+    )
+    extra = _progress.plan_stages(
+        METHODS[MethodId.EXTRA].overwrite_passes,
+        bool(METHODS[MethodId.EXTRA].verification_passes),
+    )
+    quick = _progress.plan_stages(
+        METHODS[MethodId.QUICK_ZERO].overwrite_passes,
+        bool(METHODS[MethodId.QUICK_ZERO].verification_passes),
+    )
+
+    def view(**kwargs: Any) -> _progress.ProgressView:
+        base: dict[str, Any] = dict(
+            phase="Writing",
+            percent=42.0,
+            elapsed=45.0,
+            remaining=None,
+            stale_for=None,
+            percent_is_old=False,
+            stages=everyday,
+            position=0,
+            mismatch=False,
+            step_percent=42.0,
+            estimate_state=_progress.ESTIMATE_EARLY,
+        )
+        base.update(kwargs)
+        return _progress.ProgressView(
+            phase=base["phase"],
+            percent=base["percent"],
+            elapsed=base["elapsed"],
+            remaining=base["remaining"],
+            stale_for=base["stale_for"],
+            percent_is_old=base["percent_is_old"],
+            stages=base["stages"],
+            position=base["position"],
+            mismatch=base["mismatch"],
+            step_percent=base["step_percent"],
+            estimate_state=base["estimate_state"],
+        )
+
+    writing_obs = _synthetic_observation(MethodId.EVERYDAY, 0.42, 42.0, 100.0)
+    w_pos, w_mis = _progress.locate_stage(everyday, writing_obs)
+    verifying_obs = _synthetic_observation(MethodId.EVERYDAY, 0.80, 80.0, 100.0)
+    v_pos, v_mis = _progress.locate_stage(everyday, verifying_obs)
+    extra_obs = _synthetic_observation(MethodId.EXTRA, 0.40, 40.0, 100.0)
+    e_pos, e_mis = _progress.locate_stage(extra, extra_obs)
+    bad = _progress.Observation(
+        record="dry-run:mismatch",
+        percent=50.0,
+        phase="Verifying",
+        counters=(1, 1, 1, 1),
+        engine_eta=10,
+        quantum=0.1,
+    )
+    m_pos, m_mis = _progress.locate_stage(quick, bad)
+
+    states = {
+        "preparing": _serialize_progress(
+            view(
+                phase="Preparing",
+                percent=None,
+                position=None,
+                mismatch=False,
+                step_percent=None,
+                estimate_state=_progress.ESTIMATE_EARLY,
+            )
+        ),
+        "writing": _serialize_progress(
+            view(
+                phase=writing_obs.phase,
+                percent=42.0,
+                position=w_pos,
+                mismatch=w_mis,
+                step_percent=None if w_pos is None or w_mis else writing_obs.percent,
+                estimate_state=_progress.ESTIMATE_EARLY,
+            )
+        ),
+        "stale": _serialize_progress(
+            view(
+                phase="Writing",
+                percent=42.0,
+                stale_for=12.0,
+                percent_is_old=True,
+                position=w_pos,
+                mismatch=w_mis,
+                step_percent=42.0,
+                estimate_state=_progress.ESTIMATE_PAUSED,
+            )
+        ),
+        "verifying": _serialize_progress(
+            view(
+                phase=verifying_obs.phase,
+                percent=80.0,
+                position=v_pos,
+                mismatch=v_mis,
+                step_percent=(
+                    None if v_pos is None or v_mis else verifying_obs.percent
+                ),
+                estimate_state="",
+            )
+        ),
+        "mismatch": _serialize_progress(
+            view(
+                phase="Verifying",
+                percent=50.0,
+                stages=quick,
+                position=m_pos,
+                mismatch=m_mis,
+                step_percent=None,
+                estimate_state="",
+            )
+        ),
+        "stopping": _serialize_progress(
+            view(
+                phase="Stopping",
+                percent=42.0,
+                remaining=None,
+                stale_for=None,
+                percent_is_old=False,
+                position=w_pos,
+                mismatch=False,
+                step_percent=42.0,
+                estimate_state="",
+            )
+        ),
+        "unknown": _serialize_progress(
+            view(
+                phase=_progress.PHASE_UNKNOWN,
+                percent=None,
+                position=None,
+                mismatch=False,
+                step_percent=None,
+                estimate_state=_progress.ESTIMATE_NO_ETA,
+            )
+        ),
+        "extra_writing": _serialize_progress(
+            view(
+                phase=extra_obs.phase,
+                percent=40.0,
+                stages=extra,
+                position=e_pos,
+                mismatch=e_mis,
+                step_percent=None if e_pos is None or e_mis else extra_obs.percent,
+                estimate_state=_progress.ESTIMATE_LAST_STEP,
+            )
+        ),
+    }
+
+    demo: dict[str, list] = {}
+    for mid in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
+        spec = METHODS[mid]
+        stages = _progress.plan_stages(
+            spec.overwrite_passes, bool(spec.verification_passes)
+        )
+        frames = [
+            {
+                "frac": 0.0,
+                "state": _serialize_progress(
+                    view(
+                        phase="Preparing",
+                        percent=None,
+                        stages=stages,
+                        position=None,
+                        mismatch=False,
+                        step_percent=None,
+                        estimate_state=_progress.ESTIMATE_EARLY,
+                    )
+                ),
+            }
+        ]
+        for i in range(1, 13):
+            frac = min(0.96, i * 0.08)
+            pct = min(99.9, round(frac * 100.0, 1))
+            obs = _synthetic_observation(mid, frac, pct, 100.0)
+            pos, mis = _progress.locate_stage(stages, obs)
+            frames.append(
+                {
+                    "frac": frac,
+                    "state": _serialize_progress(
+                        view(
+                            phase=obs.phase,
+                            percent=pct,
+                            stages=stages,
+                            position=pos,
+                            mismatch=mis,
+                            step_percent=None if pos is None or mis else obs.percent,
+                            estimate_state=_progress.ESTIMATE_EARLY,
+                        )
+                    ),
+                }
+            )
+        demo[mid.value] = frames
+    return {"states": states, "demo": demo}
+
+
 def gallery_html(lang: str = "en") -> str:
     """Render the click-through in one language (preview only)."""
     if not is_supported(lang):
         raise ValueError(f"unsupported language: {lang!r}")
     previous = current_language()
+    # Pin the English snapshot before the first translation so a German
+    # gallery cannot be stored as the restore table.
+    if previous == "en":
+        set_language("en")
     set_language(lang)
     try:
         return _gallery_html_for_current_language(lang)
@@ -187,13 +443,17 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "emptyRecovery": _recovery_payload(recovery_for_empty()),
         "compareTitle": inventory.COMPARE_TITLE,
         "compareIntro": inventory.COMPARE_INTRO,
-        "comparison": inventory.comparison_entries(result.selectable, peers=listed_disks(result)),
+        "comparison": inventory.comparison_entries(
+            result.selectable, peers=listed_disks(result)
+        ),
         "otherTitle": inventory.TITLE,
         "nestedIntro": inventory.NESTED_INTRO,
         "bootDisc": C.BOOT_DISC_BANNER,
         "otherDevices": {
             "happy": inventory.full_text(inventory.other_devices(result)),
-            "empty": inventory.full_text(inventory.other_devices(discovery_for_scenario("empty"))),
+            "empty": inventory.full_text(
+                inventory.other_devices(discovery_for_scenario("empty"))
+            ),
         },
         "diskHelpButton": C.DISK_HELP_BUTTON,
         "diskHelpTitle": C.DISK_HELP_TITLE,
@@ -226,7 +486,11 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "keyboardCheck": C.KEYBOARD_CHECK_LABEL,
         "keyboardHint": C.KEYBOARD_CHECK_HINT,
         "keyboardLayouts": [
-            {"id": layout_id, "title": _keyboard.LAYOUTS[layout_id].title, "note": _keyboard.LAYOUTS[layout_id].note}
+            {
+                "id": layout_id,
+                "title": _keyboard.LAYOUTS[layout_id].title,
+                "note": _keyboard.LAYOUTS[layout_id].note,
+            }
             for layout_id in LAYOUT_ORDER
         ],
         "titles": {
@@ -283,19 +547,27 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "sameSize": C.SAME_SIZE_HINT,
         "sameSizeConflict": same_size_conflict(listed_disks(result)),
         "working": C.WORKING_PULSE,
+        "pathNote": _identity.SYSTEM_PATH_NOTE,
+        "progress": _progress_preview_payload(),
         "stageStep": _progress.STAGE_STEP,
         "stageStepPct": _progress.STEP_PCT,
         "stageDone": _progress.STAGE_DONE_MARK,
         "stageNow": _progress.STAGE_NOW_MARK,
         "stageNotReported": _progress.STAGE_NOT_REPORTED,
-        "stop": {"title": C.STOP_TITLE, "lead": C.STOP_LEAD, "ask": C.STOP_ASK,
-                 "keep": C.STOP_KEEP, "confirm": C.STOP_CONFIRM, "stopping": C.STOPPING_TEXT,
-                 "stopped": C.VIEWS["cancelled"].payload(),
-                 "stoppedRecovery": _recovery_payload(recovery_for_outcome("cancelled")),
-                 "unconfirmed": C.VIEWS["stop_unconfirmed"].payload(),
-                 "unconfirmedRecovery": _recovery_payload(
-                     recovery_for_outcome("stop_unconfirmed")
-                 )},
+        "stop": {
+            "title": C.STOP_TITLE,
+            "lead": C.STOP_LEAD,
+            "ask": C.STOP_ASK,
+            "keep": C.STOP_KEEP,
+            "confirm": C.STOP_CONFIRM,
+            "stopping": C.STOPPING_TEXT,
+            "stopped": C.VIEWS["cancelled"].payload(),
+            "stoppedRecovery": _recovery_payload(recovery_for_outcome("cancelled")),
+            "unconfirmed": C.VIEWS["stop_unconfirmed"].payload(),
+            "unconfirmedRecovery": _recovery_payload(
+                recovery_for_outcome("stop_unconfirmed")
+            ),
+        },
         "doneOk": C.DONE_OK_PREVIEW,
         "doneFail": C.DONE_FAIL_PREVIEW,
         "sounds": {
@@ -410,9 +682,9 @@ def _gallery_html_for_current_language(lang: str) -> str:
         .replace("&", "\\u0026")
     )
     chrome = payload["chrome"]
+    assert isinstance(chrome, dict)
     return (
-        _TEMPLATE
-        .replace("__PAYLOAD__", data)
+        _TEMPLATE.replace("__PAYLOAD__", data)
         .replace("__LOGO_HEADER__", _logo_svg(36, 30))
         .replace("__LOGO_SPLASH__", _logo_svg(70, 58))
         .replace("__FAVICON__", _favicon_uri())
@@ -608,6 +880,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .match.ok { color: var(--ok); background: var(--ok-tint); border-color: var(--ok); }
   .progress-card { padding: 20px 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); }
   .progress-label { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; letter-spacing: .02em; }
+  .progress-timing { white-space: pre-wrap; font-size: 16px; margin-top: 14px; color: var(--muted); }
   .bigstat { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -.03em; min-height: 62px; }
   .bar { height: 8px; background: var(--track); border-radius: var(--pill); overflow: hidden; }
   .fill { height: 100%; background: var(--primary); width: 2%; border-radius: var(--pill); transition: width .2s ease; }
@@ -799,6 +1072,8 @@ let timer = null;
 let fail = false;
 let mode = "happy";
 let demoPct = null;
+let demoFrac = null;
+let progressKey = "";
 let showMore = false;
 
 document.getElementById("stripe").textContent = P.previewBanner;
@@ -885,6 +1160,8 @@ function boot(m) {
   method = "everyday";
   tLeft = 5;
   demoPct = null;
+  demoFrac = null;
+  progressKey = "";
   showMore = false;
   if (timer) clearInterval(timer);
   draw();
@@ -943,12 +1220,16 @@ function panel(kind, text, compact = false) {
   const label = sev ? `<div class="sev">${sev}</div>` : "";
   return `<div class="panel ${kind}${compact ? " compact-notice" : ""}"${role}>${badge(kind, 28)}<div>${label}${text}</div></div>`;
 }
-function moreLink() {
-  return `<button type="button" class="linkbtn morelink" id="more" aria-expanded="${showMore}">${showMore ? P.buttons.less : P.buttons.more}</button>`;
+function moreLink(controlsId) {
+  const controls = controlsId ? ` aria-controls="${controlsId}"` : "";
+  return `<button type="button" class="linkbtn morelink" id="more" aria-expanded="${showMore}"${controls}>${showMore ? P.buttons.less : P.buttons.more}</button>`;
 }
 function bindMore() {
   const el = document.getElementById("more");
   if (el) el.onclick = () => { showMore = !showMore; draw(); document.getElementById("more").focus(); };
+}
+function moreDetail(html) {
+  return `<div id="more-detail">${html || ""}</div>`;
 }
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -966,10 +1247,13 @@ function recoveryHtml(sections) {
   }
   return html + `</section>`;
 }
-function metaLine(d) {
+function metaLine(d, opts) {
+  const detailId = opts && opts.detailId;
   const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
     .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
-  const extra = showMore ? `<div class="small muted">System name (not a stable identity): ${esc(d.path)}</div>` : "";
+  const extra = showMore
+    ? `<div class="small muted more-path"${detailId ? ` id="${detailId}"` : ""}>${esc(P.pathNote)}: ${esc(d.path)}</div>`
+    : (detailId ? `<div id="${detailId}" hidden></div>` : "");
   return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(screen === "pick" && !d.isBoot ? d.markedSerial || d.serial : d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
     <div class="connection"><span>${esc(d.connection || d.bus)}</span></div>${notes}${extra}</div>`;
@@ -978,7 +1262,7 @@ function summaryCard(d) {
   return `<div class="card hero identity"><div class="identity-label">${P.selectedDisk}</div><div class="row" style="align-items:flex-start">
     <div class="title grow">${esc(d.name)}</div>
     <div class="size">${esc(d.size)}</div></div>
-    ${metaLine(d)}
+    ${metaLine(d, {detailId: "more-detail"})}
   </div>`;
 }
 function nestedComponents(d) {
@@ -1020,7 +1304,7 @@ function refreshPreview() {
   if (["working", "done", "splash"].includes(screen)) return;
   if (timer) clearInterval(timer);
   timer = null; selected = null; token = ""; owner = false;
-  method = "everyday"; tLeft = 5; showMore = false; screen = "what";
+  method = "everyday"; tLeft = 5; showMore = false; demoPct = null; demoFrac = null; progressKey = ""; screen = "what";
   draw();
 }
 function headerCaption(info) {
@@ -1095,9 +1379,9 @@ function draw() {
       <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div>
       <div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>
-      ${moreLink()}
-      ${showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      <div>${P.secureBoot}</div><div class="extra">${P.engine} ${P.powerEvents}</div></div></div>` : ""}</div></div>`;
+      ${moreLink("more-detail")}
+      ${moreDetail(showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
+      <div>${P.secureBoot}</div><div class="extra">${P.engine} ${P.powerEvents}</div></div></div>` : "")}</div></div>`;
     bindMore();
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsR.append(btn(P.buttons.understand, () => { screen = "owner"; draw(); }, "primary"));
@@ -1166,7 +1450,7 @@ function draw() {
     const d = selected;
     main.innerHTML = `<h1>${P.titles.confirm}</h1><div class="cz"><div class="czc">
       ${summaryCard(d)}
-      ${moreLink()}
+      ${moreLink("more-detail")}
       <div style="margin-top:12px">${panel("warn", d.warning)}</div>
       <p class="small muted" style="margin-top:8px">${P.confirmKeyboard}</p>
       <p style="font-size:16px;margin:14px 0 8px;overflow-wrap:anywhere"><label for="tok">${d.prompt}</label></p>
@@ -1193,7 +1477,7 @@ function draw() {
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
-    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink() : ""}<div id="storage-notice" role="note">${panel("limits", selected ? selected.storageNotice : P.ssd, true)}</div><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
+    let html = `<h1 class="compact sub">${P.titles.method}</h1><p class="subtitle" style="margin-bottom:6px">${P.methodLead}</p>${selected ? summaryCard(selected) + moreLink("more-detail") : ""}<div id="storage-notice" role="note">${panel("limits", selected ? selected.storageNotice : P.ssd, true)}</div><button id="limits" class="linkbtn" aria-describedby="storage-notice">${P.limitsButton}</button><div class="cz"><div class="czc">`;
     ["everyday","extra","quick_zero"].forEach(id => {
       const m = P.methods[id];
       const sel = method === id;
@@ -1298,18 +1582,17 @@ function draw() {
   } else if (screen === "working") {
     if (!selected) { screen = "pick"; draw(); return; }
     const m = P.methods[method];
-    const known = demoPct !== null;
-    const pct = known ? demoPct : 0;
+    const state = currentProgress();
+    const known = state.percent != null;
+    const fillPct = known ? Math.max(2, state.percent) : 30;
     main.innerHTML = `<h1>${P.titles.working}</h1>
       ${summaryCard(selected)}
-      ${moreLink()}
+      ${moreLink("more-detail")}
       <div class="cz"><div class="czc">
       <div class="progress-card"><div class="progress-label">${P.eraseProgress}</div>
-      <div class="bigstat" id="pct" style="margin:0 0 12px">${known ? pct + "%" : ""}</div>
-      <div class="bar"><div class="fill${known ? "" : " indet"}" id="fill" style="width:${Math.max(2, pct)}%"></div></div>
-      <p class="muted" style="font-size:16px;margin-top:14px" id="pulse">${P.working}</p>
-      <p class="small" id="step" role="status" style="font-weight:700;margin:10px 0 4px">${esc(stepText(m.stages))}</p>
-      <ol class="small muted" id="seq" style="margin:0 0 4px;padding-left:22px">${seqItems(m.stages)}</ol>
+      <div class="bigstat" id="pct" style="margin:0 0 12px">${esc(state.percentText)}</div>
+      <div class="bar"><div class="fill${state.animate ? " indet" : ""}" id="fill" style="width:${fillPct}%"></div></div>
+      <p class="progress-timing" id="pulse">${esc(state.timingText)}</p>
       <div id="power-status" role="status" aria-live="polite" class="small muted">${powerText()}</div>
       <p class="small muted">${m.summary}</p>
       <p class="small muted" id="soundsNote" role="status"></p></div></div></div>`;
@@ -1333,10 +1616,12 @@ function draw() {
       : screen === "stop_unconfirmed" ? P.stop.unconfirmedRecovery : null;
     const detail = screen === "stop_confirm" ? P.stop.lead : screen === "stopping" ? P.stop.stopping : "";
     const stopSupport = (screen === "stopped" || screen === "stop_unconfirmed") ? supportBlock() : "";
+    const stopProgress = screen === "stopping" ? P.progress.states.stopping : "";
     main.innerHTML = `<h1 tabindex="-1" id="stop-heading">${title}</h1>
       ${recovery ? recoveryHtml(recovery) : `<p role="status" aria-live="polite">${detail}</p>`}
       <p>Preview only. Nothing on this computer was erased.</p>
       ${selected ? summaryCard(selected) : ""}
+      ${stopProgress ? `<p class="progress-timing" id="stop-timing">${esc(stopProgress.timingText)}</p>` : ""}
       ${stopSupport}
       <p class="small muted" id="stop-method">${P.methods[method].operation}</p>`;
     renderHint("Keep the disk and Beamo USB connected.");
@@ -1376,7 +1661,7 @@ function draw() {
       <h2 id="report-status-heading">${P.reportStatusTitle}</h2>
       <p>${P.reportPreview}</p><p class="small">${P.reportStatusNotice}</p></section>
       <p class="small muted" id="soundsNote" role="status"></p>
-      ${moreLink()}</div>`;
+      ${moreLink("more-detail")}</div>`;
     bindMore();
     utilities.append(btn(P.eraseAnother, () => {
       if (screen !== "done") return;
@@ -1460,48 +1745,40 @@ function startCount() {
     if (screen === "last") draw();
   }, 1000);
 }
-function stagePos(stages) {
-  if (demoPct === null) return -1;
-  return Math.min(Math.floor(demoPct / 100 * stages.length), stages.length - 1);
-}
-function stepText(stages) {
-  const pos = stagePos(stages);
-  if (pos < 0) return P.stageNotReported;
-  const step = P.stageStep.replace("{k}", pos + 1).replace("{total}", stages.length).replace("{stage}", stages[pos]);
-  const frac = demoPct / 100 * stages.length - pos;
-  const seg = Math.max(0, Math.min(99, Math.floor(frac * 100)));
-  return P.stageStepPct.replace("{step}", step).replace("{pct}", seg + "%");
-}
-function seqItems(stages) {
-  const pos = stagePos(stages);
-  return stages.map((s, i) => `<li>${esc(s)}${i < pos ? esc(P.stageDone) : i === pos ? esc(P.stageNow) : ""}</li>`).join("");
-}
-function refreshStages() {
-  const m = P.methods[method];
-  const stepEl = document.getElementById("step");
-  const seqEl = document.getElementById("seq");
-  if (stepEl) stepEl.textContent = stepText(m.stages);
-  if (seqEl) seqEl.innerHTML = seqItems(m.stages);
+function currentProgress() {
+  if (progressKey && P.progress.states[progressKey]) return P.progress.states[progressKey];
+  const frames = (P.progress.demo[method] || P.progress.demo.everyday);
+  if (demoFrac === null && demoPct === null) return frames[0].state;
+  const frac = demoFrac !== null ? demoFrac : Math.min(0.96, Math.max(0, Number(demoPct) / 100));
+  let chosen = frames[0];
+  for (const frame of frames) if (frame.frac <= frac) chosen = frame;
+  return chosen.state;
 }
 function startWork() {
   screen = "working";
+  progressKey = "";
   demoPct = null;
+  demoFrac = null;
   draw();
-  let p = 0;
+  const frames = P.progress.demo[method] || P.progress.demo.everyday;
+  let i = 0;
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
-    p += 8;
-    demoPct = Math.min(p, 100);
-    const pctEl = document.getElementById("pct");
-    const fill = document.getElementById("fill");
-    if (pctEl) pctEl.textContent = demoPct + "%";
-    if (fill) { fill.classList.remove("indet"); fill.style.width = demoPct + "%"; }
-    refreshStages();
-    if (p >= 100) { clearInterval(timer); screen = "done"; draw(); }
+    i += 1;
+    if (i >= frames.length) {
+      clearInterval(timer);
+      timer = null;
+      if (screen === "working" || screen === "stop_confirm") { screen = "done"; draw(); }
+      return;
+    }
+    demoFrac = frames[i].frac;
+    demoPct = frames[i].state.percent;
+    if (screen === "working") draw();
   }, 280);
 }
 // Deep-link for screenshot verification, e.g.:
 // #scenario=happy&s=confirm&disk=0&typed=1  ·  #s=last&ready=1  ·  #s=working&pct=42
+// #s=working&progress=stale  ·  #s=working&more=1  ·  #s=stopping&disk=0
 function applyHash() {
   const q = new URLSearchParams(location.hash.slice(1));
   const scenario = q.get("scenario") || "happy";
@@ -1512,7 +1789,16 @@ function applyHash() {
   if (q.get("owner") === "1") owner = true;
   if (q.get("method")) method = q.get("method");
   if (q.get("ready") === "1") tLeft = 0;
-  if (q.get("pct")) demoPct = parseInt(q.get("pct"), 10);
+  if (q.get("progress") && P.progress.states[q.get("progress")]) progressKey = q.get("progress");
+  if (q.get("pct")) {
+    const n = parseInt(q.get("pct"), 10);
+    if (Number.isFinite(n)) {
+      progressKey = "";
+      demoFrac = Math.min(0.96, Math.max(0, n / 100));
+      demoPct = n >= 100 ? 99.9 : n;
+    }
+  }
+  if (q.get("more") === "1") showMore = true;
   reportWanted = q.get("report") === "1";
   const s = q.get("s");
   if (s === "disk_help") { selected = null; token = ""; tLeft = 5; }

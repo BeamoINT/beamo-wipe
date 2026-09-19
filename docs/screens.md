@@ -65,7 +65,19 @@ prior authorization through refresh. Use Tab, Shift+Tab, Space and Orca reading
 commands; see [screen-reader operation](screen-reader.md).
 
 Local previews use fake devices and never erase disks. The browser gallery is
-a preview; the shipped graphical views are native windows.
+a preview; the shipped graphical views are native windows. Gallery Show more
+uses the same disclosure label and system-path note as Tk. Working, stopping,
+stale, unknown, mismatch, and verifying copy come from `ProgressView` (the
+same object Tk and the console already paint). The gallery does not guess a
+stage from an overall percent, and it never paints 100% on the working
+screen. Console has no Show more control: identity including the system path
+stays in the paginated body. The desktop launcher’s Technical details
+disclosure is pre-boot readiness, not erase progress. The offline helper
+never shows wipe progress.
+
+Deep links for preview checks: `#s=working&disk=0&progress=preparing|writing|stale|verifying|mismatch|unknown`,
+`#s=working&disk=0&pct=42`, `#s=working&disk=0&more=1`, and the stop hashes
+below. Color-token tests are not a substitute for those states.
 
 The shipped live supervisor also has a [terminal recovery menu](kiosk-recovery.md)
 after repeated startup failures or a normal interface close. It is outside the
