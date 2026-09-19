@@ -332,8 +332,8 @@ def test_short_terminal_scrolls_power_warning_into_view(monkeypatch):
     shown, packed, term = _draw(
         monkeypatch,
         wiz,
-        keys=[console.curses.KEY_NPAGE] * 10,
-        sizes=[(16, 60)] * 12,
+        keys=[console.curses.KEY_DOWN] * 24,
+        sizes=[(16, 60)] * 28,
     )
     all_text = " ".join(" ".join(frame[y] for y in sorted(frame)) for frame in term.frames)
     assert "Space to check" in all_text
