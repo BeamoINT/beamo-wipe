@@ -243,6 +243,6 @@ Live-build is not bit-reproducible due to `apt` timestamps and `squashfs` orderi
 
 ## Prior stable and rollback
 
-Prior stable: `beamo-wipe-0.2.0-amd64.iso` `62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74` commit `5b3b7afa6c448ee01269c9497c1c93e8e83733c1` tag `v0.2.0`. Rollback: `git checkout 5b3b7afa6c448ee01269c9497c1c93e8e83733c1` or `git revert <commit>`.
+Prior stable: `beamo-wipe-0.2.9-amd64.iso` `4042f85e0e7c155dd2340dc93a6b879c35ebe2f13da9c81c1ba6269524a6b169` commit `452cfc061ad20a9c44df202201404f3c4130fbb6` tag `v0.2.9`. Rollback: `git checkout 452cfc061ad20a9c44df202201404f3c4130fbb6` or `git revert <commit>`. The 0.2.0 ISO (`62437ec…` / `5b3b7afa…`) remains a historical GitHub artifact; it is not the branded rollback target.
 
 Never publish or promote the ISO without explicit operator authorization after `CI` (`lint`→`test`→`negative-test`→`iso`→`manifest`) and Cloud Build both pass.

@@ -71,7 +71,7 @@ Environments map to evidence tiers defined in [`docs/evidence-tiers.md`](evidenc
 | --- | --- | --- | --- | --- | --- |
 | Beamo Wipe wrapper | **0.2.9** | `src/beamo_wipe/__init__.py:__version__` | — | — | `pyproject.toml 0.2.9`, `NWIPE_PINNED_VERSION 0.42`, `NWIPE_PINNED_COMMIT 6082bde0…67105` |
 | Staged chroot copy | 0.2.9 | `packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/__init__.py` | — | — | Synced from `src/` by `scripts/build-iso.sh` (hook `0500-build-nwipe` clones at pinned commit, `GIT_CONFIG_*` isolated, fails closed if compiler packages remain) |
-| Prior stable ISO | **0.2.0** | GitHub release `v0.2.0` | 419 MiB | `62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74` | Source `5b3b7afa6c448ee01269c9497c1c93e8e83733c1`; retained rollback target |
+| Prior stable ISO | **0.2.9** | GitHub release `v0.2.9` | 537 MiB | `4042f85e0e7c155dd2340dc93a6b879c35ebe2f13da9c81c1ba6269524a6b169` | Source `452cfc061ad20a9c44df202201404f3c4130fbb6`; branded BIOS/UEFI menus; retained rollback target |
 | Release target | **0.2.9** | `dist/beamo-wipe-0.2.9-amd64.iso` | Set by hosted build | Set by manifest | Content-addressed build inputs; production upload only after full hosted/QEMU success |
 
 `packaging/live/config/bootstrap` and `binary` are `https://deb.debian.org` / `https://security.debian.org` only, use debootstrap `minbase` with system defaults ignored, `firmware false`, `bootappend live: noeject nopersistence noswap ip=frommedia nox11autologin`, and `bootloaders syslinux grub-efi` (BIOS + UEFI). Full apt/package list: `packaging/live/config/package-lists/beamo.list.chroot` (kept minimal — no `curl/git/build-essential/sudo/network-manager/openssh-server`).
