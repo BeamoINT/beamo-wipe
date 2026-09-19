@@ -5,13 +5,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Supported live-USB sizes. 800x600 and 1024x600 are real layouts, not
-# "degraded with missing actions". Larger windows may enlarge type slightly.
+# Supported live-USB sizes. 800x600 and 1280x720 are real layouts, not
+# "degraded with missing actions". 1024x740 is a comfortable tall layout.
+# Larger windows may enlarge type slightly.
 MIN_SIZE = (800, 600)
 NETBOOK_SIZE = (1024, 600)
+LAPTOP_SIZE = (1280, 720)
 SUPPORTED_SIZE = (1024, 740)
 DEFAULT_SIZE = (1280, 820)
 LARGE_SIZE = (1600, 1000)
+# Shorter than the old 1024x740 "comfortable" height uses compact pads and
+# a scrolling body so 720p laptops and 800x600 panels keep footer actions.
+SHORT_HEIGHT = 740
 
 MAX_CONTENT = 940
 LARGE_CONTENT = 1080
@@ -54,12 +59,19 @@ class Layout:
         )
 
 
+def opening_size(screen_w: int, screen_h: int) -> tuple[int, int]:
+    """Default window that fits the panel. Never below MIN_SIZE."""
+    width = min(DEFAULT_SIZE[0], max(MIN_SIZE[0], int(screen_w)))
+    height = min(DEFAULT_SIZE[1], max(MIN_SIZE[1], int(screen_h)))
+    return width, height
+
+
 def layout_for(width: int, height: int) -> Layout:
     """Deterministic layout from the mapped window size, not X DPI."""
     width = max(1, int(width))
     height = max(1, int(height))
     narrow = width < 960
-    short = height < 680
+    short = height < SHORT_HEIGHT
     compact = narrow or short
     large = width >= 1600 and height >= 900 and not compact
     if compact:

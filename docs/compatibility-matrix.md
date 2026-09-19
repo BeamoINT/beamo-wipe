@@ -161,15 +161,15 @@ Each fixture has a matching test in `tests/test_compatibility_matrix.py` that as
 
 ## 7. Display & resolution matrix
 
-TkWizard.minsize `1024x740` (oldest laptops); hero width `CONTENT_W 940`. Tests drive Tk at 72 DPI (live USB default X DPI) via `xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"` or `DISPLAY=:99` @72 DPI. VNC `:1` @96 DPI is **not** the gate (clips).
+TkWizard.minsize `800x600`; 1280×720 is a short supported layout. Hero width cap `CONTENT_W 940`. Tests drive Tk at 72 DPI (live USB default X DPI) via `xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72"` or `DISPLAY=:99` @72 DPI. VNC `:1` @96 DPI is **not** the gate (clips).
 
 | ID | Resolution | Hardware | Expected | Observed | Result |
 | --- | --- | --- | --- | --- | --- |
-| **DISP-01** | **1024×740** (minimum) | Old laptop LCD, Intel iGPU (live X modesetting) | All screens fit without clipping; pick list scrolls; primary button visible | `tests/test_tk_runtime.py::test_screen_fits_without_clipping[MIN_WINDOW]` — visits Label/Entry req vs actual, and off-window widget check; both `[]` | **Supported** |
+| **DISP-01** | **1024×740** (comfortable) | Old laptop LCD, Intel iGPU (live X modesetting) | All screens fit without clipping; pick list scrolls; primary button visible | `tests/test_tk_runtime.py::test_screen_fits_without_clipping[MIN_WINDOW]` — visits Label/Entry req vs actual, and off-window widget check; both `[]` | **Supported** |
 | **DISP-02** | **1280×820** (default) | 13″ laptop, 96→72 DPI X | Same, with more breathing room | `WINDOW` variant passes same tests | **Supported** |
-| **DISP-03** | **1366×768** (common 720p laptop) | 15″ 1366×768 panel | Same as MIN — width >1024 so layout expands via `fill=X` | Not separately parametrized but `CONTENT_W 940` fits 1366; inferred pass from MIN+WINDOW bounds; manual `./preview` resize check confirms | **Supported** |
+| **DISP-03** | **1280×720 / 1366×768** | 14–15″ 720p laptop | Short compact layout at 720; 768 uses the comfortable tall pads. Footer on-window; body may scroll | `tests/test_layout.py::test_720p_laptop_is_short_supported_layout`; `test_adaptive_layout` at `LAPTOP_SIZE (1280, 720)` | **Supported** |
 | **DISP-04** | **1920×1080** (FHD) | External monitor, QXL/VMware driver | Content centered (`CONTENT_W 940`), vertical centering, no stretch; fonts DejaVu | Preview at 1920 width keeps card 940 centered; gallery CSS `max-width:940` | **Supported** |
-| **DISP-05** | **800×600** (fallback 4:3) | Very old LCD / VM fallback `vga=788` failsafe | **Degraded:** content renders but requires vertical scroll or pick-list scroll; primary button still reachable via Tab/Enter but may be below fold initially | Not in automated gate; Xorg `10-beamo.conf` has no forced VESA Device so probe may still hit `fbdev`/`vesa`; manual QEMU `vga=788` shows `failsafe` still boots to wizard | **Degraded (supported with scroll)** |
+| **DISP-05** | **800×600** (minimum) | Very old LCD / VM fallback `vga=788` failsafe | Compact layout: body may scroll; identity, warnings, and footer actions stay on-window | `tests/test_adaptive_layout.py` at `MIN_SIZE (800, 600)` | **Supported** |
 | **DISP-06** | HiDPI 200% (e.g., 2560×1440 @ 2×) | Modern laptop, X DPI 144 | Tk scales with DPI (Tk 8.6 font scaling); DejaVu at 2× may overflow `WRAP 868`; clipped-text test would fail at 144 DPI | Gate stays at 72 DPI per `.cursor/start.sh`; HiDPI not claimed | **Degraded (untested)** |
 | **DISP-07** | Xorg driver probe (no `Driver "vesa"` forced) | UEFI without VBIOS (no VBE) | System must not force VESA on every GPU — must probe modesetting/simpledrm first | `test_xorg_does_not_force_vesa_on_every_gpu` asserts no `Driver "vesa"` and `AllowMouseOpenFail` | **Supported** |
 
@@ -224,7 +224,7 @@ Preview/dry-run cannot exec real `NwipeRunner`: `test_confirm_erase_refuses_real
 - **Firmware:** Legacy BIOS and UEFI (Secure Boot disabled) via `syslinux` + `grub-efi`. Both show the wizard first; power-off via `systemctl poweroff` after Done.
 - **USB boot variants:** USB-A and USB-C via adapter when firmware lists the stick; directly attached, not a keyboard hub if avoidable (`docs/boot-card.md`). Optical ISO (`sr0`) as QEMU path.
 - **Storage:** NVMe (Samsung 970/980 etc.), SATA HDD (ST500/WDC), SATA SSD (Crucial MX500), virtio `vda` (QEMU), USB-attached disks (`tran usb` SATA bridges). Multi-disk (2–4) with same-size handling via last-4-serial → full serial → device-name token chain.
-- **Display:** 1024×740 through 1920×1080 on Xorg `modesetting`/`fbdev`/`qxl`/`vmware`/`amdgpu`/`intel`/`nouveau` + DejaVu fonts, 72 DPI gate.
+- **Display:** 800×600 through 1920×1080, including 1280×720, on Xorg `modesetting`/`fbdev`/`qxl`/`vmware`/`amdgpu`/`intel`/`nouveau` + DejaVu fonts, 72 DPI gate.
 - **Input:** Full keyboard traversal (Tk and console fallback) with held-key guards; mouse click on disk cards.
 - **Boot identification:** Live mount (`/run/live/medium` etc.) + `findmnt` + `mountinfo` + cmdline tokens (`boot=live`/`casper`, `bootfrom`/`live-media`/`img_dev`) + typed sources (`LABEL=/UUID=/PARTUUID=`) + label scan limited to `usb`/`rom`.
 - **Safety:** All gates above; `nwipe` never runs with `--force`, never with a device list other than one, always `--exclude=` boot.
@@ -235,7 +235,7 @@ Preview/dry-run cannot exec real `NwipeRunner`: `test_confirm_erase_refuses_real
 - **Missing/duplicate metadata:** Falls back to label → `Unknown model`. Same-size disks without a unique serial or hardware ID fail closed: shut down and disconnect extra drives. Kernel names are never identity.
 - **eMMC/mmcblk:** `mmcblk0boot0/1/rpmb` (4 MiB) are hidden — correct (they are not wipe targets) the ordinary `mmcblk0` user-data device remains eligible when all disk safety checks pass. Only firmware-area nodes alone yield `PICK_EMPTY`.
 - **USB hubs / keyboard hubs:** May hide the stick from firmware boot menu; degraded boot findability (try direct port, disable Fast Boot per `docs/boot-card.md`).
-- **800×600 and HiDPI:** Render but need scroll / exhibit clipping at non-gate DPI; not automated at those DPIs.
+- **HiDPI:** May exhibit clipping at non-gate DPI; not automated at those DPIs. 800×600 and 1280×720 are supported short layouts.
 - **Secure Boot enabled:** Degraded to **unsupported** unless user disables it; we do not ship a bypass.
 - **Xorg driverless fallback:** Very old GPUs may fall back to `vesa`/`fbdev` (still works but slower); we deliberately do not force VESA on every GPU.
 
@@ -261,8 +261,8 @@ Evidence: `tests/test_live_image.py::test_staged_chroot_package_matches_src` fai
 **BF-002 — Test pollution via `apply_live_session_overrides` `os.environ.pop`**
 Evidence: `tests/test_security_hardening.py::test_live_session_strips_web_and_helper` left `BEAMO_WIPE_DRY_RUN` unset, causing two later argv tests to hit `_log_filesystem_is_target` fail-closed on macOS (no `/proc/self/mountinfo` → `not is_preview_env()` → True). On Linux hosted gate the same tests passed because mountinfo existed and `/tmp` was not on `/dev/vda`. Fix: test now does `monkeypatch.setenv` for all popped keys so teardown restores (this changeset). No safety relaxation.
 
-**BF-003 — 800×600 is degraded (pick list scroll required)**
-The minimum 1024×740 gate does not cover 800×600 netbooks. Manual `./preview` resize shows pick list overflows but scroll position restoration (`yview`) does keep the selected card in view. Follow-up: keep 800×600 documented as degraded, not a supported minimum, unless product wants an explicit 800×600 gate with a narrower `CONTENT_W`.
+**BF-003 — 800×600 and 1280×720 are supported short layouts**
+The window minimum is 800×600. 1280×720 uses compact pads and a scrolling body so footer actions stay on-window. Pick-list overflow still scrolls with `yview` restore.
 
 **BF-004 — HiDPI not gated**
 `xvfb-run @72 DPI` is the only automated gate. At 144 DPI, `WRAP` labels and `_Box` halo may clip. No failure seen in gallery/tk at 72 DPI. Follow-up: add a separate 144 DPI smoke on the hosted gate (not required for 1.0).

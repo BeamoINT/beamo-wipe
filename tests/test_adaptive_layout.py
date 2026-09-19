@@ -14,14 +14,22 @@ import pytest
 
 from beamo_wipe import copy as C
 from beamo_wipe.models import Screen
-from beamo_wipe.ui.layout import DEFAULT_SIZE, LARGE_SIZE, MIN_SIZE, NETBOOK_SIZE, SUPPORTED_SIZE
+from beamo_wipe.ui.layout import (
+    DEFAULT_SIZE,
+    LARGE_SIZE,
+    LAPTOP_SIZE,
+    MIN_SIZE,
+    NETBOOK_SIZE,
+    SUPPORTED_SIZE,
+)
 from beamo_wipe.ui.tk_wizard import _Button
 from test_result_presentations import CASES, case_evidence
 from test_tk_runtime import _clipping_problems, _drive_to, _off_window_problems, ui  # noqa: F401
 
-SIZES = (MIN_SIZE, NETBOOK_SIZE, SUPPORTED_SIZE, DEFAULT_SIZE, LARGE_SIZE)
+SIZES = (MIN_SIZE, NETBOOK_SIZE, LAPTOP_SIZE, SUPPORTED_SIZE, DEFAULT_SIZE, LARGE_SIZE)
 
 WALK_SCREENS = (
+    Screen.SPLASH,
     Screen.KEYBOARD,
     Screen.WHAT,
     Screen.OWNER,
@@ -32,6 +40,10 @@ WALK_SCREENS = (
     Screen.LAST_CHANCE,
     Screen.LIMITS,
     Screen.REPORT_HELP,
+    Screen.DISK_HELP,
+    Screen.REFRESH_CONFIRM,
+    Screen.WORKING,
+    Screen.DONE,
 )
 
 
@@ -101,6 +113,34 @@ def _show(wiz, app, screen):
         app._draw()
         app.root.update()
         return
+    if screen == Screen.DISK_HELP:
+        _drive_to(wiz, app, Screen.PICK)
+        wiz.open_disk_help()
+        app._draw()
+        app.root.update()
+        return
+    if screen == Screen.REFRESH_CONFIRM:
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz.open_refresh_confirm()
+        app._draw()
+        app.root.update()
+        return
+    if screen == Screen.WORKING:
+        _drive_to(wiz, app, Screen.LAST_CHANCE)
+        wiz.screen = Screen.WORKING
+        app._draw()
+        app.root.update()
+        return
+    if screen == Screen.DONE:
+        done, ev, _ = case_evidence(CASES[0])
+        wiz.screen = Screen.DONE
+        wiz.wipe_result = done.wipe_result
+        wiz.evidence = ev
+        wiz.selected = done.selected
+        wiz.preview = False
+        app._draw()
+        app.root.update()
+        return
     if screen == Screen.LIMITS:
         _drive_to(wiz, app, Screen.METHOD)
         wiz.open_limits()
@@ -153,6 +193,10 @@ def test_every_walkable_screen_keeps_actions_and_copy(ui, size):  # noqa: F811
             labels = [b.itemcget(b._label, "text") for b in _buttons(app)]
             assert C.BTN_ERASE in labels
             assert C.BTN_BACK in labels
+        if size[1] < 740 and screen not in {
+            Screen.PICK, Screen.LIMITS, Screen.DISK_HELP, Screen.REPORT_HELP, Screen.SPLASH,
+        }:
+            assert app._body_canvas is not None
 
 
 @pytest.mark.parametrize("size", SIZES)
@@ -258,6 +302,25 @@ def test_long_unicode_identity_wraps_without_ellipsis(ui, size):  # noqa: F811
     assert "시리얼" in shown
     assert "…" not in shown and "..." not in shown
     _assert_actions_on_window(app)
+
+
+@pytest.mark.parametrize("size", [MIN_SIZE, LAPTOP_SIZE])
+def test_stop_overlay_keeps_actions_on_short_windows(ui, size):  # noqa: F811
+    wiz, app = ui(size=size)
+    app.root.minsize(*MIN_SIZE)
+    _drive_to(wiz, app, Screen.LAST_CHANCE)
+    wiz.screen = Screen.WORKING
+    wiz._wipe_request = object()
+    wiz.request_stop()
+    app._draw()
+    app.root.geometry(f"{size[0]}x{size[1]}+40+40")
+    app.root.update()
+    assert wiz.stop_confirmation is not None
+    shown = _texts(app.root)
+    assert C.STOP_CONFIRM in shown or "Stop" in shown
+    _assert_actions_on_window(app)
+    if size[1] < 740:
+        assert app._body_canvas is not None
 
 
 def test_large_window_uses_larger_type_than_compact(ui):  # noqa: F811

@@ -97,7 +97,7 @@ One palette is shared by Tk, gallery, helper and pinned by `tests/test_ui_system
 
 | ID | Resolution | DPI / scaling | Hardware class | Expected rendering | Automated proof | Result |
 |---|---|---|---|---|---|---|
-| **DISP-01** | **1024×740** (minimum) | 72 DPI pinned | Old laptop LCD, Intel iGPU live X modesetting | All screens fit, no clipping, footer visible, pick list scrolls when overflow | `test_screen_fits_without_clipping[MIN_WINDOW]` at `MIN_WINDOW (1024,740)` → `[]` clipping + `[]` off-window; `test_status_screens_fit[MIN_WINDOW]` | **Supported** |
+| **DISP-01** | **1024×740** (comfortable) | 72 DPI pinned | Old laptop LCD, Intel iGPU live X modesetting | All screens fit, no clipping, footer visible, pick list scrolls when overflow | `test_screen_fits_without_clipping[MIN_WINDOW]` at `MIN_WINDOW (1024,740)` → `[]` clipping + `[]` off-window; `test_status_screens_fit[MIN_WINDOW]` | **Supported** |
 | **DISP-02** | **1280×820** (default) | 72 DPI | 13" laptop | Same with breathing room | `test_screen_fits_without_clipping[WINDOW]` | **Supported** |
 | **DISP-03** | **1366×768** | 72 DPI | Common 720p laptop | Width >1024 so `CONTENT_W 940` fits via `fill=X`; inferred from bounds | Manual `./preview` resize check + `CONTENT_W 940` ≤ 1366 | **Supported** |
 | **DISP-04** | **1920×1080** | 72 DPI | External FHD | Centered `CONTENT_W 940`, `center_zone` vertical centering, no stretch | Gallery `max-width:940`, Tk `CONTENT_W` | **Supported** |
@@ -269,7 +269,7 @@ xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest tests/test_tk_
 
 ## 14. Remaining risks & degraded hardware
 
-- **800×600 / 1024×600 netbooks**: degraded, not gate. Window `minsize 1024×740` > screen; window manager may place it off-screen top and footer needs scroll. Tab still reaches primary; safety gates remain closed; documented as degraded not supported minimum.
+- **800×600 / 1280×720**: supported short layouts. Window `minsize 800×600`; 720p uses compact pads and a scrolling body. Footer actions stay on-window.
 - **HiDPI 144**: supported via pinning but not separately gated beyond structural test; manual HiDPI probe on hosted gate is a follow-up.
 - **USB-SATA bridges (`tran sata` for USB stick)**: label scan alone fails closed — correct, mount path is ground truth.
 - **eMMC-only (`mmcblk0boot0` not selectable)**: correct empty `PICK_EMPTY`.
