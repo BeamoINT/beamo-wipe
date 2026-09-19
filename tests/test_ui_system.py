@@ -345,6 +345,36 @@ def test_method_tradeoffs_are_comparable():
     assert 'card_copy["extra"]' in method_src
 
 
+def test_recommended_method_leads_with_plain_wording():
+    """Would fail when Everyday jumped straight to pass counts with no novice lead."""
+    from beamo_wipe.methods import METHODS
+    from beamo_wipe.models import MethodId
+
+    everyday = METHODS[MethodId.EVERYDAY]
+    extra = METHODS[MethodId.EXTRA]
+    quick = METHODS[MethodId.QUICK_ZERO]
+    assert everyday.plain_lead == "Overwrite the disk, then check the result."
+    assert extra.plain_lead.startswith("Overwrite the disk three times")
+    assert "does not check the result" in quick.plain_lead
+    card = C.METHOD_CARDS[MethodId.EVERYDAY]
+    assert card["lead"] == everyday.plain_lead
+    assert card["blurb"] == everyday.overwrite_description
+    assert card["pace"] == everyday.verification_description
+    assert "exposes" in card["limits"]
+    assert "how long" in card["limits"]
+    assert "report" in card["limits"].lower()
+    assert "hidden" in card["limits"].lower()
+    html = gallery_html()
+    assert everyday.plain_lead in html
+    assert everyday.overwrite_description in html
+    assert C.EVERYDAY_LIMITS in html
+    method_src = inspect.getsource(tkui.TkWizard._method_card)
+    assert 'card_copy["lead"]' in method_src or "lead" in method_src
+    assert "limits_note" in method_src
+    assert "_method_prose_label" in method_src
+    assert "_wrapping_label" not in method_src
+
+
 def test_method_cards_use_plain_check_language():
     """Would fail on 'read-back verification pass' method-card pace."""
     from beamo_wipe.methods import METHODS

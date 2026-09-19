@@ -3251,6 +3251,48 @@ class TkWizard:
         if self.w.token_ok:
             emit_serial_marker("BEAMO_WIPE_CONFIRM_MATCHED")
 
+    def _method_card_wrap(self) -> int:
+        """First-layout wrap for method prose in the title column.
+
+        Radio, key cap, and card insets sit beside the text. wrap-110 still
+        requested more than the allocated column on Debian 72 DPI. wrap-120
+        wrapping_label was worse: it starts wide and can rewrite prose on a
+        1px Configure before the canvas width settles.
+        """
+        return max(200, self.lay.wrap - 200)
+
+    def _method_prose_label(
+        self, parent: tk.Widget, text: str, *, font, bg: str, fg: str = INK
+    ) -> tk.Label:
+        """Wrap novice lead/limits to the allocated title column.
+
+        Identity wrapping_label soft-breaks spaceless serials. Method copy is
+        ordinary prose with spaces; keep the words intact and shrink
+        wraplength only after the label has a real width.
+        """
+        wrap = self._method_card_wrap()
+        label = tk.Label(
+            parent,
+            text=text,
+            font=font,
+            fg=fg,
+            bg=bg,
+            anchor="w",
+            justify=tk.LEFT,
+            wraplength=wrap,
+        )
+
+        def fit(event) -> None:
+            width = max(1, int(event.width) - 4)
+            if width < 80:
+                return
+            if int(label.cget("wraplength")) != width:
+                label.configure(wraplength=width)
+
+        label.bind("<Configure>", fit)
+        label.pack(fill=tk.X, pady=(4, 0))
+        return label
+
     def _method_card(self, parent: tk.Widget, method: MethodId) -> None:
         card_copy = C.METHOD_CARDS[method]
         title = str(card_copy["title"])
@@ -3258,6 +3300,8 @@ class TkWizard:
         pace = str(card_copy["pace"])
         mark = str(card_copy["mark"])
         extra = str(card_copy["extra"])
+        lead = str(card_copy["lead"])
+        limits_note = str(card_copy["limits"])
         checks = bool(card_copy["checks"])
         key = str(card_copy["key"])
         selected = self.w.method == method
@@ -3293,16 +3337,17 @@ class TkWizard:
             self._chip(title_row, mark, fg=fg, bg=bg_chip).pack(
                 side=tk.LEFT, padx=(10, 0)
             )
+        self._method_prose_label(text_col, lead, font=self.font_b, bg=fill)
         tk.Label(
             text_col,
             text=blurb,
             font=self.font_s,
             fg=MUTED,
             bg=fill,
-            wraplength=max(200, self.lay.wrap - 90),
+            wraplength=max(200, self.lay.wrap - 110),
             justify=tk.LEFT,
             anchor="w",
-        ).pack(fill=tk.X, pady=(4, 0))
+        ).pack(fill=tk.X, pady=(2, 0))
         pace_row = tk.Frame(text_col, bg=fill)
         pace_row.pack(fill=tk.X, pady=(4, 0))
         if checks:
@@ -3326,10 +3371,14 @@ class TkWizard:
                 font=self.font_s,
                 fg=MUTED,
                 bg=fill,
-                wraplength=max(200, self.lay.wrap - 90),
+                wraplength=max(200, self.lay.wrap - 110),
                 justify=tk.LEFT,
                 anchor="w",
             ).pack(fill=tk.X, pady=(4, 0))
+        if limits_note:
+            self._method_prose_label(
+                text_col, limits_note, font=self.font_s, bg=fill, fg=MUTED
+            )
 
         def _click(_e, m=method):
             self._choose_method(m)
