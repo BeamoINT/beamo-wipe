@@ -23,8 +23,12 @@ def test_user_text_size_scales_fonts_not_window_geometry():
     assert extra.font["s"] > standard.font["s"]
     assert extra.font["btn"] > standard.font["btn"]
     assert extra.content_w == standard.content_w
-    assert extra.header_h == standard.header_h
+    assert extra.header_h >= standard.header_h
     assert extra.wrap == standard.wrap
+    assert extra.ring > standard.ring
+    assert extra.stack_review
+    assert extra.type_scale == 1.35
+    assert extra.text_size == "extra"
     assert bogus.text_size == "standard"
     assert compact_extra.font["tiny"] >= 12
     assert compact_extra.font["btn"] >= 14
@@ -98,6 +102,29 @@ def test_gallery_does_not_force_740px_shell():
     assert "max-height: calc(100vh - 120px)" in html
     assert "@media (max-height: 720px)" in html
     assert "calc(100vh - 168px)" in html
+
+
+def test_type_scale_grows_type_not_column_width():
+    """Would fail when enlarged type used a fixed wrap and 64px ring."""
+    base = layout_for(1024, 740, "standard")
+    large = layout_for(1024, 740, "extra")
+    assert large.font["h"] > base.font["h"]
+    assert large.font["s"] > base.font["s"]
+    assert large.content_w == base.content_w
+    assert large.wrap == base.wrap
+    assert large.ring > base.ring
+    assert large.stack_review
+    assert large.type_scale == 1.35
+    assert layout_for(1024, 740, "huge").type_scale == 1.0
+    assert layout_for(1024, 740, "huge").text_size == "standard"
+
+
+def test_gallery_cards_and_footer_reflow():
+    from beamo_wipe.gallery import gallery_html
+
+    html = gallery_html()
+    assert "overflow-wrap: anywhere" in html
+    assert ".footrow" in html and "flex-wrap: wrap" in html
 
 
 def test_wrap_never_exceeds_window():

@@ -126,7 +126,8 @@ def test_wrap_lengths_are_bounded_by_content_width():
     # never leaves text hanging off the window edge.
     src = inspect.getsource(tkui.TkWizard)
     assert 'wraplength=self.lay.wrap' in src
-    assert 'self.lay.wrap - 80' in src
+    assert '_flow_wrap' in src
+    assert 'self.lay.content_w' in src
     assert 'self.root.minsize(*MIN_SIZE)' in src or 'minsize(*MIN_SIZE)' in src
 
 

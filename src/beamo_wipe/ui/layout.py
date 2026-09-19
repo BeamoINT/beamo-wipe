@@ -54,6 +54,7 @@ class Layout:
     footer_pad_y: int
     stack_review: bool
     text_size: str
+    type_scale: float
     font: dict[str, int]
 
     @property
@@ -83,14 +84,16 @@ def layout_for(
 ) -> Layout:
     """Deterministic layout from the mapped window size, not X DPI.
 
-    ``text_size`` only scales pixel fonts. Window compact/short/gutter stay
-    put so Extra large wraps and scrolls instead of clipping the footer.
+    ``text_size`` is the one type parameter (standard / large / extra). Fonts
+    and chrome that must hug glyphs (ring, modest header) grow from that id.
+    Column width and gutters stay with the window so Extra-large text wraps
+    and stacks instead of overflowing cards.
     """
     width = max(1, int(width))
     height = max(1, int(height))
     if text_size not in TEXT_SIZE_SCALE:
         text_size = TEXT_SIZE_STANDARD
-    text_scale = TEXT_SIZE_SCALE[text_size]
+    type_scale = TEXT_SIZE_SCALE[text_size]
     narrow = width < 960
     short = height < SHORT_HEIGHT
     compact = narrow or short
@@ -124,7 +127,7 @@ def layout_for(
         footer_pad_y = 16
     content_w = min(cap, max(280, width - 2 * gutter))
     wrap = max(200, content_w - (40 if compact else 72))
-    font_scale = scale * text_scale
+    font_scale = scale * type_scale
     font = {
         "hero": _px(52, font_scale, 32),
         "h": _px(30, font_scale, 20),
@@ -140,6 +143,8 @@ def layout_for(
         "stat": _px(56, font_scale, 32),
         "brand": _px(16, font_scale, 14),
     }
+    ring = _px(64, type_scale, 48)
+    header_h = _px(header_h, min(type_scale, 1.2), header_h)
     return Layout(
         width=width,
         height=height,
@@ -155,7 +160,8 @@ def layout_for(
         title_top=title_top,
         title_bottom=title_bottom,
         footer_pad_y=footer_pad_y,
-        stack_review=narrow or short,
+        stack_review=narrow or short or type_scale > 1.05,
         text_size=text_size,
+        type_scale=type_scale,
         font=font,
     )
