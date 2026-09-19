@@ -89,9 +89,9 @@ Action: never "force boot via efibootmgr on customer PC."
 Symptom: footer buttons off-screen, text clipped, splash not centered
   ├─ Check: is live USB X at 72 DPI? (packaging/live/config/includes.chroot/etc/X11/xorg.conf.d/10-beamo.conf sets 72 DPI)
   │       VNC `DISPLAY=:1` at 96 DPI will clip by ~33% — not the gate. Hosted gate uses `DISPLAY=:99` @72 DPI.
-  ├─ Window is `minsize 1024×740` (oldest laptops) with hero `CONTENT_W 940`. At 800×600 the pick list scrolls; footer is packed `side=BOTTOM` last so actions stay reachable via Tab — degraded (docs/accessibility-lowres-matrix.md DISP-05/DISP-06) not a safety failure.
+  ├─ Window is `minsize 800×600`. 1280×720 is a short supported layout (scrolling body, footer on-window). Hero column cap is `CONTENT_W 940`. Footer is packed `side=BOTTOM` last so actions stay reachable via Tab.
   └─ If *all* screens blank → check `docs/ci.md` failure triage `TclError: no display` vs real regression; reproduce with Xvfb 72 DPI.
-Action: no change to `tk scaling 1.0` pin (keeps fonts deterministic). If customer needs 800×600 daily, note as degraded and track as feature request.
+Action: no change to `tk scaling 1.0` pin (keeps fonts deterministic).
 ```
 
 ### 4.c Missing disks — `PICK_EMPTY` (no other disks)

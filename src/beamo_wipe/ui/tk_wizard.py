@@ -33,7 +33,7 @@ from beamo_wipe.keyboard import LAYOUT_ORDER
 from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
-from beamo_wipe.ui.layout import DEFAULT_SIZE, MIN_SIZE, layout_for
+from beamo_wipe.ui.layout import DEFAULT_SIZE, MIN_SIZE, layout_for, opening_size
 from beamo_wipe.recovery import (
     RecoverySections,
     recovery_for_blocked,
@@ -1102,7 +1102,10 @@ class TkWizard:
             )
             self.root.attributes("-fullscreen", True)
         else:
-            self.root.geometry(f"{DEFAULT_SIZE[0]}x{DEFAULT_SIZE[1]}")
+            width, height = opening_size(
+                self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+            )
+            self.root.geometry(f"{width}x{height}")
         family = _family(self.root)
         mono = _mono_family(self.root)
         # Negative Tk font sizes are pixels. Tk 9 on macOS can adjust its
@@ -3802,7 +3805,7 @@ class TkWizard:
     def _advanced(self) -> None:
         col = self._column(self._body, fill_height=True)
         # Compact header: this is the second-tightest screen after method,
-        # and it must fit the 1024x740 minimum window with the footer whole.
+        # and it must keep the footer whole on 800x600 and 1280x720.
         self._title_block(col, C.TITLE_ADVANCED, C.ADVANCED_LEAD, compact=True)
         from beamo_wipe.methods import METHODS
 
