@@ -3,13 +3,13 @@
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 18px;
   line-height: 1.55;
-  color: #182635;
+  color: #12202E;
   background: #fff;
-  --muted: #4c5b6b;
-  --border: #d8dfe6;
-  --surface: #f3f5f7;
-  --primary: #244a73;
-  --focus: #1a3fa0;
+  --muted: #4A5A6A;
+  --border: #E3E8EE;
+  --surface: #F4F6F8;
+  --primary: #1C4A73;
+  --focus: #2563EB;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -31,11 +31,11 @@ button {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid #758292;
+  border: 1px solid #6E7C8A;
   border-radius: 8px;
   padding: 11px 20px;
   background: #fff;
-  color: #182635;
+  color: #12202E;
   min-height: 46px;
 }
 button:hover { background: var(--surface); }
@@ -52,7 +52,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); o
 .actions { display: flex; flex-wrap: wrap; gap: 14px; margin: 24px 0; }
 #confirm { border-left: 3px solid #e8a317; background: var(--surface); padding: 22px 24px; margin: 28px 0; }
 #confirm button { margin: 0 12px 8px 0; }
-.notice { background: #fbf1d5; color: #182635; padding: 12px 16px; border-radius: 8px; font-size: 16px; }
+.notice { background: #fbf1d5; color: #12202E; padding: 12px 16px; border-radius: 8px; font-size: 16px; }
 #status.error { color: #b3261e; }
 details { border-top: 1px solid var(--border); padding-top: 24px; margin-top: 36px; }
 summary { font-weight: 600; cursor: pointer; margin-bottom: 20px; }
@@ -81,7 +81,7 @@ section:focus { outline: none; }
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  color: #182635;
+  color: #12202E;
   text-decoration: none;
   font-weight: 700;
   font-size: 1em;
