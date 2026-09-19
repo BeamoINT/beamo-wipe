@@ -409,6 +409,26 @@ def test_accessible_method_choices_visible_above_grouped_actions(ui):
     assert set(app.actions.values()) <= reached
 
 
+def test_accessible_method_radio_name_stays_summary(ui):
+    """Would fail when plain_lead/limits were concatenated into the radio ATK name."""
+    from beamo_wipe import copy as C
+
+    wizard = make_demo_wizard()
+    wizard.selected = wizard.selectable[0]
+    wizard.screen = Screen.METHOD
+    app = ui(wizard)
+    choices = [w for w in widgets(app.body) if isinstance(w, Gtk.RadioButton)]
+    shown = text(app)
+    assert len(choices) == len(METHODS)
+    for choice, spec in zip(choices, METHODS.values()):
+        name = choice.get_accessible().get_name() or ""
+        assert spec.summary in name
+        assert spec.plain_lead not in name
+        assert (choice.get_accessible().get_description() or "") == spec.plain_lead
+        assert spec.plain_lead in shown
+    assert C.EVERYDAY_LIMITS in shown
+
+
 @pytest.mark.parametrize("screen", [Screen.CONFIRM, Screen.LAST_CHANCE])
 def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
     from beamo_wipe import copy as C

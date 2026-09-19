@@ -434,18 +434,21 @@ class AccessibleWizard:
             group = None
             for method, spec in METHODS.items():
                 card = C.METHOD_CARDS[method]
-                label = f"{spec.plain_lead} {spec.summary}"
+                # Keep the radio ATK name as the method summary. Plain lead
+                # and everyday limits stay off the radio so 800x600 choices
+                # remain above the footer (same pattern as #51 headings).
+                label = spec.summary
                 if card["mark"]:
                     label = f"{label} [{card['mark']}]"
                 if card["extra"]:
                     label = f"{label} {card['extra']}"
-                if card["limits"]:
-                    label = f"{label} {card['limits']}"
                 choice = Gtk.RadioButton.new_with_label_from_widget(group, label)
                 choice.get_child().set_line_wrap(True)
                 choice.get_child().set_max_width_chars(65)
                 group = choice
                 choice.set_active(self.w.method == method)
+                if spec.plain_lead:
+                    choice.get_accessible().set_description(spec.plain_lead)
                 self.body.pack_start(choice, False, False, 3)
                 choice.connect(
                     "toggled",
@@ -453,6 +456,12 @@ class AccessibleWizard:
                     if widget.get_active() and generation == self.generation
                     else None,
                 )
+            for spec in METHODS.values():
+                self.label(spec.plain_lead)
+            for spec_method in METHODS:
+                note = str(C.METHOD_CARDS[spec_method]["limits"] or "")
+                if note:
+                    self.label(note, focusable=True)
             self.button(storage_limits.BUTTON, self.w.open_limits, utility=True)
             self.button(C.BTN_ADVANCED, self.w.open_advanced, utility=True)
             self.button(C.primary_action(Screen.METHOD), self.w.continue_method)
