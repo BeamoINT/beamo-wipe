@@ -6,7 +6,7 @@ from beamo_wipe.power import PowerStatus
 from test_accessible_runtime import ui, text, drain  # noqa: F401, E402
 
 
-@pytest.mark.parametrize('screen', [Screen.WHAT, Screen.LAST_CHANCE, Screen.CHECKING, Screen.WORKING, Screen.STOPPING])
+@pytest.mark.parametrize('screen', [Screen.WHAT, Screen.OWNER, Screen.LAST_CHANCE, Screen.CHECKING, Screen.WORKING, Screen.STOPPING])
 def test_power_status_has_accessible_text_and_keeps_focus(ui, screen):  # noqa: F811
     app = ui()
     app.w.screen = screen

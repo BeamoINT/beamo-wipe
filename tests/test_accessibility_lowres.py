@@ -370,7 +370,6 @@ def _needs_display():
     "screen",
     [
         Screen.KEYBOARD,
-        Screen.WHAT,
         Screen.OWNER,
         Screen.PICK,
         Screen.CONFIRM,

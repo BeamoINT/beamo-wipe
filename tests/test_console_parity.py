@@ -114,10 +114,15 @@ def _long_list(wiz, count=18):
 def test_what_keeps_enter_action_on_80x24(monkeypatch):
     wiz = make_demo_wizard()
     wiz.skip_intro()
-    shown, packed, term = _draw(monkeypatch, wiz)
+    shown, packed, term = _draw(
+        monkeypatch, wiz, keys=[console.curses.KEY_NPAGE] * 4
+    )
     footer = _footer(term)
-    assert "Enter: I understand" in footer
-    assert "copies you need" in shown
+    assert "Space to check" in footer
+    assert "Enter continues only when checked" in footer
+    all_text = " ".join(" ".join(frame[y] for y in sorted(frame)) for frame in term.frames)
+    assert "copies you need" in all_text
+    assert C.OWNER_CHECKBOX in all_text or "written permission" in all_text
     assert "F5: Check disks again" in shown
     assert "R: Need a report?" in shown
 
@@ -327,11 +332,11 @@ def test_short_terminal_scrolls_power_warning_into_view(monkeypatch):
     shown, packed, term = _draw(
         monkeypatch,
         wiz,
-        keys=[console.curses.KEY_DOWN] * 10,
+        keys=[console.curses.KEY_NPAGE] * 10,
         sizes=[(16, 60)] * 12,
     )
     all_text = " ".join(" ".join(frame[y] for y in sorted(frame)) for frame in term.frames)
-    assert "Enter: I understand" in all_text
+    assert "Space to check" in all_text
     assert "wall power" in all_text
     assert C.REPORT_MEDIA_WHAT.split(".")[0] in all_text
     assert all(max(frame) < 16 for frame in term.frames if frame)
@@ -349,12 +354,12 @@ def test_resize_keeps_action_on_last_rows(monkeypatch):
     )
     last = term.frames[-1]
     footer = _footer(term)
-    assert "Enter: I understand" in footer
+    assert "Space to check" in footer or "Enter continues only when checked" in footer
     assert all(y < term.h for y in last)
     shorts = [frame for frame in term.frames if frame and max(frame) < 16]
     assert shorts
     short = shorts[0]
-    assert any("Enter: I understand" in row for row in short.values())
+    assert any("Space to check" in row or "Enter continues" in row for row in short.values())
     assert all(len(row) < 60 for row in short.values())
 
 

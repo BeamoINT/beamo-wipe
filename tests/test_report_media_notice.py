@@ -15,7 +15,7 @@ from test_console_parity import _draw
 def _at_what():
     wiz = make_demo_wizard()
     wiz.skip_intro()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     return wiz
 
 
@@ -100,7 +100,7 @@ def test_report_help_checkbox_still_drives_preference():
     wiz.set_report_wanted(True)
     assert wiz.report_wanted
     wiz.close_report_help()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     # Preference set directly is honored; the checkbox only works in help.
     wiz.set_report_wanted(False)
     assert wiz.report_wanted
@@ -113,7 +113,7 @@ def test_report_help_checkbox_toggles_by_keyboard(monkeypatch):
     assert wiz.report_wanted
     wiz.wants_shutdown = False
     wiz.close_report_help()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     _draw(monkeypatch, wiz, keys=[ord("r"), ord(" ")])
     assert not wiz.report_wanted
 

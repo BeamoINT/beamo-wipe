@@ -11,7 +11,7 @@ from test_adaptive_layout import _assert_actions_on_window
 from test_console_parity import _draw
 
 
-@pytest.mark.parametrize('screen', [Screen.WHAT, Screen.LAST_CHANCE, Screen.WORKING, Screen.CHECKING, Screen.STOPPING])
+@pytest.mark.parametrize('screen', [Screen.WHAT, Screen.OWNER, Screen.LAST_CHANCE, Screen.WORKING, Screen.CHECKING, Screen.STOPPING])
 @pytest.mark.parametrize('size', [(800, 600), (1024, 600), (1024, 740), (1280, 820), (1600, 1000)])
 def test_native_power_remains_readable_and_updates_without_redraw(ui, screen, size):  # noqa: F811
     wizard, app = ui(size=size)
@@ -37,7 +37,7 @@ def test_native_power_remains_readable_and_updates_without_redraw(ui, screen, si
     assert wizard.screen == screen
 
 
-@pytest.mark.parametrize('screen', [Screen.WHAT, Screen.LAST_CHANCE, Screen.WORKING, Screen.CHECKING, Screen.STOPPING])
+@pytest.mark.parametrize('screen', [Screen.WHAT, Screen.OWNER, Screen.LAST_CHANCE, Screen.WORKING, Screen.CHECKING, Screen.STOPPING])
 def test_console_pages_power_without_dropping_disk_identity(monkeypatch, screen):
     import curses
     wizard = make_demo_wizard()
@@ -49,7 +49,7 @@ def test_console_pages_power_without_dropping_disk_identity(monkeypatch, screen)
     assert '12%' in shown
     assert 'Low battery' in shown
     assert 'lid open' in shown
-    if screen != Screen.WHAT:
+    if screen not in {Screen.WHAT, Screen.OWNER}:
         assert wizard.selected.serial in shown
 
 

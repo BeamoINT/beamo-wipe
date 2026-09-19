@@ -156,7 +156,7 @@ def test_successful_layout_change_clears_full_confirmation_flow(layout_id):
     assert wiz.selected is None
     assert wiz._authorized_operation is None
     assert wiz._erase_until is None
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     wiz.accept_what()
     assert wiz.screen == Screen.OWNER
     wiz.continue_owner()
@@ -174,7 +174,7 @@ def test_repeated_same_layout_does_not_invalidate():
     assert wiz.set_keyboard_layout("us")
     assert wiz.keyboard_layout == "us"
     assert not wiz.owner_ok
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
 
 
 def test_splash_then_keyboard_then_what():
@@ -187,7 +187,7 @@ def test_splash_then_keyboard_then_what():
     wiz.set_typing_check("azerty 123")
     assert wiz.typing_check == "azerty 123"
     wiz.accept_keyboard()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.typing_check == ""
     assert wiz.keyboard_layout == "fr"
 
@@ -270,7 +270,7 @@ def test_console_keyboard_and_plain_check_field(monkeypatch, capsys):
     assert "QWERTZ" in text
     assert "dead keys" in text.lower()
     assert wiz.keyboard_layout == "fr"
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert "azerty" not in (wiz.typing_check or "")
 
 
@@ -334,7 +334,7 @@ def test_rendered_keyboard_screen_keeps_check_field_and_layouts(monkeypatch):
         wiz.accept_keyboard()
         app._draw()
         app.root.update()
-        assert wiz.screen == Screen.WHAT
+        assert wiz.screen == Screen.OWNER
         assert wiz.typing_check == ""
     finally:
         app._teardown()

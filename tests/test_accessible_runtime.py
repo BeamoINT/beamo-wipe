@@ -155,7 +155,7 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     assert wizard.selected is not None and wizard.owner_ok
     assert C.REFRESH_LEAD in text(app)
     app.actions[C.BTN_REFRESH].clicked()
-    assert wizard.screen == Screen.WHAT
+    assert wizard.screen == Screen.OWNER
     assert wizard.selected is None and not wizard.owner_ok and not wizard.confirm_input
     # A queued action from the previous screen never starts a wipe.
     stale_erase.emit("clicked")
@@ -432,7 +432,6 @@ def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
 
 def test_low_resolution_footer_and_focus(ui):
     for screen in (
-        Screen.WHAT,
         Screen.OWNER,
         Screen.PICK,
         Screen.METHOD,
@@ -802,7 +801,7 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     assert w.screen == Screen.REFRESH_CONFIRM
     app.actions[C.BTN_REFRESH].clicked()
     drain()
-    assert w.report_wanted is wanted and w.screen == Screen.WHAT
+    assert w.report_wanted is wanted and w.screen == Screen.OWNER
     assert w.selected is None and not w.owner_ok and not w.confirm_input
     app.actions[C.REPORT_HELP_TITLE].clicked()
     drain()
@@ -812,7 +811,7 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     assert choice.get_active() is wanted
     app.actions[C.BTN_BACK].clicked()
     drain()
-    assert w.screen == Screen.WHAT and not w.runner.started
+    assert w.screen == Screen.OWNER and not w.runner.started
 
 
 @pytest.mark.parametrize("origin", [Screen.DONE, Screen.PICK_BLOCKED, Screen.WHAT])
@@ -1523,7 +1522,7 @@ def test_what_report_media_notice_announced(ui):
 
     wizard = make_demo_wizard()
     wizard.skip_intro()
-    assert wizard.screen == Screen.WHAT
+    assert wizard.screen == Screen.OWNER
     app = ui(wizard)
     assert C.REPORT_MEDIA_WHAT in text(app)
     names = [w.get_accessible().get_name() for w in widgets(app.window)]

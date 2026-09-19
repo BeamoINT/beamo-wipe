@@ -780,19 +780,19 @@ class Wizard:
                 self.screen = Screen.KEYBOARD
 
     def skip_intro(self) -> None:
-        """Tests: advance past splash and keyboard. Production walks each screen."""
+        """Tests: advance past splash and keyboard to the combined intro."""
         with self._lock:
             if self.screen == Screen.SPLASH:
                 self.screen = Screen.KEYBOARD
             if self.screen == Screen.KEYBOARD:
                 self.typing_check = ""
-                self.screen = Screen.WHAT
+                self.screen = Screen.OWNER
 
     def accept_keyboard(self) -> None:
         with self._lock:
             if self.screen != Screen.KEYBOARD:
                 return
-            dest = self._keyboard_from or Screen.WHAT
+            dest = self._keyboard_from or Screen.OWNER
             if dest in {
                 Screen.WORKING,
                 Screen.CHECKING,
@@ -801,7 +801,7 @@ class Wizard:
                 Screen.KEYBOARD,
                 Screen.SPLASH,
             }:
-                dest = Screen.WHAT
+                dest = Screen.OWNER
             self._keyboard_from = None
             self.typing_check = ""
             self.screen = dest
@@ -915,8 +915,8 @@ class Wizard:
         self._authorized_operation = None
         self._keyboard_from = None
         self.typing_check = ""
-        if self.screen not in {Screen.KEYBOARD, Screen.SPLASH, Screen.WHAT}:
-            self.screen = Screen.WHAT
+        if self.screen not in {Screen.KEYBOARD, Screen.SPLASH, Screen.WHAT, Screen.OWNER}:
+            self.screen = Screen.OWNER
 
     def reset_for_preview(self) -> None:
         """Start the wizard over. Preview only — never used on a live wipe."""
@@ -1113,7 +1113,7 @@ class Wizard:
         with self._lock:
             if self.screen != Screen.SHUTDOWN_CONFIRM or self.wants_shutdown:
                 return
-            self.screen = self._shutdown_from or Screen.WHAT
+            self.screen = self._shutdown_from or Screen.OWNER
             self._shutdown_from = None
             self._new_session_pending = False
             self._done_keyboard_armed = False
@@ -1164,20 +1164,23 @@ class Wizard:
             self.shutdown()
 
     def accept_what(self) -> None:
+        """Kept for older tests. The explanation now lives on the owner screen."""
         with self._lock:
+            if self.screen == Screen.OWNER:
+                return
             if self.screen != Screen.WHAT:
                 return
             self.screen = Screen.OWNER
 
     def set_owner(self, checked: bool) -> None:
         with self._lock:
-            if self.screen != Screen.OWNER:
+            if self.screen not in {Screen.WHAT, Screen.OWNER}:
                 return
             self.owner_ok = bool(checked)
 
     def continue_owner(self) -> None:
         with self._lock:
-            if self.screen != Screen.OWNER or not self.owner_ok:
+            if self.screen not in {Screen.WHAT, Screen.OWNER} or not self.owner_ok:
                 return
             self._enter_pick()
 
@@ -1294,8 +1297,8 @@ class Wizard:
             self.discovery = fresh
             self.startup_error_code = fresh.error_code
             self.error = fresh.error
-            # WHAT -> OWNER -> PICK requires all acknowledgements again.
-            self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.WHAT
+            # Combined intro -> PICK requires the ownership acknowledgement again.
+            self.screen = Screen.PICK_BLOCKED if fresh.error else Screen.OWNER
         return True
 
     def refresh_disks(self) -> bool:
@@ -1338,7 +1341,7 @@ class Wizard:
         with self._lock:
             if self.screen != Screen.REFRESH_CONFIRM:
                 return
-            dest = self._refresh_confirm_from or Screen.WHAT
+            dest = self._refresh_confirm_from or Screen.OWNER
             self._refresh_confirm_from = None
             self.screen = dest
 
@@ -2457,7 +2460,8 @@ class Wizard:
                 and not self.wants_shutdown and not self._diagnostic_busy
                 and (self.screen in {Screen.PICK_BLOCKED, Screen.PICK_EMPTY}
                      or (self.screen == Screen.LAST_CHANCE and bool(self.error))
-                     or (self.screen == Screen.WHAT and self.startup_error_code == "graphical_unavailable")))
+                     or (self.screen in {Screen.WHAT, Screen.OWNER}
+                         and self.startup_error_code == "graphical_unavailable")))
 
     def open_diagnostic(self) -> None:
         with self._lock:
@@ -2582,7 +2586,7 @@ class Wizard:
 
     @property
     def can_open_report_help(self) -> bool:
-        return self.screen in {Screen.WHAT, Screen.METHOD, Screen.ADVANCED} and self._wipe_request is None
+        return self.screen in {Screen.WHAT, Screen.OWNER, Screen.METHOD, Screen.ADVANCED} and self._wipe_request is None
 
     def open_report_help(self) -> None:
         with self._lock:
@@ -2703,7 +2707,7 @@ class Wizard:
     def close_report_help(self) -> None:
         with self._lock:
             if self.screen == Screen.REPORT_HELP:
-                self.screen = self._report_help_from or Screen.WHAT
+                self.screen = self._report_help_from or Screen.OWNER
                 self._report_help_from = None
 
     def open_limits(self) -> None:
@@ -2768,7 +2772,8 @@ class Wizard:
                     self.screen = dest
                 return
             mapping = {
-                Screen.OWNER: Screen.WHAT,
+                Screen.WHAT: Screen.KEYBOARD,
+                Screen.OWNER: Screen.KEYBOARD,
                 Screen.DISK_HELP: Screen.PICK,
                 Screen.PICK: Screen.OWNER,
                 Screen.PICK_EMPTY: Screen.OWNER,

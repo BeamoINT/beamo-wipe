@@ -42,7 +42,7 @@ def test_fixture_cli_refresh_stays_on_fake_machine(monkeypatch):
     wizard.continue_owner()
     assert wizard.screen == Screen.PICK
     assert wizard.refresh_disks()
-    assert wizard.discovery == before and wizard.screen == Screen.WHAT
+    assert wizard.discovery == before and wizard.screen == Screen.OWNER
     assert not wizard.owner_ok and wizard.selected is None
 
 

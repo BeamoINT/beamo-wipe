@@ -124,12 +124,12 @@ def test_scan_returns_fast_and_loop_beats_during_io():
         app._click_refresh()
         assert time.monotonic() - start < 0.5
         assert app.w.screen == Screen.REFRESHING
-        assert _settle(app) == Screen.WHAT
+        assert _settle(app) == Screen.OWNER
         assert len(beats) >= 3, f"loop stalled ({len(beats)} beats)"
         assert calls and calls[0] != main_ident
         assert app.draws[0][1] == Screen.REFRESH_CONFIRM
         assert Screen.REFRESHING in [screen for _ident, screen in app.draws]
-        assert app.draws[-1][1] == Screen.WHAT
+        assert app.draws[-1][1] == Screen.OWNER
         assert all(ident == main_ident for ident, _screen in app.draws)
     finally:
         app._teardown()
@@ -158,14 +158,14 @@ def test_duplicate_scan_refused_single_worker():
         time.sleep(0.1)
         app.root.pump()
         app._click_refresh()
-        assert _settle(app) == Screen.WHAT
+        assert _settle(app) == Screen.OWNER
         for worker in app._refresh_threads.values():
             worker.join(timeout=10)
         # Wording, then one checking paint, one applied paint, one thread.
         assert [screen for _ident, screen in app.draws] == [
             Screen.REFRESH_CONFIRM,
             Screen.REFRESHING,
-            Screen.WHAT,
+            Screen.OWNER,
         ]
         assert len(app._refresh_threads) == 1
     finally:

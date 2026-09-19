@@ -238,7 +238,7 @@ def _drive_to(wiz, app, screen, size=WINDOW):
         Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.ADVANCED,
     ):
         wiz.accept_what()
-    if screen != Screen.OWNER:
+    if screen not in (Screen.OWNER, Screen.WHAT):
         wiz.set_owner(True)
         wiz.continue_owner()
     if screen in (Screen.PICK, Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE,
@@ -267,7 +267,7 @@ def _drive_to(wiz, app, screen, size=WINDOW):
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, SHORT_WINDOW, (800, 600)])
 @pytest.mark.parametrize(
     "screen",
-    [Screen.KEYBOARD, Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
+    [Screen.KEYBOARD, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,
      Screen.ADVANCED, Screen.LAST_CHANCE],
 )
 def test_screen_fits_without_clipping(ui, screen, size):
@@ -380,7 +380,7 @@ def test_refresh_returns_while_scan_runs():
         elapsed = time.monotonic() - start
         assert elapsed < 0.5, f"UI thread blocked {elapsed:.2f}s by discovery I/O"
         assert wiz.screen == Screen.REFRESHING
-        assert _await_scan_done(app) == Screen.WHAT
+        assert _await_scan_done(app) == Screen.OWNER
         assert len(beats) >= 5, f"event loop stalled during scan ({len(beats)} beats)"
         assert calls and all(ident != main_ident for ident, _ in calls)
     finally:
@@ -424,7 +424,7 @@ def test_duplicate_refresh_runs_single_scan():
         time.sleep(0.3)
         app.root.update()
         app._click_refresh()
-        assert _await_scan_done(app) == Screen.WHAT
+        assert _await_scan_done(app) == Screen.OWNER
         _join_scan_workers(app)
         assert marks == [1], marks  # second attempt never started I/O
         assert applied == [True], applied
@@ -589,9 +589,10 @@ def test_keyboard_only_flow_reaches_working(ui):
     key("a")
     assert wiz.screen == Screen.KEYBOARD
     key("Return")
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     key("Return")
     assert wiz.screen == Screen.OWNER
+    assert not wiz.owner_ok
     key("space")
     assert wiz.owner_ok
     key("Return")
@@ -994,7 +995,7 @@ def test_pick_list_keeps_scroll_position_on_click(ui):
 
 def test_every_screen_has_a_focusable_action(ui):
     """Keyboard users always land on (or can Tab to) a live control."""
-    for screen in (Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM,
+    for screen in (Screen.OWNER, Screen.PICK, Screen.CONFIRM,
                    Screen.METHOD, Screen.ADVANCED, Screen.LAST_CHANCE):
         wiz, app = ui()
         _drive_to(wiz, app, screen)
@@ -1212,7 +1213,7 @@ def test_held_f5_cannot_skip_refresh_wording(ui):
     app._on_f5_release()
     app._on_key(SimpleNamespace(keysym="F5", char=""))
     assert wiz.screen == Screen.REFRESHING
-    assert _await_scan_done(app) == Screen.WHAT
+    assert _await_scan_done(app) == Screen.OWNER
 
 
 @pytest.mark.parametrize("screen", [Screen.PICK, Screen.PICK_EMPTY, Screen.PICK_BLOCKED, Screen.CONFIRM, Screen.METHOD, Screen.LAST_CHANCE])
@@ -1228,7 +1229,7 @@ def test_graphical_refresh_restarts_full_authorization(ui, screen):
     app._on_f5_release()
     app._on_key(SimpleNamespace(keysym="F5", char=""))
     assert wiz.screen == Screen.REFRESHING
-    assert _await_scan_done(app) == Screen.WHAT
+    assert _await_scan_done(app) == Screen.OWNER
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
     assert not wiz.runner.started
     assert not _clipping_problems(app)
@@ -1258,7 +1259,7 @@ def test_screen_reader_switch_clears_authorization(ui, monkeypatch, fresh_ok):
         time.sleep(0.02)
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
     assert app._accessible_requested  # Both successful and blocked refreshes use the reader view.
-    assert wiz.screen == (Screen.WHAT if fresh_ok else Screen.PICK_BLOCKED)
+    assert wiz.screen == (Screen.OWNER if fresh_ok else Screen.PICK_BLOCKED)
 
 
 def test_screen_reader_switch_unavailable_during_erase(ui, monkeypatch):
@@ -1291,7 +1292,7 @@ def test_startup_diagnostic_path_renders_and_returns_without_wipe(ui, screen):
 
 @pytest.mark.parametrize("wanted", [True, False])
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
-@pytest.mark.parametrize("origin", [Screen.WHAT, Screen.METHOD, Screen.ADVANCED])
+@pytest.mark.parametrize("origin", [Screen.OWNER, Screen.METHOD, Screen.ADVANCED])
 def test_report_help_rendered_preference_and_layout(ui, wanted, size, origin):
     from beamo_wipe import copy as C
     wiz, app = ui(size=size)
@@ -1841,7 +1842,7 @@ def test_what_screen_shows_backup_and_os_prepare_at_minimum_size(ui):
     from beamo_wipe import copy as C
 
     wiz, app = ui(size=MIN_WINDOW)
-    _drive_to(wiz, app, Screen.WHAT, size=MIN_WINDOW)
+    _drive_to(wiz, app, Screen.OWNER, size=MIN_WINDOW)
     shown = _label_text(app)
     for bullet in C.WHAT_BULLETS:
         assert bullet in shown
@@ -1849,6 +1850,9 @@ def test_what_screen_shows_backup_and_os_prepare_at_minimum_size(ui):
     assert "recovery partitions on that disk" in shown
     assert C.POWER_REMINDER in shown
     assert C.POWER_BLANKING in shown
+    assert C.TITLE_OWNER in shown
+    assert C.OWNER_CHECKBOX in shown
+    assert C.BTN_UNDERSTAND not in shown
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)
 
@@ -2475,7 +2479,7 @@ def test_what_report_media_notice_above_power(ui, size):
     wiz, app = ui(size=size)
     wiz.preview = False
     wiz.skip_intro()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     app._draw()
     app.root.update()
     labels = {w.cget("text"): w for w in descendants(app.root) if isinstance(w, tk.Label)}
