@@ -1,0 +1,34 @@
+Original-gap probes for #113. Fake disks only. Never nwipe.
+
+1. Extra Enter after the last-chance countdown starts a fake wipe if the
+   console hold check is skipped and `_handle` sees KEY_ENTER directly.
+   The loop's `_is_enter_repeat` is the only hold. Probe:
+
+   GAP-1 PASS: extra _handle(Enter) after countdown starts erase
+               (loop gate is the only hold)
+
+2. A stale refresh sequence must not replace inventory. Applying seq-1
+   while seq is in flight is the original race:
+
+   GAP-2 PASS: stale refresh sequence is rejected
+   GAP-2b current seq applied
+
+3. The new many-disk fixture is sized to overflow native Tk. Demo
+   inventory is only a handful of disks and the older scroll test can
+   skip when that list fits.
+
+   GAP-3: new many-disk fixture selectable count = 27
+          (24 forced extra disks + the 3 demo selectables)
+
+4. Inverting `_is_enter_repeat` to always return False makes the new
+   key-repeat test's skipped==8 assertion fail and starts the fake wipe:
+
+   GAP-4 inverted-gate skipped=0 started=True
+
+   The new suite therefore fails on the original gap (held Enter treated
+   as a new press) and passes with the existing hold check in place.
+
+Product source on this branch is unchanged from main 4c26217. The gap
+was missing explicit, non-skiping coverage of the eight interaction
+contracts — not a missing engine. Gallery remains a static click-through
+and is not a substitute for these fakes.

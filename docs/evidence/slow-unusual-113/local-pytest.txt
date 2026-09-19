@@ -1,0 +1,98 @@
+dbus-daemon[3072532]: [session uid=1000 pid=3072532 pidfd=4] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=3072559 comm="python3 -m pytest" label="kernel")
+dbus-daemon[3072532]: [session uid=1000 pid=3072532 pidfd=4] Successfully activated service 'org.a11y.Bus'
+........................................................................ [  2%]
+.....dbus-daemon[3072595]: Activating service name='org.a11y.atspi.Registry' requested by ':1.0' (uid=1000 pid=3072559 comm="python3 -m pytest" label="kernel")
+dbus-daemon[3072595]: Successfully activated service 'org.a11y.atspi.Registry'
+SpiRegistry daemon is running with well-known name - org.a11y.atspi.Registry
+................................................................... [  4%]
+........................................................................ [  6%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+..............................F......................................... [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+...............sss..s.ssssssss.......................................... [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+.....................................dbus-daemon[3072532]: [session uid=1000 pid=3072532 pidfd=4] Activating service name='org.freedesktop.secrets' requested by ':1.19' (uid=1000 pid=3088490 comm="/opt/google/chrome/chrome --headless=new --no-sand" label="kernel")
+GNOME_KEYRING_CONTROL=/home/box/.cache/keyring-B0QJV3
+dbus-daemon[3072532]: [session uid=1000 pid=3072532 pidfd=4] Successfully activated service 'org.freedesktop.secrets'
+................................... [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+.......ss..........................................s.................... [ 86%]
+........................................................................ [ 88%]
+........................................................s............... [ 91%]
+........................................................................ [ 93%]
+..........................................ssssssssssss.................. [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_idle_recovery_is_stable_and_signals_never_relaunch[1] __________
+
+tmp_path = PosixPath('/tmp/pytest-of-box/pytest-224/test_idle_recovery_is_stable_a1')
+signum = <Signals.SIGHUP: 1>
+
+    @pytest.mark.parametrize("signum", [signal.SIGTERM, signal.SIGHUP])
+    def test_idle_recovery_is_stable_and_signals_never_relaunch(tmp_path, signum):
+        script, trace = prepare_kiosk(tmp_path)
+        output = tmp_path / "output"
+        with output.open("w") as stream:
+            proc = subprocess.Popen(["/bin/sh", str(script)], stdin=subprocess.PIPE,
+                                    stdout=stream, stderr=stream)
+            try:
+                deadline = time.monotonic() + 5
+                while "Choose 1, 2, 3, 4 or 5" not in output.read_text():
+                    assert time.monotonic() < deadline, output.read_text()
+                    time.sleep(0.01)
+                before = trace.read_text()
+                time.sleep(0.05)
+                assert proc.poll() is None
+                assert trace.read_text() == before
+                proc.send_signal(signum)
+                # Some shells defer a trap until their blocking read returns.
+                proc.communicate(input=b"\n", timeout=2)
+                assert proc.returncode == 0
+>               assert trace.read_text() == before
+E               AssertionError: assert 'stty susp un... intr undef\n' == 'stty susp un... intr undef\n'
+E                 
+E                 Skipping 1208 identical leading characters in diff, use -v to show
+E                   intr undef
+E                 + stty sane
+E                 + stty susp undef quit undef intr undef
+
+tests/test_kiosk_recovery.py:232: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_kiosk_recovery.py::test_idle_recovery_is_stable_and_signals_never_relaunch[1] - AssertionError: assert 'stty susp un... intr undef\n' == 'stty susp un... intr undef\n'
+  
+  Skipping 1208 identical leading characters in diff, use -v to show
+    intr undef
+  + stty sane
+  + stty susp undef quit undef intr undef
+1 failed, 3212 passed, 28 skipped in 487.79s (0:08:07)
+EXIT:1
