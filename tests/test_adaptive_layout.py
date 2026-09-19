@@ -90,9 +90,10 @@ def _assert_actions_on_window(app):
         assert btn.winfo_height() >= 28
     # Body content may scroll on short windows; widgets inside the body
     # canvas are reachable by PageDown. Footer actions must stay on-window.
+    # Clipping still applies inside those canvases (device cards, progress).
+    assert _clipping_problems(app) == []
     if app._body_canvas is None:
         assert _off_window_problems(app) == []
-        assert _clipping_problems(app) == []
 
 
 def _show(wiz, app, screen):
