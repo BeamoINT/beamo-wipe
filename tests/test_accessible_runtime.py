@@ -85,17 +85,30 @@ def _stop_private_xvfb(proc) -> None:
         proc.wait(timeout=5)
 
 
+def _orca_runtime_dir() -> tempfile.TemporaryDirectory:
+    """Bookworm at-spi wants a 0700 dir under /run/user/UID when that exists."""
+    uid_run = Path(f"/run/user/{os.getuid()}")
+    if uid_run.is_dir() and os.access(uid_run, os.W_OK):
+        return tempfile.TemporaryDirectory(prefix="beamo-orca-", dir=str(uid_run))
+    return tempfile.TemporaryDirectory(prefix="beamo-orca-")
+
+
 def _orca_child_env(display: str, runtime_dir: Path) -> dict:
-    """Private runtime so the child does not join the parent's at-spi bus file."""
+    """Private at-spi bus file; keep parent Pulse so Bookworm Orca can start."""
     runtime_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(runtime_dir, 0o700)
     env = os.environ.copy()
     env["DISPLAY"] = display
     env["BEAMO_TEST_ORCA_CHILD"] = "1"
+    parent_runtime = env.get("XDG_RUNTIME_DIR")
     env["XDG_RUNTIME_DIR"] = str(runtime_dir)
-    env["XDG_CONFIG_HOME"] = str(runtime_dir / "config")
-    env["XDG_CACHE_HOME"] = str(runtime_dir / "cache")
-    env["XDG_DATA_HOME"] = str(runtime_dir / "data")
+    if parent_runtime:
+        pulse = Path(parent_runtime) / "pulse"
+        if pulse.exists():
+            env["PULSE_RUNTIME_PATH"] = str(pulse)
+            native = pulse / "native"
+            if native.exists():
+                env["PULSE_SERVER"] = f"unix:{native}"
     for key in (
         "AT_SPI_BUS_ADDRESS",
         "XAUTHORITY",
@@ -551,11 +564,16 @@ def test_orca_parent_isolates_x11_instead_of_raising_timeout():
     wait = "timeout=%s,"
     assert "_start_private_xvfb" in src
     assert "_orca_child_env" in src
+    assert "_orca_runtime_dir" in src
+    assert "PULSE_RUNTIME_PATH" in src
     assert "XDG_RUNTIME_DIR" in src
     assert wait % 300 in src
     assert wait % 480 not in src
     assert '"Xvfb"' in src
     assert "xvfb-run" in src  # comment only: nested xvfb-run is forbidden
+    conftest = Path(__file__).with_name("conftest.py").read_text(encoding="utf-8")
+    assert "pytest_collection_modifyitems" in conftest
+    assert "test_orca_announces_every_result" in conftest
 
 
 def test_orca_announces_every_result(tmp_path, request):
@@ -571,7 +589,7 @@ def test_orca_announces_every_result(tmp_path, request):
         runtime = None
         try:
             xvfb, display = _start_private_xvfb()
-            runtime = tempfile.TemporaryDirectory(prefix="beamo-orca-")
+            runtime = _orca_runtime_dir()
             env = _orca_child_env(display, Path(runtime.name))
             result = subprocess.run(
                 [
