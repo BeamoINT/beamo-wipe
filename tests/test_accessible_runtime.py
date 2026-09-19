@@ -553,7 +553,13 @@ sys.exit(entry['main']())
         # still fails this wait.
         arrival = getattr(app, "arrival", None)
         other = None
-        match = arrival if arrival is not None else None
+        match = None
+        if arrival is not None:
+            accessible = arrival.get_accessible()
+            name = accessible.get_name() if accessible is not None else ""
+            label = arrival.get_text() if isinstance(arrival, Gtk.Label) else ""
+            if phrase in (name or "") or phrase in (label or ""):
+                match = arrival
         for widget in widgets(app.window):
             if widget is arrival or isinstance(widget, Gtk.Window):
                 continue
