@@ -46,6 +46,11 @@ the previous layout and is shown as an error; it does not silently substitute
 another map. The typing-check box is not a password, is not logged, and is not
 written to evidence. A kiosk restart returns to the shipped US QWERTY default.
 
+The keyboard screen also offers Standard, Large, and Extra large text. The
+choice stays for this USB session. Tk still pins `tk scaling 1.0` so display
+DPI cannot enlarge type on its own. Extra large wraps and scrolls; footer
+actions stay reachable at 800×600. The 80×24 console cannot grow glyphs.
+
 The graphical wizard uses real layouts at 800×600 and 1024×600 as well as
 1024×740 and larger. Short windows may scroll the body; identity, warnings,
 and footer actions stay reachable. Type enlarges slightly on large windows.

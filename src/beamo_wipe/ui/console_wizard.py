@@ -702,6 +702,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(C.TITLE_KEYBOARD)
             print(C.KEYBOARD_LEAD)
             print(C.KEYBOARD_LIMITS)
+            print(C.TEXT_SIZE_LEAD)
+            print(C.TEXT_SIZE_CONSOLE)
             print(_keyboard.CONSOLE_DEAD_KEYS)
             for i, layout_id in enumerate(LAYOUT_ORDER, 1):
                 layout_spec = _keyboard.LAYOUTS[layout_id]
@@ -1159,6 +1161,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
         elif wizard.screen == Screen.KEYBOARD:
             y = _wrap(stdscr, y, C.KEYBOARD_LEAD, w, y_max)
             y = _wrap(stdscr, y, C.KEYBOARD_LIMITS, w, y_max)
+            y = _wrap(stdscr, y, C.TEXT_SIZE_LEAD, w, y_max)
+            y = _wrap(stdscr, y, C.TEXT_SIZE_CONSOLE, w, y_max)
             y = _wrap(stdscr, y, _keyboard.CONSOLE_DEAD_KEYS, w, y_max) + 1
             lines = []
             for i, layout_id in enumerate(LAYOUT_ORDER, 1):
