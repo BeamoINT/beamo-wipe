@@ -81,6 +81,9 @@ class Disk:
     raw_model: Optional[str] = None
     # Proven from lsblk partitions only: windows, system, data, or unknown.
     contents: str = CONTENTS_UNKNOWN
+    # Observed lsblk RM or HOTPLUG. SATA/NVMe with this set may be a USB
+    # enclosure; presentation must not guess internal vs external location.
+    hotplug: bool = False
 
     @property
     def display_name(self) -> str:

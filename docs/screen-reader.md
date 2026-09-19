@@ -44,6 +44,8 @@ identity text before the disk-selection buttons. It is never a Select button.
 **Other detected devices** is read-only text; it never offers an erase action.
 Partitions and other technical components of a known parent are read-only
 nested text on that disk (or on the protected USB), never a Select button.
+Select buttons announce the observed **Connection** (USB, SATA, NVMe) with
+the disk identity. They do not guess whether a disk is inside the computer.
 
 On the disk list, **I'm not sure which disk** opens identification guidance
 for internal or external targets. Tab to the read-only text and use normal

@@ -63,7 +63,7 @@ def _disk(raw):
     if not isinstance(raw, dict) or set(raw) != set(Disk.__dataclass_fields__):
         raise ValueError("Invalid disk fields")
     for key, value in raw.items():
-        if key in {"is_boot", "read_only"}:
+        if key in {"is_boot", "read_only", "hotplug"}:
             if type(value) is not bool:
                 raise ValueError("Invalid disk flag")
         elif key == "size_bytes":

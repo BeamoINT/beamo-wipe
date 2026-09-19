@@ -1915,8 +1915,10 @@ class TkWizard:
         meta = tk.Frame(parent, bg=bg)
         chip = " · ".join(part for part in (view.kind_chip, view.connection) if part)
         if chip:
-            tk.Label(meta, text=chip, font=self.font_s,
-                     fg=MUTED, bg=bg, anchor="e").pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
+            conn = tk.Label(meta, text=chip, font=self.font_s,
+                     fg=MUTED, bg=bg, anchor="e")
+            conn.pack(side=tk.RIGHT, anchor="n", padx=(16, 0))
+            setattr(conn, "_beamo_connection", True)
         identity = tk.Frame(meta, bg=bg)
         identity.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Label(identity, text=view.id_label, font=self.font_meta,

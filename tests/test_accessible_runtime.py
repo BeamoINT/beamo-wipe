@@ -520,17 +520,59 @@ sys.exit(entry['main']())
         stderr=subprocess.DEVNULL,
     )
 
+    app_box = []
+
+    def logged_speech(phrase, since):
+        content = logfile.read_text(errors="replace") if logfile.exists() else ""
+        lines = content[since:].splitlines()
+        for index, line in enumerate(lines):
+            if "SPEECH OUTPUT:" not in line:
+                continue
+            chunk = line
+            if index + 1 < len(lines):
+                chunk = f"{line} {lines[index + 1]}"
+            if phrase in chunk:
+                return content, True
+        return content, False
+
+    def nudge_focus(phrase):
+        if not app_box:
+            return
+        app = app_box[0]
+        drain()
+        # Rebuilds can Notify:True-focus an identical heading without
+        # generating speech. Blur, then refocus the matching widget so
+        # Orca emits a fresh SPEECH OUTPUT line. Accessible-name-only
+        # still fails this wait.
+        other = None
+        match = None
+        for widget in widgets(app.window):
+            accessible = widget.get_accessible()
+            name = accessible.get_name() if accessible is not None else ""
+            label = widget.get_text() if isinstance(widget, Gtk.Label) else ""
+            if match is None and (phrase in (name or "") or phrase in (label or "")):
+                match = widget
+            elif other is None and widget.get_can_focus():
+                other = widget
+        if other is not None:
+            other.grab_focus()
+            drain()
+        target = match or app.window.get_focus()
+        if target is not None:
+            target.grab_focus()
+            drain()
+
     def wait_for(phrase, *, since=0, timeout=40):
         # Bookworm Orca can spend >15s draining defunct children-changed
         # events after a dense screen is destroyed before it speaks again.
         deadline = time.monotonic() + timeout
+        nudges = 0
+        next_nudge = time.monotonic() + 2
+        content = ""
         while time.monotonic() < deadline:
             drain()
-            content = logfile.read_text(errors="replace") if logfile.exists() else ""
-            if any(
-                "SPEECH OUTPUT:" in line and phrase in line
-                for line in content[since:].splitlines()
-            ):
+            content, found = logged_speech(phrase, since)
+            if found:
                 # Finish the current AT-SPI event before replacing its widgets.
                 # This models a reader finishing a screen before navigation.
                 previous_size = -1
@@ -546,14 +588,22 @@ sys.exit(entry['main']())
                         break
                     time.sleep(0.01)
                 return
+            if app_box and nudges < 2 and time.monotonic() >= next_nudge:
+                nudge_focus(phrase)
+                nudges += 1
+                next_nudge = time.monotonic() + 2
             assert reader.poll() is None, content[-3000:]
             time.sleep(0.02)
         pytest.fail(f"Orca did not announce {phrase!r}: {content[-3000:]}")
 
     try:
         wait_for("Screen reader on")
-        app = ui(case_evidence(CASES[0])[0])
-        for case in CASES:
+        first, _, _ = case_evidence(CASES[0])
+        checkpoint = len(logfile.read_text(errors="replace")) if logfile.exists() else 0
+        app = ui(first)
+        app_box.append(app)
+        wait_for(first.result_view.message, since=checkpoint)
+        for case in CASES[1:]:
             wizard, _, _ = case_evidence(case)
             app.w = wizard
             checkpoint = len(logfile.read_text(errors="replace"))
@@ -976,6 +1026,21 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     app.render()
     assert markers[-1] == "BEAMO_WIPE_ACCESSIBLE_SCREEN_OWNER"
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
+
+
+def test_picker_select_buttons_announce_connection(ui):
+    from beamo_wipe.identity import CONNECTION_LABEL
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    names = list(app.actions)
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        expected = f"Select {view.announcement}"
+        assert expected in names
+        assert f"{CONNECTION_LABEL}: {view.connection}" in expected
+    assert wizard.selected is None and not wizard.runner.started
 
 
 def test_picker_protected_identity_is_reader_not_select_action(ui):
