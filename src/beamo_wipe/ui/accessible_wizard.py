@@ -69,13 +69,21 @@ class AccessibleWizard:
             #beamo-accessible .disk-identity { background: #F0F5FA; color: #12202E; padding: 16px 20px; border: 1px solid #1C4A73; border-radius: 12px; }
             #beamo-accessible button { padding: 10px 20px; border-radius: 999px; }
             #beamo-accessible button.primary-action { background-image: none; background-color: #1C4A73; color: #FFFFFF; }
+            #beamo-accessible button.primary-action:hover { background-color: #163A5C; }
+            #beamo-accessible button.primary-action:active { background-color: #102A44; }
             #beamo-accessible button.destructive-action { background-image: none; background-color: #B3261E; color: #FFFFFF; }
+            #beamo-accessible button.destructive-action:hover { background-color: #8E1D16; }
+            #beamo-accessible button.destructive-action:active { background-color: #6E1510; }
             #beamo-accessible button:disabled { background-image: none; background-color: #E8ECF1; color: #6E7989; }
             #beamo-accessible button:focus { outline: 3px solid #2563EB; outline-offset: 2px; }
-            #beamo-accessible checkbutton { padding: 6px 0; }
+            #beamo-accessible checkbutton { padding: 8px 10px; border-radius: 12px; }
+            #beamo-accessible checkbutton:hover { background-color: #F4F6F8; }
+            #beamo-accessible checkbutton:checked { background-color: #F0F5FA; }
             #beamo-accessible checkbutton:focus { outline: 3px solid #2563EB; outline-offset: 2px; }
             #beamo-accessible entry { padding: 8px 12px; border-radius: 12px; }
             #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #1C4A73; box-shadow: none; }
+            #beamo-accessible button.utility-action:hover { background-color: #F0F5FA; }
+            #beamo-accessible button.utility-action:active { background-color: #D7E4F2; }
             #beamo-accessible .erase-warning { background: #FBF1D5; color: #7A5200; padding: 12px 16px; border-radius: 12px; }
             #beamo-accessible .screen-actions { border-top: 1px solid #E3E8EE; padding-top: 12px; }
             #beamo-accessible .report-warning { background: #FBF1D5; color: #7A5200; padding: 10px 14px; border-radius: 12px; }

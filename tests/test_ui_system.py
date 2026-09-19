@@ -366,6 +366,27 @@ def test_nested_pick_headings_do_not_use_kernel_paths():
     assert "disk.path" not in source
 
 
+def test_shared_controls_share_hover_press_checked_and_disabled():
+    """Would fail when ghost disabled used a grey pill and CheckRow had no hover."""
+    colors = inspect.getsource(tkui._Button._state_colors)
+    assert 'self._variant == "ghost"' in colors
+    assert "DISABLED_FG" in colors
+    check = inspect.getsource(tkui._CheckRow)
+    assert "_hovering" in check
+    assert "_pressed" in check
+    assert "PRIMARY_TINT" in check
+    assert "ButtonRelease-1" in check
+    html = gallery_html()
+    assert "button.btn.ghost:active" in html
+    assert "button.btn.ghost:disabled" in html
+    assert ".checkrow:active" in html
+    gtk = (ROOT / "src" / "beamo_wipe" / "ui" / "accessible_wizard.py").read_text(
+        encoding="utf-8"
+    )
+    assert "utility-action:hover" in gtk
+    assert "checkbutton:checked" in gtk
+
+
 def test_shared_controls_replace_native_tk_chrome():
     """Would fail when the wizard still used stock Checkbutton, Scrollbar, or 14px bars."""
     source = inspect.getsource(tkui)
