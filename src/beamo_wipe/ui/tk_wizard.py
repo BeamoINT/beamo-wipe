@@ -2106,6 +2106,8 @@ class TkWizard:
         if self.w.screen not in {
             Screen.SPLASH, Screen.KEYBOARD, Screen.WORKING, Screen.STOPPING,
             Screen.CHECKING, Screen.REFRESHING, Screen.DONE, Screen.SHUTDOWN_CONFIRM,
+            Screen.METHOD, Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS,
+            Screen.DISK_HELP, Screen.REPORT_HELP,
         }:
             utility(
                 f"{C.TEXT_SIZE_UTILITY}: {C.TEXT_SIZE_LABELS.get(self.w.text_size, C.TEXT_SIZE_STANDARD)}",
