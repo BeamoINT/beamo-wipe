@@ -69,8 +69,10 @@ USB boot in firmware.
 The development image includes signed Debian EFI components. Secure Boot
 still depends on the computer's trust settings and revocation updates. If
 firmware rejects the USB, record its exact message and use the computer
-manufacturer's guidance or contact support. The application does not change
-Secure Boot settings. Older sticks may contain a different boot image.
+manufacturer's guidance or contact support at **beamosupport.com**. Error
+screens and START-HERE.html show the same address as text and as a phone
+code. The application does not change Secure Boot settings. Older sticks
+may contain a different boot image.
 
 Source and license: **https://github.com/BeamoINT/beamo-wipe**
 (print a QR to that README, not a store page).

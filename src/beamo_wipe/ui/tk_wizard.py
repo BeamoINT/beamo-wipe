@@ -1056,6 +1056,8 @@ class TkWizard:
         self._logo_header = self._load_image("logo-header.png")
         self._logo_splash = self._load_image("logo-splash.png")
         self._support_qr: Optional[tk.PhotoImage] = None
+        self._support_lead: Optional[tk.Label] = None
+        self._support_copy_bound = False
         self._confirm_var = tk.StringVar()
         self._typing_var = tk.StringVar()
         self._owner_var = tk.IntVar(value=0)
@@ -1474,6 +1476,10 @@ class TkWizard:
             self._pick_restore_pending = False
         self._clear(self._body)
         self._clear(self._footer)
+        self._support_lead = None
+        unbind = getattr(self, "_unbind_support_copy", None)
+        if callable(unbind):
+            unbind()
         prepare = getattr(self, "_prepare_body_host", None)
         if callable(prepare):
             prepare()
@@ -2679,20 +2685,40 @@ class TkWizard:
         self.w.select_disk(path)
         self._draw()
 
+    def _unbind_support_copy(self) -> None:
+        if not getattr(self, "_support_copy_bound", False):
+            return
+        self.root.unbind("<Control-c>")
+        self.root.unbind("<Control-C>")
+        self._support_copy_bound = False
+
+    def _copy_support_destination(self, _event: object = None) -> Optional[str]:
+        from beamo_wipe.support_contact import SUPPORT_SHORT
+
+        widget = self.root.focus_get()
+        kind = widget.winfo_class() if widget is not None else ""
+        if kind in {"Entry", "Text", "TEntry"}:
+            return None
+        self.root.clipboard_clear()
+        self.root.clipboard_append(SUPPORT_SHORT)
+        return "break"
+
     def _support_block(self, parent: Optional[tk.Widget]) -> None:
         """QR code plus the support destination as real text.
 
         The text is the offline fallback: the block still helps when the
-        QR library is unavailable or the code cannot be scanned.
+        QR library is unavailable or the code cannot be scanned. Ctrl+C
+        copies the short address. The sentence is not in Tab order so
+        Shut down → Show more → Save report stays two Tabs (QEMU).
         """
-        from beamo_wipe.support_contact import qr_matrix
+        from beamo_wipe.support_contact import QR_DISPLAY_SCALE, qr_matrix
 
         assert parent is not None
         frame = tk.Frame(parent, bg=BG)
         image: Optional[tk.PhotoImage] = None
         try:
             matrix = qr_matrix()
-            scale = 3
+            scale = QR_DISPLAY_SCALE
             rows = []
             for modules in matrix:
                 line = " ".join(
@@ -2711,9 +2737,28 @@ class TkWizard:
             self._support_qr = image
             code = tk.Label(frame, image=image, bg="#ffffff", bd=1, relief=tk.SOLID)
             code.pack(side=tk.LEFT, anchor="n")
-        self._p(frame, C.support_lead(), font=self.font_s).pack(
-            side=tk.LEFT, anchor="w", padx=(12, 0)
+        text_wrap = tk.Frame(frame, bg=BG)
+        text_wrap.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
+        qr_space = (int(image.width()) + 24) if image is not None else 0
+        lead = self._p(
+            text_wrap,
+            C.support_lead(),
+            font=self.font_s,
+            wraplength=max(200, self.lay.wrap - qr_space),
         )
+
+        def _rewrap(event: object, lbl: tk.Label = lead) -> None:
+            width = int(getattr(event, "width", 0) or 0)
+            if width < 180:
+                return
+            lbl.configure(wraplength=max(200, width - 8))
+
+        text_wrap.bind("<Configure>", _rewrap)
+        lead.pack(anchor="w", fill=tk.X)
+        self._support_lead = lead
+        self.root.bind("<Control-c>", self._copy_support_destination)
+        self.root.bind("<Control-C>", self._copy_support_destination)
+        self._support_copy_bound = True
         frame.pack(fill=tk.X, pady=(12, 0))
 
     def _status_screen(self, kind: str, title: str, message: str) -> None:

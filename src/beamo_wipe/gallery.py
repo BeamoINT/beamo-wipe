@@ -609,8 +609,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .result h2 { font-size: 16px; margin: 16px 0 6px; }
   .statustext { font-size: 16px; color: var(--muted); max-width: 700px; margin: 0 auto; line-height: 1.45; }
   .support { display: flex; gap: 12px; align-items: center; max-width: 700px; margin: 16px auto 0; text-align: left; }
-  .support svg { width: 110px; height: auto; flex: none; border: 1px solid var(--muted); background: #fff; }
-  .support p { margin: 0; }
+  .support svg { width: 132px; height: auto; flex: none; border: 1px solid var(--muted); background: #fff; }
+  .support p { margin: 0; min-width: 0; }
+  .support p:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
   /* Splash: a plain white field, the navy-on-transparent brand mark,
      huge simple type, and one primary action — mirroring TkWizard._splash. */
   .splashwrap { min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
@@ -853,7 +854,7 @@ function stepInfo() {
   return map[screen] || [0,"",""];
 }
 function supportBlock() {
-  return `<div class="support"><div aria-hidden="true">${P.supportQr}</div><p>${P.supportLead}</p></div>`;
+  return `<div class="support"><div aria-hidden="true">${P.supportQr}</div><p tabindex="0">${P.supportLead}</p></div>`;
 }
 function btn(label, fn, cls, disabled) {
   const b = document.createElement("button");
