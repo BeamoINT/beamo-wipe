@@ -736,6 +736,12 @@ class AccessibleWizard:
         self.arrival = arrival
         arrival.grab_focus()
         self.update_status()
+        # Stage is ATK description, not a prefix on the heading name.
+        # Result/busy tests match the canonical announcement exactly;
+        # "Result. Erase completed…" hid that title from heading names.
+        spoken_stage = C.journey_announcement(screen)
+        if spoken_stage:
+            heading.get_accessible().set_description(spoken_stage)
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
 
     def _protected_boot(self):

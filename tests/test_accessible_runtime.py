@@ -1467,6 +1467,14 @@ def test_done_announcement_is_first_heading(ui):
     assert ordered[0] == expected
     assert "Erase status" not in ordered
     assert C.REPORT_STATUS_TITLE in ordered
+    heading = next(
+        widget
+        for widget in widgets(app.window)
+        if widget.get_accessible().get_role() == Atk.Role.HEADING
+    )
+    assert heading.get_accessible().get_name() == expected
+    assert heading.get_accessible().get_description() == C.journey_announcement(Screen.DONE)
+    assert not heading.get_accessible().get_name().startswith("Result. ")
 
 
 @pytest.mark.parametrize(

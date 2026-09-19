@@ -72,12 +72,14 @@ def test_header_wayfinding_fits_and_cannot_navigate(ui):  # noqa: F811
     header = app._header
     labels = {header.itemcget(item, "text"): item for item in header.find_all()
               if header.type(item) == "text"}
-    caption = header_caption(4, "Step 4 of 8")
-    assert caption == "Confirm · Step 4 of 8"
+    caption = header_caption(C.journey_stage(Screen.CONFIRM), C.journey_caption(Screen.CONFIRM))
+    assert caption == "Preparation"
     assert caption in labels
-    for extra in C.JOURNEY_LABELS:
-        if extra != "Confirm":
-            assert extra not in labels
+    for text in C.JOURNEY_LABELS:
+        item = labels[text]
+        x0, y0, x1, y1 = header.bbox(item)
+        assert 0 <= x0 < x1 <= header.winfo_width()
+        assert 0 <= y0 < y1 <= header.winfo_height()
     item = labels[caption]
     x0, y0, x1, y1 = header.bbox(item)
     assert 0 <= x0 < x1 <= header.winfo_width()

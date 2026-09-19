@@ -116,33 +116,35 @@ RING_W = 4
 
 
 def header_caption(step_n: int, step_label: str) -> str:
-    """One current-step label. Not a map of every step, and not a control."""
+    """One current-stage label. Not eight equal pages, and not a percent."""
     if not step_label:
         return ""
-    if step_n and step_label.startswith("Step "):
-        return f"{C.JOURNEY_LABELS[step_n - 1]} · {step_label}"
+    if step_n and 1 <= step_n <= len(C.JOURNEY_LABELS):
+        if step_label.startswith(C.STEP_PREFIX) or step_label in C.JOURNEY_LABELS:
+            return C.JOURNEY_LABELS[step_n - 1]
     return step_label
 
 
 _STEP_ORDER = {
-    Screen.KEYBOARD: (0, "", C.TITLE_KEYBOARD),
-    Screen.WHAT: (1, C.STEP_OF.format(n=1, total=8), C.TITLE_WHAT),
-    Screen.OWNER: (2, C.STEP_OF.format(n=2, total=8), C.STEP_OWNERSHIP),
-    Screen.DISK_HELP: (3, C.STEP_IDENTIFY, C.DISK_HELP_TITLE),
-    Screen.PICK: (3, C.STEP_OF.format(n=3, total=8), C.TITLE_PICK),
-    Screen.PICK_EMPTY: (3, C.STEP_OF.format(n=3, total=8), C.TITLE_PICK),
-    Screen.PICK_BLOCKED: (3, C.STEP_OF.format(n=3, total=8), C.TITLE_PICK),
-    Screen.CONFIRM: (4, C.STEP_OF.format(n=4, total=8), C.TITLE_CONFIRM),
-    Screen.METHOD: (5, C.STEP_OF.format(n=5, total=8), C.TITLE_METHOD),
-    Screen.ADVANCED: (5, C.TITLE_ADVANCED, C.TITLE_ADVANCED),
-    Screen.LIMITS: (5, limits.TITLE, limits.TITLE),
-    Screen.REFRESHING: (0, "", C.BUSY_REFRESHING_TITLE),
+    Screen.KEYBOARD: (C.journey_stage(Screen.KEYBOARD), C.journey_caption(Screen.KEYBOARD), C.TITLE_KEYBOARD),
+    Screen.WHAT: (C.journey_stage(Screen.WHAT), C.journey_caption(Screen.WHAT), C.TITLE_WHAT),
+    Screen.OWNER: (C.journey_stage(Screen.OWNER), C.journey_caption(Screen.OWNER), C.STEP_OWNERSHIP),
+    Screen.DISK_HELP: (C.journey_stage(Screen.DISK_HELP), C.DISK_HELP_TITLE, C.DISK_HELP_TITLE),
+    Screen.PICK: (C.journey_stage(Screen.PICK), C.journey_caption(Screen.PICK), C.TITLE_PICK),
+    Screen.PICK_EMPTY: (C.journey_stage(Screen.PICK_EMPTY), C.journey_caption(Screen.PICK_EMPTY), C.TITLE_PICK),
+    Screen.PICK_BLOCKED: (C.journey_stage(Screen.PICK_BLOCKED), C.journey_caption(Screen.PICK_BLOCKED), C.TITLE_PICK),
+    Screen.CONFIRM: (C.journey_stage(Screen.CONFIRM), C.journey_caption(Screen.CONFIRM), C.TITLE_CONFIRM),
+    Screen.METHOD: (C.journey_stage(Screen.METHOD), C.journey_caption(Screen.METHOD), C.TITLE_METHOD),
+    Screen.ADVANCED: (C.journey_stage(Screen.ADVANCED), C.TITLE_ADVANCED, C.TITLE_ADVANCED),
+    Screen.LIMITS: (C.journey_stage(Screen.LIMITS), limits.TITLE, limits.TITLE),
+    Screen.REFRESHING: (C.journey_stage(Screen.REFRESHING), C.journey_caption(Screen.REFRESHING), C.BUSY_REFRESHING_TITLE),
     Screen.REFRESH_CONFIRM: (0, "", C.TITLE_REFRESH),
-    Screen.LAST_CHANCE: (6, C.STEP_OF.format(n=6, total=8), C.TITLE_LAST),
-    Screen.CHECKING: (6, C.STEP_OF.format(n=6, total=8), C.BUSY_CHECKING_TITLE),
-    Screen.STOPPING: (7, C.STEP_OF.format(n=7, total=8), C.BUSY_STOPPING_TITLE),
-    Screen.WORKING: (7, C.STEP_OF.format(n=7, total=8), C.TITLE_WORKING),
-    Screen.DONE: (8, C.STEP_OF.format(n=8, total=8), C.TITLE_DONE_OK),
+    Screen.LAST_CHANCE: (C.journey_stage(Screen.LAST_CHANCE), C.journey_caption(Screen.LAST_CHANCE), C.TITLE_LAST),
+    Screen.CHECKING: (C.journey_stage(Screen.CHECKING), C.journey_caption(Screen.CHECKING), C.BUSY_CHECKING_TITLE),
+    Screen.STOPPING: (C.journey_stage(Screen.STOPPING), C.journey_caption(Screen.STOPPING), C.BUSY_STOPPING_TITLE),
+    Screen.WORKING: (C.journey_stage(Screen.WORKING), C.journey_caption(Screen.WORKING), C.TITLE_WORKING),
+    Screen.DONE: (C.journey_stage(Screen.DONE), C.journey_caption(Screen.DONE), C.TITLE_DONE_OK),
+    Screen.REPORT_HELP: (C.journey_stage(Screen.REPORT_HELP), C.REPORT_HELP_TITLE, C.REPORT_HELP_TITLE),
 }
 
 # Spans of hint copy that render as key-caps instead of plain text.
@@ -1270,15 +1272,35 @@ class TkWizard:
             text_x, mid, anchor="w",
             text=C.APP_NAME, font=self.font_brand, fill=INK,
         )
-        # The screen title below names the work. The header only names the
-        # current position ("Confirm · Step 4 of 8"), never a full step map.
+        # The screen title below names the page. The header names the stage
+        # (Preparation, Erase, Result) and never a wipe percent.
         step = _STEP_ORDER.get(self.w.screen, (0, "", ""))
+        self._draw_journey(cv, width, step[0])
         label = header_caption(step[0], step[1])
         if label:
             cv.create_text(
                 width - 24, mid, anchor="e",
                 text=label, font=self.font_meta, fill=MUTED,
             )
+
+    def _draw_journey(self, cv: tk.Canvas, width: int, step: int) -> None:
+        # Three named stages, never eight equal pages or success badges.
+        if not step or width < 1000:
+            return
+        start, end = 260, width - 150
+        gap = (end - start) / len(C.JOURNEY_LABELS)
+        for index, name in enumerate(C.JOURNEY_LABELS, 1):
+            cx = start + gap * (index - 0.5)
+            active = index == step
+            if index < len(C.JOURNEY_LABELS):
+                cv.create_line(cx + 13, 18, cx + gap - 13, 18, fill=BORDER, width=1)
+            cv.create_oval(cx - 10, 8, cx + 10, 28,
+                           fill=PRIMARY if active else SURFACE_ALT,
+                           outline=PRIMARY if active else BORDER_STRONG)
+            cv.create_text(cx, 18, text=str(index), font=self.font_tiny,
+                           fill=SURFACE if active else MUTED)
+            cv.create_text(cx, 42, text=name, font=self.font_meta,
+                           fill=PRIMARY if active else MUTED)
 
     def _draw_strip(self) -> None:
         cv = self._strip
@@ -1288,11 +1310,15 @@ class TkWizard:
         width = cv.winfo_width()
         if width <= 1:
             return
-        step = _STEP_ORDER.get(self.w.screen, (0, "", ""))[0]
-        frac = step / 8.0
-        if frac > 0:
-            # The progress fill is the brand beam, not the action color.
-            _round_rect(cv, 0, 0, max(4.0, width * frac), 2, 1, fill=ACCENT, outline="")
+        stage = C.journey_stage(self.w.screen)
+        count = len(C.JOURNEY_LABELS)
+        gap = 2.0
+        segment = (width - gap * (count - 1)) / count
+        for index in range(count):
+            x0 = index * (segment + gap)
+            x1 = x0 + segment
+            fill = ACCENT if (index + 1) == stage else TRACK
+            _round_rect(cv, x0, 0, x1, 2, 1, fill=fill, outline="")
 
     def _sync_chrome(self, splash: bool) -> None:
         """The splash drops the header and progress strip so the first

@@ -4,12 +4,7 @@
 STRINGS = {
     "copy": {
         "JOURNEY_LABELS": (
-            "Début",
-            "Propriétaire",
-            "Disque",
-            "Confirmation",
-            "Méthode",
-            "Vérification",
+            "Préparation",
             "Effacement",
             "Résultat",
         ),

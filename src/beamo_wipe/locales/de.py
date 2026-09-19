@@ -4,12 +4,7 @@
 STRINGS = {
     "copy": {
         "JOURNEY_LABELS": (
-            "Start",
-            "Eigentümer",
-            "Datenträger",
-            "Bestätigung",
-            "Methode",
-            "Prüfung",
+            "Vorbereitung",
             "Löschen",
             "Ergebnis",
         ),

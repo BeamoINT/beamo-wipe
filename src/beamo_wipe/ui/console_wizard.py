@@ -204,15 +204,27 @@ def _screen_title(wizard: Wizard) -> str:
 
 
 def _chrome_lines(wizard: Wizard, width: int) -> list[str]:
-    """One-line brand plus title when they fit. Preview stays visible."""
+    """Brand, optional stage, then title. Short widths keep title on one line.
+
+    The 16-row pick view must still show the inventory count, same-size
+    warning, and serial. Journey chrome must not add a second header row
+    that pushes those off the screen.
+    """
     title = _screen_title(wizard)
+    stage = C.journey_caption(wizard.screen)
+    room = max(8, width - 2)
     if title and title != C.APP_NAME:
-        combined = f"{C.APP_NAME} — {title}"
-        lines = _lines(combined, width) if _display_cols(combined) <= max(8, width - 2) else (
-            _lines(C.APP_NAME, width) + _lines(title, width)
-        )
+        with_stage = f"{C.APP_NAME} — {stage} — {title}" if stage else f"{C.APP_NAME} — {title}"
+        without_stage = f"{C.APP_NAME} — {title}"
+        if _display_cols(with_stage) <= room:
+            lines = _lines(with_stage, width)
+        elif _display_cols(without_stage) <= room:
+            lines = _lines(without_stage, width)
+        else:
+            lines = _lines(C.APP_NAME, width) + _lines(title, width)
     else:
-        lines = _lines(C.APP_NAME, width)
+        brand = f"{C.APP_NAME} — {stage}" if stage else C.APP_NAME
+        lines = _lines(brand, width)
     if wizard.preview:
         lines.extend(_lines(C.PREVIEW_BANNER, width))
     return lines
@@ -632,6 +644,9 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen != Screen.WORKING:
             print("\n" + "=" * 60)
             print(C.APP_NAME)
+            stage = C.journey_caption(screen)
+            if stage:
+                print(stage)
             print(_screen_title(wizard))
             last_working = None
             if wizard.preview:
