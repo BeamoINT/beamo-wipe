@@ -228,7 +228,6 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     wizard = app.w
     wizard.skip_intro()
     app.render()
-    app.actions[C.BTN_UNDERSTAND].clicked()
     check = next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton))
     assert not app.actions[C.BTN_CHOOSE_DISK].get_sensitive()
     check.set_active(True)
@@ -256,7 +255,6 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     # A queued action from the previous screen never starts a wipe.
     stale_erase.emit("clicked")
     assert not wizard.runner.started
-    app.actions[C.BTN_UNDERSTAND].clicked()
     next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton)).set_active(
         True
     )

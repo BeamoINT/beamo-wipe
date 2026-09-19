@@ -119,7 +119,7 @@ def test_what_keeps_enter_action_on_80x24(monkeypatch):
     )
     footer = _footer(term)
     assert "Space to check" in footer
-    assert "Enter continues only when checked" in footer
+    assert "Enter chooses a disk only when checked" in footer
     all_text = " ".join(" ".join(frame[y] for y in sorted(frame)) for frame in term.frames)
     assert "copies you need" in all_text
     assert C.OWNER_CHECKBOX in all_text or "written permission" in all_text
@@ -354,12 +354,12 @@ def test_resize_keeps_action_on_last_rows(monkeypatch):
     )
     last = term.frames[-1]
     footer = _footer(term)
-    assert "Space to check" in footer or "Enter continues only when checked" in footer
+    assert "Space to check" in footer or "Enter chooses a disk only when checked" in footer
     assert all(y < term.h for y in last)
     shorts = [frame for frame in term.frames if frame and max(frame) < 16]
     assert shorts
     short = shorts[0]
-    assert any("Space to check" in row or "Enter continues" in row for row in short.values())
+    assert any("Space to check" in row or "Enter chooses a disk" in row for row in short.values())
     assert all(len(row) < 60 for row in short.values())
 
 
