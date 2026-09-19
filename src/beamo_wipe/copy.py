@@ -582,6 +582,11 @@ BTN_SHUTDOWN = "Shut down"
 BTN_CLOSE_PREVIEW = "Close preview"
 BTN_RUN_AGAIN = "Run again"
 BTN_CONTINUE = "Continue"
+BTN_CHOOSE_DISK = "Choose a disk"
+BTN_REVIEW_DISK = "Review this disk"
+BTN_CHOOSE_METHOD = "Choose erase method"
+BTN_REVIEW_ERASE = "Review before erasing"
+BTN_RETURN_METHODS = "Back to methods"
 BTN_BACK = "Back"
 BTN_ERASE = "Erase now"
 BTN_ADVANCED = "Advanced (technicians)"
@@ -591,14 +596,37 @@ BTN_SAVE_REPORT = "Save report to USB"
 BTN_REFRESH = "Check disks again"
 BTN_REFRESH_UTILITY = "Check disks again (F5)"
 
+# Primary footer labels that advance the wizard. Not Erase now — that stays
+# on the last-chance screen. Splash and keyboard keep Continue.
+def _primary_by_screen() -> dict:
+    return {
+        Screen.SPLASH: BTN_CONTINUE,
+        Screen.KEYBOARD: BTN_CONTINUE,
+        Screen.WHAT: BTN_UNDERSTAND,
+        Screen.OWNER: BTN_CHOOSE_DISK,
+        Screen.PICK: BTN_REVIEW_DISK,
+        Screen.CONFIRM: BTN_CHOOSE_METHOD,
+        Screen.METHOD: BTN_REVIEW_ERASE,
+        Screen.ADVANCED: BTN_RETURN_METHODS,
+    }
+
+
+def primary_action(screen: Screen) -> str:
+    """Visible next-action label. Never claims the erase has started."""
+    return _primary_by_screen().get(screen, BTN_CONTINUE)
+
+
+PRIMARY_ACTION_LABELS = frozenset(_primary_by_screen().values()) | {BTN_CONTINUE}
+
 PREVIEW_BANNER = "PREVIEW on this computer — fake disks — nothing is erased"
 
 HINT_KEYBOARD = "1, 2, or 3 chooses a layout. Type in the check box. Enter continues."
 HINT_DEFAULT = "Enter continues.  Esc goes back."
-HINT_PICK = "Click a disk, or use Up/Down.  Enter continues.  Esc goes back."
-HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
-HINT_METHOD = "Press 1, 2, or 3 to choose. Enter continues."
+HINT_PICK = "Click a disk, or use Up/Down.  Enter reviews this disk.  Esc goes back."
+HINT_OWNER = "Space checks the box.  Enter chooses a disk when it is checked."
+HINT_METHOD = "Press 1, 2, or 3 to choose. Enter reviews before erasing."
 HINT_CONFIRM = "Type exactly what we ask for, then Enter."
+HINT_ADVANCED = "Enter returns to methods.  Esc goes back."
 HINT_LAST_CHANCE = "Esc goes back.  Enter erases after the countdown."
 HINT_LAST_CHANCE_TK = "Esc goes back.  Tab to Erase, then Enter after the countdown."
 HINT_BLOCKED = "Enter requests shutdown. Esc goes back."
@@ -835,17 +863,19 @@ CON_PRESS_ANY_KEY = "Press any key."
 CON_KEYBOARD_FOOTER = "1/2/3: layout. F2: language. Type to check. Enter continues."
 CON_WHAT_FOOTER = "Enter: I understand    S: shut down"
 CON_READ_MORE = "Up/Down: read more"
-CON_OWNER_FOOTER = "Space to check. Enter continues only when checked. Esc: back"
-CON_PICK_NAV = "Up/Down then Enter. PgUp/PgDn page. Esc back."
+CON_OWNER_FOOTER = "Space to check. Enter chooses a disk only when checked. Esc: back"
+# Wrap column on 16x48 is width-2 (46). One line keeps the pick count.
+CON_PICK_NAV = "Up/Down then Enter reviews this disk."
 CON_DISK_HELP = "U: {label}"
 CON_COMPARE = "Compare disks (C): read only."
 CON_BOOT_IDENTITY = "{line} (B: identity)"
 CON_OTHER_DEVICES = "Other detected devices (O): read reasons; not selectable."
 CON_SHUTDOWN_BACK = "Enter: shut down    Esc: back"
-CON_CONFIRM_FOOTER = "Up/Down: read more    F5: {note}"
-CON_METHOD_FOOTER = "L: limits. A: Advanced. 1/2/3: choose. Enter: continue."
+CON_CONFIRM_FOOTER = "Enter: choose erase method when it matches. F5: {note}"
+CON_METHOD_FOOTER = "L: limits. A: Advanced. 1/2/3: choose. Enter: review before erasing."
 CON_DISK_HELP_STOP = "Arrows/Pg: read. Esc: back. S: {label}"
 CON_READ_BACK = "Up/Down, PgUp/PgDn: read. Esc: back."
+CON_ADVANCED_FOOTER = "Up/Down, PgUp/PgDn: read. Enter: back to methods. Esc: back."
 CON_REPORT_HELP_FOOTER = (
     "Arrows/Pg: read. Space: report preference. S: sharing copy. Esc: back."
 )
@@ -928,7 +958,7 @@ CON_MORE_ABOVE = "More above. Use Up and Down."
 CON_MORE_BELOW = "More below. Use Up and Down."
 CON_MORE_DISKS_ABOVE = "More disks above. Use Up and Down."
 CON_MORE_DISKS_BELOW = "More disks below. Use Up and Down."
-CON_OWNER_CHECK = "{mark}  Space to check. Enter continues only when checked."
+CON_OWNER_CHECK = "{mark}  Space to check. Enter chooses a disk only when checked."
 CON_DIAG_CONFIRM = "Type {action} for diagnostic report, then Enter (anything else cancels):"
 CON_TYPE_OR_RETURN = "Type {word}; anything else returns:"
 CON_SAVE_TYPE = "Type SAVE and press Enter: "
@@ -1008,7 +1038,7 @@ def _apply_language() -> None:
     global EMPTY_DISKS, SSD_FOOTER, DONE_OK, DONE_FAIL, METHOD_CARDS, STOP_LEAD
     global WHAT_MORE, REPORT_HELP_SECTIONS, REPORT_HELP_TEXT, ADVANCED_LOG_NOTE
     global VIEWS, STOP_WARNING, EMPTY_STEPS, OVERWRITE_LIMITS, EXPORT_STAGES
-    global BLOCKED_HEADINGS
+    global BLOCKED_HEADINGS, PRIMARY_ACTION_LABELS
     BLOCKED_HEADINGS = _build_blocked_headings()
     VIEWS = _outcomes.VIEWS
     STOP_WARNING = _outcomes.STOP_WARNING
@@ -1039,4 +1069,5 @@ def _apply_language() -> None:
         EXPORT_STAGE_VERIFY,
         EXPORT_STAGE_REMOVE,
     )
+    PRIMARY_ACTION_LABELS = frozenset(_primary_by_screen().values()) | {BTN_CONTINUE}
 

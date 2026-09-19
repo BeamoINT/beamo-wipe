@@ -43,6 +43,7 @@ def test_all_hints_render_as_key_caps():
         C.HINT_OWNER,
         C.HINT_METHOD,
         C.HINT_CONFIRM,
+        C.HINT_ADVANCED,
         C.HINT_LAST_CHANCE_TK,
         C.HINT_BLOCKED,
         C.HINT_DONE,
@@ -484,7 +485,7 @@ def test_runtime_tab_does_not_trap_on_confirm_and_pick():
         app._draw()
         app.root.update_idletasks()
         app.root.update()
-        # Confirm screen: Tab cycle Entry -> Back -> Continue -> Entry
+        # Confirm screen: Tab cycle Entry -> Back -> Choose erase method -> Entry
         # Just verify Tab binding does not raise and focus moves
         start = app.root.focus_get()
         assert start is not None
