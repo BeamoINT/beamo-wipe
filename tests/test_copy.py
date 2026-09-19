@@ -75,7 +75,7 @@ def _happy_blob() -> str:
             copy.TITLE_WORKING,
             copy.WORKING_PULSE,
             " ".join(
-                card["blurb"] + " " + card["pace"] + " " + card["mark"] + " " + card["extra"]
+                card["lead"] + " " + card["blurb"] + " " + card["pace"] + " " + card["mark"] + " " + card["extra"] + " " + card["limits"]
                 for card in copy.METHOD_CARDS.values()
             ),
             copy.confirm_type_size("256"),

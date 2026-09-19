@@ -626,11 +626,13 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "methods": {
             mid.value: {
                 "title": C.METHOD_CARDS[mid]["title"],
+                "lead": C.METHOD_CARDS[mid]["lead"],
                 "blurb": C.METHOD_CARDS[mid]["blurb"],
                 "pace": C.METHOD_CARDS[mid]["pace"],
                 "mark": C.METHOD_CARDS[mid]["mark"],
                 "extra": C.METHOD_CARDS[mid]["extra"],
                 "checks": C.METHOD_CARDS[mid]["checks"],
+                "limits": C.METHOD_CARDS[mid]["limits"],
                 "key": C.METHOD_CARDS[mid]["key"],
                 "docs": METHODS[mid].docs_name,
                 "nwipe": METHODS[mid].nwipe_method,
@@ -940,7 +942,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .countcap.ready { color: var(--ink); font-weight: 600; }
   .advrow { font-size: 13px; margin: 0; padding: 7px 0; }
   .advrow + .advrow { border-top: 1px solid var(--border); }
-  .methodblurb { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
+  .methodlead { font-size: 16px; color: var(--ink); margin: 4px 0 0; line-height: 1.4; }
+  .methodblurb { font-size: 14px; color: var(--muted); margin: 2px 0 0; }
+  .methodlimits { font-size: 14px; color: var(--muted); margin: 4px 0 0; line-height: 1.4; }
   .methodpace { font-size: 14px; color: var(--muted); margin: 4px 0 0; display: flex; gap: 7px; align-items: flex-start; }
   .methodpace svg { flex: none; margin-top: 1px; }
   .centerstage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -1507,9 +1511,11 @@ function draw() {
         <div class="row"><span class="radio"></span>
           <div class="grow">
             <div class="title">${m.title}${id === "everyday" ? `<span class="chip ok">${P.recommended}</span>` : (m.mark ? `<span class="chip${m.checks ? "" : " warn"}">${m.mark}</span>` : "")}</div>
+            <div class="methodlead">${m.lead}</div>
             <div class="methodblurb">${m.blurb}</div>
             <div class="methodpace">${m.checks ? `<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4A5A6A" stroke-width="1.6"/><path d="M8 4.2V8l2.6 1.7" fill="none" stroke="#4A5A6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ""}<span>${m.pace}</span></div>
             ${m.extra ? `<div class="methodextra">${m.extra}</div>` : ""}
+            ${m.limits ? `<div class="methodlimits">${m.limits}</div>` : ""}
           </div>
           <span class="kbd">${m.key}</span>
         </div>

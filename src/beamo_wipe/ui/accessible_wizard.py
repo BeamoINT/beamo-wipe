@@ -426,11 +426,13 @@ class AccessibleWizard:
             group = None
             for method, spec in METHODS.items():
                 card = C.METHOD_CARDS[method]
-                label = spec.summary
+                label = f"{spec.plain_lead} {spec.summary}"
                 if card["mark"]:
                     label = f"{label} [{card['mark']}]"
                 if card["extra"]:
                     label = f"{label} {card['extra']}"
+                if card["limits"]:
+                    label = f"{label} {card['limits']}"
                 choice = Gtk.RadioButton.new_with_label_from_widget(group, label)
                 choice.get_child().set_line_wrap(True)
                 choice.get_child().set_max_width_chars(65)
