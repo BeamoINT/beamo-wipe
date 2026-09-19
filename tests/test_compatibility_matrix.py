@@ -178,7 +178,7 @@ def test_matrix_virtio_and_bus_other():
     result = parse_lsblk_json(payload, boot_path="/dev/sdb")
     vda = next(d for d in result.selectable if d.path == "/dev/vda")
     sda = next(d for d in result.selectable if d.path == "/dev/sda")
-    assert vda.bus == "other"
+    assert vda.bus == "virtio"
     assert vda.kind == DiskKind.HDD
     assert sda.bus == "SAS"
 

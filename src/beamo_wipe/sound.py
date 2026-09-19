@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-import shutil
 import subprocess
 import threading
 from typing import List, Optional, Tuple
@@ -76,7 +75,9 @@ def _run(tool: str, args: List[str], timeout: int):
     """Allowlisted exec. Returns the completed process, or None."""
     if tool not in _ALLOWED_BINARIES:
         return None
-    resolved = shutil.which(tool)
+    from beamo_wipe.safety import resolve_system_binary, session_exec_env
+
+    resolved = resolve_system_binary(tool)
     if not resolved:
         return None
     try:
@@ -88,6 +89,8 @@ def _run(tool: str, args: List[str], timeout: int):
             timeout=timeout,
             check=False,
             text=True,
+            shell=False,
+            env=session_exec_env(),
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -262,7 +265,9 @@ def _popen(tool: str, args: List[str]):
     """Allowlisted fire-and-forget spawn. Returns the Popen, or None."""
     if tool not in _ALLOWED_BINARIES:
         return None
-    resolved = shutil.which(tool)
+    from beamo_wipe.safety import resolve_system_binary, session_exec_env
+
+    resolved = resolve_system_binary(tool)
     if not resolved:
         return None
     try:
@@ -272,6 +277,8 @@ def _popen(tool: str, args: List[str]):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            shell=False,
+            env=session_exec_env(),
         )
     except (OSError, subprocess.SubprocessError):
         return None

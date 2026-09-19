@@ -34,7 +34,13 @@ EXCLUDED = {
     "models": {
         "CONTENTS_WINDOWS", "CONTENTS_SYSTEM", "CONTENTS_DATA", "CONTENTS_UNKNOWN",
     },
-    "safety": {"PROTECTED_MOUNT_PREFIXES", "FORBIDDEN_LOG_ROOTS"},
+    "safety": {
+        "PROTECTED_MOUNT_PREFIXES",
+        "FORBIDDEN_LOG_ROOTS",
+        "SESSION_ENV_ALLOWLIST",
+        "SYSTEM_BIN_PREFIXES",
+        "REMOTE_SYSFS_TOKENS",
+    },
     "engine_checks": {"CHECK_IDS", "PARSER"},
     "session_recovery": {"NAME"},
     "privacy": {"POLICY_ID", "SHARE_JSON", "SHARE_SUMMARY"},

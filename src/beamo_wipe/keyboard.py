@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-import shutil
 import subprocess
 from typing import Mapping, Optional, Sequence, Tuple
 
@@ -13,7 +12,7 @@ from typing import Mapping, Optional, Sequence, Tuple
 # xkb-data and console-setup ship many maps; only these three are offered.
 DEFAULT_LAYOUT = "us"
 
-# Binaries we may exec. Names only; resolved with shutil.which at apply time.
+# Binaries we may exec. Names only; resolved on the clean PATH at apply time.
 _SETXKBMAP = "setxkbmap"
 _LOADKEYS = "loadkeys"
 _ALLOWED_BINARIES = frozenset({_SETXKBMAP, _LOADKEYS})
@@ -155,7 +154,9 @@ def _run_allowlisted(argv: Sequence[str]) -> bool:
         match = next((item for item in LAYOUTS.values() if tuple(argv) == item.console_argv), None)
         if match is None:
             return False
-    resolved = shutil.which(argv[0])
+    from beamo_wipe.safety import resolve_system_binary, session_exec_env
+
+    resolved = resolve_system_binary(argv[0])
     if not resolved:
         return False
     try:
@@ -166,6 +167,8 @@ def _run_allowlisted(argv: Sequence[str]) -> bool:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            shell=False,
+            env=session_exec_env(),
         )
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -179,8 +182,10 @@ def apply_layout(layout_id: str, *, graphical: Optional[bool] = None) -> ApplyRe
         return ApplyResult(False, UNAVAILABLE, "")
     if graphical is None:
         graphical = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
-    x_tool = shutil.which(_SETXKBMAP)
-    c_tool = shutil.which(_LOADKEYS)
+    from beamo_wipe.safety import resolve_system_binary
+
+    x_tool = resolve_system_binary(_SETXKBMAP)
+    c_tool = resolve_system_binary(_LOADKEYS)
     if graphical and not x_tool:
         return ApplyResult(False, TOOLS_MISSING, spec.id)
     if not graphical and not c_tool:

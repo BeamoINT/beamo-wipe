@@ -4076,6 +4076,7 @@ def _ensure_tk_display() -> None:
     existing graphical-failure path.
     """
     import subprocess as _subprocess
+    from beamo_wipe.safety import session_exec_env
 
     try:
         probe = _subprocess.run(
@@ -4085,6 +4086,8 @@ def _ensure_tk_display() -> None:
             stderr=_subprocess.DEVNULL,
             timeout=30,
             check=False,
+            shell=False,
+            env=session_exec_env(),
         )
     except (OSError, _subprocess.SubprocessError):
         raise RuntimeError("no graphical display for startup stages")

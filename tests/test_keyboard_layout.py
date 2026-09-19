@@ -85,7 +85,7 @@ def test_allowlist_is_qwerty_azerty_qwertz():
 
 def test_apply_rejects_non_allowlisted_argv(monkeypatch):
     monkeypatch.setenv("DISPLAY", ":0")
-    monkeypatch.setattr("beamo_wipe.keyboard.shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", lambda name: f"/usr/bin/{name}")
 
     def fake_run(argv, **kw):
         raise AssertionError(argv)
@@ -105,13 +105,16 @@ def test_apply_uses_exact_allowlisted_argv(monkeypatch, layout_id):
 
     def fake_run(argv, **kw):
         seen.append(tuple(argv))
-        assert kw.get("shell") is not True
+        assert kw.get("shell") is False
+        env = kw.get("env") or {}
+        assert "LD_PRELOAD" not in env
+        assert env.get("PATH") == "/usr/sbin:/usr/bin:/sbin:/bin"
         class Result:
             returncode = 0
         return Result()
 
     monkeypatch.setenv("DISPLAY", ":0")
-    monkeypatch.setattr("beamo_wipe.keyboard.shutil.which", which)
+    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", which)
     monkeypatch.setattr("beamo_wipe.keyboard.subprocess.run", fake_run)
     result = apply_layout(layout_id, graphical=True)
     assert result.ok
@@ -122,7 +125,7 @@ def test_apply_uses_exact_allowlisted_argv(monkeypatch, layout_id):
 
 def test_missing_tools_are_visible(monkeypatch):
     monkeypatch.setenv("DISPLAY", ":0")
-    monkeypatch.setattr("beamo_wipe.keyboard.shutil.which", lambda _name: None)
+    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", lambda _name: None)
     result = apply_layout("fr", graphical=True)
     assert not result.ok
     assert result.message == TOOLS_MISSING

@@ -1075,10 +1075,11 @@ def start_live_reader():
     Off the live USB (preview) nothing is started. Audio or reader failures
     never raise: the view stays usable without speech and the failure is logged.
     """
-    from beamo_wipe.safety import running_on_live_usb
+    from beamo_wipe.safety import running_on_live_usb, session_exec_env
 
     if not running_on_live_usb():
         return None
+    session_env = session_exec_env()
     try:
         subprocess.run(
             ["/usr/bin/pulseaudio", "--start", "--exit-idle-time=60"],
@@ -1087,6 +1088,8 @@ def start_live_reader():
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            shell=False,
+            env=session_env,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         try:
@@ -1101,6 +1104,8 @@ def start_live_reader():
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            shell=False,
+            env=session_env,
         )
     except OSError as exc:
         try:
@@ -1139,6 +1144,8 @@ def _ensure_gtk_display() -> None:
     display connection, so a headless host becomes a catchable error and
     app.py keeps its existing graphical-failure path.
     """
+    from beamo_wipe.safety import session_exec_env
+
     try:
         probe = subprocess.run(
             [sys.executable, "-c",
@@ -1149,6 +1156,8 @@ def _ensure_gtk_display() -> None:
             stderr=subprocess.DEVNULL,
             timeout=30,
             check=False,
+            shell=False,
+            env=session_exec_env(),
         )
     except (OSError, subprocess.SubprocessError):
         raise RuntimeError("no accessible display for startup stages")

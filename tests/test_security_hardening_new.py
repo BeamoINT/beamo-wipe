@@ -107,6 +107,8 @@ def test_gallery_escapes_html():
     assert 'esc(screen === "pick" && !d.isBoot ? d.markedSerial || d.serial : d.serial)' in txt
     assert "esc(d.name)" in txt
     assert 'data-path="${esc(d.path)}"' in txt
+    assert "${esc(d.prompt)}" in txt
+    assert "${esc(text)}" in txt
 
 
 def test_size_gb_label_is_decimal_and_documented():

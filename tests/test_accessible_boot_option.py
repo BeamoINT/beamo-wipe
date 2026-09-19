@@ -52,7 +52,10 @@ def test_bios_menu_default_and_hotkeys_survive_speech_entry():
 
 def test_uefi_menu_has_exactly_one_speech_entry():
     menu = _grub_menu()
-    entries = re.findall(r'menuentry "([^"]+)" --hotkey=([a-z]) \{\n\tlinux\t([^\n]+)', menu)
+    entries = re.findall(
+        r'menuentry "([^"]+)"(?: --unrestricted)? --hotkey=([a-z]) \{\n\tlinux\t([^\n]+)',
+        menu,
+    )
     speech = [e for e in entries if "speech" in e[0]]
     assert len(speech) == 1, entries
     title, hotkey, linux = speech[0]
