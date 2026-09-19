@@ -30,7 +30,8 @@ Restart now → Use a device (UEFI).
 Windows 10: Settings → Update & Security → Recovery → Advanced startup →
 Restart now → Use a device (UEFI).
 Those keys and menus vary by PC. Open START-HERE.html on the USB for the
-full steps.
+full steps. If something is not working, choose the problem you see on
+that page.
 
 If you might start this Windows installation again, confirm you can reach
 the BitLocker recovery key **before** changing firmware, boot order, or

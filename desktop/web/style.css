@@ -3,13 +3,13 @@
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 18px;
   line-height: 1.55;
-  color: #182635;
+  color: #12202E;
   background: #fff;
-  --muted: #4c5b6b;
-  --border: #d8dfe6;
-  --surface: #f3f5f7;
-  --primary: #244a73;
-  --focus: #1a3fa0;
+  --muted: #4A5A6A;
+  --border: #E3E8EE;
+  --surface: #F4F6F8;
+  --primary: #1C4A73;
+  --focus: #2563EB;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -31,11 +31,11 @@ button {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid #758292;
+  border: 1px solid #6E7C8A;
   border-radius: 8px;
   padding: 11px 20px;
   background: #fff;
-  color: #182635;
+  color: #12202E;
   min-height: 46px;
 }
 button:hover { background: var(--surface); }
@@ -52,7 +52,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); o
 .actions { display: flex; flex-wrap: wrap; gap: 14px; margin: 24px 0; }
 #confirm { border-left: 3px solid #e8a317; background: var(--surface); padding: 22px 24px; margin: 28px 0; }
 #confirm button { margin: 0 12px 8px 0; }
-.notice { background: #fbf1d5; color: #182635; padding: 12px 16px; border-radius: 8px; font-size: 16px; }
+.notice { background: #fbf1d5; color: #12202E; padding: 12px 16px; border-radius: 8px; font-size: 16px; }
 #status.error { color: #b3261e; }
 details { border-top: 1px solid var(--border); padding-top: 24px; margin-top: 36px; }
 summary { font-weight: 600; cursor: pointer; margin-bottom: 20px; }
@@ -64,6 +64,59 @@ footer p { margin-bottom: 10px; }
 [hidden] { display: none !important; }
 section:focus { outline: none; }
 #title:focus, #status:focus { outline: 3px solid var(--focus); outline-offset: 6px; }
+.guide-intro { margin: 0 0 16px; }
+.chooser {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.chooser a {
+  display: flex;
+  align-items: center;
+  min-height: 2.75em;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: #12202E;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.chooser a:hover { background: #fff; }
+.chooser a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.guide:has(#trouble-usb:target) .chooser a[href="#trouble-usb"],
+.guide:has(#trouble-key:target) .chooser a[href="#trouble-key"],
+.guide:has(#trouble-firmware:target) .chooser a[href="#trouble-firmware"],
+.guide:has(#trouble-launcher:target) .chooser a[href="#trouble-launcher"] {
+  border-color: var(--primary);
+  background: #c9d6e8;
+}
+.guide-hint { display: none; margin: 0 0 16px; }
+@supports selector(:has(*)) {
+  .guide:has(.panel:target) .panel:not(:target) { display: none; }
+  .guide:not(:has(.panel:target)) .panel { display: none; }
+  .guide:not(:has(.panel:target)) .guide-hint { display: block; }
+}
+.panel { border-top: 1px solid var(--border); padding: 20px 0 8px; }
+.panel:focus { outline: 3px solid var(--focus); outline-offset: 6px; }
+.panel h2 { font-size: 1.15em; max-width: none; }
+.panel p { max-width: none; }
+.illustration { width: min(100%, 22rem); margin: 0 0 14px; }
+.illustration svg { display: block; width: 100%; height: auto; }
+figcaption { font-size: 0.85em; color: var(--muted); margin: 8px 0 0; }
+.panel ol { padding-left: 1.3em; margin: 0 0 16px; }
+.panel li { margin: 8px 0; overflow-wrap: anywhere; }
+.back { display: inline-block; margin-top: 8px; font-weight: 700; color: var(--primary); }
+@media print {
+  .guide .panel { display: block !important; }
+  .guide-hint { display: none !important; }
+}
 @media (max-width: 580px) {
   main { padding: 28px 20px; }
   .choices { grid-template-columns: 1fr; }
@@ -72,9 +125,11 @@ section:focus { outline: none; }
   dd { margin-bottom: 12px; }
   .actions button, #confirm button { width: 100%; }
   #confirm { padding: 18px; }
+  .chooser { grid-template-columns: 1fr; }
+  .illustration { width: 100%; }
 }
 @media (forced-colors: active) {
-  button, #confirm, .notice { border: 1px solid ButtonText; }
+  button, #confirm, .notice, .chooser a { border: 1px solid ButtonText; }
 }
 .ack { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; margin-bottom: 20px; cursor: pointer; }
 input[type=checkbox] { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--primary); }

@@ -536,6 +536,14 @@ sys.exit(entry['main']())
                 chunk = f"{line} {lines[index + 1]}"
             if phrase in chunk:
                 return content, True
+        # Bookworm Orca 43 can queue heading focus with the full announcement
+        # while FOCUS MANAGER reports Locus of focus is None and never emits
+        # SPEECH OUTPUT. Extra nudges then blow the 300s parent timeout.
+        # Accessible-name-only still fails this wait; a focus: heading event
+        # carrying the phrase is the same arrival Orca would speak.
+        for line in lines:
+            if "focus: for [heading:" in line and phrase in line:
+                return content, True
         return content, False
 
     def nudge_focus(phrase):

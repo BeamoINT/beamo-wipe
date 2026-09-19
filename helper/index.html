@@ -183,6 +183,93 @@
       background: #fff;
     }
     .support p { margin: 0; min-width: 0; }
+    .guide-intro { margin: 0 0 16px; }
+    .chooser {
+      list-style: none;
+      margin: 0 0 22px;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .chooser a {
+      display: flex;
+      align-items: center;
+      min-height: 2.75em;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-alt);
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1em;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .chooser a:hover { border-color: var(--border-strong); }
+    .chooser a:focus-visible {
+      outline: 3px solid var(--focus); outline-offset: 2px;
+    }
+    .guide:has(#trouble-usb:target) .chooser a[href="#trouble-usb"],
+    .guide:has(#trouble-key:target) .chooser a[href="#trouble-key"],
+    .guide:has(#trouble-firmware:target) .chooser a[href="#trouble-firmware"],
+    .guide:has(#trouble-launcher:target) .chooser a[href="#trouble-launcher"] {
+      border-color: var(--primary);
+      background: var(--navy-muted);
+    }
+    .guide-hint { display: none; margin: 0; }
+    @supports selector(:has(*)) {
+      .guide:has(.panel:target) .panel:not(:target) { display: none; }
+      .guide:not(:has(.panel:target)) .panel { display: none; }
+      .guide:not(:has(.panel:target)) .guide-hint { display: block; }
+    }
+    .panel {
+      border-top: 1px solid var(--border);
+      padding: 22px 0 8px;
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    .panel:focus { outline: 3px solid var(--focus); outline-offset: 6px; }
+    .panel h2 { font-size: 1.2em; }
+    .illustration {
+      width: min(100%, 22rem);
+      margin: 0 0 14px;
+    }
+    .illustration svg { display: block; width: 100%; height: auto; }
+    figcaption {
+      font-size: 0.85em;
+      color: var(--muted);
+      margin: 8px 0 0;
+    }
+    .panel ol { padding-left: 1.3em; }
+    .panel details {
+      margin: 14px 0 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: var(--surface-alt);
+    }
+    .panel summary {
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .panel summary:focus-visible {
+      outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px;
+    }
+    .back {
+      display: inline-block;
+      margin-top: 12px;
+      font-weight: 700;
+    }
+    @media print {
+      .guide .panel { display: block !important; }
+      .guide-hint { display: none !important; }
+    }
+    @media (forced-colors: active) {
+      .chooser a, .panel details, .kbd { border: 1px solid ButtonText; }
+    }
     @media (max-width: 600px) {
       header .inner { flex-wrap: wrap; padding: 16px 20px; gap: 8px; }
       header .tagline { flex: 1 0 100%; text-align: left; }
@@ -192,6 +279,8 @@
       th, td { padding: 12px 8px; font-size: 16px; }
       table { display: block; overflow-x: auto; }
       .support { flex-wrap: wrap; }
+      .chooser { grid-template-columns: 1fr; }
+      .illustration { width: 100%; }
     }
   </style>
 </head>
@@ -211,6 +300,141 @@
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B3261E" stroke="#B3261E" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
       <span>This page does not erase anything. Restart the computer and press the key for your PC.</span>
     </p>
+    <div class="card guide" id="guide">
+      <h2>If something is not working</h2>
+      <p class="guide-intro">Choose what you see. The steps stay on this USB. No internet is required.</p>
+      <nav aria-label="Startup problems">
+        <ul class="chooser">
+          <li><a href="#trouble-usb">The USB is missing or not listed</a></li>
+          <li><a href="#trouble-key">The boot-menu key does nothing</a></li>
+          <li><a href="#trouble-firmware">The computer refused the USB</a></li>
+          <li><a href="#trouble-launcher">The launcher failed</a></li>
+        </ul>
+      </nav>
+      <p class="guide-hint">Choose a problem above. The steps appear here.</p>
+
+      <article class="panel panel-usb" id="trouble-usb" tabindex="-1" aria-labelledby="trouble-usb-title">
+        <h2 id="trouble-usb-title">The USB is missing or not listed</h2>
+        <figure class="illustration">
+          <svg viewBox="0 0 280 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="8" y="18" width="150" height="96" rx="8" fill="#F3F5F7" stroke="#0A1B34" stroke-width="3"/>
+            <rect x="20" y="30" width="126" height="72" rx="2" fill="#16315C"/>
+            <rect x="158" y="56" width="16" height="20" fill="#0A1B34"/>
+            <rect x="174" y="50" width="52" height="32" rx="4" fill="#1C4A73" stroke="#0A1B34" stroke-width="2"/>
+            <rect x="226" y="58" width="14" height="16" fill="#C9D6E8" stroke="#0A1B34" stroke-width="1.5"/>
+            <rect x="48" y="100" width="70" height="10" rx="2" fill="#D8DFE6"/>
+            <rect x="200" y="96" width="64" height="28" rx="4" fill="#F3F5F7" stroke="#6E7C8A" stroke-width="2"/>
+            <line x1="208" y1="104" x2="256" y2="116" stroke="#B3261E" stroke-width="3" stroke-linecap="round"/>
+            <line x1="256" y1="104" x2="208" y2="116" stroke="#B3261E" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <figcaption>Plug into a port on the computer, not a keyboard hub.</figcaption>
+        </figure>
+        <ol>
+          <li>Keep this USB plugged in while the computer restarts. Do not remove it.</li>
+          <li>Use a USB-A or USB-C port on the computer itself. Avoid a keyboard, monitor, or hub if you can.</li>
+          <li>Try a different port on the same computer.</li>
+          <li>Restart and look for this USB in the boot menu, or in Windows <strong>Use a device</strong>.</li>
+          <li>If this computer still never lists the USB, open the USB on a computer that already shows files and confirm <strong>START-HERE.html</strong> is there. Then try another direct port.</li>
+        </ol>
+        <p>Windows 11: Settings → System → Recovery → Advanced startup → Restart now → Use a device, if it is listed. Windows 10: Settings → Update &amp; Security → Recovery → Advanced startup → Restart now → Use a device. Those menus are for UEFI PCs. See <a href="#windows-11">Windows 11</a> and <a href="#windows-10">Windows 10</a>.</p>
+        <details>
+          <summary>Technical detail</summary>
+          <p>Some computers hide USB startup until firmware allows USB boot. That is a firmware setting on the computer, not a Beamo setting. If you might use this Windows installation again, confirm the BitLocker recovery key first. This page cannot change firmware.</p>
+        </details>
+        <p><a class="back" href="#guide">Back to problems</a></p>
+      </article>
+
+      <article class="panel panel-key" id="trouble-key" tabindex="-1" aria-labelledby="trouble-key-title">
+        <h2 id="trouble-key-title">The boot-menu key does nothing</h2>
+        <figure class="illustration">
+          <svg viewBox="0 0 280 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="70" y="8" width="140" height="70" rx="6" fill="#F3F5F7" stroke="#0A1B34" stroke-width="3"/>
+            <rect x="82" y="20" width="116" height="46" fill="#16315C"/>
+            <rect x="40" y="86" width="200" height="36" rx="4" fill="#F3F5F7" stroke="#0A1B34" stroke-width="2"/>
+            <rect x="52" y="94" width="22" height="20" rx="3" fill="#FFFFFF" stroke="#6E7C8A"/>
+            <rect x="78" y="94" width="22" height="20" rx="3" fill="#FFFFFF" stroke="#6E7C8A"/>
+            <rect x="104" y="94" width="40" height="20" rx="3" fill="#E8A317" stroke="#0A1B34" stroke-width="2"/>
+            <rect x="148" y="94" width="22" height="20" rx="3" fill="#FFFFFF" stroke="#6E7C8A"/>
+            <rect x="174" y="94" width="22" height="20" rx="3" fill="#FFFFFF" stroke="#6E7C8A"/>
+            <rect x="200" y="94" width="28" height="20" rx="3" fill="#FFFFFF" stroke="#6E7C8A"/>
+          </svg>
+          <figcaption>Press the key as the computer starts, not after Windows has loaded.</figcaption>
+        </figure>
+        <ol>
+          <li>Keys vary by manufacturer. They are not the same on every PC. Use the <a href="#keys">typical keys</a> table.</li>
+          <li>Start tapping the key as soon as you restart — before Windows or a logo finishes.</li>
+          <li>On HP, try <span class="kbd">Esc</span> first, then <span class="kbd">F9</span>.</li>
+          <li>If the computer starts too quickly to catch a key, use the Windows Settings steps instead of changing firmware.</li>
+          <li>Check the sticker, the startup screen, or the computer manufacturer’s instructions if a listed key does nothing.</li>
+        </ol>
+        <p>Dell, Lenovo, and Acer often use <span class="kbd">F12</span>. ASUS often uses <span class="kbd">F8</span> or <span class="kbd">Esc</span>. MSI often uses <span class="kbd">F11</span>. Gigabyte often uses <span class="kbd">F12</span>. Intel Mac: <span class="kbd">Option (⌥)</span> at startup. Not Apple Silicon.</p>
+        <details>
+          <summary>Technical detail</summary>
+          <p>Some computers shorten the moment when a key is accepted. Windows Recovery Environment <strong>Use a device</strong> avoids that race on many UEFI PCs. Do not treat firmware, boot-order, or setup-menu changes as the next automatic step.</p>
+        </details>
+        <p><a class="back" href="#guide">Back to problems</a></p>
+      </article>
+
+      <article class="panel panel-firmware" id="trouble-firmware" tabindex="-1" aria-labelledby="trouble-firmware-title">
+        <h2 id="trouble-firmware-title">The computer refused the USB</h2>
+        <figure class="illustration">
+          <svg viewBox="0 0 280 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="36" y="14" width="130" height="90" rx="6" fill="#F3F5F7" stroke="#0A1B34" stroke-width="3"/>
+            <rect x="48" y="26" width="106" height="66" fill="#16315C"/>
+            <rect x="88" y="42" width="26" height="18" rx="8" fill="none" stroke="#FDED02" stroke-width="3"/>
+            <rect x="82" y="56" width="38" height="24" rx="4" fill="#FDED02"/>
+            <rect x="184" y="28" width="70" height="80" rx="4" fill="#FFFFFF" stroke="#1C4A73" stroke-width="2"/>
+            <line x1="196" y1="48" x2="238" y2="48" stroke="#6E7C8A" stroke-width="3" stroke-linecap="round"/>
+            <line x1="196" y1="62" x2="238" y2="62" stroke="#6E7C8A" stroke-width="3" stroke-linecap="round"/>
+            <line x1="196" y1="76" x2="226" y2="76" stroke="#6E7C8A" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <figcaption>Write down the exact message. This helper does not change Secure Boot.</figcaption>
+        </figure>
+        <ol>
+          <li>If you might use this Windows installation again, confirm you can reach the BitLocker recovery key <strong>before</strong> any firmware change. If you cannot find the key, stop. Use another USB port or the Windows steps instead. See <a href="#bitlocker">BitLocker</a>.</li>
+          <li>Write down the exact on-screen message. Reaching a boot menu does not mean an erase has started.</li>
+          <li>Try another direct USB port and restart.</li>
+          <li>On older BIOS computers, <strong>Use a device</strong> may be missing. Use the boot-menu key instead of firmware changes.</li>
+          <li>Use the computer manufacturer’s startup instructions. This helper does not change Secure Boot or bypass a refusal.</li>
+        </ol>
+        <p>See <a href="#secure-boot">Secure Boot</a> for what this USB ships. Do not treat firmware or Secure Boot changes as the next automatic step.</p>
+        <details>
+          <summary>Technical detail</summary>
+          <p>This build uses Debian's signed boot components. Whether your computer accepts them depends on its firmware trust settings and revocation updates. The launcher does not change Secure Boot settings. Older BIOS (legacy) and UEFI behave differently; a missing <strong>Use a device</strong> item is often legacy, not a failed erase.</p>
+        </details>
+        <p><a class="back" href="#guide">Back to problems</a></p>
+      </article>
+
+      <article class="panel panel-launcher" id="trouble-launcher" tabindex="-1" aria-labelledby="trouble-launcher-title">
+        <h2 id="trouble-launcher-title">The launcher failed</h2>
+        <figure class="illustration">
+          <svg viewBox="0 0 280 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="20" y="16" width="150" height="98" rx="6" fill="#FFFFFF" stroke="#0A1B34" stroke-width="3"/>
+            <rect x="20" y="16" width="150" height="22" rx="6" fill="#0A1B34"/>
+            <rect x="20" y="32" width="150" height="6" fill="#0A1B34"/>
+            <path d="M95 52 L118 94 L72 94 Z" fill="#B3261E"/>
+            <rect x="93" y="64" width="4" height="16" fill="#FFFFFF"/>
+            <circle cx="95" cy="86" r="2.5" fill="#FFFFFF"/>
+            <rect x="188" y="36" width="72" height="78" rx="4" fill="#F3F5F7" stroke="#1C4A73" stroke-width="2"/>
+            <polygon points="236,36 260,36 260,60" fill="#C9D6E8" stroke="#1C4A73" stroke-width="2"/>
+          </svg>
+          <figcaption>If the application will not open, use the boot steps on this page. Nothing was erased.</figcaption>
+        </figure>
+        <ol>
+          <li>Inserting the USB does not start the application. On Windows, open <strong>Start Beamo Wipe.exe</strong>. On a supported Linux desktop, open <strong>Start Beamo Wipe Linux</strong>.</li>
+          <li>Permission or application-trust prompts may appear. Linux desktop and mount settings can prevent running a file from a USB.</li>
+          <li>A check that is not verified is not a pass. If startup settings cannot be read, administrator permission may be needed. If a guided restart is unavailable, use the boot instructions on this page.</li>
+          <li>The launcher does not erase anything. If it will not open, use the <a href="#keys">typical keys</a> or the Windows Settings steps.</li>
+          <li>If Beamo Wipe has already started from this USB and then keeps closing, use the <a href="#kiosk-recovery">recovery screen</a>: try again, use keyboard text screens, or view technical details.</li>
+        </ol>
+        <details>
+          <summary>Technical detail</summary>
+          <p>The launcher only checks the original USB, whether startup settings can be read, and whether a supported restart route exists. Those checks do not guarantee that the USB will boot. Opening this page in a browser on the USB is enough to follow the boot steps. After boot, recovery cannot identify disks or confirm an erase result.</p>
+        </details>
+        <p><a class="back" href="#guide">Back to problems</a></p>
+      </article>
+    </div>
+
     <div class="card">
       <h2>After this USB starts</h2>
       <p>Choose a disk → Confirm its identity → Review and erase. Nothing is erased until you confirm.</p>
@@ -223,7 +447,7 @@
       <p>The launcher does not erase anything. Erasure happens after restarting into this USB, where you choose and confirm the disk. You can also use the boot instructions below without opening an application.</p>
     </div>
 
-    <div class="card">
+    <div class="card" id="keys">
       <h2>Typical keys as the computer starts</h2>
       <p>These are common manufacturer keys. They are not the same on every PC. Check the sticker, the startup screen, or the manufacturer’s instructions if a key below does nothing.</p>
       <table>
@@ -289,7 +513,7 @@
       <p>Do not treat firmware, boot-order, or Secure Boot changes as the next automatic step. If you might return to this Windows installation, confirm the BitLocker recovery key first.</p>
     </div>
 
-    <div class="card">
+    <div class="card" id="secure-boot">
       <h2>If the computer says Secure Boot will not start this USB</h2>
       <p>This build uses Debian's signed boot components. Whether your computer accepts them depends on its firmware trust settings and revocation updates.</p>
       <p>If it refuses the USB, try another direct USB port and consult the computer manufacturer's startup instructions. The launcher does not change Secure Boot settings or bypass a refusal. Do not assume that reaching a boot menu means an erase has started.</p>
