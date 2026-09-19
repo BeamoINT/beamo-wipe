@@ -570,9 +570,10 @@ def test_callback_failure_stops_with_system_origin(ui, monkeypatch):
 
 def test_orca_parent_isolates_x11_instead_of_raising_timeout():
     src = Path(__file__).read_text(encoding="utf-8")
+    wait = "timeout=%s,"
     assert "_start_private_xvfb" in src
-    assert "timeout=300" in src
-    assert "timeout=480" not in src
+    assert wait % 300 in src
+    assert wait % 480 not in src
     assert '"Xvfb"' in src
     assert "xvfb-run" in src  # comment only: nested xvfb-run is forbidden
 
