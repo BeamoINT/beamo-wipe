@@ -487,6 +487,13 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "keyboardLimits": C.KEYBOARD_LIMITS,
         "keyboardCheck": C.KEYBOARD_CHECK_LABEL,
         "keyboardHint": C.KEYBOARD_CHECK_HINT,
+        "textSizeLead": C.TEXT_SIZE_LEAD,
+        "textSizeUtility": C.TEXT_SIZE_UTILITY,
+        "textSizes": [
+            {"id": "standard", "label": C.TEXT_SIZE_STANDARD},
+            {"id": "large", "label": C.TEXT_SIZE_LARGE},
+            {"id": "extra", "label": C.TEXT_SIZE_EXTRA},
+        ],
         "keyboardLayouts": [
             {
                 "id": layout_id,
@@ -776,7 +783,15 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .scenarios button { font-size: 14px; font-weight: 600; margin: 0 8px 8px 0; padding: 8px 16px; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: var(--pill); cursor: pointer; }
   .scenarios button:hover { background: var(--primary-tint); border-color: var(--primary); }
   .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .shell { background: var(--bg); min-height: 740px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+  .shell { --type: 1; background: var(--bg); min-height: 740px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+  .shell[data-text="large"] { --type: 1.2; }
+  .shell[data-text="extra"] { --type: 1.35; }
+  .shell h1 { font-size: calc(32px * var(--type)); }
+  .shell .subtitle, .shell .lead, .shell .panel { font-size: calc(16px * var(--type)); }
+  .shell .card .title { font-size: calc(16px * var(--type)); }
+  .shell .small, .shell .card .meta { font-size: calc(14px * var(--type)); }
+  .shell button.btn { font-size: calc(15px * var(--type)); }
+  .textsizes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
   .preview-stripe { background: var(--accent); color: var(--navy); padding: 8px 28px; font-size: 13px; font-weight: 700; letter-spacing: .01em; overflow-wrap: break-word; }
   /* Quiet white chrome: the navy-on-transparent mark sits on the field,
      a hairline separates header from body — mirroring _draw_header. */
@@ -787,7 +802,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   /* Current-step text lives in .steptext. The list is a screen-reader
      name only — never a numbered map of the whole journey. */
   .journey { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; margin-top: 8px; }
+  .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 200px); gap: 24px; margin-top: 8px; align-items: start; }
+  .shell[data-text="large"] .review-grid,
+  .shell[data-text="extra"] .review-grid { grid-template-columns: minmax(0, 1fr); }
   .review-grid .countcap { max-width: 260px; text-align: center; }
   .review-warning { color: var(--danger); font-weight: 700; overflow-wrap: anywhere; }
   .card.identity { background: var(--primary-tint); border-color: var(--primary); padding: 16px 22px; }
@@ -860,7 +877,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   /* One-row footer, mirroring _footer_shell: secondary actions left, key
      hints centered, the primary action right, hairline on top. */
   .foot { padding: 0 32px; }
-  .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .card, .panel, .foot, .compare-pre, .help-reader { overflow-wrap: anywhere; }
   .fleft, .fright { display: flex; gap: 12px; flex: none; }
   .fhint { flex: 1; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.9; }
   .fhint .kbd { margin: 0 1px; }
@@ -1073,6 +1091,7 @@ let owner = false;
 let selected = null;
 let token = "";
 let keyboardLayout = "us";
+let textSize = "standard";
 let method = "everyday";
 let tLeft = 5;
 let timer = null;
@@ -1319,7 +1338,12 @@ function headerCaption(info) {
   if (n && String(label).indexOf(P.stepPrefix) === 0) return P.journey[n - 1] + " · " + label;
   return label;
 }
+function applyTextSize() {
+  const shell = document.querySelector(".shell");
+  if (shell) shell.setAttribute("data-text", textSize);
+}
 function draw() {
+  applyTextSize();
   // Countdown redraws must preserve deliberate keyboard focus. Entering
   // final review always starts on Back, including screenshot deep links.
   const reviewFocus = screen === "last" && renderedScreen === "last"
@@ -1360,9 +1384,12 @@ function draw() {
       const selected = (keyboardLayout || "us") === item.id;
       return `<div class="card pickable${selected ? " sel" : ""}" data-layout="${item.id}" tabindex="0" role="button" aria-pressed="${selected}"><div class="row"><span class="radio"></span><div class="grow"><div class="title">${item.title}</div><p class="small muted">${item.note}</p></div><span class="kbd">${i+1}</span></div></div>`;
     }).join("");
+    const sizes = P.textSizes.map(item => `<button type="button" class="btn${textSize === item.id ? " primary" : ""}" data-text="${item.id}">${item.label}</button>`).join("");
     const langs = P.languages.map(l => `<div class="small">${l.active ? ">" : "&nbsp;"} ${l.name}</div>`).join("");
     main.innerHTML = `<h1 class="sub">${P.titles.keyboard}</h1><p class="subtitle">${P.keyboardLead}</p>
       <p class="small muted">${P.keyboardLimits}</p>
+      <p class="small">${P.textSizeLead}</p>
+      <div class="textsizes">${sizes}</div>
       <div class="cz"><div class="czc">${layouts}
       <p class="small" style="margin-top:12px"><strong>${P.languageTitle}</strong></p>
       <p class="small muted">${P.languageLead}</p>${langs}
@@ -1373,6 +1400,9 @@ function draw() {
       const pick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
       el.onclick = pick;
       el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
+    });
+    main.querySelectorAll("[data-text]").forEach(el => {
+      el.onclick = () => { textSize = el.dataset.text; draw(); };
     });
     const box = main.querySelector("#kbcheck");
     if (box) box.value = "";
@@ -1692,6 +1722,15 @@ function draw() {
   if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm", "refresh_confirm"].includes(screen)) {
     utilities.prepend(btn(P.refreshUtility, requestRefresh, "ghost"));
   }
+  if (!["splash", "keyboard", "working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "shutdown_confirm", "refresh_confirm"].includes(screen)) {
+    const current = (P.textSizes.find(s => s.id === textSize) || P.textSizes[0]).label;
+    utilities.append(btn(`${P.textSizeUtility}: ${current}`, () => {
+      const ids = P.textSizes.map(s => s.id);
+      const i = Math.max(0, ids.indexOf(textSize));
+      textSize = ids[(i + 1) % ids.length];
+      draw();
+    }, "ghost"));
+  }
   if (screen === "last") {
     const focused = Array.from(foot.querySelectorAll("button"))
       .find(button => button.textContent === reviewFocus && !button.disabled);
@@ -1797,6 +1836,7 @@ function applyHash() {
   if (q.get("owner") === "1") owner = true;
   if (q.get("method")) method = q.get("method");
   if (q.get("ready") === "1") tLeft = 0;
+  if (q.get("text")) textSize = q.get("text");
   if (q.get("progress") && P.progress.states[q.get("progress")]) progressKey = q.get("progress");
   if (q.get("pct")) {
     const n = parseInt(q.get("pct"), 10);

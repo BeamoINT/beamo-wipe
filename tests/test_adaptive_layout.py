@@ -260,6 +260,36 @@ def test_long_unicode_identity_wraps_without_ellipsis(ui, size):  # noqa: F811
     _assert_actions_on_window(app)
 
 
+def test_extra_large_text_keeps_actions_at_800x600(ui):  # noqa: F811
+    wiz, app = ui(size=MIN_SIZE)
+    app.root.minsize(*MIN_SIZE)
+    wiz.skip_splash()
+    assert wiz.set_text_size("extra")
+    app.root.geometry("800x600+40+40")
+    app._sync_layout()
+    app._draw()
+    app.root.update()
+    shown = _texts(app.root)
+    assert C.TEXT_SIZE_LEAD in shown
+    assert C.TEXT_SIZE_EXTRA in shown
+    assert "QWERTY" in shown
+    _assert_actions_on_window(app)
+    assert abs(int(str(app.font_h.cget("size")))) >= 20
+    wiz, app = ui(size=MIN_SIZE)
+    app.root.minsize(*MIN_SIZE)
+    _drive_to(wiz, app, Screen.LAST_CHANCE, size=MIN_SIZE)
+    assert wiz.set_text_size("extra")
+    app.root.geometry("800x600+40+40")
+    app._sync_layout()
+    app._draw()
+    app.root.update()
+    assert wiz.text_size == "extra"
+    assert wiz.selected is not None
+    shown = _texts(app.root)
+    assert wiz.selected.serial in shown
+    _assert_actions_on_window(app)
+
+
 def test_large_window_uses_larger_type_than_compact(ui):  # noqa: F811
     _, compact = ui(size=MIN_SIZE)
     compact.root.minsize(*MIN_SIZE)

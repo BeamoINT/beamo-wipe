@@ -16,6 +16,16 @@ LARGE_SIZE = (1600, 1000)
 MAX_CONTENT = 940
 LARGE_CONTENT = 1080
 
+TEXT_SIZE_STANDARD = "standard"
+TEXT_SIZE_LARGE = "large"
+TEXT_SIZE_EXTRA = "extra"
+TEXT_SIZES = (TEXT_SIZE_STANDARD, TEXT_SIZE_LARGE, TEXT_SIZE_EXTRA)
+TEXT_SIZE_SCALE = {
+    TEXT_SIZE_STANDARD: 1.0,
+    TEXT_SIZE_LARGE: 1.2,
+    TEXT_SIZE_EXTRA: 1.35,
+}
+
 
 def _px(base: int, scale: float, floor: int) -> int:
     return max(floor, int(round(base * scale)))
@@ -38,6 +48,8 @@ class Layout:
     title_bottom: int
     footer_pad_y: int
     stack_review: bool
+    text_size: str
+    type_scale: float
     font: dict[str, int]
 
     @property
@@ -51,13 +63,25 @@ class Layout:
             self.scale,
             self.ring,
             self.stack_review,
+            self.text_size,
         )
 
 
-def layout_for(width: int, height: int) -> Layout:
-    """Deterministic layout from the mapped window size, not X DPI."""
+def layout_for(
+    width: int, height: int, text_size: str = TEXT_SIZE_STANDARD
+) -> Layout:
+    """Deterministic layout from the mapped window size, not X DPI.
+
+    ``text_size`` is the one type parameter (standard / large / extra). Fonts
+    and chrome that must hug glyphs (ring, modest header) grow from that id.
+    Column width and gutters stay with the window so Extra-large text wraps
+    and stacks instead of overflowing cards.
+    """
     width = max(1, int(width))
     height = max(1, int(height))
+    if text_size not in TEXT_SIZE_SCALE:
+        text_size = TEXT_SIZE_STANDARD
+    type_scale = TEXT_SIZE_SCALE[text_size]
     narrow = width < 960
     short = height < 680
     compact = narrow or short
@@ -91,21 +115,24 @@ def layout_for(width: int, height: int) -> Layout:
         footer_pad_y = 16
     content_w = min(cap, max(280, width - 2 * gutter))
     wrap = max(200, content_w - (40 if compact else 72))
+    font_scale = scale * type_scale
     font = {
-        "hero": _px(52, scale, 32),
-        "h": _px(30, scale, 20),
-        "lead": _px(18, scale, 14),
-        "b": _px(16, scale, 14),
-        "size_big": _px(20, scale, 16),
-        "s": _px(14, scale, 12),
-        "tiny": _px(12, scale, 12),
-        "btn": _px(16, scale, 14),
-        "mono": _px(14, scale, 12),
-        "mono_sm": _px(13, scale, 12),
-        "entry": _px(26, scale, 18),
-        "stat": _px(56, scale, 32),
-        "brand": _px(16, scale, 14),
+        "hero": _px(52, font_scale, 32),
+        "h": _px(30, font_scale, 20),
+        "lead": _px(18, font_scale, 14),
+        "b": _px(16, font_scale, 14),
+        "size_big": _px(20, font_scale, 16),
+        "s": _px(14, font_scale, 12),
+        "tiny": _px(12, font_scale, 12),
+        "btn": _px(16, font_scale, 14),
+        "mono": _px(14, font_scale, 12),
+        "mono_sm": _px(13, font_scale, 12),
+        "entry": _px(26, font_scale, 18),
+        "stat": _px(56, font_scale, 32),
+        "brand": _px(16, font_scale, 14),
     }
+    ring = _px(64, type_scale, 48)
+    header_h = _px(header_h, min(type_scale, 1.2), header_h)
     return Layout(
         width=width,
         height=height,
@@ -121,6 +148,8 @@ def layout_for(width: int, height: int) -> Layout:
         title_top=title_top,
         title_bottom=title_bottom,
         footer_pad_y=footer_pad_y,
-        stack_review=narrow or short,
+        stack_review=narrow or short or type_scale > 1.05,
+        text_size=text_size,
+        type_scale=type_scale,
         font=font,
     )
