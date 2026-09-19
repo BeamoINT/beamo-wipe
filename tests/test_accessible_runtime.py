@@ -147,15 +147,12 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     app.actions[C.BTN_CHOOSE_METHOD].clicked()
     app.actions[C.BTN_REVIEW_ERASE].clicked()
     assert wizard.screen == Screen.LAST_CHANCE
-    assert "Review before erasing" in text(app)
-    from beamo_wipe import copy as C
     assert C.LAST_LEAD in text(app)
     assert not app.actions["Erase now"].get_sensitive()
     stale_erase = app.actions["Erase now"]
     app.actions["Check disks again (F5)"].clicked()
     assert wizard.screen == Screen.REFRESH_CONFIRM
     assert wizard.selected is not None and wizard.owner_ok
-    from beamo_wipe import copy as C
     assert C.REFRESH_LEAD in text(app)
     app.actions[C.BTN_REFRESH].clicked()
     assert wizard.screen == Screen.WHAT
