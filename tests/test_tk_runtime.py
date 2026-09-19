@@ -2348,6 +2348,7 @@ def test_done_export_stages_per_state(ui, tmp_path, status, message, marked, unm
 
 
 def test_diagnostic_rejection_shows_next_step(ui):
+    from beamo_wipe import copy as C
     from beamo_wipe import support_export as E
     from beamo_wipe.demo import make_demo_wizard
 
@@ -2361,4 +2362,6 @@ def test_diagnostic_rejection_shows_next_step(ui):
     labels = {w.cget("text") for w in descendants(app.root) if isinstance(w, tk.Label)}
     assert E.USB_FAT32_ONLY in labels
     assert E.NEXT_DIFFERENT_STICK in labels
+    assert C.SUPPORT_CODE_LABEL in labels
+    assert C.SUPPORT_BUILD_LABEL in labels
     assert not _clipping_problems(app)

@@ -114,6 +114,12 @@ class AccessibleWizard:
         self.body.pack_start(widget, False, False, 4)
         return widget
 
+    def support_identity_labels(self) -> None:
+        ident = self.w.support_identity
+        if ident is None:
+            return
+        self.label(C.support_identity_text(ident), focusable=True)
+
     def button(self, text: str, action: Callable, *, enabled: bool = True,
                utility: bool = False, in_body: bool = False):
         widget = Gtk.Button.new_with_label(text)
@@ -289,6 +295,7 @@ class AccessibleWizard:
             self.label(C.POWER_REMINDER)
             self.label(C.POWER_BLANKING)
             self.label(C.POWER_EVENTS, focusable=True)
+            self.support_identity_labels()
             self.button(C.BTN_CONTINUE, self.w.accept_what)
         elif screen == Screen.OWNER:
             heading.set_text(C.TITLE_OWNER)
@@ -344,6 +351,7 @@ class AccessibleWizard:
             if screen == Screen.PICK_EMPTY:
                 self.label(C.support_text(), focusable=True)
                 self._protected_boot()
+            self.support_identity_labels()
             self._inventory()
             self.button(C.BTN_SHUTDOWN, self.w.shutdown)
         elif screen == Screen.CONFIRM:
@@ -457,6 +465,9 @@ class AccessibleWizard:
             arrival.get_style_context().add_class("erase-warning")
             arrival.get_accessible().set_role(Atk.Role.ALERT)
             self.label(self.w.method_summary)
+            if self.w.error:
+                self.label(f"{C.SEVERITY_ERROR}: {self.w.error}", focusable=True)
+            self.support_identity_labels()
             self.countdown_label = self.label("")
             self.primary = self.button(
                 C.BTN_ERASE, self.w.begin_erase, enabled=self.w.erase_enabled
@@ -526,6 +537,7 @@ class AccessibleWizard:
             self.label(self.w.result_view.next_step)
             if self.w.done_support_needed:
                 self.label(C.support_text(), focusable=True)
+            self.support_identity_labels()
             if may_have_erased(result.code):
                 self.label(C.POST_ERASE_BOOT)
             for alert in self.w.check_alerts:
@@ -602,6 +614,7 @@ class AccessibleWizard:
             self.label(view.message, focusable=True)
             if self.w.diagnostic_step:
                 self.label(self.w.diagnostic_step, focusable=True)
+            self.support_identity_labels()
             self.button(
                 C.SAVE_DIAGNOSTIC_REPORT if view.ready else C.BTN_PREPARE,
                 lambda: self.w.diagnostic_action(background=True),

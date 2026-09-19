@@ -1316,7 +1316,7 @@ class TkWizard:
     def _prepare_body_host(self) -> None:
         self._body_inner = None
         self._body_canvas = None
-        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE}):
+        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.DIAGNOSTIC}):
             return
         if self.w.screen in {
             Screen.PICK,
@@ -2253,6 +2253,7 @@ class TkWizard:
             self._panel(
                 zone, kind="info", text=C.SECURE_BOOT_HINT, extra=C.ENGINE_LINE + " " + C.POWER_EVENTS
             ).pack(fill=tk.X, pady=(12, 0))
+        self._support_identity_block(zone)
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self._click_shutdown)
         self._primary_btn(row, C.BTN_UNDERSTAND, self.w.accept_what)
@@ -2703,6 +2704,40 @@ class TkWizard:
         self.root.clipboard_append(SUPPORT_SHORT)
         return "break"
 
+    def _support_identity_block(self, parent: Optional[tk.Widget]) -> None:
+        """Monospace support code and build id for screenshots and phone readback."""
+        ident = self.w.support_identity
+        if ident is None:
+            return
+        assert parent is not None
+        frame = tk.Frame(parent, bg=BG)
+        rows = [(C.SUPPORT_CODE_LABEL, ident.code)]
+        if ident.extra_code:
+            rows.append((C.SUPPORT_SAVE_LABEL, ident.extra_code))
+        rows.append((C.SUPPORT_BUILD_LABEL, ident.build_id))
+        wrap = max(120, self.lay.wrap - 40)
+        for label, value in rows:
+            line = tk.Frame(frame, bg=BG)
+            line.pack(fill=tk.X)
+            tk.Label(
+                line, text=label, font=self.font_s, fg=MUTED, bg=BG, anchor="w"
+            ).pack(side=tk.LEFT)
+            tk.Label(
+                line,
+                text=value,
+                font=self.font_mono_bold,
+                fg=INK,
+                bg=BG,
+                anchor="w",
+                wraplength=wrap,
+                justify=tk.LEFT,
+            ).pack(side=tk.LEFT, padx=(12, 0))
+        if not self.lay.short:
+            self._p(frame, C.SUPPORT_CODE_HINT, font=self.font_s, fg=MUTED, wraplength=wrap).pack(
+                fill=tk.X, pady=(4, 0)
+            )
+        frame.pack(fill=tk.X, pady=(8, 0))
+
     def _support_block(self, parent: Optional[tk.Widget]) -> None:
         """QR code plus the support destination as real text.
 
@@ -2790,12 +2825,14 @@ class TkWizard:
             elif self.w.operation_identity_text:
                 self._p(col, self.w.operation_identity_text, font=self.font_b, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
             self._p(col, self.w.operation_method_text, font=self.font_s, fg=MUTED).pack(fill=tk.X, pady=(12, 0))
+        if self.w.screen == Screen.PICK_BLOCKED:
+            if error_needs_support(self.w.error):
+                self._support_block(col)
+            self._support_identity_block(col)
         tk.Frame(col, bg=BG).pack(fill=tk.BOTH, expand=True)
 
     def _blocked(self) -> None:
         self._status_screen("danger", C.blocked_title(self.w.error, recovered=self.w._recovered), self.w.error or C.IDENTIFY_ERROR)
-        if error_needs_support(self.w.error):
-            self._support_block(self._body)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2807,6 +2844,8 @@ class TkWizard:
         _icon_badge(col, "info", 40).pack(anchor="w")
         msg = C.EMPTY_DISKS
         self._title_block(col, C.TITLE_EMPTY, msg)
+        self._support_block(col)
+        self._support_identity_block(col)
         region = tk.Frame(col, bg=BG)
         region.pack(fill=tk.BOTH, expand=True)
         canvas = tk.Canvas(region, bg=BG, highlightthickness=0)
@@ -2841,7 +2880,6 @@ class TkWizard:
         self._protected_boot(cards)
         self._other_devices(cards)
         bind_wheel(cards)
-        self._support_block(col)
         row = self._footer_shell(C.HINT_BLOCKED)
         self._back_btn(row)
         self._primary_btn(row, self._close_label(), self._click_shutdown)
@@ -2857,6 +2895,7 @@ class TkWizard:
             self._p(col, self.w.diagnostic_step, font=self.font_s).pack(fill=tk.X)
             if next_step_needs_support(self.w.diagnostic_message):
                 self._support_block(col)
+        self._support_identity_block(col)
         row = self._footer_shell(C.NO_OUTCOME_RECORDED)
         self._secondary_btn(row, C.BTN_BACK, self.w.close_diagnostic, enabled=not view.busy)
         self._primary_btn(row, C.SAVE_DIAGNOSTIC_REPORT if view.ready else C.BTN_PREPARE,
@@ -3234,6 +3273,7 @@ class TkWizard:
         self._wrapping_label(details, self.w.method_summary, font=self.font_s, bg=BG)
         if self.w.error:
             self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(12, 0))
+            self._support_identity_block(col)
         self._power_notice(details)
         ring_px = self.lay.ring
         self._ring_px = ring_px
@@ -3452,6 +3492,7 @@ class TkWizard:
             or (report.status == "error" and next_step_needs_support(report.message))
         ):
             self._support_block(col)
+        self._support_identity_block(col)
         if may_have_erased(result.code):
             self._p(col, C.POST_ERASE_BOOT, font=self.font_s, fg=MUTED).pack(
                 fill=tk.X, pady=(8, 0)

@@ -1,6 +1,6 @@
 # Beamo Wipe — Production support and incident runbook
 
-> **Version 1.7 — 2026-09-13 | Owner: Accountable senior engineer (this checkout) | Next review 2026-12-13**
+> **Version 1.8 — 2026-09-18 | Owner: Accountable senior engineer (this checkout) | Next review 2026-12-18**
 > Pinned wrapper `0.2.9` / `nwipe v0.42` commit `6082bde060091e66365d852a1877f2ee80c67105` at `/usr/lib/beamo-wipe/nwipe`
 > Wrapper GPL-3.0-or-later; nwipe GPL-2.0. See `docs/storage-and-controller-limits.md`, `docs/compatibility-matrix.md`.
 
@@ -50,7 +50,8 @@ Collect in order shown. Redaction is mandatory before leaving the support queue.
 | Evidence | Where | Redaction | Notes |
 |---|---|---|---|
 | Ticket summary | Customer words | No disk serials unless customer volunteered | Symptom in customer's language |
-| Photo of screen | Customer phone photo of wizard or `PICK_EMPTY/BLOCKED` | Blur any serial if posted publicly | Must show step label (Step X of 8) + message |
+| Photo of screen | Customer phone photo of wizard or `PICK_EMPTY/BLOCKED` | Blur any serial if posted publicly | Must show step label (Step X of 8) + message. If no USB report exists, also require the **Support code** and **Build** lines (`BW-…`); they are not disk identity. |
+| On-screen support code + build | Wizard when diagnostic or wipe-report export cannot proceed | None needed: taxonomy tokens and injected `build_id` only | Correlate with `diagnostics.log` area `support` and `BEAMO_WIPE_SUPPORT_*`. Missing build file shows `unavailable`. Ignore a customer-supplied `BUILD_ID` environment value. |
 | `diagnostic.json` + `.sha256` + `COMPLETE` | Blocked/empty/start-failure screen: **Diagnostic report** → Prepare → insert one new FAT32 USB → Save | Fixed codes, exact application/build identity, discovery status, unverified UTC and monotonic session time; no disk identifiers or raw logs | Startup support only; not erase evidence. See [startup diagnostics](startup-diagnostics.md). |
 | `result.json` + `result.json.sha256` | Live USB `/tmp/beamo-wipe/` (tmpfs, not target), then the Finished-screen **Save report to USB** workflow | Already redacted: contains `device.realpath/serial/wwn/vendor`, `method`, `boot_device`, `outcome`, `failure_reason`, `verification`, `log_checksum_sha256`, `provenance.evidence_file` — no hostname/IP/user | The USB bundle is accepted only after a completion marker, read-only remount verification, and final unmount. |
 | `nwipe.log` or `nwipe-tail.log` + `.sha256` | Same private bundle; only the exact authenticated log suffix recorded in terminal evidence is exported, and a suffix shorter than the current file is explicitly marked as a tail | Contains the engine markers used by `evaluate_nwipe_completion`: `is reported as IN USE`, `Nwipe was aborted`, `Unable to open device`, `No sane device geometry`, `>>> FAILURE! <<<`, `| Erased |`, `SIGUSR1` progress | Never copy to target disk; see `FORBIDDEN_LOG_ROOTS`. Missing, changed, or unsafe logs are recorded as unavailable rather than silently trusted. |
@@ -227,7 +228,7 @@ Use these verbatim or close; they contain no bypass instruction.
 
 *PICK_EMPTY / hidden eMMC:* "This machine's only internal storage is soldered eMMC; the 4 MB `mmcblk0boot0` area is intentionally not shown and not wiped. That's expected degraded behavior — see `docs/storage-and-controller-limits.md` §3. For soldered boards, the recommendation is vendor erase or destruction per §5."
 
-*PICK_BLOCKED / uncertain USB:* "We refuse to list disks when we can't tell which is this USB — that's fail-closed and correct. Use Diagnostic report for support. Keep report media disconnected for Prepare, then insert one separate supported FAT32 USB only when prompted. Do not send raw inventories or logs. Diagnostics do not establish that an erase ran."
+*PICK_BLOCKED / uncertain USB:* "We refuse to list disks when we can't tell which is this USB — that's fail-closed and correct. Use Diagnostic report for support. Keep report media disconnected for Prepare, then insert one separate supported FAT32 USB only when prompted. If the report cannot be saved, read the Support code and Build lines on the screen (for example `BW-S-BUND`) and send those exact values — not raw inventories or logs. Diagnostics do not establish that an erase ran."
 
 *Token mismatch:* "That screen wants the numbers/4 characters under the name on that row (size label or last 4 of serial). Capitals don't matter; type it exactly. Continue stays off until it matches — that's the gate."
 
@@ -410,7 +411,7 @@ All three spies prove no real nwipe on the support host: `NwipeRunner.start` rai
 
 ## 11. Change control for this runbook
 
-This doc is versioned with the wrapper (`1.7` for `0.2.9`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
+This doc is versioned with the wrapper (`1.8` for `0.2.9`) and reviewed with `docs/storage-and-controller-limits.md` and `docs/compatibility-matrix.md` on each release or when the pinned nwipe commit, Debian base, or method mapping changes. Update `Version / Next review` at the top, `docs/compatibility-matrix.md` §15 changelog, and `tests/test_runbook.py` (below) in the same commit; CI (`test_ui_system` + `test_copy` + `test_storage_limits` + `test_runbook`) must still pass before push.
 
 ---
 

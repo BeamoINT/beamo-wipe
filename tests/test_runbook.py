@@ -12,7 +12,7 @@ def _lower(rel: str) -> str:
 
 def test_runbook_exists_and_is_versioned():
     text = _lower("docs/runbook.md")
-    assert "version 1.7" in text
+    assert "version 1.8" in text
     assert "next review" in text
     assert "owner" in text
     assert "beamo wipe" in text

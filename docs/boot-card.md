@@ -66,6 +66,10 @@ nothing.
 If the stick never appears: try another port, disable fast boot, or allow
 USB boot in firmware.
 
+If a diagnostic or wipe report cannot be saved, read the **Support code**
+and **Build** lines on the screen and tell support those exact values.
+They do not include disk serials or paths.
+
 The development image includes signed Debian EFI components. Secure Boot
 still depends on the computer's trust settings and revocation updates. If
 firmware rejects the USB, record its exact message and use the computer

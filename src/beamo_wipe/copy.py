@@ -175,6 +175,12 @@ REDISCOVER_ERROR = "Could not check the disks again. Erase did not start."
 
 SUPPORT_LEAD = "For help, visit {short} or scan the code with your phone."
 SUPPORT_TEXT = "For help, visit {short}."
+SUPPORT_CODE_LABEL = "Support code"
+SUPPORT_SAVE_LABEL = "Save code"
+SUPPORT_BUILD_LABEL = "Build"
+SUPPORT_CODE_HINT = (
+    "Read these exact values to support if a report cannot be saved."
+)
 
 
 def support_lead() -> str:
@@ -189,6 +195,15 @@ def support_text() -> str:
     from beamo_wipe.support_contact import SUPPORT_SHORT
 
     return SUPPORT_TEXT.format(short=SUPPORT_SHORT)
+
+
+def support_identity_text(identity: object) -> str:
+    """Owner-facing support code and build lines, plus a short hint."""
+    from beamo_wipe.support_code import SupportIdentity
+
+    if not isinstance(identity, SupportIdentity):
+        return ""
+    return identity.lines() + "\n" + SUPPORT_CODE_HINT
 
 
 def _build_blocked_headings() -> dict[str, str]:
