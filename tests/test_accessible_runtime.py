@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -31,11 +32,13 @@ def _start_private_xvfb():
 
     Hosted pytest already runs under xvfb-run. Nested xvfb-run fails that
     gate. Direct Xvfb on a free display keeps 72 DPI without sharing the
-    X11 AT_SPI_BUS root-window address of earlier GTK tests.
+    X11 AT_SPI_BUS root-window address of earlier GTK tests. The child also
+    gets a private XDG_RUNTIME_DIR so it does not join $XDG_RUNTIME_DIR/at-spi/bus.
     """
     import shutil
 
     assert shutil.which("Xvfb"), "The supported Linux image requires Xvfb"
+    Path("/tmp/.X11-unix").mkdir(mode=0o1777, exist_ok=True)
     for n in range(110, 141):
         if os.path.exists(f"/tmp/.X{n}-lock") or os.path.exists(f"/tmp/.X11-unix/X{n}"):
             continue
@@ -50,6 +53,7 @@ def _start_private_xvfb():
                 "72",
                 "-nolisten",
                 "tcp",
+                "-ac",
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -79,6 +83,29 @@ def _stop_private_xvfb(proc) -> None:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait(timeout=5)
+
+
+def _orca_child_env(display: str, runtime_dir: Path) -> dict:
+    """Private runtime so the child does not join the parent's at-spi bus file."""
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(runtime_dir, 0o700)
+    env = os.environ.copy()
+    env["DISPLAY"] = display
+    env["BEAMO_TEST_ORCA_CHILD"] = "1"
+    env["XDG_RUNTIME_DIR"] = str(runtime_dir)
+    env["XDG_CONFIG_HOME"] = str(runtime_dir / "config")
+    env["XDG_CACHE_HOME"] = str(runtime_dir / "cache")
+    env["XDG_DATA_HOME"] = str(runtime_dir / "data")
+    for key in (
+        "AT_SPI_BUS_ADDRESS",
+        "XAUTHORITY",
+        "DBUS_SESSION_BUS_ADDRESS",
+        "DBUS_STARTER_ADDRESS",
+        "DBUS_STARTER_BUS_TYPE",
+        "SESSION_MANAGER",
+    ):
+        env.pop(key, None)
+    return env
 
 
 def wait_for_window_size(window, size):
@@ -572,6 +599,8 @@ def test_orca_parent_isolates_x11_instead_of_raising_timeout():
     src = Path(__file__).read_text(encoding="utf-8")
     wait = "timeout=%s,"
     assert "_start_private_xvfb" in src
+    assert "_orca_child_env" in src
+    assert "XDG_RUNTIME_DIR" in src
     assert wait % 300 in src
     assert wait % 480 not in src
     assert '"Xvfb"' in src
@@ -588,10 +617,11 @@ def test_orca_announces_every_result(tmp_path, request):
         # Do not construct the ui fixture in this parent process. Nested
         # xvfb-run under Cloud Build's outer xvfb-run fails hosted python-tests.
         xvfb = None
+        runtime = None
         try:
             xvfb, display = _start_private_xvfb()
-            env = {**os.environ, "BEAMO_TEST_ORCA_CHILD": "1", "DISPLAY": display}
-            env.pop("AT_SPI_BUS_ADDRESS", None)
+            runtime = tempfile.TemporaryDirectory(prefix="beamo-orca-")
+            env = _orca_child_env(display, Path(runtime.name))
             result = subprocess.run(
                 [
                     "dbus-run-session",
@@ -608,9 +638,17 @@ def test_orca_announces_every_result(tmp_path, request):
                 text=True,
                 timeout=300,
             )
+        except subprocess.TimeoutExpired as exc:
+            out = (exc.stdout or "") + (exc.stderr or "")
+            pytest.fail(
+                "Orca child exceeded 300s on private Xvfb/XDG_RUNTIME_DIR: "
+                + out[-4000:]
+            )
         finally:
             if xvfb is not None:
                 _stop_private_xvfb(xvfb)
+            if runtime is not None:
+                runtime.cleanup()
         assert result.returncode == 0, result.stdout + result.stderr
         assert "warning" not in result.stdout.lower(), result.stdout
         return
