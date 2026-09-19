@@ -23,3 +23,10 @@ def _reset_ui_language():
     from beamo_wipe import lang
 
     lang.set_language("en")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Run the Orca child before other GTK tests drown Bookworm AT-SPI."""
+    orca = [item for item in items if item.name == "test_orca_announces_every_result"]
+    rest = [item for item in items if item.name != "test_orca_announces_every_result"]
+    items[:] = orca + rest
