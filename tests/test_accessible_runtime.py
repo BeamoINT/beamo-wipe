@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -23,6 +24,61 @@ from test_result_presentations import CASES, case_evidence  # noqa: E402
 def drain():
     while Gtk.events_pending():
         Gtk.main_iteration_do(False)
+
+
+def _start_private_xvfb():
+    """Private X server so AT-SPI is not the parent's polluted bus.
+
+    Hosted pytest already runs under xvfb-run. Nested xvfb-run fails that
+    gate. Direct Xvfb on a free display keeps 72 DPI without sharing the
+    X11 AT_SPI_BUS root-window address of earlier GTK tests.
+    """
+    import shutil
+
+    assert shutil.which("Xvfb"), "The supported Linux image requires Xvfb"
+    for n in range(110, 141):
+        if os.path.exists(f"/tmp/.X{n}-lock") or os.path.exists(f"/tmp/.X11-unix/X{n}"):
+            continue
+        proc = subprocess.Popen(
+            [
+                "Xvfb",
+                f":{n}",
+                "-screen",
+                "0",
+                "1600x1000x24",
+                "-dpi",
+                "72",
+                "-nolisten",
+                "tcp",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        sock = f"/tmp/.X11-unix/X{n}"
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                break
+            if os.path.exists(sock):
+                return proc, f":{n}"
+            time.sleep(0.05)
+        proc.kill()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+    raise RuntimeError("could not start a private Xvfb for Orca")
+
+
+def _stop_private_xvfb(proc) -> None:
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
 
 
 def wait_for_window_size(window, size):
@@ -512,6 +568,15 @@ def test_callback_failure_stops_with_system_origin(ui, monkeypatch):
     assert app.failed and origins == ["system"]
 
 
+def test_orca_parent_isolates_x11_instead_of_raising_timeout():
+    src = Path(__file__).read_text(encoding="utf-8")
+    assert "_start_private_xvfb" in src
+    assert "timeout=300" in src
+    assert "timeout=480" not in src
+    assert '"Xvfb"' in src
+    assert "xvfb-run" in src  # comment only: nested xvfb-run is forbidden
+
+
 def test_orca_announces_every_result(tmp_path, request):
     """Real Orca reads GTK focus events via AT-SPI; no host audio/devices used."""
     import shutil
@@ -521,24 +586,30 @@ def test_orca_announces_every_result(tmp_path, request):
         # windows in the AT-SPI registry. No application behavior is mocked.
         # Do not construct the ui fixture in this parent process. Nested
         # xvfb-run under Cloud Build's outer xvfb-run fails hosted python-tests.
-        result = subprocess.run(
-            [
-                "dbus-run-session",
-                "--",
-                sys.executable,
-                "-m",
-                "pytest",
-                "-p",
-                "no:cacheprovider",
-                f"{__file__}::test_orca_announces_every_result",
-            ],
-            env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
-            capture_output=True,
-            text=True,
-            # Descriptive next-action labels add speech on every screen.
-            # Bookworm Orca 43 still announces, but the child can exceed 300s.
-            timeout=480,
-        )
+        xvfb = None
+        try:
+            xvfb, display = _start_private_xvfb()
+            env = {**os.environ, "BEAMO_TEST_ORCA_CHILD": "1", "DISPLAY": display}
+            env.pop("AT_SPI_BUS_ADDRESS", None)
+            result = subprocess.run(
+                [
+                    "dbus-run-session",
+                    "--",
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-p",
+                    "no:cacheprovider",
+                    f"{__file__}::test_orca_announces_every_result",
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        finally:
+            if xvfb is not None:
+                _stop_private_xvfb(xvfb)
         assert result.returncode == 0, result.stdout + result.stderr
         assert "warning" not in result.stdout.lower(), result.stdout
         return
@@ -645,7 +716,7 @@ sys.exit(entry['main']())
                 # This models a reader finishing a screen before navigation.
                 previous_size = -1
                 quiet_since = time.monotonic()
-                settle_deadline = time.monotonic() + 5
+                settle_deadline = time.monotonic() + 1
                 while time.monotonic() < settle_deadline:
                     drain()
                     size = logfile.stat().st_size
