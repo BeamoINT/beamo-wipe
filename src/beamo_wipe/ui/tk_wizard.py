@@ -1938,6 +1938,9 @@ class TkWizard:
                 fg=MUTED,
                 bg=bg,
             )
+            self._wrapping_label(
+                value, C.CAPACITY_UNIT_NOTE, font=self.font_s, fg=MUTED, bg=bg
+            )
         return meta
 
     def _disk_summary(self, parent: tk.Widget, disk: Disk) -> _Box:

@@ -422,6 +422,7 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "selectedDisk": C.SELECTED_DISK,
         "serialLabel": C.SERIAL_LABEL,
         "connectionLabel": _identity.CONNECTION_LABEL,
+        "capacityUnitNote": C.CAPACITY_UNIT_NOTE,
         "reviewCheck": C.REVIEW_CHECK,
         "splashRoadmap": C.SPLASH_ROADMAP,
         "sevWarning": C.SEVERITY_WARNING,
@@ -1265,7 +1266,7 @@ function metaLine(d, opts) {
   const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, d.connectionNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
     .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
   const extra = showMore
-    ? `<div class="small muted more-path"${detailId ? ` id="${detailId}"` : ""}>${esc(P.pathNote)}: ${esc(d.path)}</div>`
+    ? `<div class="small muted more-path"${detailId ? ` id="${detailId}"` : ""}>${esc(P.pathNote)}: ${esc(d.path)}</div><div class="small muted">${esc(P.capacityUnitNote)}</div>`
     : (detailId ? `<div id="${detailId}" hidden></div>` : "");
   return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(screen === "pick" && !d.isBoot ? d.markedSerial || d.serial : d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>

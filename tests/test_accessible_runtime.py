@@ -1106,6 +1106,25 @@ def test_inventory_count_is_announced_on_pick_screens(ui, scenario, screen, expe
     assert wizard.selected is None and not wizard.runner.started
 
 
+def test_picker_announces_tb_capacity_and_type_unknown(ui):
+    from beamo_wipe.copy import KIND_UNKNOWN
+    from beamo_wipe.models import DiskKind
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.PICK
+    unknown = replace(wizard.selectable[0], kind=DiskKind.UNKNOWN)
+    wizard.discovery = replace(
+        wizard.discovery,
+        disks=tuple(unknown if d.path == unknown.path else d for d in wizard.discovery.disks),
+        selectable=tuple(unknown if d.path == unknown.path else d for d in wizard.discovery.selectable),
+    )
+    app = ui(wizard)
+    names = list(app.actions)
+    assert any("1 TB (1000 GB)" in name for name in names)
+    assert any(KIND_UNKNOWN in name for name in names)
+    assert wizard.selected is None and not wizard.runner.started
+
+
 def test_picker_protected_identity_is_reader_not_select_action(ui):
     wizard = make_demo_wizard()
     wizard.screen = Screen.PICK
