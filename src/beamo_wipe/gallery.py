@@ -1076,9 +1076,9 @@ let screen = "splash";
 let soundsOn = false;
 let renderedScreen = null;
 let reportWanted = false;
-let reportHelpFrom = "what";
-let refreshFrom = "what";
-let shutdownFrom = "what";
+let reportHelpFrom = "owner";
+let refreshFrom = "owner";
+let shutdownFrom = "owner";
 let anotherPending = false;
 let owner = false;
 let selected = null;
@@ -1166,7 +1166,7 @@ function renderHint(text) {
 function boot(m) {
   anotherPending = false;
   reportWanted = false;
-  reportHelpFrom = "what";
+  reportHelpFrom = "owner";
   mode = m;
   fail = (m === "fail");
   if (m === "fail") mode = "happy";
@@ -1195,7 +1195,7 @@ function disks() {
 function selectable() { return disks().filter(d => d.eligible); }
 function stepInfo() {
   const prep = P.journey[0], erase = P.journey[1], result = P.journey[2];
-  const map = {splash:[0,"",""], keyboard:[1,prep,P.titles.keyboard], what:[1,prep,P.titles.what], owner:[1,prep,P.stepOwnership],
+  const map = {splash:[0,"",""], keyboard:[1,prep,P.titles.keyboard], what:[1,prep,P.titles.owner], owner:[1,prep,P.stepOwnership],
     pick:[1,prep,P.titles.pick], blocked:[1,prep,P.titles.pick], empty:[1,prep,P.titles.pick],
     confirm:[1,prep,P.titles.confirm], method:[1,prep,P.titles.method],
     disk_help:[1,P.diskHelpTitle,P.diskHelpTitle], limits:[1,P.limitsTitle,P.limitsTitle], advanced:[1,P.titles.advanced,P.titles.advanced], last:[1,prep,P.titles.last],
@@ -1318,11 +1318,11 @@ function requestRefresh() {
   draw();
 }
 function refreshPreview() {
-  reportHelpFrom = "what";
+  reportHelpFrom = "owner";
   if (["working", "done", "splash"].includes(screen)) return;
   if (timer) clearInterval(timer);
   timer = null; selected = null; token = ""; owner = false;
-  method = "everyday"; tLeft = 5; showMore = false; demoPct = null; demoFrac = null; progressKey = ""; screen = "what";
+  method = "everyday"; tLeft = 5; showMore = false; demoPct = null; demoFrac = null; progressKey = ""; screen = "owner";
   draw();
 }
 function headerCaption(info) {
@@ -1337,6 +1337,7 @@ function draw() {
   // final review always starts on Back, including screenshot deep links.
   const reviewFocus = screen === "last" && renderedScreen === "last"
     && document.activeElement.matches(".foot button") ? document.activeElement.textContent : null;
+  if (screen === "what") screen = "owner";
   const info = stepInfo();
   const stepEl = document.getElementById("step");
   document.getElementById("journey").innerHTML = info[0]
@@ -1393,30 +1394,28 @@ function draw() {
     if (box) box.value = "";
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     renderHint(P.hints.keyboard);
-    btnsR.append(btn(P.buttons.continue, () => { screen = "what"; draw(); }, "primary"));
-  } else if (screen === "what") {
-    main.innerHTML = `<h1 class="sub">${P.titles.what}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
-      <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul>
+    btnsR.append(btn(P.buttons.continue, () => { screen = "owner"; draw(); }, "primary"));
+  } else if (screen === "owner") {
+    main.innerHTML = `<h1 class="sub">${P.titles.owner}</h1><p class="subtitle">${P.whatLead}</p><div class="cz"><div class="czc">
+      <div class="card"><div class="title">${P.titles.what}</div>
+      <ul class="bullets">${P.what.map(x=>"<li>"+x+"</li>").join("")}</ul></div>
       <div style="margin-top:12px">${panel("info", P.reportMediaWhat, true)}</div>
       <div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.powerReminder}</div><div class="extra">${P.powerBlanking}</div>
       <div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>
       ${moreLink("more-detail")}
       ${moreDetail(showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      <div>${P.thisUsb}</div><div class="extra">${P.secureBoot} ${P.engine} ${P.powerEvents}</div></div></div>` : "")}</div></div>`;
-    bindMore();
-    btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
-    btnsR.append(btn(P.buttons.understand, () => { screen = "owner"; draw(); }, "primary"));
-  } else if (screen === "owner") {
-    main.innerHTML = `<h1 class="sub">${P.titles.owner}</h1>
-      <p class="subtitle">${P.ownerLead}</p>
-      <div class="cz"><div class="czc"><div class="ownercard${owner ? " checked" : ""}" id="own" tabindex="0" role="checkbox" aria-checked="${owner}">
+      ${moreDetail(showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
+      <div>${P.thisUsb}</div><div class="extra">${P.secureBoot} ${P.engine} ${P.powerEvents}</div></div></div>` : "")}
+      <p class="subtitle" style="margin-top:16px">${P.ownerLead}</p>
+      <div class="ownercard${owner ? " checked" : ""}" id="own" tabindex="0" role="checkbox" aria-checked="${owner}">
         <span class="cbox">${owner ? "✓" : ""}</span><span>${P.owner}</span></div></div></div>`;
+    bindMore();
     const card = main.querySelector("#own");
     const toggle = () => { owner = !owner; draw(); document.getElementById("own").focus(); };
     card.onclick = toggle;
     card.onkeydown = (e) => { if (e.key === " ") { e.preventDefault(); toggle(); } };
-    btnsL.append(btn(P.buttons.back, () => { screen = "what"; draw(); }));
+    btnsL.append(btn(P.buttons.back, () => { screen = "keyboard"; draw(); }));
     renderHint(P.hints.owner);
     btnsR.append(btn(P.buttons.continue, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
@@ -1700,7 +1699,7 @@ function draw() {
     }));
     btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
   }
-  if (["what", "method", "advanced"].includes(screen)) {
+  if (["what", "owner", "method", "advanced"].includes(screen)) {
     utilities.append(btn(P.reportHelpTitle, () => { reportHelpFrom = screen; screen = "report_help"; draw(); }, "ghost"));
   }
   if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm", "refresh_confirm"].includes(screen)) {

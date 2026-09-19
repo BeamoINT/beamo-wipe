@@ -354,7 +354,7 @@ def identity_for_wizard(wizard: object) -> Optional[SupportIdentity]:
     if screen in {Screen.PICK_BLOCKED, Screen.PICK_EMPTY}:
         return SupportIdentity(code=startup_code(), build_id=build_id)
 
-    if screen == Screen.WHAT and getattr(wizard, "startup_error_code", "") == "graphical_unavailable":
+    if screen in {Screen.WHAT, Screen.OWNER} and getattr(wizard, "startup_error_code", "") == "graphical_unavailable":
         return SupportIdentity(code=code_for_startup("graphical_unavailable"), build_id=build_id)
 
     if screen == Screen.LAST_CHANCE and getattr(wizard, "error", None) and getattr(

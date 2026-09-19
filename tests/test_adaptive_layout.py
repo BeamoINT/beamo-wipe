@@ -23,7 +23,6 @@ SIZES = (MIN_SIZE, NETBOOK_SIZE, SUPPORTED_SIZE, DEFAULT_SIZE, LARGE_SIZE)
 
 WALK_SCREENS = (
     Screen.KEYBOARD,
-    Screen.WHAT,
     Screen.OWNER,
     Screen.PICK,
     Screen.CONFIRM,
@@ -108,7 +107,7 @@ def _show(wiz, app, screen):
         app.root.update()
         return
     if screen == Screen.REPORT_HELP:
-        _drive_to(wiz, app, Screen.WHAT)
+        _drive_to(wiz, app, Screen.OWNER)
         wiz.open_report_help()
         app._draw()
         app.root.update()
@@ -142,9 +141,10 @@ def test_every_walkable_screen_keeps_actions_and_copy(ui, size):  # noqa: F811
             assert "AZERTY" in shown
             assert "QWERTZ" in shown
             assert C.KEYBOARD_CHECK_LABEL in shown
-        if screen == Screen.WHAT:
+        if screen == Screen.OWNER:
             assert C.POWER_REMINDER in shown
             assert "copies you need" in shown
+            assert C.OWNER_CHECKBOX in shown
         if screen in {Screen.CONFIRM, Screen.LAST_CHANCE} and wiz.selected is not None:
             assert wiz.selected.display_name in shown
             assert wiz.selected.serial in shown
@@ -219,7 +219,7 @@ def test_result_states_keep_outcome_and_actions(ui, size, case):  # noqa: F811
 def test_shutdown_dialog_keeps_keep_session_default(ui, size):  # noqa: F811
     wiz, app = ui(size=size)
     app.root.minsize(*MIN_SIZE)
-    _drive_to(wiz, app, Screen.WHAT)
+    _drive_to(wiz, app, Screen.OWNER)
     wiz.preview = False
     wiz.report_wanted = True
     wiz.shutdown()

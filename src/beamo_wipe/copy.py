@@ -25,6 +25,7 @@ from beamo_wipe.methods import METHODS
 APP_NAME = "Beamo Wipe"
 
 # Read-only wayfinding: these labels never act as navigation controls.
+# Combined intro is the Owner step: explanation plus the mandatory checkbox.
 # Three stages, not eight equal pages. Erase is the long destructive operation.
 # This chrome is not wipe percentage; engine percent lives on the Working screen.
 JOURNEY_LABELS = ("Preparation", "Erase", "Result")
@@ -80,7 +81,6 @@ def journey_announcement(screen: Screen) -> str:
     if not caption:
         return ""
     return f"{caption}."
-
 
 SELECTED_DISK = "This disk"
 SERIAL_LABEL = "Serial number"

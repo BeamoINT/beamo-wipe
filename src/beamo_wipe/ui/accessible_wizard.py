@@ -323,9 +323,10 @@ class AccessibleWizard:
             self.body.pack_start(entry, False, False, 4)
             arrival = entry
             self.button(C.BTN_CONTINUE, self.w.accept_keyboard)
-        elif screen == Screen.WHAT:
-            heading.set_text(C.TITLE_WHAT)
+        elif screen in (Screen.WHAT, Screen.OWNER):
+            heading.set_text(C.TITLE_OWNER)
             self.label(C.WHAT_LEAD)
+            self.label(C.TITLE_WHAT)
             self.label("\n".join(C.WHAT_BULLETS))
             self.label(C.this_usb_line())
             self.label(C.REPORT_MEDIA_WHAT, focusable=True)
@@ -333,9 +334,6 @@ class AccessibleWizard:
             self.label(C.POWER_BLANKING)
             self.label(C.POWER_EVENTS, focusable=True)
             self.support_identity_labels()
-            self.button(C.BTN_CONTINUE, self.w.accept_what)
-        elif screen == Screen.OWNER:
-            heading.set_text(C.TITLE_OWNER)
             self.label(C.OWNER_LEAD)
             check = Gtk.CheckButton.new_with_label(C.OWNER_CHECKBOX)
             check.get_child().set_line_wrap(True)
@@ -714,6 +712,7 @@ class AccessibleWizard:
         if self.w.can_open_keyboard and screen != Screen.KEYBOARD:
             self.button(C.KEYBOARD_UTILITY, self.w.open_keyboard, utility=True)
         if screen in {
+            Screen.WHAT,
             Screen.OWNER,
             Screen.PICK,
             Screen.PICK_EMPTY,
@@ -727,8 +726,8 @@ class AccessibleWizard:
             Screen.ADVANCED,
         } or (screen == Screen.KEYBOARD and self.w._keyboard_from):
             self.button(C.BTN_BACK, self.w.back)
-        if screen in {Screen.WHAT, Screen.LAST_CHANCE, Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
-            if screen != Screen.WHAT:
+        if screen in {Screen.WHAT, Screen.OWNER, Screen.LAST_CHANCE, Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+            if screen not in {Screen.WHAT, Screen.OWNER}:
                 self.label(C.POWER_KEEP)
             self.power_label = self.label(self.w.power_text, focusable=True)
         self._style_tree(self.window)
@@ -945,7 +944,7 @@ class AccessibleWizard:
         self.w.continue_pick()
 
     def _owner(self, checked, generation):
-        if generation != self.generation or self.w.screen != Screen.OWNER:
+        if generation != self.generation or self.w.screen not in {Screen.WHAT, Screen.OWNER}:
             return
         self.w.set_owner(checked)
         self.primary.set_sensitive(self.w.owner_ok)

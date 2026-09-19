@@ -657,9 +657,9 @@ def test_unusual_ordering_any_sequence_before_gates_fails_closed(tmp_path, monke
     wiz.select_disk("/dev/sda")
     assert wiz.selected is None  # not in PICK
     wiz.skip_intro()
-    # Still on WHAT, try to jump to LAST_CHANCE
+    # Still on OWNER, try to jump to LAST_CHANCE
     wiz.continue_method()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     wiz.confirm_erase()
     assert spy.start_calls == []
 
@@ -712,11 +712,11 @@ def test_no_timer_callback_auto_starts_wipe(tmp_path, monkeypatch):
         assert wiz.screen == Screen.KEYBOARD
         assert spy.start_calls == []
     wiz.accept_keyboard()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     for _ in range(5):
         clock.add(1.0)
         wiz.tick()
-        assert wiz.screen == Screen.WHAT
+        assert wiz.screen == Screen.OWNER
         assert spy.start_calls == []
     # Even on LAST_CHANCE, tick after countdown does NOT auto-start
     _drive_to_last_chance(wiz, clock, tmp_path)

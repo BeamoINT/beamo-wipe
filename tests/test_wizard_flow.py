@@ -178,7 +178,7 @@ def test_preview_splash_does_not_auto_advance():
     wiz.tick()
     assert wiz.screen == Screen.SPLASH
     wiz.skip_intro()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
 
 
 def test_empty_and_blocked_scenarios():
