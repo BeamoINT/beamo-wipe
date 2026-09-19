@@ -242,7 +242,7 @@ def test_console_what_wraps_prepare_bullets_at_80x24(monkeypatch):
 
     wiz = make_demo_wizard()
     wiz.skip_intro()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     shown, _ = _draw_console(monkeypatch, wiz)
     for bullet in C.WHAT_BULLETS:
         for word in bullet.split():

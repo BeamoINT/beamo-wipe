@@ -169,7 +169,7 @@ def test_refresh_invalidates_last_chance_authorization():
     assert wiz.confirm_input == ""
     assert wiz._erase_until is None
     assert wiz._authorized_operation is None
-    assert wiz.screen in {Screen.WHAT, Screen.PICK, Screen.PICK_BLOCKED, Screen.PICK_EMPTY}
+    assert wiz.screen in {Screen.OWNER, Screen.WHAT, Screen.PICK, Screen.PICK_BLOCKED, Screen.PICK_EMPTY}
 
 
 @pytest.mark.parametrize("method_id", list(METHODS))

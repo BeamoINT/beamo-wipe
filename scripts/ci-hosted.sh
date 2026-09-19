@@ -116,11 +116,21 @@ run_lint() {
 
 run_pytest() {
   export BEAMO_ISOLATED_X11_TEST=1
+  # Dedicated clean Xvfb + session for Orca. Not nested inside the suite
+  # xvfb-run. Bookworm Orca 43 exceeds the in-suite 300s child wait when the
+  # parent AT-SPI bus is already polluted; a timeout bump is forbidden.
+  log "orca on a dedicated Xvfb 1600x1000 @ 72 DPI"
+  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" \
+    env BEAMO_TEST_ORCA_CHILD=1 python3 -m pytest \
+      tests/test_accessible_runtime.py::test_orca_announces_every_result
+  export BEAMO_HOSTED_ORCA_SEPARATE=1
   log "pytest under Xvfb 1600x1000 @ 72 DPI"
   # Live-image tests that need lb config artifacts skip themselves when
   # packaging/live/config/{bootstrap,binary} are absent. Source assertions
   # for HTTPS mirrors and nox11autologin always run.
-  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest --junitxml="${BEAMO_GATE_JUNIT:-$ROOT/dist/evidence/tests.xml}"
+  dbus-run-session -- xvfb-run -a -s "-screen 0 1600x1000x24 -dpi 72" python3 -m pytest \
+    --deselect=tests/test_accessible_runtime.py::test_orca_announces_every_result \
+    --junitxml="${BEAMO_GATE_JUNIT:-$ROOT/dist/evidence/tests.xml}"
 }
 
 run_preview() {

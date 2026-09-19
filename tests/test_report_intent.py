@@ -16,7 +16,7 @@ from test_refresh_disks import authorized
 from test_usb_report_workflow import _payload, _done_wizard, _success_receipt
 
 
-@pytest.mark.parametrize("screen", [Screen.WHAT, Screen.METHOD, Screen.ADVANCED])
+@pytest.mark.parametrize("screen", [Screen.WHAT, Screen.OWNER, Screen.METHOD, Screen.ADVANCED])
 @pytest.mark.parametrize("wanted", [True, False])
 def test_optional_help_only_records_intent(screen, wanted):
     w = authorized()
@@ -50,7 +50,7 @@ def test_optional_help_only_records_intent(screen, wanted):
 
 @pytest.mark.parametrize(
     "screen",
-    [s for s in Screen if s not in {Screen.WHAT, Screen.METHOD, Screen.ADVANCED}],
+    [s for s in Screen if s not in {Screen.WHAT, Screen.OWNER, Screen.METHOD, Screen.ADVANCED}],
 )
 def test_help_cannot_interrupt_or_advance_other_screens(screen):
     w = make_demo_wizard()
@@ -83,7 +83,7 @@ def test_intent_retained_on_refresh_but_all_confirmation_is_required(wanted, cha
     w._rediscover = lambda: fresh
     assert w.refresh_disks()
     assert w.report_wanted is wanted
-    assert w.screen == Screen.WHAT and w._report_help_from is None
+    assert w.screen == Screen.OWNER and w._report_help_from is None
     assert (
         w.selected is None
         and not w.owner_ok

@@ -198,7 +198,7 @@ def test_slow_discovery_refuses_a_second_scan_and_drops_stale_results():
     assert wiz.finish_refresh(seq - 1, fresh) is False  # stale sequence
     proceed.set()
     assert wiz.finish_refresh(seq, fresh) is True
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.selected is None and not wiz.owner_ok and not wiz.confirm_input
 
 
@@ -262,7 +262,7 @@ def test_tk_refresh_loop_beats_during_slow_discovery():
         assert time.monotonic() - start < 0.25
         assert app.w.screen == Screen.REFRESHING
         assert app._click_refresh() is None or app.w.screen == Screen.REFRESHING
-        assert _settle(app) == Screen.WHAT
+        assert _settle(app) == Screen.OWNER
         assert len(beats) >= 3, f"UI loop stalled ({len(beats)} beats)"
         assert calls and calls[0] != main_ident
         assert all(ident == main_ident for ident, _screen in app.draws)
@@ -578,7 +578,7 @@ def test_refresh_after_changed_media_clears_authorization(change):
     )
     wiz._rediscover = lambda: fresh
     assert wiz.refresh_disks()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.selected is None
     assert not wiz.owner_ok and not wiz.confirm_input
     assert wiz._authorized_operation is None
@@ -731,13 +731,11 @@ def test_report_help_returns_to_origin_and_does_not_authorize():
     wiz = at_pick()
     wiz.back()
     assert wiz.screen == Screen.OWNER
-    wiz.back()
-    assert wiz.screen == Screen.WHAT
     wiz.open_report_help()
     assert wiz.screen == Screen.REPORT_HELP
     wiz.set_report_wanted(True)
     console._handle(wiz, 10)
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER
     assert wiz.report_wanted is True
     assert wiz.selected is None
     assert not wiz.runner.started
@@ -857,7 +855,7 @@ def test_tk_report_help_return_restores_origin_focus():
     try:
         app._draw()
         app.root.update()
-        assert wiz.screen == Screen.WHAT
+        assert wiz.screen == Screen.OWNER
         link = next(
             x
             for x in _descendants(app.root)
@@ -870,7 +868,7 @@ def test_tk_report_help_return_restores_origin_focus():
         assert app.root.focus_get() == reader
         app._on_escape()
         app.root.update()
-        assert wiz.screen == Screen.WHAT
+        assert wiz.screen == Screen.OWNER
         focused = app.root.focus_get()
         assert focused is not None
         assert not wiz.runner.started

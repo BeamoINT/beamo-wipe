@@ -288,7 +288,7 @@ def test_usb_story_strings_stay_on_the_swept_copy_surface():
 
 
 def test_what_screen_keeps_title_and_shows_this_usb_line():
-    """this_usb_line is supporting copy, not a rewritten WHAT heading."""
+    """this_usb_line is supporting copy, not a rewritten owner heading."""
     import gi
 
     gi.require_version("Gtk", "3.0")
@@ -307,10 +307,11 @@ def test_what_screen_keeps_title_and_shows_this_usb_line():
         drain()
         heading = app.window.get_focus()
         assert isinstance(heading, Gtk.Label)
-        assert heading.get_text() == C.TITLE_WHAT
+        assert heading.get_text() == C.TITLE_OWNER
         shown = text(app)
         assert C.this_usb_line() in shown
         assert C.TITLE_WHAT in shown
+        assert C.TITLE_OWNER in shown
         heading_names = [
             widget.get_accessible().get_name()
             for widget in widgets(app.window)

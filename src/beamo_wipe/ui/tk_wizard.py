@@ -125,9 +125,11 @@ def header_caption(step_n: int, step_label: str) -> str:
     return step_label
 
 
+_JOURNEY_N = len(C.JOURNEY_LABELS)
+
 _STEP_ORDER = {
     Screen.KEYBOARD: (C.journey_stage(Screen.KEYBOARD), C.journey_caption(Screen.KEYBOARD), C.TITLE_KEYBOARD),
-    Screen.WHAT: (C.journey_stage(Screen.WHAT), C.journey_caption(Screen.WHAT), C.TITLE_WHAT),
+    Screen.WHAT: (C.journey_stage(Screen.WHAT), C.journey_caption(Screen.WHAT), C.TITLE_OWNER),
     Screen.OWNER: (C.journey_stage(Screen.OWNER), C.journey_caption(Screen.OWNER), C.STEP_OWNERSHIP),
     Screen.DISK_HELP: (C.journey_stage(Screen.DISK_HELP), C.DISK_HELP_TITLE, C.DISK_HELP_TITLE),
     Screen.PICK: (C.journey_stage(Screen.PICK), C.journey_caption(Screen.PICK), C.TITLE_PICK),
@@ -1343,7 +1345,7 @@ class TkWizard:
             text_x, mid, anchor="w",
             text=C.APP_NAME, font=self.font_brand, fill=INK,
         )
-        # The screen title below names the page. The header names the stage
+        # Combined intro still uses the Owner page. The header names the stage
         # (Preparation, Erase, Result) and never a wipe percent.
         step = _STEP_ORDER.get(self.w.screen, (0, "", ""))
         self._draw_journey(cv, width, step[0])
@@ -1421,7 +1423,7 @@ class TkWizard:
     def _prepare_body_host(self) -> None:
         self._body_inner = None
         self._body_canvas = None
-        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.DIAGNOSTIC}):
+        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.OWNER, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.DIAGNOSTIC}):
             return
         if self.w.screen in {
             Screen.PICK,
@@ -2390,16 +2392,25 @@ class TkWizard:
         self._power_label = label
 
     def _what(self) -> None:
+        """Leftover WHAT state uses the combined owner screen."""
+        self._owner()
+
+    def _owner(self) -> None:
         col = self._column(self._body, fill_height=True)
-        self._title_block(col, C.TITLE_WHAT, C.WHAT_LEAD)
+        self._owner_var.set(1 if self.w.owner_ok else 0)
+        self._title_block(col, C.TITLE_OWNER, C.WHAT_LEAD)
         zone = self._center_zone(col)
-        card = _Box(
+        explain = _Box(
             zone, radius=RADIUS, fill=SURFACE, outline=BORDER, ow=1,
             padx=20, pady=14, shadow=False,
         )
-        card.pack(fill=tk.X)
+        explain.pack(fill=tk.X)
+        tk.Label(
+            explain.inner, text=C.TITLE_WHAT, font=self.font_s_bold, fg=INK, bg=SURFACE,
+            anchor="w",
+        ).pack(fill=tk.X, pady=(0, 8))
         for i, bullet in enumerate(C.WHAT_BULLETS):
-            line = tk.Frame(card.inner, bg=SURFACE)
+            line = tk.Frame(explain.inner, bg=SURFACE)
             line.pack(fill=tk.X, pady=(2 if i == 0 else 8, 2 if i == len(C.WHAT_BULLETS) - 1 else 0))
             marker = tk.Canvas(line, width=10, height=26, bg=SURFACE, highlightthickness=0)
             marker.create_oval(1, 9, 8, 16, fill=ACCENT, outline="")
@@ -2424,18 +2435,10 @@ class TkWizard:
                 extra=C.SECURE_BOOT_HINT + " " + C.ENGINE_LINE + " " + C.POWER_EVENTS,
             ).pack(fill=tk.X, pady=(12, 0))
         self._support_identity_block(zone)
-        row = self._footer_shell(C.HINT_DEFAULT)
-        self._secondary_btn(row, self._close_label(), self._click_shutdown)
-        self._primary_btn(row, C.primary_action(Screen.WHAT), self.w.accept_what)
-        if self._primary is not None:
-            self._primary.focus_set()
-
-    def _owner(self) -> None:
-        col = self._column(self._body, fill_height=True)
-        self._owner_var.set(1 if self.w.owner_ok else 0)
-        self._title_block(col, C.TITLE_OWNER, C.OWNER_LEAD)
-        zone = self._center_zone(col)
         checked = bool(self.w.owner_ok)
+        self._wrapping_label(zone, C.OWNER_LEAD, font=self.font_s_bold, bg=BG).pack(
+            fill=tk.X, pady=(16, 8)
+        )
         card = _Box(
             zone,
             radius=RADIUS,
@@ -3860,7 +3863,7 @@ class TkWizard:
                 self.w.request_stop()
             self._draw()
             return "break"
-        if self.w.screen not in (Screen.WHAT, Screen.DONE):
+        if self.w.screen != Screen.DONE:
             self.w.back()
             self._draw()
         return "break"
@@ -4002,9 +4005,7 @@ class TkWizard:
                 self.w.skip_splash()
             elif screen == Screen.KEYBOARD:
                 self.w.accept_keyboard()
-            elif screen == Screen.WHAT:
-                self.w.accept_what()
-            elif screen == Screen.OWNER and self.w.owner_ok:
+            elif screen in (Screen.WHAT, Screen.OWNER) and self.w.owner_ok:
                 self.w.continue_owner()
             elif screen == Screen.PICK:
                 self.w.continue_pick()

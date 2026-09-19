@@ -5,8 +5,10 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -23,6 +25,100 @@ from test_result_presentations import CASES, case_evidence  # noqa: E402
 def drain():
     while Gtk.events_pending():
         Gtk.main_iteration_do(False)
+
+
+def _start_private_xvfb():
+    """Private X server so AT-SPI is not the parent's polluted bus.
+
+    Hosted pytest already runs under xvfb-run. Nested xvfb-run fails that
+    gate. Direct Xvfb on a free display keeps 72 DPI without sharing the
+    X11 AT_SPI_BUS root-window address of earlier GTK tests. The child also
+    gets a private XDG_RUNTIME_DIR so it does not join $XDG_RUNTIME_DIR/at-spi/bus.
+    """
+    import shutil
+
+    assert shutil.which("Xvfb"), "The supported Linux image requires Xvfb"
+    Path("/tmp/.X11-unix").mkdir(mode=0o1777, exist_ok=True)
+    for n in range(110, 141):
+        if os.path.exists(f"/tmp/.X{n}-lock") or os.path.exists(f"/tmp/.X11-unix/X{n}"):
+            continue
+        proc = subprocess.Popen(
+            [
+                "Xvfb",
+                f":{n}",
+                "-screen",
+                "0",
+                "1600x1000x24",
+                "-dpi",
+                "72",
+                "-nolisten",
+                "tcp",
+                "-ac",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        sock = f"/tmp/.X11-unix/X{n}"
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                break
+            if os.path.exists(sock):
+                return proc, f":{n}"
+            time.sleep(0.05)
+        proc.kill()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+    raise RuntimeError("could not start a private Xvfb for Orca")
+
+
+def _stop_private_xvfb(proc) -> None:
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
+
+
+def _orca_runtime_dir() -> tempfile.TemporaryDirectory:
+    """Bookworm at-spi wants a 0700 dir under /run/user/UID when that exists."""
+    uid_run = Path(f"/run/user/{os.getuid()}")
+    if uid_run.is_dir() and os.access(uid_run, os.W_OK):
+        return tempfile.TemporaryDirectory(prefix="beamo-orca-", dir=str(uid_run))
+    return tempfile.TemporaryDirectory(prefix="beamo-orca-")
+
+
+def _orca_child_env(display: str, runtime_dir: Path) -> dict:
+    """Private at-spi bus file; keep parent Pulse so Bookworm Orca can start."""
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(runtime_dir, 0o700)
+    env = os.environ.copy()
+    env["DISPLAY"] = display
+    env["BEAMO_TEST_ORCA_CHILD"] = "1"
+    parent_runtime = env.get("XDG_RUNTIME_DIR")
+    env["XDG_RUNTIME_DIR"] = str(runtime_dir)
+    if parent_runtime:
+        pulse = Path(parent_runtime) / "pulse"
+        if pulse.exists():
+            env["PULSE_RUNTIME_PATH"] = str(pulse)
+            native = pulse / "native"
+            if native.exists():
+                env["PULSE_SERVER"] = f"unix:{native}"
+    for key in (
+        "AT_SPI_BUS_ADDRESS",
+        "XAUTHORITY",
+        "DBUS_SESSION_BUS_ADDRESS",
+        "DBUS_STARTER_ADDRESS",
+        "DBUS_STARTER_BUS_TYPE",
+        "SESSION_MANAGER",
+    ):
+        env.pop(key, None)
+    return env
 
 
 def wait_for_window_size(window, size):
@@ -132,7 +228,6 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     wizard = app.w
     wizard.skip_intro()
     app.render()
-    app.actions[C.BTN_UNDERSTAND].clicked()
     check = next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton))
     assert not app.actions[C.BTN_CHOOSE_DISK].get_sensitive()
     check.set_active(True)
@@ -155,12 +250,11 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     assert wizard.selected is not None and wizard.owner_ok
     assert C.REFRESH_LEAD in text(app)
     app.actions[C.BTN_REFRESH].clicked()
-    assert wizard.screen == Screen.WHAT
+    assert wizard.screen == Screen.OWNER
     assert wizard.selected is None and not wizard.owner_ok and not wizard.confirm_input
     # A queued action from the previous screen never starts a wipe.
     stale_erase.emit("clicked")
     assert not wizard.runner.started
-    app.actions[C.BTN_UNDERSTAND].clicked()
     next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton)).set_active(
         True
     )
@@ -432,7 +526,6 @@ def test_accessible_long_identity_and_warning_remain_readable(ui, screen):
 
 def test_low_resolution_footer_and_focus(ui):
     for screen in (
-        Screen.WHAT,
         Screen.OWNER,
         Screen.PICK,
         Screen.METHOD,
@@ -464,33 +557,74 @@ def test_callback_failure_stops_with_system_origin(ui, monkeypatch):
     assert app.failed and origins == ["system"]
 
 
+def test_orca_parent_isolates_x11_instead_of_raising_timeout():
+    src = Path(__file__).read_text(encoding="utf-8")
+    wait = "timeout=%s,"
+    assert "_start_private_xvfb" in src
+    assert "_orca_child_env" in src
+    assert "_orca_runtime_dir" in src
+    assert "PULSE_RUNTIME_PATH" in src
+    assert "XDG_RUNTIME_DIR" in src
+    assert wait % 300 in src
+    assert wait % 480 not in src
+    assert '"Xvfb"' in src
+    assert "xvfb-run" in src  # comment only: nested xvfb-run is forbidden
+    assert 'os.environ.get("BEAMO_HOSTED_ORCA_SEPARATE") == "1"' in src
+    conftest = Path(__file__).with_name("conftest.py").read_text(encoding="utf-8")
+    assert "pytest_collection_modifyitems" in conftest
+    assert "test_orca_announces_every_result" in conftest
+    assert "BEAMO_HOSTED_ORCA_SEPARATE" in conftest
+    hosted = Path(__file__).resolve().parents[1] / "scripts" / "ci-hosted.sh"
+    script = hosted.read_text(encoding="utf-8")
+    assert "BEAMO_TEST_ORCA_CHILD=1" in script
+    assert "--deselect=tests/test_accessible_runtime.py::test_orca_announces_every_result" in script
+    assert "BEAMO_HOSTED_ORCA_SEPARATE=1" in script
+
+
 def test_orca_announces_every_result(tmp_path, request):
     """Real Orca reads GTK focus events via AT-SPI; no host audio/devices used."""
     import shutil
 
+    if os.environ.get("BEAMO_HOSTED_ORCA_SEPARATE") == "1":
+        pytest.skip("Orca already ran on a dedicated Xvfb before this suite")
     if os.environ.get("BEAMO_TEST_ORCA_CHILD") != "1":
         # A fresh application and private bus avoid previously destroyed test
         # windows in the AT-SPI registry. No application behavior is mocked.
         # Do not construct the ui fixture in this parent process. Nested
         # xvfb-run under Cloud Build's outer xvfb-run fails hosted python-tests.
-        result = subprocess.run(
-            [
-                "dbus-run-session",
-                "--",
-                sys.executable,
-                "-m",
-                "pytest",
-                "-p",
-                "no:cacheprovider",
-                f"{__file__}::test_orca_announces_every_result",
-            ],
-            env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
-            capture_output=True,
-            text=True,
-            # Descriptive next-action labels add speech on every screen.
-            # Bookworm Orca 43 still announces, but the child can exceed 300s.
-            timeout=480,
-        )
+        xvfb = None
+        runtime = None
+        try:
+            xvfb, display = _start_private_xvfb()
+            runtime = _orca_runtime_dir()
+            env = _orca_child_env(display, Path(runtime.name))
+            result = subprocess.run(
+                [
+                    "dbus-run-session",
+                    "--",
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-p",
+                    "no:cacheprovider",
+                    f"{__file__}::test_orca_announces_every_result",
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired as exc:
+            out = (exc.stdout or "") + (exc.stderr or "")
+            pytest.fail(
+                "Orca child exceeded 300s on private Xvfb/XDG_RUNTIME_DIR: "
+                + out[-4000:]
+            )
+        finally:
+            if xvfb is not None:
+                _stop_private_xvfb(xvfb)
+            if runtime is not None:
+                runtime.cleanup()
         assert result.returncode == 0, result.stdout + result.stderr
         assert "warning" not in result.stdout.lower(), result.stdout
         return
@@ -597,7 +731,7 @@ sys.exit(entry['main']())
                 # This models a reader finishing a screen before navigation.
                 previous_size = -1
                 quiet_since = time.monotonic()
-                settle_deadline = time.monotonic() + 5
+                settle_deadline = time.monotonic() + 1
                 while time.monotonic() < settle_deadline:
                     drain()
                     size = logfile.stat().st_size
@@ -802,7 +936,7 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     assert w.screen == Screen.REFRESH_CONFIRM
     app.actions[C.BTN_REFRESH].clicked()
     drain()
-    assert w.report_wanted is wanted and w.screen == Screen.WHAT
+    assert w.report_wanted is wanted and w.screen == Screen.OWNER
     assert w.selected is None and not w.owner_ok and not w.confirm_input
     app.actions[C.REPORT_HELP_TITLE].clicked()
     drain()
@@ -812,7 +946,7 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     assert choice.get_active() is wanted
     app.actions[C.BTN_BACK].clicked()
     drain()
-    assert w.screen == Screen.WHAT and not w.runner.started
+    assert w.screen == Screen.OWNER and not w.runner.started
 
 
 @pytest.mark.parametrize("origin", [Screen.DONE, Screen.PICK_BLOCKED, Screen.WHAT])
@@ -1523,7 +1657,7 @@ def test_what_report_media_notice_announced(ui):
 
     wizard = make_demo_wizard()
     wizard.skip_intro()
-    assert wizard.screen == Screen.WHAT
+    assert wizard.screen == Screen.OWNER
     app = ui(wizard)
     assert C.REPORT_MEDIA_WHAT in text(app)
     names = [w.get_accessible().get_name() for w in widgets(app.window)]
