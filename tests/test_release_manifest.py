@@ -8,7 +8,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -177,19 +176,24 @@ def test_prior_stable_release_identity_is_exact():
     }
 
 
-def test_prior_stable_source_commit_has_branded_boot_menus():
+def test_prior_stable_is_not_the_unbranded_debian_iso():
+    """Hosted clones are shallow; do not git-show a historical PRIOR_STABLE commit.
+
+    Pin identity away from the 0.2.0 Debian-label ISO, and keep current
+    bootloader templates branded so the next image cannot regress.
+    """
     import beamo_wipe.release_manifest as rm
 
-    commit = rm.PRIOR_STABLE["commit"]
-    live = subprocess.check_output(
-        ["git", "show", f"{commit}:packaging/live/config/bootloaders/isolinux/live.cfg.in"],
-        cwd=ROOT,
-        text=True,
+    assert rm.PRIOR_STABLE["iso_name"] != "beamo-wipe-0.2.0-amd64.iso"
+    assert rm.PRIOR_STABLE["sha256"] != (
+        "62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74"
     )
-    grub = subprocess.check_output(
-        ["git", "show", f"{commit}:packaging/live/config/bootloaders/grub-pc/grub.cfg"],
-        cwd=ROOT,
-        text=True,
+    assert rm.PRIOR_STABLE["commit"] != "5b3b7afa6c448ee01269c9497c1c93e8e83733c1"
+    live = (
+        ROOT / "packaging/live/config/bootloaders/isolinux/live.cfg.in"
+    ).read_text(encoding="utf-8")
+    grub = (ROOT / "packaging/live/config/bootloaders/grub-pc/grub.cfg").read_text(
+        encoding="utf-8"
     )
     assert "Beamo Wipe: start the erase guide" in live
     assert "Nothing is erased until you pick a disk" in live
