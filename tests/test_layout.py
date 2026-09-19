@@ -11,6 +11,23 @@ from beamo_wipe.ui.layout import (
 )
 
 
+def test_user_text_size_scales_fonts_not_window_geometry():
+    """Would fail when type was locked to DPI scaling 1.0 with no user size."""
+    standard = layout_for(1280, 820, "standard")
+    extra = layout_for(1280, 820, "extra")
+    bogus = layout_for(1280, 820, "huge")
+    compact_extra = layout_for(800, 600, "extra")
+    assert extra.font["h"] > standard.font["h"]
+    assert extra.font["s"] > standard.font["s"]
+    assert extra.font["btn"] > standard.font["btn"]
+    assert extra.content_w == standard.content_w
+    assert extra.header_h == standard.header_h
+    assert extra.wrap == standard.wrap
+    assert bogus.text_size == "standard"
+    assert compact_extra.font["tiny"] >= 12
+    assert compact_extra.font["btn"] >= 14
+
+
 def test_minimum_is_800x600():
     assert MIN_SIZE == (800, 600)
     lay = layout_for(*MIN_SIZE)
