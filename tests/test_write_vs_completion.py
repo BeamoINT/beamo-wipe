@@ -12,9 +12,7 @@ from test_progress_timing import sample
 
 def test_step_line_carries_live_step_percent():
     wiz, _clock = _working(MethodId.EXTRA)
-    wiz.runner.progress_observation = sample(
-        40, counters="round 1 of 1, pass 2 of 3"
-    )
+    wiz.runner.progress_observation = sample(40, counters="round 1 of 1, pass 2 of 3")
     assert (
         "Step 2 of 4: Overwrite 2 of 3 (40% of this step)"
         in wiz.progress_view.status_text
@@ -24,9 +22,7 @@ def test_step_line_carries_live_step_percent():
 def test_engine_100_midplan_is_step_scoped():
     wiz, _clock = _working(MethodId.EXTRA)
     wiz.runner.progress = 99.9
-    wiz.runner.progress_observation = sample(
-        100, counters="round 1 of 1, pass 1 of 3"
-    )
+    wiz.runner.progress_observation = sample(100, counters="round 1 of 1, pass 1 of 3")
     text = wiz.progress_view.status_text
     assert text.startswith("99%.")
     assert "Step 1 of 4: Overwrite 1 of 3 (100% of this step)" in text
@@ -36,9 +32,7 @@ def test_engine_100_midplan_is_step_scoped():
 def test_stale_step_percent_marked_old():
     wiz, clock = _working(MethodId.EXTRA)
     wiz.runner.progress = 40.0
-    wiz.runner.progress_observation = sample(
-        40, counters="round 1 of 1, pass 2 of 3"
-    )
+    wiz.runner.progress_observation = sample(40, counters="round 1 of 1, pass 2 of 3")
     assert "(40% of this step)" in wiz.progress_view.status_text
     clock.advance(30)
     text = wiz.progress_view.status_text
@@ -116,9 +110,7 @@ def test_mismatch_suppresses_phase_note():
 
 def test_stopping_has_no_transition_note():
     wiz, _clock = _working(MethodId.EXTRA)
-    wiz.runner.progress_observation = sample(
-        40, counters="round 1 of 1, pass 2 of 3"
-    )
+    wiz.runner.progress_observation = sample(40, counters="round 1 of 1, pass 2 of 3")
     assert wiz._claim_stop()
     text = wiz.progress_view.status_text
     assert "Stopping" in text
@@ -151,9 +143,7 @@ def test_stopping_has_no_transition_note():
 )
 def test_all_methods_render_step_percent(method, counters, phase, expected):
     wiz, _clock = _working(method)
-    wiz.runner.progress_observation = sample(
-        40, counters=counters, phase=phase
-    )
+    wiz.runner.progress_observation = sample(40, counters=counters, phase=phase)
     assert expected in wiz.progress_view.status_text
 
 
@@ -207,12 +197,15 @@ def test_german_transition_note_wraps_on_80x24(monkeypatch):
     assert all(len(line) < 80 for line in term.frames[-1].values())
 
 
-def test_gallery_step_percent_template():
-    import json
-
-    from beamo_wipe.gallery import gallery_html
+def test_gallery_step_percent_comes_from_progress_view():
+    """Would fail when the gallery guessed a within-stage percent in JS."""
+    from beamo_wipe.gallery import gallery_html, _progress_preview_payload
 
     html = gallery_html("en")
+    payload = _progress_preview_payload()
+    writing = payload["states"]["writing"]
+    assert "42% of this step" in writing["stepText"]
+    assert writing["stepText"] in html
+    assert "demoPct / 100 * stages.length" not in html
+    assert "P.stageStepPct" not in html
     assert '"stageStepPct"' in html
-    assert "P.stageStepPct" in html
-    assert json.dumps("({pct} of this step)")[1:-1] in html
