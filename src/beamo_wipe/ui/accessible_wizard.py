@@ -356,6 +356,7 @@ class AccessibleWizard:
                     self.label(f"{C.SEVERITY_ERROR}: {self.w.error}")
             if self.w.report_wanted:
                 self.label(C.REPORT_MEDIA_WANTED, focusable=True)
+            self._inventory_count()
             self._protected_boot()
             for disk in sorted(self.w.selectable, key=lambda d: d.path):
                 text = f"Select {self.w.disk_view(disk).announcement}"
@@ -378,6 +379,7 @@ class AccessibleWizard:
             heading.set_text(
                 C.TITLE_EMPTY if screen == Screen.PICK_EMPTY else C.blocked_title(self.w.error, recovered=self.w._recovered)
             )
+            self._inventory_count()
             if screen == Screen.PICK_EMPTY:
                 self.recovery(recovery_for_empty())
                 self.label(C.support_text(), focusable=True)
@@ -731,6 +733,7 @@ class AccessibleWizard:
         self.window.present()
         if self.window.get_window():
             self.window.get_window().focus(Gdk.CURRENT_TIME)
+        self.arrival = arrival
         arrival.grab_focus()
         self.update_status()
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
@@ -738,6 +741,12 @@ class AccessibleWizard:
     def _protected_boot(self):
         if self.w.protected_boot_text:
             self.reader(self.w.protected_boot_text)
+
+    def _inventory_count(self):
+        text = self.w.inventory_count_announcement
+        widget = self.label(text, focusable=True)
+        widget.get_accessible().set_name(text)
+        return widget
 
     def _inventory(self):
         if self.w.other_devices:

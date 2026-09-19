@@ -2,7 +2,9 @@
 from pathlib import Path
 
 from beamo_wipe import copy
+from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe.gallery import gallery_html
+from beamo_wipe.inventory import count_summary
 
 FORBIDDEN = (
     "plug and play",
@@ -51,6 +53,9 @@ def _happy_blob() -> str:
             copy.SAME_SIZE_HINT,
             copy.NOT_LIVE_ERROR,
             copy.EMPTY_DISKS,
+            count_summary(discovery_for_scenario("happy")),
+            count_summary(discovery_for_scenario("empty")),
+            count_summary(discovery_for_scenario("blocked")),
             copy.SSD_FOOTER,
             copy.IDENTIFY_ERROR,
             copy.pick_subtitle(),

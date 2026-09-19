@@ -466,13 +466,15 @@ def test_callback_failure_stops_with_system_origin(ui, monkeypatch):
     assert app.failed and origins == ["system"]
 
 
-def test_orca_announces_every_result(ui, tmp_path):
+def test_orca_announces_every_result(tmp_path, request):
     """Real Orca reads GTK focus events via AT-SPI; no host audio/devices used."""
     import shutil
 
     if os.environ.get("BEAMO_TEST_ORCA_CHILD") != "1":
         # A fresh application and private bus avoid previously destroyed test
         # windows in the AT-SPI registry. No application behavior is mocked.
+        # Do not construct the ui fixture in this parent process. Nested
+        # xvfb-run under Cloud Build's outer xvfb-run fails hosted python-tests.
         result = subprocess.run(
             [
                 "dbus-run-session",
@@ -492,6 +494,7 @@ def test_orca_announces_every_result(ui, tmp_path):
         assert result.returncode == 0, result.stdout + result.stderr
         assert "warning" not in result.stdout.lower(), result.stdout
         return
+    ui = request.getfixturevalue("ui")
     assert shutil.which("orca"), "The supported Linux image requires Orca"
     assert os.environ.get("DBUS_SESSION_BUS_ADDRESS"), "Use dbus-run-session"
     audio = subprocess.Popen(
@@ -540,24 +543,33 @@ sys.exit(entry['main']())
             return
         app = app_box[0]
         drain()
-        # Rebuilds can Notify:True-focus an identical heading without
-        # generating speech. Blur, then refocus the matching widget so
+        # Rebuilds can Notify:True-focus the window frame without generating
+        # speech. Blur to a control, then refocus the arrival heading so
         # Orca emits a fresh SPEECH OUTPUT line. Accessible-name-only
         # still fails this wait.
+        arrival = getattr(app, "arrival", None)
         other = None
         match = None
+        if arrival is not None:
+            accessible = arrival.get_accessible()
+            name = accessible.get_name() if accessible is not None else ""
+            label = arrival.get_text() if isinstance(arrival, Gtk.Label) else ""
+            if phrase in (name or "") or phrase in (label or ""):
+                match = arrival
         for widget in widgets(app.window):
+            if widget is arrival or isinstance(widget, Gtk.Window):
+                continue
             accessible = widget.get_accessible()
             name = accessible.get_name() if accessible is not None else ""
             label = widget.get_text() if isinstance(widget, Gtk.Label) else ""
             if match is None and (phrase in (name or "") or phrase in (label or "")):
                 match = widget
-            elif other is None and widget.get_can_focus():
+            elif other is None and widget.get_can_focus() and isinstance(widget, Gtk.Button):
                 other = widget
         if other is not None:
             other.grab_focus()
             drain()
-        target = match or app.window.get_focus()
+        target = match or arrival or app.window.get_focus()
         if target is not None:
             target.grab_focus()
             drain()
@@ -567,7 +579,7 @@ sys.exit(entry['main']())
         # events after a dense screen is destroyed before it speaks again.
         deadline = time.monotonic() + timeout
         nudges = 0
-        next_nudge = time.monotonic() + 2
+        next_nudge = time.monotonic()
         content = ""
         while time.monotonic() < deadline:
             drain()
@@ -1054,6 +1066,43 @@ def test_picker_select_buttons_say_serial_number(ui):
         name = f"Select {view.announcement}"
         assert name in app.actions
         assert f"{SERIAL_LABEL}: {disk.serial}" in name
+    assert wizard.selected is None and not wizard.runner.started
+
+
+@pytest.mark.parametrize(
+    "scenario,screen,expected",
+    [
+        (
+            "happy",
+            Screen.PICK,
+            "3 disks available to erase. Beamo USB protected. 1 other device not available.",
+        ),
+        (
+            "empty",
+            Screen.PICK_EMPTY,
+            "No disks available to erase. Beamo USB protected. 1 other device not available.",
+        ),
+        (
+            "blocked",
+            Screen.PICK_BLOCKED,
+            "Disk list could not be confirmed. No disk is available to erase.",
+        ),
+    ],
+)
+def test_inventory_count_is_announced_on_pick_screens(ui, scenario, screen, expected):
+    wizard = make_demo_wizard(scenario=scenario)
+    wizard.screen = screen
+    app = ui(wizard)
+    shown = text(app)
+    names = [w.get_accessible().get_name() or "" for w in widgets(app.window)]
+    assert expected in shown
+    assert expected in names
+    focusable = [
+        w for w in widgets(app.window)
+        if isinstance(w, Gtk.Label) and w.get_text() == expected and w.get_can_focus()
+    ]
+    assert len(focusable) == 1
+    assert focusable[0].get_accessible().get_name() == expected
     assert wizard.selected is None and not wizard.runner.started
 
 

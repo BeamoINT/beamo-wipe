@@ -1923,6 +1923,42 @@ def test_serial_number_label_is_visible_without_show_more(ui, size):
 
 
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("scenario,expected", [
+    ("happy", "3 disks available to erase · Beamo USB protected · 1 other device not available"),
+    ("empty", "No disks available to erase · Beamo USB protected · 1 other device not available"),
+    ("blocked", "Disk list could not be confirmed. No disk is available to erase."),
+])
+def test_inventory_count_is_visible_on_pick_screens(ui, size, scenario, expected):
+    wiz, app = ui(scenario=scenario, size=size)
+    screen = {
+        "happy": Screen.PICK,
+        "empty": Screen.PICK_EMPTY,
+        "blocked": Screen.PICK_BLOCKED,
+    }[scenario]
+    wiz.screen = screen
+    app._draw()
+    app.root.update()
+
+    def descendants(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from descendants(child)
+
+    labels = [w for w in descendants(app.root) if getattr(w, "_beamo_inventory_count", False)]
+    shown = _label_text(app)
+    assert expected in shown
+    if scenario != "blocked":
+        assert len(labels) == 1
+        assert expected in str(labels[0].cget("text"))
+        assert labels[0].winfo_ismapped()
+    assert "Choose one disk" not in shown
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert wiz.discovery.boot is None or wiz.discovery.boot.path not in app._pick_cards
+    assert not wiz.runner.started
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 @pytest.mark.parametrize("scenario", ["happy", "empty"])
 @pytest.mark.parametrize("long_identity", [False, True])
 def test_protected_boot_card_is_separate_and_never_clickable(ui, size, scenario, long_identity):

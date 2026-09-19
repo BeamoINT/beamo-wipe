@@ -457,6 +457,11 @@ def _gallery_html_for_current_language(lang: str) -> str:
                 inventory.other_devices(discovery_for_scenario("empty"))
             ),
         },
+        "inventoryCount": {
+            "happy": inventory.count_summary(result),
+            "empty": inventory.count_summary(discovery_for_scenario("empty")),
+            "blocked": inventory.count_summary(discovery_for_scenario("blocked")),
+        },
         "diskHelpButton": C.DISK_HELP_BUTTON,
         "diskHelpTitle": C.DISK_HELP_TITLE,
         "diskHelpText": C.DISK_HELP_TEXT,
@@ -798,6 +803,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .splash-roadmap { font-size: 14px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
   .pick-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 8px; }
   .pick-tools .morelink { margin-top: 0; }
+  .inventory-count { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
   .steptext { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; }
   .strip { height: 2px; background: var(--track); }
   .strip .sfill { height: 100%; background: var(--accent); width: 0; transition: width .25s ease; border-radius: 0 1.5px 1.5px 0; }
@@ -1406,12 +1412,12 @@ function draw() {
     btnsR.append(btn(P.buttons.continue, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
     main.innerHTML = `<div class="centerstage"><div class="badgehalo danger">${badge("danger", 51)}</div>
-      <h1>${P.titles.blocked}</h1>${recoveryHtml(P.blockedRecovery)}${supportCodeBlock(P.sampleBlockedCode)}</div>`;
+      <h1>${P.titles.blocked}</h1>${recoveryHtml(P.blockedRecovery)}<p class="small muted inventory-count" role="status">${esc(P.inventoryCount.blocked)}</p>${supportCodeBlock(P.sampleBlockedCode)}</div>`;
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
     btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "empty") {
     let html = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
-      <h1>${P.titles.empty}</h1>${recoveryHtml(P.emptyRecovery)}${supportBlock()}${supportCodeBlock(P.sampleEmptyCode)}</div>`;
+      <h1>${P.titles.empty}</h1>${recoveryHtml(P.emptyRecovery)}<p class="small muted inventory-count" role="status">${esc(P.inventoryCount.empty)}</p>${supportBlock()}${supportCodeBlock(P.sampleEmptyCode)}</div>`;
     html += `<div class="disklist">` + disks().map(diskCard).join("") + `</div>`;
     main.innerHTML = html;
     renderOtherDevices();
@@ -1422,7 +1428,7 @@ function draw() {
     if (P.sameSizeConflict && mode === "happy") html += `<div style="margin-bottom:12px">${panel("warn", P.sameSize)}</div>`;
     if (selected && (selected.kind === "SSD" || selected.kind === "NVMe")) html += `<div style="margin-bottom:12px">${panel("limits", P.ssd, true)}</div>`;
     if (reportWanted) html += `<div style="margin-bottom:12px">${panel("info", P.reportMediaWanted, true)}</div>`;
-    html += `<div class="pick-tools"><span class="small muted">${selectable().length} ${selectable().length === 1 ? "disk available" : "disks available"} · ${selected ? "1 selected" : "Choose one disk"}</span>${moreLink()}</div>`;
+    html += `<div class="pick-tools"><span class="small muted inventory-count" role="status" aria-live="polite">${esc(P.inventoryCount[mode] || P.inventoryCount.happy)}</span>${moreLink()}</div>`;
     html += `<div class="disklist">`;
     disks().filter(d => d.isBoot).forEach(d => { html += diskCard(d); });
     if (selectable().length > 1) html += `<details class="compare"><summary>${esc(P.compareTitle)}</summary><div class="compare-body"><p>${esc(P.compareIntro)}</p><div class="compare-grid">${P.comparison.map(text => `<pre class="compare-pre" tabindex="0">${esc(text)}</pre>`).join("")}</div></div></details>`;

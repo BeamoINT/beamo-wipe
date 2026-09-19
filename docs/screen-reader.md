@@ -42,6 +42,11 @@ F5 checks disks again before erasure. Escape goes back where allowed. Full
 Disk identity announcements say **Serial number:** before the value, including
 when a serial is missing. Hardware ID stays Hardware ID when that is the
 strongest identifier.
+A concise inventory count is announced as focusable text on the disk list,
+empty list, and blocked screens: how many disks can be erased, that the Beamo
+USB or boot disc is protected, how many other devices are not available, and
+when the list could not be confirmed. It uses sentence separators for speech
+and never hides uncertainty or exclusions.
 
 **Beamo USB — protected, cannot be erased** has its own focusable, read-only
 identity text before the disk-selection buttons. It is never a Select button.

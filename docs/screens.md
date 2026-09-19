@@ -6,7 +6,7 @@ Every interface uses the same Wizard authorization and validated result model.
 | --- | --- |
 | Splash / Keyboard / What | Splash explains that nothing starts automatically. Keyboard offers only the shipped US QWERTY, French AZERTY, and German QWERTZ layouts plus a typing-check box that is never saved. What explains ownership, irreversible erasure, backup copies, OS-disk consequences, wall-power reminder, display blanking, and supported PCs. Between the bullets and the power panel, What states the report-media requirements up front: a separate FAT32 USB with one volume, kept unplugged until the result screen asks, with already-plugged media refused, and points to Need a report? for details. |
 | Owner | Require the ownership or written-permission acknowledgement. |
-| Pick a disk | Physical disks are primary cards. Partitions and other technical components nest under their parent when parentage is known. Keep eligible targets separate from read-only Other detected devices. Show identity, the observed connection type, and deterministic exclusion reasons. Label each serial as Serial number so the value is not a bare string. Do not guess internal vs external location. No excluded row offers a bypass. Empty or uncertain discovery gives safe support steps. When a report was requested, an info notice reminds the owner to keep the report USB unplugged until prompted, warns that extra USBs confuse the list, and gives the unplug-only-that-USB remedy; without a requested report no notice shows. |
+| Pick a disk | Physical disks are primary cards. Partitions and other technical components nest under their parent when parentage is known. Keep eligible targets separate from read-only Other detected devices. Show a concise inventory count so the owner can check that expected disks were found, including zero, one, or many eligible disks, protected boot media, other devices that cannot be erased, and a fail-closed notice when the list cannot be confirmed. Show identity, the observed connection type, and deterministic exclusion reasons. Label each serial as Serial number so the value is not a bare string. Do not guess internal vs external location. No excluded row offers a bypass. Empty or uncertain discovery gives safe support steps. When a report was requested, an info notice reminds the owner to keep the report USB unplugged until prompted, warns that extra USBs confuse the list, and gives the unplug-only-that-USB remedy; without a requested report no notice shows. |
 | Confirm | Show the irreversible-action warning, exact device identity, and partition-evidence preparation for the selected disk. Require the displayed confirmation token. |
 | Choose an erase method | Show the operations below and the device-specific storage notice. SSD and unknown-device warnings explain inaccessible, remapped, over-provisioned and controller-managed storage; additional overwrite passes do not fix those limits. |
 | Supported storage limits | Full offline limits, reached directly from method selection. Back returns to the chosen method. |
@@ -28,7 +28,8 @@ Before erasure, **Check disks again** (F5) first shows that it clears the
 selected disk, ownership acknowledgement, typed confirmation, method, and
 countdown, and that preparation starts again from the beginning. Back keeps
 those answers. Confirming then performs fresh discovery and boot
-identification and requires the full flow again. A failed refresh leaves no
+identification and requires the full flow again. The inventory count is taken
+from that new discovery. A failed refresh leaves no
 stale target selectable. Refresh is disabled once starting or running.
 Returning to a disk never automatically selects or authorizes it.
 The checking screen paints immediately and discovery runs off the UI thread,
@@ -55,7 +56,7 @@ field to the terminal's display columns, and pages with Up/Down and PgUp/PgDn so
 longer than the window is never cut off. It omits the graphical step strip to keep identity
 and recovery actions on 24 rows. On terminals shorter than 20 rows it also drops Compare,
 Other devices, and Keyboard footer hints so a serial still fits; C, O, B, and K still work.
-The console offers O for the read-only excluded inventory. The sequential console
+The console shows the same inventory count and offers O for the read-only excluded inventory. The sequential console
 accepts `CHECK DISKS AGAIN` at its pre-erase prompts.
 On the Last chance screen the interfaces differ by design: Tk starts erasure
 only from the focused, countdown-enabled Erase control (Enter, Space, or
@@ -74,8 +75,9 @@ same object Tk and the console already paint). The gallery does not guess a
 stage from an overall percent, and it never paints 100% on the working
 screen. Console has no Show more control: identity including the system path
 stays in the paginated body. The desktop launcher’s Technical details
-disclosure is pre-boot readiness, not erase progress. The offline helper
-never shows wipe progress.
+disclosure is pre-boot readiness, not erase progress. The gallery count is a
+static snapshot per preview scenario; native Check disks again updates the
+live count. The offline helper never shows wipe progress.
 
 Deep links for preview checks: `#s=working&disk=0&progress=preparing|writing|stale|verifying|mismatch|unknown`,
 `#s=working&disk=0&pct=42`, `#s=working&disk=0&more=1`, and the stop hashes
