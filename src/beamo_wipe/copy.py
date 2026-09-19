@@ -20,7 +20,7 @@ from beamo_wipe.models import (
     DiskKind,
     Screen,
 )
-from beamo_wipe.methods import METHODS
+from beamo_wipe.methods import DEFAULT_METHOD, METHODS
 
 APP_NAME = "Beamo Wipe"
 
@@ -344,6 +344,10 @@ SAME_SIZE_HINT = (
 )
 
 RECOMMENDED_TAG = "Recommended"
+EVERYDAY_LIMITS = (
+    "This checks only storage the disk exposes. It does not promise how long "
+    "it will take. A saved report is not extra proof of hidden areas."
+)
 
 CONFIRM_LEAD = "Type what we ask for, then continue."
 
@@ -353,7 +357,9 @@ CONFIRM_MATCH_OK = "That matches. You can continue."
 COUNTDOWN_CAPTION = "seconds until Erase is available."
 COUNTDOWN_READY = "Nothing has started. Choose Erase now to erase this disk."
 
-METHOD_LEAD = "Pick how thoroughly to overwrite the disk."
+METHOD_LEAD = (
+    "Pick how thoroughly to overwrite the disk. Time is not promised."
+)
 
 LAST_LEAD = (
     "Check the selected disk and method. The countdown never starts erasure."
@@ -364,11 +370,13 @@ def _method_cards() -> dict:
     return {
         method: {
             "title": spec.title,
+            "lead": spec.plain_lead,
             "blurb": spec.overwrite_description,
             "pace": spec.verification_description,
             "mark": spec.comparison_mark,
             "extra": spec.extra_work,
             "checks": spec.verification_passes > 0,
+            "limits": EVERYDAY_LIMITS if method == DEFAULT_METHOD else "",
             "key": str(index),
         }
         for index, (method, spec) in enumerate(METHODS.items(), 1)

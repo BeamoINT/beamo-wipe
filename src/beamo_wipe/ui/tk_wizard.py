@@ -3255,6 +3255,8 @@ class TkWizard:
         pace = str(card_copy["pace"])
         mark = str(card_copy["mark"])
         extra = str(card_copy["extra"])
+        lead = str(card_copy["lead"])
+        limits_note = str(card_copy["limits"])
         checks = bool(card_copy["checks"])
         key = str(card_copy["key"])
         selected = self.w.method == method
@@ -3292,6 +3294,16 @@ class TkWizard:
             )
         tk.Label(
             text_col,
+            text=lead,
+            font=self.font_b,
+            fg=INK,
+            bg=fill,
+            wraplength=max(200, self.lay.wrap - 90),
+            justify=tk.LEFT,
+            anchor="w",
+        ).pack(fill=tk.X, pady=(4, 0))
+        tk.Label(
+            text_col,
             text=blurb,
             font=self.font_s,
             fg=MUTED,
@@ -3299,7 +3311,7 @@ class TkWizard:
             wraplength=max(200, self.lay.wrap - 90),
             justify=tk.LEFT,
             anchor="w",
-        ).pack(fill=tk.X, pady=(4, 0))
+        ).pack(fill=tk.X, pady=(2, 0))
         pace_row = tk.Frame(text_col, bg=fill)
         pace_row.pack(fill=tk.X, pady=(4, 0))
         if checks:
@@ -3320,6 +3332,17 @@ class TkWizard:
             tk.Label(
                 text_col,
                 text=extra,
+                font=self.font_s,
+                fg=MUTED,
+                bg=fill,
+                wraplength=max(200, self.lay.wrap - 90),
+                justify=tk.LEFT,
+                anchor="w",
+            ).pack(fill=tk.X, pady=(4, 0))
+        if limits_note:
+            tk.Label(
+                text_col,
+                text=limits_note,
                 font=self.font_s,
                 fg=MUTED,
                 bg=fill,

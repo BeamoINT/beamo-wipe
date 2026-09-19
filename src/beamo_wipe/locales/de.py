@@ -86,12 +86,17 @@ STRINGS = {
         "DONE_FAIL_PREVIEW": "Vorschau eines fehlgeschlagenen Löschens. Auf diesem Computer wurde nichts gelöscht.",
         "SAME_SIZE_HINT": "Zwei Datenträger sind gleich groß. Vergleichen Sie vor der Auswahl ihre Seriennummer oder Hardware-ID.",
         "RECOMMENDED_TAG": "Empfohlen",
+        "EVERYDAY_LIMITS": (
+            "Das prüft nur Speicher, den der Datenträger offenlegt. Es verspricht nicht, "
+            "wie lange es dauert. Ein gespeicherter Bericht ist kein zusätzlicher Nachweis "
+            "für versteckte Bereiche."
+        ),
         "CONFIRM_LEAD": "Tippen Sie, worum wir bitten, dann weiter.",
         "CONFIRM_MATCH_WAIT": "Tippen Sie es genau, dann können Sie fortfahren.",
         "CONFIRM_MATCH_OK": "Das stimmt überein. Sie können fortfahren.",
         "COUNTDOWN_CAPTION": "Sekunden, bis Löschen verfügbar ist.",
         "COUNTDOWN_READY": "Nichts hat begonnen. Wählen Sie Jetzt löschen, um diesen Datenträger zu löschen.",
-        "METHOD_LEAD": "Wählen Sie, wie gründlich der Datenträger überschrieben wird.",
+        "METHOD_LEAD": "Wählen Sie, wie gründlich der Datenträger überschrieben wird. Zeit wird nicht versprochen.",
         "LAST_LEAD": "Prüfen Sie den gewählten Datenträger und die Methode. Der Countdown startet nie das Löschen.",
         "AUTHORIZATION_STALE": "Datenträger oder Methode hat sich geändert. Bestätigen Sie erneut.",
         "ADVANCED_LEAD": "Das sind die nwipe-Namen. Für Techniker. Die anderen Bildschirme bleiben einfach.",
@@ -473,6 +478,9 @@ STRINGS = {
             "Dreimal so viele Überschreibungen wie {everyday}. "
             "Zusätzliche Durchgänge erreichen keinen versteckten Speicher."
         ),
+        "PLAIN_LEAD_PRNG": "Überschreiben Sie den Datenträger, dann prüfen Sie das Ergebnis.",
+        "PLAIN_LEAD_DODSHORT": "Überschreiben Sie den Datenträger dreimal, dann prüfen Sie das Ergebnis.",
+        "PLAIN_LEAD_ZERO": "Überschreiben Sie den Datenträger mit Nullen. Das prüft das Ergebnis nicht.",
     },
     "power": {
         "AC_CONNECTED": "angeschlossen (gemeldet)",

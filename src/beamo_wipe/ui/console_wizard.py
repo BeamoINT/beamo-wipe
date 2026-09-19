@@ -867,12 +867,14 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 card = C.METHOD_CARDS[method]
                 mark = f" [{card['mark']}]" if card["mark"] else ""
                 extra = f" {card['extra']}" if card["extra"] else ""
+                lead = f" {card['lead']}" if card["lead"] else ""
+                limits_note = f" {card['limits']}" if card["limits"] else ""
                 # One logical line so overwrite + verification stay a contiguous description.
                 # The TTY wraps at its own width; pre-fill would split spec.description.
                 print(
                     f"{card['key']} {spec.title}{mark}: "
                     f"{spec.overwrite_description} {spec.verification_description}"
-                    f"{extra}"
+                    f"{extra}{lead}{limits_note}"
                 )
             choice = _answer(wizard, C.CON_METHOD_PROMPT).strip()
             if choice.lower() == "a":
@@ -1406,6 +1408,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 extra = C.METHOD_CARDS[method]["extra"]
                 if extra:
                     lines.extend(_lines(extra, w))
+                    lines.append("")
+            for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
+                card = C.METHOD_CARDS[method]
+                if card["lead"]:
+                    lines.extend(_lines(card["lead"], w))
+                if card["limits"]:
+                    lines.extend(_lines(card["limits"], w))
                     lines.append("")
             if wizard.selected:
                 lines.extend(
