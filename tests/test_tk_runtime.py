@@ -122,8 +122,19 @@ def test_fullscreen_kiosk_has_fixed_display_geometry_without_window_manager():
         app._teardown()
 
 
+def _layout_snippet(text) -> str:
+    return str(text).replace("\n", "\\n")[:56]
+
+
 def _clipping_problems(app) -> list:
-    """Labels/entries asking for more space than the layout gave them."""
+    """Labels/entries asking for more space than the layout gave them.
+
+    Device cards, warning panels, and progress live in Canvas windows.
+    Skipping those hosts used to hide the 1,485 px serial clip
+    (``docs/evidence/ux-review-20260908-native.jsonl`` ``long_identifiers``).
+    Diagnostics keep requested vs allocated pixels so a failure names the
+    overflow instead of only the widget class.
+    """
     app.root.update_idletasks()
     problems = []
 
@@ -134,11 +145,40 @@ def _clipping_problems(app) -> list:
         except tk.TclError:
             return
         cls = w.winfo_class()
-        if cls in ("Label", "Entry") and not _in_canvas(w):
-            if w.winfo_reqwidth() > w.winfo_width() + 2:
-                problems.append(f"h-clip {cls} {str(w.cget('text'))[:40]!r}")
-            if w.winfo_reqheight() > w.winfo_height() + 2:
-                problems.append(f"v-clip {cls} {str(w.cget('text'))[:40]!r}")
+        if cls in ("Label", "Entry"):
+            try:
+                text = w.get() if cls == "Entry" else w.cget("text")
+            except tk.TclError:
+                text = ""
+            req_w, act_w = w.winfo_reqwidth(), w.winfo_width()
+            req_h, act_h = w.winfo_reqheight(), w.winfo_height()
+            if req_w > act_w + 2:
+                problems.append(
+                    f"h-clip {cls} req={req_w} actual={act_w} {_layout_snippet(text)!r}"
+                )
+            if req_h > act_h + 2:
+                problems.append(
+                    f"v-clip {cls} req={req_h} actual={act_h} {_layout_snippet(text)!r}"
+                )
+        if isinstance(w, tk.Canvas):
+            try:
+                cw, ch = w.winfo_width(), w.winfo_height()
+                for item in w.find_all():
+                    if w.type(item) != "text":
+                        continue
+                    bbox = w.bbox(item)
+                    if not bbox:
+                        continue
+                    x0, y0, x1, y1 = bbox
+                    if x0 < -2 or y0 < -2 or x1 > cw + 2 or y1 > ch + 2:
+                        text = w.itemcget(item, "text")
+                        problems.append(
+                            "canvas-text overflow "
+                            f"bbox=({x0},{y0},{x1},{y1}) canvas={cw}x{ch} "
+                            f"{_layout_snippet(text)!r}"
+                        )
+            except tk.TclError:
+                pass
         for child in w.winfo_children():
             visit(child)
 
