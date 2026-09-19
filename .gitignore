@@ -45,6 +45,7 @@ packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/
 packaging/live/config/includes.chroot/usr/share/beamo-wipe/
 packaging/live/config/includes.chroot/usr/share/doc/beamo-wipe/
 packaging/live/config/includes.binary/START-HERE.html
+packaging/live/config/includes.binary/build-identity.json
 packaging/live/config/includes.binary/README.txt
 packaging/live/config/includes.binary/NOTICE
 packaging/live/config/includes.binary/LICENSE

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -164,6 +165,18 @@ def test_iso_builder_copies_then_injects_helper(tmp_path):
     assert 'cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"' in script
     assert "inject_helper_html" in script
     assert "includes.binary/build-identity.json" in script
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert "packaging/live/config/includes.binary/build-identity.json" in gitignore
+    ignored = subprocess.run(
+        [
+            "git",
+            "check-ignore",
+            "-q",
+            "packaging/live/config/includes.binary/build-identity.json",
+        ],
+        cwd=ROOT,
+    )
+    assert ignored.returncode == 0
     identity = tmp_path / "build-identity.json"
     payload = _payload(path=identity)
     share = tmp_path / "helper"
