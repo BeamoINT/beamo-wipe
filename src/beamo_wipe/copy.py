@@ -139,6 +139,8 @@ WHAT_BULLETS = (
     "Everything on that disk will be erased. You cannot get the files back.",
     "If that disk holds an operating system, erasing it also removes "
     "Windows or Linux, applications, files, and recovery partitions on that disk.",
+    # Literal must stay in lockstep with compat_story.PLATFORMS so language
+    # sweep still sees WHAT_BULLETS (aliases are invisible to ast.literal_eval).
     "For 64-bit Intel/AMD Windows or Linux PCs that start from this USB. "
     "Not Apple Silicon Macs. Not Chromebooks.",
 )
@@ -181,14 +183,24 @@ PREPARE_UNKNOWN = (
 )
 
 # Closed-by-default Show more. Help first; nwipe by name only for honesty.
+# Literal must stay in lockstep with compat_story.SECURE_BOOT_HINT.
 SECURE_BOOT_HINT = (
-    "If this USB does not show up on another computer, you may need to allow "
-    "USB start in that computer's settings."
+    "This USB uses Debian's signed boot files. If it does not show up, you may "
+    "need to allow USB start in that computer's settings. Beamo Wipe does not "
+    "change Secure Boot."
 )
 
 ENGINE_LINE = "This uses nwipe, free software that erases disks."
 
 WHAT_MORE = SECURE_BOOT_HINT + " " + ENGINE_LINE
+
+
+def this_usb_line() -> str:
+    """Plain-language identity for live surfaces. Technical IDs stay in support export."""
+    from beamo_wipe.compat_story import packaged_sentence_from_runtime
+
+    return packaged_sentence_from_runtime()
+
 
 OWNER_CHECKBOX = (
     "I own this computer and these disks, or I have written permission to erase them."

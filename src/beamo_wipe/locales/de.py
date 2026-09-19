@@ -51,7 +51,7 @@ STRINGS = {
         "PREPARE_SYSTEM": "Dieser gewählte Datenträger zeigt Betriebssystem-Partitionen. Ihn zu löschen entfernt auch das Betriebssystem, Anwendungen, Dateien und Wiederherstellungspartitionen auf diesem Datenträger.",
         "PREPARE_DATA": "Dieser gewählte Datenträger zeigt keine Betriebssystem-Partitionen. Ihn zu löschen entfernt trotzdem jede Datei auf diesem Datenträger.",
         "PREPARE_UNKNOWN": "Diesen gewählten Datenträger zu löschen entfernt jede Datei darauf, einschließlich Betriebssystem, Anwendungen, Dateien und Wiederherstellungspartitionen auf diesem Datenträger.",
-        "SECURE_BOOT_HINT": "Wenn dieser USB-Stick auf einem anderen Computer nicht erscheint, müssen Sie dort in den Einstellungen den USB-Start erlauben.",
+        "SECURE_BOOT_HINT": "Dieser USB-Stick verwendet Debians signierte Startdateien. Wenn er nicht erscheint, müssen Sie dort in den Einstellungen den USB-Start erlauben. Beamo Wipe ändert Secure Boot nicht.",
         "ENGINE_LINE": "Dies verwendet nwipe, freie Software zum Löschen von Datenträgern.",
         "OWNER_CHECKBOX": "Ich besitze diesen Computer und diese Datenträger oder habe eine schriftliche Erlaubnis, sie zu löschen.",
         "STARTUP_TITLE": "Beamo Wipe startet",

@@ -737,6 +737,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
         if screen == Screen.WHAT:
             for b in C.WHAT_BULLETS:
                 print(" -", b)
+            print(C.this_usb_line())
             print(C.REPORT_MEDIA_WHAT)
             print(C.POWER_REMINDER)
             print(C.POWER_BLANKING)
@@ -1184,6 +1185,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             for bullet in C.WHAT_BULLETS:
                 lines.extend(_lines(" * " + bullet, w))
                 lines.append("")
+            lines.extend(_lines(C.this_usb_line(), w))
             lines.extend(_lines(C.REPORT_MEDIA_WHAT, w))
             lines.extend(_lines(C.POWER_REMINDER, w))
             lines.extend(_lines(C.POWER_BLANKING, w))

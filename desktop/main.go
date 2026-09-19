@@ -28,13 +28,31 @@ var sourceCommit = "unknown"
 var sourceDirty = "false"
 
 type view struct {
-	Checks    []readinessCheck `json:"checks"`
-	Technical string           `json:"technical"`
-	Ready     bool             `json:"ready"`
-	Preview   bool             `json:"preview"`
-	Title     string           `json:"title"`
-	Detail    string           `json:"detail"`
-	Version   string           `json:"version"`
+	Checks        []readinessCheck `json:"checks"`
+	Technical     string           `json:"technical"`
+	Ready         bool             `json:"ready"`
+	Preview       bool             `json:"preview"`
+	Title         string           `json:"title"`
+	Detail        string           `json:"detail"`
+	Version       string           `json:"version"`
+	IdentityLabel string           `json:"identity_label"`
+	BuildID       string           `json:"build_id"`
+	SourceCommit  string           `json:"source_commit"`
+	BuildStatus   string           `json:"build_status"`
+	Manufactured  bool             `json:"manufactured"`
+}
+
+func withUSBIdentity(v view, preview bool) view {
+	ident := usbIdentity
+	if preview {
+		ident = previewIdentity()
+	}
+	v.IdentityLabel = ident.Label
+	v.BuildID = ident.BuildID
+	v.SourceCommit = ident.Commit
+	v.BuildStatus = ident.Status
+	v.Manufactured = ident.Manufactured
+	return v
 }
 
 func planView(p Plan, preview bool) view {
@@ -63,7 +81,7 @@ func planView(p Plan, preview bool) view {
 	if preview {
 		v.Technical = "Simulated preview. No devices or startup settings were read.\n" + v.Technical
 	}
-	return v
+	return withUSBIdentity(v, preview)
 }
 
 // A deadline is inconclusive evidence, not evidence of the wrong USB.
@@ -218,12 +236,20 @@ func sendJSON(w http.ResponseWriter, value any) {
 
 func run() error {
 	preview := false
+	if len(os.Args) == 2 && os.Args[1] == "--preview" {
+		preview = true
+	}
+	if !preview && !(len(os.Args) == 2 && strings.HasPrefix(os.Args[1], "--restart-helper=")) {
+		usbIdentity = loadUSBIdentity(os.Args[0])
+	}
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Println(version, sourceCommit, "dirty="+sourceDirty)
+		fmt.Print(formatIdentity(usbIdentity))
 		return nil
 	}
 	if len(os.Args) == 2 && os.Args[1] == "--help" {
 		fmt.Println("Start Beamo Wipe [--preview | --check-json | --version]\nThis launcher never erases a disk. A guided restart needs confirmation.")
+		fmt.Print(formatIdentity(usbIdentity))
 		return nil
 	}
 	if len(os.Args) == 2 && strings.HasPrefix(os.Args[1], "--restart-helper=") {
@@ -261,7 +287,7 @@ func run() error {
 	if preview {
 		a.probe = func(context.Context) Snapshot { return Snapshot{} }
 	}
-	a.current = view{Preview: preview, Version: version, Title: "Check before restarting", Detail: "The check reads compatibility information. It does not erase anything or change boot settings."}
+	a.current = withUSBIdentity(view{Preview: preview, Version: version, Title: "Check before restarting", Detail: "The check reads compatibility information. It does not erase anything or change boot settings."}, preview)
 	if preview {
 		// Preview injects a plan without ever reading devices or firmware.
 		a.p = Plan{Direct: true, Fingerprint: strings.Repeat("0", 64)}

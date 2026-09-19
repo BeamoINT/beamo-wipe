@@ -76,8 +76,8 @@ Symptom: stick never appears (Dell F12, HP F9/Esc, Lenovo F12 not listed)
   │   ├─ No on any PC → suspect stick or flash. Check `scripts/build-iso.sh` ISO hash (`CD001` at 32769, ≥80 MiB, sha256)
   │   │       Reflash on Linux: `sudo dd if=dist/beamo-wipe-0.2.9-amd64.iso ...` (verify `/dev/sdX` *is* USB via `lsblk`), or BalenaEtcher. Retry.
   │   └─ Yes on at least one PC → firmware setting issue.
-  ├─ Secure Boot enabled? → This image is unsigned (docs/claims.md). Do NOT ship a bypass.
-  │        Guidance: allow USB boot / disable Secure Boot per vendor, or use a PC with Secure Boot off. Link helper/index.html.
+  ├─ Secure Boot enabled? → This USB uses Debian's signed boot files; firmware may still refuse them (docs/claims.md). Do NOT ship a bypass.
+  │        Guidance: try a direct USB port, the computer manufacturer's startup instructions, or a PC that accepts Debian's signed boot files. Ask for the USB's START-HERE.html build identity. Older sticks may be unsigned. Link helper/index.html.
   ├─ Fast Boot / USB legacy disabled? → Guidance: disable Fast Boot, enable USB legacy/CSM, try direct USB-A/C port not a keyboard hub.
   └─ Still not listed → degraded boot findability (docs/compatibility-matrix.md DISP/ FW). Collect vendor/model/BIOS version, photo of boot menu, manifest hash, and file as SEV-3 (escalate if ≥2 vendors systematically).
 Action: never "force boot via efibootmgr on customer PC."
@@ -224,7 +224,7 @@ If any of: SEV-1 wrong-disk risk, systematic ST-01/ST-03 failure on healthy HDD 
 
 Use these verbatim or close; they contain no bypass instruction.
 
-*Failed boot:* "Thanks for the photo. This image is unsigned (Secure Boot: allow USB boot) and not for Apple Silicon. Please try the steps at `helper/index.html` (F12/Esc/F9), direct USB-A/C port not a hub, disable Fast Boot, and try one more x64 PC with Secure Boot off. If it still doesn't appear, attach `beamo-wipe-*.manifest.json` hash and the PC model/BIOS version (no serial) and we'll add a fixture."
+*Failed boot:* "Thanks for the photo. This USB uses Debian's signed boot files; your firmware may still refuse them. Not for Apple Silicon. Please try START-HERE.html on the USB (F12/Esc/F9), a direct USB-A/C port not a hub, and one more x64 PC. Send the build identity from that page plus the PC model/BIOS version (no serial)."
 
 *PICK_EMPTY / hidden eMMC:* "This machine's only internal storage is soldered eMMC; the 4 MB `mmcblk0boot0` area is intentionally not shown and not wiped. That's expected degraded behavior — see `docs/storage-and-controller-limits.md` §3. For soldered boards, the recommendation is vendor erase or destruction per §5."
 
