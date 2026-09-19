@@ -49,7 +49,8 @@ def _needs_display():
         pytest.skip(f"no display: {exc}")
 
 WINDOW = (1280, 820)
-MIN_WINDOW = (1024, 740)  # TkWizard.minsize; oldest laptops the USB targets
+MIN_WINDOW = (1024, 740)  # Comfortable tall layout; minsize is 800x600
+SHORT_WINDOW = (1280, 720)
 
 
 def descendants(widget):
@@ -263,7 +264,7 @@ def _drive_to(wiz, app, screen, size=WINDOW):
     app.root.update()
 
 
-@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, SHORT_WINDOW, (800, 600)])
 @pytest.mark.parametrize(
     "screen",
     [Screen.KEYBOARD, Screen.WHAT, Screen.OWNER, Screen.PICK, Screen.CONFIRM, Screen.METHOD,

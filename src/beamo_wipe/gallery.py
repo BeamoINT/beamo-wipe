@@ -785,7 +785,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .scenarios button { font-size: 14px; font-weight: 600; margin: 0 8px 8px 0; padding: 8px 16px; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: var(--pill); cursor: pointer; }
   .scenarios button:hover { background: var(--primary-tint); border-color: var(--primary); }
   .scenarios button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .shell { background: var(--bg); min-height: 740px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+  .shell { background: var(--bg); min-height: 0; height: 740px; max-height: calc(100vh - 120px); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
   .preview-stripe { background: var(--accent); color: var(--navy); padding: 8px 28px; font-size: 13px; font-weight: 700; letter-spacing: .01em; overflow-wrap: break-word; }
   /* Quiet white chrome: the navy-on-transparent mark sits on the field,
      a hairline separates header from body — mirroring _draw_header. */
@@ -812,7 +812,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .strip { display: flex; height: 2px; gap: 2px; background: transparent; }
   .strip span { flex: 1; background: var(--track); }
   .strip span.now { background: var(--accent); }
-  .body { flex: 1; padding: 4px 32px 16px; background: var(--bg); display: flex; }
+  .body { flex: 1; min-height: 0; overflow: auto; padding: 4px 32px 16px; background: var(--bg); display: flex; }
   .col { max-width: 940px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; }
   /* The one screen-header pattern, mirroring _title_block: bold title,
      optional muted subtitle. compact is for the tightest screens. */
@@ -870,7 +870,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .panel .extra { font-size: 14px; color: var(--muted); margin-top: 4px; }
   /* Assist (utilities + keyboard hints) above a hairline; navigation is
      Back/secondary left and the primary action right. */
-  .foot { padding: 0 32px; }
+  .foot { flex: none; padding: 0 32px; }
   .assist { max-width: 940px; margin: 0 auto; padding-top: 4px; }
   .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .fleft, .fright { display: flex; gap: 12px; flex: none; }
@@ -1024,12 +1024,23 @@ _TEMPLATE = r"""<!DOCTYPE html>
     .fleft { flex-wrap: wrap; }
     h1 { font-size: 28px; line-height: 1.2; }
     .wordmark { font-size: 42px; }
-    .shell { min-height: 680px; }
+    .shell { height: calc(100vh - 100px); }
     .card .row { gap: 10px; }
     .card .size { font-size: 18px; }
     .panel { padding: 12px; }
     .bootbanner { margin-left: 0; border-radius: 6px; }
     .preview-stripe { padding: 8px 16px; }
+  }
+  @media (max-height: 720px) {
+    .page { padding: 8px 12px 12px; }
+    .note { margin-bottom: 8px; padding: 8px 12px; }
+    .scenarios { margin: 0 0 8px; }
+    .scenarios button { margin: 0 6px 6px 0; padding: 6px 12px; }
+    .hdr { height: 48px; }
+    h1 { font-size: 28px; margin: 12px 0 8px; }
+    .shell { height: calc(100vh - 168px); max-height: calc(100vh - 168px); }
+    .footrow { padding: 10px 0 12px; }
+    .preview-stripe { padding: 6px 16px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }

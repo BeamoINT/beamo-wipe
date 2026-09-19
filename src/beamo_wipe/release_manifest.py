@@ -305,7 +305,7 @@ def hardware_limits() -> Dict[str, Any]:
         "supported": [
             "x64 PCs (UEFI + Legacy BIOS) via USB-A/C, boot menu F12/Esc/F9",
             "SATA HDD, SATA SSD, NVMe, virtio (QEMU), eMMC (mmcblk0)",
-            "Resolutions 1024x740–1920x1080 @72 DPI, keyboard-only",
+            "Resolutions 800x600–1920x1080 including 1280x720 @72 DPI, keyboard-only",
         ],
         "unsupported": [
             "Apple Silicon, Chromebooks, RAID/dm-raid, network bdevs (nbd/iscsi/fc/nvmeof)",
