@@ -818,7 +818,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   /* Current-stage text lives in .steptext. The list is a screen-reader
      name only — never eight equal pages. */
   .journey { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; margin-top: 8px; }
+  .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 200px); gap: 24px; margin-top: 8px; align-items: start; }
+  .shell[data-text="large"] .review-grid,
+  .shell[data-text="extra"] .review-grid { grid-template-columns: minmax(0, 1fr); }
   .review-grid .countcap { max-width: 260px; text-align: center; }
   .review-warning { color: var(--danger); font-weight: 700; overflow-wrap: anywhere; }
   .card.identity { background: var(--primary-tint); border-color: var(--primary); padding: 16px 22px; }
@@ -894,7 +896,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
      Back/secondary left and the primary action right. */
   .foot { flex: none; padding: 0 32px; }
   .assist { max-width: 940px; margin: 0 auto; padding-top: 4px; }
-  .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .card, .panel, .foot, .compare-pre, .help-reader { overflow-wrap: anywhere; }
   .fleft, .fright { display: flex; gap: 12px; flex: none; }
   .fright { margin-left: auto; }
   .fhint { color: var(--muted); font-size: 13px; line-height: 1.9; padding: 4px 0 8px; }

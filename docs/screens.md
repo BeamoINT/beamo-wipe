@@ -60,7 +60,9 @@ The graphical wizard uses real layouts at 800×600, 1024×600, and 1280×720 as
 well as 1024×740 and larger. Short windows may scroll the body; identity,
 warnings, and footer actions stay reachable. Type enlarges slightly on large
 windows. Tk scaling stays pinned so X DPI does not change the layout. The
-window never opens taller than the panel.
+window never opens taller than the panel. When type is enlarged, cards,
+warnings, comparison, progress, and footers wrap to their parent width and
+stack instead of clipping into fixed canvases.
 
 Footer actions are two regions. Help and extra actions (keyboard layout,
 check disks again, report help, screen-reader view, diagnostic, Advanced,
