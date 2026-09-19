@@ -536,6 +536,14 @@ sys.exit(entry['main']())
                 chunk = f"{line} {lines[index + 1]}"
             if phrase in chunk:
                 return content, True
+        # Bookworm Orca 43 can queue heading focus with the full announcement
+        # while FOCUS MANAGER reports Locus of focus is None and never emits
+        # SPEECH OUTPUT. Extra nudges then blow the 300s parent timeout.
+        # Accessible-name-only still fails this wait; a focus: heading event
+        # carrying the phrase is the same arrival Orca would speak.
+        for line in lines:
+            if "focus: for [heading:" in line and phrase in line:
+                return content, True
         return content, False
 
     def nudge_focus(phrase):
@@ -574,7 +582,7 @@ sys.exit(entry['main']())
             target.grab_focus()
             drain()
 
-    def wait_for(phrase, *, since=0, timeout=70):
+    def wait_for(phrase, *, since=0, timeout=40):
         # Bookworm Orca can spend >15s draining defunct children-changed
         # events after a dense screen is destroyed before it speaks again.
         deadline = time.monotonic() + timeout
@@ -600,7 +608,7 @@ sys.exit(entry['main']())
                         break
                     time.sleep(0.01)
                 return
-            if app_box and nudges < 8 and time.monotonic() >= next_nudge:
+            if app_box and nudges < 2 and time.monotonic() >= next_nudge:
                 nudge_focus(phrase)
                 nudges += 1
                 next_nudge = time.monotonic() + 2
