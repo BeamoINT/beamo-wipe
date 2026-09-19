@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 
 import pytest
 
@@ -27,6 +28,11 @@ def _reset_ui_language():
 
 def pytest_collection_modifyitems(config, items):
     """Run the Orca child before other GTK tests drown Bookworm AT-SPI."""
+    if os.environ.get("BEAMO_HOSTED_ORCA_SEPARATE") == "1":
+        items[:] = [
+            item for item in items if item.name != "test_orca_announces_every_result"
+        ]
+        return
     orca = [item for item in items if item.name == "test_orca_announces_every_result"]
     rest = [item for item in items if item.name != "test_orca_announces_every_result"]
     items[:] = orca + rest
