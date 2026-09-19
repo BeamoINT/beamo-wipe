@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -169,11 +170,32 @@ def test_prior_stable_release_identity_is_exact():
     import beamo_wipe.release_manifest as rm
 
     assert rm.PRIOR_STABLE == {
-        "version": "0.2.0",
-        "iso_name": "beamo-wipe-0.2.0-amd64.iso",
-        "sha256": "62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74",
-        "commit": "5b3b7afa6c448ee01269c9497c1c93e8e83733c1",
+        "version": "0.2.9",
+        "iso_name": "beamo-wipe-0.2.9-amd64.iso",
+        "sha256": "4042f85e0e7c155dd2340dc93a6b879c35ebe2f13da9c81c1ba6269524a6b169",
+        "commit": "452cfc061ad20a9c44df202201404f3c4130fbb6",
     }
+
+
+def test_prior_stable_source_commit_has_branded_boot_menus():
+    import beamo_wipe.release_manifest as rm
+
+    commit = rm.PRIOR_STABLE["commit"]
+    live = subprocess.check_output(
+        ["git", "show", f"{commit}:packaging/live/config/bootloaders/isolinux/live.cfg.in"],
+        cwd=ROOT,
+        text=True,
+    )
+    grub = subprocess.check_output(
+        ["git", "show", f"{commit}:packaging/live/config/bootloaders/grub-pc/grub.cfg"],
+        cwd=ROOT,
+        text=True,
+    )
+    assert "Beamo Wipe: start the erase guide" in live
+    assert "Nothing is erased until you pick a disk" in live
+    assert "Beamo Wipe: start the erase guide (nothing is erased yet)" in grub
+    assert "Beamo Wipe: troubleshoot startup (nothing is erased yet)" in grub
+    assert "Live system (" not in live and "Live system (" not in grub
 
 
 @requires_manufacturing_iso
@@ -214,7 +236,7 @@ def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     assert m["hardware_limits"]["unsupported"]
     assert m["known_issues"]
     assert m["license"]["wrapper"] == "GPL-3.0-or-later"
-    assert m["prior_stable"]["iso_name"] == "beamo-wipe-0.2.0-amd64.iso"
+    assert m["prior_stable"]["iso_name"] == "beamo-wipe-0.2.9-amd64.iso"
     assert m["verification"]["checksum_instructions"]
     assert "_manifest_sha256" in m
 
@@ -463,10 +485,10 @@ def test_prior_stable_and_rollback(tmp_path, monkeypatch):
 
     m = rm.generate_manifest(version="0.1.0", strict=False)
     prior = m["prior_stable"]
-    assert prior["iso_name"] == "beamo-wipe-0.2.0-amd64.iso"
-    assert prior["sha256"] == "62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74"
+    assert prior["iso_name"] == "beamo-wipe-0.2.9-amd64.iso"
+    assert prior["sha256"] == "4042f85e0e7c155dd2340dc93a6b879c35ebe2f13da9c81c1ba6269524a6b169"
     assert "rollback" in m
-    assert "5b3b7afa6c448ee01269c9497c1c93e8e83733c1" in m["rollback"]
+    assert "452cfc061ad20a9c44df202201404f3c4130fbb6" in m["rollback"]
 
 
 @requires_manufacturing_iso
