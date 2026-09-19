@@ -65,10 +65,10 @@ def test_evidence_reader_refuses_symlink(tmp_path):
 
 
 def _measured_gate_receipts(commit: str = "a" * 40):
-    from beamo_wipe.verification_evidence import build_gate_receipt, build_test_evidence
+    from beamo_wipe.verification_evidence import REQUIRED_GATES, build_gate_receipt, build_test_evidence
 
     receipts = []
-    for gate in ("lint", "tests", "preview", "negative", "iso", "qemu"):
+    for gate in REQUIRED_GATES:
         receipts.append(
             build_gate_receipt(
                 gate=gate,

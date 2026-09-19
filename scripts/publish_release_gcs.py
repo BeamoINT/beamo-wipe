@@ -363,7 +363,15 @@ def _release_inputs(version: str) -> list[Path]:
         ],
         *[
             ROOT / "dist" / "evidence" / name
-            for gate in ("lint", "tests", "preview", "negative", "iso", "qemu")
+            for gate in (
+                "lint",
+                "tests",
+                "preview",
+                "desktop-launchers",
+                "negative",
+                "iso",
+                "qemu",
+            )
             for name in (f"{gate}.receipt.json", f"{gate}.log")
         ],
         ROOT / "dist" / "evidence" / "packages.json",

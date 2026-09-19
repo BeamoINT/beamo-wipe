@@ -54,6 +54,7 @@ if [ "$publish_release" = false ]; then
       exit 2
       ;;
   esac
+  SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_PUBLISH_RELEASE=false"
 fi
 
 # CLOUDSDK_* in the shell profile can pin a different account/project.

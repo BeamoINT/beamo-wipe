@@ -12,6 +12,7 @@ venv/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+.ci-cache/
 
 # ISO / USB / live-build artifacts (never commit)
 *.iso

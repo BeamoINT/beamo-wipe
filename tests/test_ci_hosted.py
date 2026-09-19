@@ -18,6 +18,7 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     assert "ci-hosted.sh negative" in cfg
     assert "ci-hosted.sh iso" in cfg
     assert "ci-hosted.sh qemu" in cfg
+    assert "ci-hosted.sh desktop-launchers" in cfg
     assert "E2_HIGHCPU_8" in cfg
     assert "_SKIP_ISO" in cfg
     assert "_SKIP_QEMU" in cfg
@@ -36,6 +37,7 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     publish_step = cfg[publish_at:]
     assert "waitFor: ['qemu-verify']" in publish_step
     assert "BUILD_ID=$BUILD_ID" in publish_step
+    assert "ci_evidence summary" in publish_step
     assert "cloud-builders/gsutil" not in cfg
     assert "cloud-builders/docker" not in cfg
     assert "library/python" not in cfg
@@ -46,13 +48,23 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     iso_at = cfg.find("  - id: iso-build\n")
     assert iso_at != -1
     assert "waitFor: ['negative-test', 'desktop-launchers']" in cfg[iso_at:qemu_at]
-    assert "scripts/ci-desktop.sh" in cfg
+    assert "ci-hosted.sh desktop-launchers" in cfg
     iso_step = cfg[iso_at:qemu_at]
     assert "ca-certificates docker.io git python3" in iso_step
+    from beamo_wipe import __version__ as wrapper_version
+
+    for line in cfg.splitlines():
+        if "BEAMO_WIPE_VERSION=" in line:
+            assert f"BEAMO_WIPE_VERSION={wrapper_version}" in line
+    assert "--device" not in cfg
+    assert "/dev/sda" not in cfg
+    assert "/dev/nvme" not in cfg
+    assert "-v /dev" not in cfg
     submit = (ROOT / "scripts" / "ci-cloud.sh").read_text(encoding="utf-8")
     assert "--project=" in submit
     assert "beamo-wipe" in submit
     assert "--publish-release" in submit
+    assert 'SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_PUBLISH_RELEASE=false"' in submit
     publisher = (ROOT / "scripts" / "publish_release_gcs.py").read_text(encoding="utf-8")
     assert 'os.environ.get("PUBLISH_RELEASE", "false")' in publisher
     assert "SKIP_ISO" in publisher and "SKIP_QEMU" in publisher
@@ -66,6 +78,9 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     assert "build-iso.sh" in hosted
     assert "qemu-verify.sh" in hosted
     assert "SKIP_QEMU" in hosted
+    assert "PIP_CACHE_DIR" in hosted
+    assert "desktop-launchers" in hosted
+    assert "ci-desktop.sh" in hosted
     # Source live-image assertions always run; lb-config file checks skip
     # themselves when bootstrap/binary are absent.
     assert "not test_iso_build_uses_https_debian_mirrors" not in hosted
@@ -151,7 +166,9 @@ def test_cloud_triggers_cover_prs_and_main():
     assert "--pull-request-pattern" in text
     assert "--branch-pattern" in text
     # QEMU (TCG, slowest) runs on pushes to main; PRs run the rest.
-    assert "_SKIP_QEMU=true" in text
+    # Verification triggers never publish and never skip the ISO.
+    assert "_SKIP_QEMU=true,_SKIP_ISO=false,_PUBLISH_RELEASE=false" in text
+    assert "_SKIP_QEMU=false,_SKIP_ISO=false,_PUBLISH_RELEASE=false" in text
 
 
 def test_cloud_trigger_installer_pins_identity_and_reconciles(tmp_path):
@@ -206,7 +223,7 @@ if args[:3] == ["builds", "triggers", "describe"]:
             for args in recorded
             if args[:3] == ["builds", "triggers", verb]
         ]
-        assert len(mutations) == (2 if verb == "create" else 3)
+        assert len(mutations) == (2 if verb == "create" else 4)
         structural = [args for args in mutations if "--build-config=cloudbuild.yaml" in args]
         assert len(structural) == 2
         assert all(f"--service-account={service_account}" in args for args in structural)
@@ -214,12 +231,21 @@ if args[:3] == ["builds", "triggers", "describe"]:
         assert any("beamo-wipe-pr-gate" in args for args in mutation_text)
         assert any("beamo-wipe-main-gate" in args for args in mutation_text)
         pr_calls = [args for args in mutations if "beamo-wipe-pr-gate" in " ".join(args)]
+        main_calls = [args for args in mutations if "beamo-wipe-main-gate" in " ".join(args)]
+        pr_subs = "_SKIP_QEMU=true,_SKIP_ISO=false,_PUBLISH_RELEASE=false"
+        main_subs = "_SKIP_QEMU=false,_SKIP_ISO=false,_PUBLISH_RELEASE=false"
         substitution_flag = (
-            "--substitutions=_SKIP_QEMU=true"
+            f"--substitutions={pr_subs}"
             if verb == "create"
-            else "--update-substitutions=_SKIP_QEMU=true"
+            else f"--update-substitutions={pr_subs}"
+        )
+        main_substitution_flag = (
+            f"--substitutions={main_subs}"
+            if verb == "create"
+            else f"--update-substitutions={main_subs}"
         )
         assert any(substitution_flag in args for args in pr_calls)
+        assert any(main_substitution_flag in args for args in main_calls)
         assert any(
             "--comment-control=COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY" in args
             for args in pr_calls
@@ -281,6 +307,7 @@ def test_cloud_submit_uploads_git_metadata():
     ]
     assert ".git/" not in rules
     assert "**/.git/" not in rules
+    assert ".ci-cache/" in rules
     staged = "packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/"
     assert staged in rules
 
