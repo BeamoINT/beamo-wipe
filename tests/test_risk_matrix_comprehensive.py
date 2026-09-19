@@ -92,7 +92,7 @@ def test_classify_bus_variants():
     assert classify_bus("ata") == "SATA"
     assert classify_bus("usb") == "USB"
     assert classify_bus("sas") == "SAS"
-    assert classify_bus("virtio") == "other"
+    assert classify_bus("virtio") == "virtio"
     assert classify_bus("spi") == "other"
     assert classify_bus("mystery") == "MYSTERY"
     assert classify_bus("") == "other"

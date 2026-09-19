@@ -41,6 +41,7 @@ _CONNECTION = {
     "SATA": "SATA",
     "NVMe": "NVMe",
     "SAS": "SAS",
+    "virtio": "VirtIO",
 }
 
 

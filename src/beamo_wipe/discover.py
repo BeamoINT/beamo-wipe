@@ -141,7 +141,9 @@ def classify_bus(tran: Optional[str]) -> str:
         "usb": "USB",
         "sas": "SAS",
         "spi": "other",
-        "virtio": "other",
+        # Distinct from empty TRAN ("other"): virtio-blk/scsi must stay
+        # wipeable, while sd*/hd* with no proven local bus must not.
+        "virtio": "virtio",
     }
     if key in mapping:
         return mapping[key]

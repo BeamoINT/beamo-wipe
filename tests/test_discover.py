@@ -1564,3 +1564,4 @@ def test_classify_bus_strips_padding():
     assert classify_bus("usb") == "USB"
     assert classify_bus(None) == "other"
     assert classify_bus("") == "other"
+    assert classify_bus("virtio") == "virtio"

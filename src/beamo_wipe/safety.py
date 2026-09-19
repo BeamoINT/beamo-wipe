@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import stat
 import sys
 import time
@@ -76,6 +77,45 @@ CLEAN_SUBPROCESS_ENV = {
     "HOME": "/root",
     "TERM": "linux",
 }
+# Display/audio sockets the kiosk actually needs. Never PATH, LD_*, or PYTHON*.
+SESSION_ENV_ALLOWLIST = (
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    "XAUTHORITY",
+    "DBUS_SESSION_BUS_ADDRESS",
+    "XDG_RUNTIME_DIR",
+    "PULSE_RUNTIME_PATH",
+    "PULSE_SERVER",
+)
+SYSTEM_BIN_PREFIXES = ("/usr/bin/", "/bin/", "/usr/sbin/", "/sbin/")
+
+
+def session_exec_env() -> dict[str, str]:
+    """Clean subprocess env plus the current graphical/audio session sockets."""
+    env = dict(CLEAN_SUBPROCESS_ENV)
+    home = os.environ.get("HOME")
+    if home and "\x00" not in home and os.path.isabs(home) and home not in {"/", "/tmp"}:
+        env["HOME"] = home
+    for key in SESSION_ENV_ALLOWLIST:
+        value = os.environ.get(key)
+        if value and "\x00" not in value:
+            env[key] = value
+    return env
+
+
+def resolve_system_binary(name: str) -> Optional[str]:
+    """Resolve an allowlisted tool on the clean PATH. Relative names only."""
+    base = os.path.basename(name or "")
+    if not base or base != name or base in {".", ".."} or "/" in name:
+        return None
+    found = shutil.which(base, path=CLEAN_SUBPROCESS_ENV["PATH"])
+    if not found or not os.path.isabs(found):
+        return None
+    real = os.path.realpath(found)
+    if not real.startswith(SYSTEM_BIN_PREFIXES):
+        return None
+    return real
+
 
 # lsblk TRAN / Disk.bus tokens for storage that is not a local disk.
 # nbd is also excluded by WHOLE_DISK_RE; iscsi/fc still appear as /dev/sdX.
@@ -92,6 +132,11 @@ REMOTE_BUS_TOKENS = frozenset(
         "rdma",
     }
 )
+# lsblk TRAN tokens that prove a local (or VM) bus. Empty/"other" on
+# SCSI names is not proof: iSCSI often still appears as /dev/sdX.
+PROVEN_LOCAL_BUS_TOKENS = frozenset({"sata", "nvme", "usb", "sas", "virtio"})
+SCSI_DISK_NAME_RE = re.compile(r"^(?:sd|hd|dasd)[a-z]+$")
+REMOTE_SYSFS_TOKENS = ("iscsi", "rport-", "nvme-fabrics", "/fc/")
 
 
 class SafetyError(Exception):
@@ -136,6 +181,22 @@ def is_remote_disk(disk: Disk) -> bool:
         return True
     path = (disk.path or "").casefold()
     return "/nbd" in path
+
+
+def is_unproven_scsi_transport(disk: Disk) -> bool:
+    """True when a SCSI-like node has no proven local or remote bus.
+
+    lsblk TRAN is untrusted padding-wise and may be empty. virtio is a
+    real local (VM) bus and is not "other". Empty/"other" on sd/hd/dasd
+    must not become a wipe target.
+    """
+    name = (disk.name or "").casefold()
+    if not SCSI_DISK_NAME_RE.fullmatch(name):
+        return False
+    bus = (disk.bus or "").casefold()
+    if bus in REMOTE_BUS_TOKENS or bus in PROVEN_LOCAL_BUS_TOKENS:
+        return False
+    return True
 
 
 def is_live_environment(
@@ -217,7 +278,7 @@ def is_wipeable_disk(disk: Disk) -> bool:
         return False
     if disk.read_only:
         return False
-    if has_any_mount(disk) or is_remote_disk(disk):
+    if has_any_mount(disk) or is_remote_disk(disk) or is_unproven_scsi_transport(disk):
         return False
     try:
         normalize_whole_disk(disk.path)
@@ -546,20 +607,35 @@ def assert_size_unchanged(path: str, expected_bytes: int) -> None:
 
 
 def assert_local_device_transport(path: str) -> None:
-    """Refuse NVMe-over-Fabrics at the final kernel-backed boundary."""
+    """Refuse NVMe-over-Fabrics and remote SCSI at the kernel-backed boundary."""
     if is_preview_env():
         return
-    name = os.path.basename(os.path.realpath(path))
-    match = re.fullmatch(r"(nvme\d+)n\d+", name)
-    if not match:
-        return
-    transport_path = Path("/sys/class/nvme") / match.group(1) / "transport"
     try:
-        transport = transport_path.read_text(encoding="ascii").strip().casefold()
+        name = os.path.basename(os.path.realpath(path))
     except OSError as exc:
-        raise SafetyError("Cannot prove NVMe is locally attached.") from exc
-    if transport != "pcie":
-        raise SafetyError("Refusing a remote or unknown NVMe transport.")
+        raise SafetyError("Cannot prove the disk is locally attached.") from exc
+    if not name or name in {".", ".."}:
+        raise SafetyError("Cannot prove the disk is locally attached.")
+    match = re.fullmatch(r"(nvme\d+)n\d+", name)
+    if match:
+        transport_path = Path("/sys/class/nvme") / match.group(1) / "transport"
+        try:
+            transport = transport_path.read_text(encoding="ascii").strip().casefold()
+        except OSError as exc:
+            raise SafetyError("Cannot prove NVMe is locally attached.") from exc
+        if transport != "pcie":
+            raise SafetyError("Refusing a remote or unknown NVMe transport.")
+        return
+    if not SCSI_DISK_NAME_RE.fullmatch(name):
+        return
+    device = Path("/sys/block") / name / "device"
+    try:
+        resolved = os.path.realpath(str(device))
+    except OSError as exc:
+        raise SafetyError("Cannot prove the disk is locally attached.") from exc
+    lowered = resolved.casefold()
+    if any(token in lowered for token in REMOTE_SYSFS_TOKENS):
+        raise SafetyError("Refusing a remote or unknown SCSI transport.")
 
 
 def _is_under(path: Path, root: Path) -> bool:
