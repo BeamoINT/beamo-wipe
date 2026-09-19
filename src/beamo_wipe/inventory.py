@@ -307,20 +307,20 @@ def serial_comparison(disk: Disk, peers: tuple[Disk, ...]) -> tuple[int, int, st
 REMINDER_CHECK_ID = "Check the full ID before choosing."
 UNIT_CHAR = "character"
 UNIT_CHARS = "characters"
-SERIAL_LONGER = "Serial has {count} {unit}; other serials are longer. {reminder}"
+SERIAL_LONGER = "Serial number has {count} {unit}; other serials are longer. {reminder}"
 POSITION_ONE = "character {n}"
 POSITION_RANGE = "characters {a} to {b}"
-COMPARE_SERIAL = "Compare serial {position}: {span}. {reminder}"
+COMPARE_SERIAL = "Compare serial number {position}: {span}. {reminder}"
 ENTRY_DISK = "Disk {number}"
 ENTRY_MODEL = "Model: {value}"
 ENTRY_CAPACITY = "Capacity: {value}"
-ENTRY_SERIAL = "Serial: {value}"
+ENTRY_SERIAL = "Serial number: {value}"
 ENTRY_CONNECTION = "Connection: {value}"
 
 
 COMPARE_TITLE = "Compare disks"
 COMPARE_INTRO = (
-    "Read only. Compare model, capacity, serial and connection before choosing. "
+    "Read only. Compare model, capacity, serial number and connection before choosing. "
     "Your selection stays unchanged. If identity is uncertain, do not guess."
 )
 

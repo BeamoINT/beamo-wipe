@@ -2486,6 +2486,8 @@ class TkWizard:
         def _stretch(_event=None) -> None:
             canvas.itemconfigure(window_id, width=max(1, canvas.winfo_width()))
             canvas.configure(scrollregion=canvas.bbox("all"))
+            if self._pick_ensure_visible:
+                self._pick_restore_pending = True
             self._pick_restore_scroll()
 
         cards.bind("<Configure>", _stretch)
@@ -2495,6 +2497,7 @@ class TkWizard:
             # The restore window only re-applies the pre-rebuild offset; the
             # first real scroll input ends it so the user owns the position.
             self._pick_restore_pending = False
+            self._pick_ensure_visible = False
             self._pick_applied = None
             if args:
                 canvas.yview(*args)
@@ -2725,8 +2728,13 @@ class TkWizard:
                 view0 = current_top
                 view1 = view0 + view_h
                 y0 = float(card.winfo_y())
-                y1 = y0 + card.winfo_height()
-                if y0 < view0:
+                y1 = y0 + float(card.winfo_height())
+                # Wrapped identity ("Serial number" plus the value) can make
+                # a card taller than the picker. Keep the heading in view
+                # instead of bottom-aligning, which would hide the serial.
+                if y1 - y0 > view_h:
+                    canvas.yview_moveto(max(0.0, y0 / content_h))
+                elif y0 < view0:
                     canvas.yview_moveto(max(0.0, y0 / content_h))
                 elif y1 > view1:
                     canvas.yview_moveto(max(0.0, min(1.0, (y1 - view_h) / content_h)))

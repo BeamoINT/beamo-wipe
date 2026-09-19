@@ -22,7 +22,7 @@ CONNECTION_BRIDGE_NOTE = (
 )
 SERIAL_NOT_REPORTED = "Serial not reported"
 HARDWARE_ID_LABEL = "Hardware ID"
-SERIAL_LABEL = "Serial"
+SERIAL_LABEL = "Serial number"
 MISSING_SERIAL = (
     "This disk did not report a serial number. "
     "Do not treat the connection name as the disk."

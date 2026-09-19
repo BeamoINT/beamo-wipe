@@ -69,7 +69,7 @@ def test_complete_excluded_inventory_does_not_add_targets():
         "identity could not be confirmed",
     ):
         assert reason in text
-    mounted = next(d for d in wiz.other_devices if "Serial: sdc" in d.identity)
+    mounted = next(d for d in wiz.other_devices if "Serial number: sdc" in d.identity)
     assert mounted.reasons == ("mounted or in use", "read-only")
     for path in ("/dev/sdb", "/dev/sdc", "/dev/sdd", "/dev/loop0", "/dev/sdf"):
         wiz.select_disk(path)

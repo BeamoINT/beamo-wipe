@@ -148,7 +148,7 @@ def test_redacted_share_withholds_identifiers_and_keeps_owner_original():
     assert serial.encode() in bundle["RESULT.txt"]
     assert serial.encode() not in bundle["SHARE.txt"]
     assert serial.encode() not in bundle["SHARE.json"]
-    assert b"Serial: withheld" in bundle["SHARE.txt"]
+    assert b"Serial number: withheld" in bundle["SHARE.txt"]
     assert bundle["result.json"] == json.dumps(ev).encode()
     complete = json.loads(bundle["COMPLETE"])
     assert complete["result_summary"] == "RESULT.txt"

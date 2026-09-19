@@ -108,7 +108,7 @@ def test_console_comparison_scroll_and_escape_preserve_selection(monkeypatch):
                           keys=[ord("c"), console.curses.KEY_NPAGE, 10, 27])
     rendered = " ".join(" ".join(frame.values()) for frame in terminal.frames)
     assert inventory.COMPARE_TITLE in rendered
-    assert "Model:" in rendered and "Serial:" in rendered
+    assert "Model:" in rendered and "Serial number:" in rendered
     assert w.selected is selected and w.screen == Screen.PICK
     assert not w.runner.started
 

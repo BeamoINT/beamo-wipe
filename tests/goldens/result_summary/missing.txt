@@ -4,7 +4,7 @@ Report checksum: unavailable
 Disk: unavailable
 Capacity: unavailable
 Connection: unavailable
-Serial: unavailable
+Serial number: unavailable
 Hardware ID: unavailable
 Method: unavailable
 Overwrites: unavailable

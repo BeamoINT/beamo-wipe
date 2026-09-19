@@ -26,7 +26,7 @@ APP_NAME = "Beamo Wipe"
 # Read-only wayfinding: these labels never act as navigation controls.
 JOURNEY_LABELS = ("Start", "Owner", "Disk", "Confirm", "Method", "Review", "Erase", "Result")
 SELECTED_DISK = "This disk"
-SERIAL_LABEL = "Serial"
+SERIAL_LABEL = "Serial number"
 REVIEW_CHECK = "Check the disk and method before you erase."
 SPLASH_ROADMAP = "Choose a disk  →  Confirm its identity  →  Review and erase"
 

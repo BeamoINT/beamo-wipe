@@ -1043,6 +1043,20 @@ def test_picker_select_buttons_announce_connection(ui):
     assert wizard.selected is None and not wizard.runner.started
 
 
+def test_picker_select_buttons_say_serial_number(ui):
+    from beamo_wipe.identity import SERIAL_LABEL
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        name = f"Select {view.announcement}"
+        assert name in app.actions
+        assert f"{SERIAL_LABEL}: {disk.serial}" in name
+    assert wizard.selected is None and not wizard.runner.started
+
+
 def test_picker_protected_identity_is_reader_not_select_action(ui):
     wizard = make_demo_wizard()
     wizard.screen = Screen.PICK

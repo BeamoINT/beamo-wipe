@@ -952,8 +952,15 @@ def test_pick_list_scrolls_selected_card_into_view(ui):
     content_h = float(canvas.bbox("all")[3])
     y0 = card.winfo_y() / content_h
     y1 = (card.winfo_y() + card.winfo_height()) / content_h
+    view_h = float(canvas.winfo_height())
+    card_h = float(card.winfo_height())
     assert y0 >= top - 0.02, "selected card scrolled above the view"
-    assert y1 <= bottom + 0.02, "selected card scrolled below the view"
+    if card_h <= view_h:
+        assert y1 <= bottom + 0.02, "selected card scrolled below the view"
+    else:
+        # Longer serial labels wrap until the card is taller than the list.
+        # Restore keeps the identity (top) in view rather than the footer.
+        assert abs(y0 - top) <= 0.02, "oversized selected card should stay top-aligned"
 
 
 def test_leaving_picker_cancels_registered_restore_events(ui):
@@ -1890,6 +1897,25 @@ def test_connection_is_visible_on_pick_without_show_more(ui, size):
     assert labels
     assert all(w.winfo_ismapped() for w in labels)
     assert wiz.selected is None or wiz.selected.path not in shown
+    assert not app._show_more
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert not wiz.runner.started
+
+
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, (800, 600)])
+def test_serial_number_label_is_visible_without_show_more(ui, size):
+    from beamo_wipe.identity import SERIAL_LABEL
+
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.PICK
+    app._show_more = False
+    app._draw()
+    app.root.update()
+    shown = _label_text(app)
+    assert SERIAL_LABEL in shown
+    assert "S4EVNX0N123456" in shown
+    assert "BEAMOUSB001" in shown
     assert not app._show_more
     assert not _clipping_problems(app)
     assert not _off_window_problems(app)

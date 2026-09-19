@@ -68,7 +68,7 @@ def test_serial_is_stronger_than_wwn_and_path():
         wwn="0x5002538e00000001",
     )
     view = present_disk(disk)
-    assert view.id_label == "Serial"
+    assert view.id_label == "Serial number"
     assert view.id_value == "S4EVNX0N123456"
     assert view.connection == "NVMe"
     assert "/dev/" not in view.compact_line

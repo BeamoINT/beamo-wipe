@@ -81,7 +81,7 @@ no stale target selectable. Refresh is unavailable once an erase is starting
 or running.
 
 **Beamo USB — protected, cannot be erased** appears separately above the disks
-you can choose, with its name, size and serial or hardware ID. The keyboard
+you can choose, with its name, size and **Serial number** or hardware ID. The keyboard
 console shows its protected status; press B to read its full identity. If the
 boot device cannot be identified, no protected card or erase targets are shown.
 

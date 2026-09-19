@@ -39,6 +39,10 @@ checkbox and typed confirmation still gate Continue. The Erase now button stays
 disabled for the five-second countdown and never activates automatically.
 F5 checks disks again before erasure. Escape goes back where allowed. Full
 **Storage limits** are available from method selection and return to that method.
+Disk identity announcements say **Serial number:** before the value, including
+when a serial is missing. Hardware ID stays Hardware ID when that is the
+strongest identifier.
+
 **Beamo USB — protected, cannot be erased** has its own focusable, read-only
 identity text before the disk-selection buttons. It is never a Select button.
 **Other detected devices** is read-only text; it never offers an erase action.
