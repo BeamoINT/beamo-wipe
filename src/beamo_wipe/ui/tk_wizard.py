@@ -3173,6 +3173,10 @@ class TkWizard:
         if self.w.token_ok:
             emit_serial_marker("BEAMO_WIPE_CONFIRM_MATCHED")
 
+    def _method_card_wrap(self) -> int:
+        """Lead/limits share the title column with the radio and key chip."""
+        return max(200, self.lay.wrap - 110)
+
     def _method_card(self, parent: tk.Widget, method: MethodId) -> None:
         card_copy = C.METHOD_CARDS[method]
         title = str(card_copy["title"])
@@ -3223,7 +3227,7 @@ class TkWizard:
             font=self.font_b,
             fg=INK,
             bg=fill,
-            wraplength=max(200, self.lay.wrap - 90),
+            wraplength=self._method_card_wrap(),
             justify=tk.LEFT,
             anchor="w",
         ).pack(fill=tk.X, pady=(4, 0))
@@ -3233,7 +3237,7 @@ class TkWizard:
             font=self.font_s,
             fg=MUTED,
             bg=fill,
-            wraplength=max(200, self.lay.wrap - 90),
+            wraplength=self._method_card_wrap(),
             justify=tk.LEFT,
             anchor="w",
         ).pack(fill=tk.X, pady=(2, 0))
@@ -3260,7 +3264,7 @@ class TkWizard:
                 font=self.font_s,
                 fg=MUTED,
                 bg=fill,
-                wraplength=max(200, self.lay.wrap - 90),
+                wraplength=self._method_card_wrap(),
                 justify=tk.LEFT,
                 anchor="w",
             ).pack(fill=tk.X, pady=(4, 0))
@@ -3271,7 +3275,7 @@ class TkWizard:
                 font=self.font_s,
                 fg=MUTED,
                 bg=fill,
-                wraplength=max(200, self.lay.wrap - 90),
+                wraplength=self._method_card_wrap(),
                 justify=tk.LEFT,
                 anchor="w",
             ).pack(fill=tk.X, pady=(4, 0))
