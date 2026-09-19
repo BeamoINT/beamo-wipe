@@ -1360,15 +1360,21 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 spec = METHODS[method]
                 card = C.METHOD_CARDS[method]
                 mark = f" [{card['mark']}]" if card["mark"] else ""
-                extra = f" {card['extra']}" if card["extra"] else ""
+                # Overwrite + verification stay on the first 80x24 page. Extra
+                # comparison copy is paged after the three methods.
                 lines.extend(
                     _lines(
                         f"{star} {i} {spec.title}{mark}: {spec.overwrite_description} "
-                        f"{spec.verification_description}{extra}",
+                        f"{spec.verification_description}",
                         w,
                     )
                 )
                 lines.append("")
+            for method in (MethodId.EVERYDAY, MethodId.EXTRA, MethodId.QUICK_ZERO):
+                extra = C.METHOD_CARDS[method]["extra"]
+                if extra:
+                    lines.extend(_lines(extra, w))
+                    lines.append("")
             if wizard.selected:
                 lines.extend(
                     _lines(f"{_identity.SYSTEM_PATH_NOTE}: {wizard.selected.path}", w)
