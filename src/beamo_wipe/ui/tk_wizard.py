@@ -1708,7 +1708,11 @@ class TkWizard:
             except (tk.TclError, AttributeError, TypeError, ValueError):
                 return
             wrap = max(80, width - pad)
-            current = int(float(label.cget("wraplength") or 0))
+            raw = label.cget("wraplength") or 0
+            try:
+                current = int(float(raw))
+            except (TypeError, ValueError):
+                current = int(float(str(raw)))
             if current != wrap:
                 label.configure(wraplength=wrap)
 
