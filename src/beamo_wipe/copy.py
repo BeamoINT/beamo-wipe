@@ -74,6 +74,19 @@ KEYBOARD_LIMITS = (
 KEYBOARD_CHECK_LABEL = "Type here to check. This is not a password and is not saved."
 KEYBOARD_CHECK_HINT = "Try letters that differ on your keyboard, then a number."
 KEYBOARD_UTILITY = "Keyboard layout"
+TEXT_SIZE_LEAD = "Choose a size that is easy to read. You can change it later."
+TEXT_SIZE_STANDARD = "Standard"
+TEXT_SIZE_LARGE = "Large"
+TEXT_SIZE_EXTRA = "Extra large"
+TEXT_SIZE_UTILITY = "Text size"
+TEXT_SIZE_CONSOLE = (
+    "Text size is for the graphical screens. This text console stays this size."
+)
+TEXT_SIZE_LABELS = {
+    "standard": TEXT_SIZE_STANDARD,
+    "large": TEXT_SIZE_LARGE,
+    "extra": TEXT_SIZE_EXTRA,
+}
 
 WHAT_LEAD = "Nothing starts until you say so."
 
@@ -524,7 +537,10 @@ BTN_REFRESH_UTILITY = "Check disks again (F5)"
 
 PREVIEW_BANNER = "PREVIEW on this computer — fake disks — nothing is erased"
 
-HINT_KEYBOARD = "1, 2, or 3 chooses a layout. Type in the check box. Enter continues."
+HINT_KEYBOARD = (
+    "1, 2, or 3 chooses a layout. Type in the check box. Enter continues. "
+    "Text size stays until this USB restarts."
+)
 HINT_DEFAULT = "Enter continues.  Esc goes back."
 HINT_PICK = "Click a disk, or use Up/Down.  Enter continues.  Esc goes back."
 HINT_OWNER = "Space checks the box.  Enter continues when it is checked."
@@ -931,6 +947,7 @@ GALLERY_CLOSE_TAB = "Preview only. Close this tab when you are done."
 def _apply_language() -> None:
     """Rebuild every derived string from the current language's constants."""
     global EMPTY_DISKS, SSD_FOOTER, DONE_OK, DONE_FAIL, METHOD_CARDS, STOP_LEAD
+    global TEXT_SIZE_LABELS
     global WHAT_MORE, REPORT_HELP_SECTIONS, REPORT_HELP_TEXT, ADVANCED_LOG_NOTE
     global VIEWS, STOP_WARNING, EMPTY_STEPS, OVERWRITE_LIMITS, EXPORT_STAGES
     global BLOCKED_HEADINGS
@@ -944,6 +961,11 @@ def _apply_language() -> None:
     DONE_OK = _outcomes.VIEWS["verified"].message
     DONE_FAIL = _outcomes.VIEWS["engine_failed"].announcement
     METHOD_CARDS = _method_cards()
+    TEXT_SIZE_LABELS = {
+        "standard": TEXT_SIZE_STANDARD,
+        "large": TEXT_SIZE_LARGE,
+        "extra": TEXT_SIZE_EXTRA,
+    }
     STOP_LEAD = _outcomes.STOP_WARNING + STOP_LEAD_SUFFIX
     WHAT_MORE = SECURE_BOOT_HINT + " " + ENGINE_LINE
     REPORT_HELP_SECTIONS = (

@@ -1039,7 +1039,7 @@ class TkWizard:
         # point scale after mapping a window; pixel sizes keep text and our
         # geometry in agreement. Type scale follows window size (compact on
         # 800x600, slightly larger on 1600x1000+), never the X server DPI.
-        self.lay = layout_for(*DEFAULT_SIZE)
+        self.lay = layout_for(*DEFAULT_SIZE, getattr(wizard, "text_size", "standard"))
         self.font_hero = tkfont.Font(root=self.root, family=family, size=-52, weight="bold")
         self.font_h = tkfont.Font(root=self.root, family=family, size=-30, weight="bold")
         self.font_lead = tkfont.Font(root=self.root, family=family, size=-18)
@@ -1206,7 +1206,7 @@ class TkWizard:
         root = getattr(self, "root", None)
         if root is None or not hasattr(root, "winfo_width"):
             if not hasattr(self, "lay"):
-                self.lay = layout_for(*DEFAULT_SIZE)
+                self.lay = layout_for(*DEFAULT_SIZE, getattr(self.w, "text_size", "standard"))
             return False
         try:
             width = root.winfo_width()
@@ -1215,7 +1215,7 @@ class TkWizard:
             return False
         if width < 2 or height < 2:
             return False
-        new = layout_for(width, height)
+        new = layout_for(width, height, getattr(self.w, "text_size", "standard"))
         if new.key == self.lay.key:
             self.lay = new
             return False
@@ -1324,7 +1324,14 @@ class TkWizard:
     def _prepare_body_host(self) -> None:
         self._body_inner = None
         self._body_canvas = None
-        if self._body is None or not (self.lay.short or self.w.screen in {Screen.WHAT, Screen.METHOD, Screen.LAST_CHANCE, Screen.WORKING, Screen.DONE, Screen.DIAGNOSTIC}):
+        if self._body is None or not (
+            self.lay.short
+            or self.w.text_scale > 1.0
+            or self.w.screen in {
+                Screen.WHAT, Screen.METHOD, Screen.LAST_CHANCE,
+                Screen.WORKING, Screen.DONE, Screen.DIAGNOSTIC, Screen.KEYBOARD,
+            }
+        ):
             return
         if self.w.screen in {
             Screen.PICK,
@@ -1992,6 +1999,14 @@ class TkWizard:
             utility(C.BTN_ADVANCED, self._nav(self.w.open_advanced))
         if self.w.can_open_keyboard and self.w.screen != Screen.KEYBOARD:
             utility(C.KEYBOARD_UTILITY, self._nav(self.w.open_keyboard))
+        if self.w.screen not in {
+            Screen.SPLASH, Screen.KEYBOARD, Screen.WORKING, Screen.STOPPING,
+            Screen.CHECKING, Screen.REFRESHING, Screen.DONE, Screen.SHUTDOWN_CONFIRM,
+        }:
+            utility(
+                f"{C.TEXT_SIZE_UTILITY}: {C.TEXT_SIZE_LABELS.get(self.w.text_size, C.TEXT_SIZE_STANDARD)}",
+                self._cycle_text_size,
+            )
         if self.w.can_refresh and self.w.screen != Screen.REFRESH_CONFIRM:
             utility(C.BTN_REFRESH_UTILITY, self._click_refresh)
             if self.w.can_open_report_help:
@@ -2165,6 +2180,19 @@ class TkWizard:
         self._title_block(col, C.TITLE_KEYBOARD, C.KEYBOARD_LEAD)
         zone = self._center_zone(col)
         self._p(zone, C.KEYBOARD_LIMITS, font=self.font_s, fg=MUTED).pack(fill=tk.X)
+        self._p(zone, C.TEXT_SIZE_LEAD, font=self.font_s, fg=INK).pack(fill=tk.X, pady=(10, 4))
+        size_row = tk.Frame(zone, bg=BG)
+        size_row.pack(fill=tk.X, pady=(0, 8))
+        for size_id, label in C.TEXT_SIZE_LABELS.items():
+            selected = self.w.text_size == size_id
+            _Button(
+                size_row,
+                text=label,
+                font=self.font_s_bold,
+                command=partial(self._apply_text_size, size_id),
+                variant="primary" if selected else "ghost",
+                compact=True,
+            ).pack(side=tk.LEFT, padx=(0, 8))
         for index, layout_id in enumerate(LAYOUT_ORDER, 1):
             spec = _keyboard.LAYOUTS[layout_id]
             selected = self.w.keyboard_layout == layout_id
@@ -3991,6 +4019,17 @@ class TkWizard:
             return
         self._accessible_requested = True
         self._teardown()
+
+    def _apply_text_size(self, size: str) -> None:
+        if not self.w.set_text_size(size):
+            return
+        self._sync_layout()
+        self._draw()
+
+    def _cycle_text_size(self) -> None:
+        self.w.cycle_text_size()
+        self._sync_layout()
+        self._draw()
 
     def _click_refresh(self) -> None:
         if self.w.screen != Screen.REFRESH_CONFIRM:
