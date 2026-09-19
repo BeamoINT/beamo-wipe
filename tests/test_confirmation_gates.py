@@ -48,13 +48,14 @@ class Clock:
 
 
 class SpyRunner:
-    def __init__(self, duration_s=1.0, fail=False):
+    def __init__(self, duration_s=1.0, fail=False, clock=None):
         self.start_calls: list[WipeRequest] = []
         self.started = False
         self.progress = None
         self.result = None
         self.duration_s = duration_s
         self.fail = fail
+        self._clock = clock
         self._request = None
         self._start_t = None
 
@@ -62,12 +63,12 @@ class SpyRunner:
         self.start_calls.append(request)
         self.started = True
         self._request = request
-        self._start_t = time.monotonic()
+        self._start_t = (self._clock or time.monotonic)()
 
     def poll(self, request):
         if not self.started or self._start_t is None:
             return None
-        if time.monotonic() - self._start_t >= self.duration_s:
+        if (self._clock or time.monotonic)() - self._start_t >= self.duration_s:
             from beamo_wipe.models import WipeResult
 
             ok = not self.fail
@@ -82,7 +83,9 @@ def _wiz_with_clock(tmp_path=None, *, spy=None, clock=None, dry_run=True):
     if clock is None:
         clock = Clock()
     if spy is None:
-        spy = SpyRunner()
+        spy = SpyRunner(clock=clock)
+    elif getattr(spy, "_clock", None) is None:
+        spy._clock = clock
     base = make_demo_wizard()
     wiz = Wizard(base.discovery, spy, clock=clock, dry_run=dry_run)
     if tmp_path is not None:
