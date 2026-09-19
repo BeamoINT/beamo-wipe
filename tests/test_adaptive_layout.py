@@ -13,7 +13,7 @@ from dataclasses import replace
 import pytest
 
 from beamo_wipe import copy as C
-from beamo_wipe.models import Screen
+from beamo_wipe.models import Screen, WipeRequest
 from beamo_wipe.ui.layout import (
     DEFAULT_SIZE,
     LARGE_SIZE,
@@ -310,7 +310,9 @@ def test_stop_overlay_keeps_actions_on_short_windows(ui, size):  # noqa: F811
     app.root.minsize(*MIN_SIZE)
     _drive_to(wiz, app, Screen.LAST_CHANCE)
     wiz.screen = Screen.WORKING
-    wiz._wipe_request = object()
+    disk = wiz.selected
+    assert disk is not None
+    wiz._wipe_request = WipeRequest(disk.path, wiz.method, "/dev/boot", "fake-log")
     wiz.request_stop()
     app._draw()
     app.root.geometry(f"{size[0]}x{size[1]}+40+40")
