@@ -14,6 +14,9 @@
 # Verification builds are ephemeral. `_PUBLISH_RELEASE=true` is an explicit,
 # post-QEMU production action; its publisher refuses skipped gates and writes
 # a unique, no-overwrite build path with the completion marker last.
+# GitHub triggers pin `_PUBLISH_RELEASE=false` and `_SKIP_ISO=false`.
+# QEMU never receives host block devices: qemu-verify.sh records argv and
+# aborts if any argument mentions /dev/. This config does not bind /dev.
 
 timeout: 7200s
 options:
@@ -33,7 +36,11 @@ steps:
     name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
     waitFor: ['-']
     entrypoint: bash
-    args: ['scripts/ci-desktop.sh']
+    args:
+      - -ceu
+      - |
+        chmod +x scripts/ci-hosted.sh scripts/ci-desktop.sh scripts/build-desktop.sh
+        ./scripts/ci-hosted.sh desktop-launchers
 
   - id: lint
     name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
@@ -124,3 +131,4 @@ steps:
           python3 -m pip install --break-system-packages -q 'cryptography==49.0.0'
         fi
         python3 scripts/publish_release_gcs.py
+        PYTHONPATH=src python3 -m beamo_wipe.ci_evidence summary

@@ -56,11 +56,11 @@ manifest records what was *executed*:
   canonical JSON. Receipts whose counts, digests, timestamps, or secrets
   checks fail are rejected as tampered.
 - **Required vs optional gates.** Required: `lint`, `tests`, `preview`,
-  `negative`, `iso`, `qemu` — all must be present with status `pass`, or
-  verification fails (a skipped or failed required gate fails; a missing one
-  fails as partial evidence). Optional: `desktop-launchers` — may pass or
-  skip with a reason; a failed optional gate still fails. Unknown gate names
-  are rejected so a renamed step cannot silently leave the record.
+  `desktop-launchers`, `negative`, `iso`, `qemu` — all must be present with
+  status `pass`, or verification fails (a skipped or failed required gate
+  fails; a missing one fails as partial evidence). There are currently no
+  optional gates. Unknown gate names are rejected so a renamed step cannot
+  silently leave the record.
 - **Installed-package inventory** (`beamo-wipe-package-inventory/1`): every
   installed package with name, version, architecture, and source-package
   provenance, sorted by name with a canonical digest, plus the image-level
@@ -84,7 +84,7 @@ The QEMU phase reads package provenance directly from the mounted ISO squashfs.
 ISO construction first creates preliminary artifact provenance using
 `verify_build_manifest`. It validates source identity and actual artifact
 bytes but cannot claim future QEMU success. After QEMU passes, the collector
-requires all six passing receipts and the package inventory, finalizes the
+requires all seven passing receipts and the package inventory, finalizes the
 manifest, and runs the strict `verify_manifest`. Preliminary provenance is
 never accepted by that release verifier or by the publisher.
 

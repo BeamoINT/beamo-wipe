@@ -18,6 +18,7 @@ web-preview/
 .DS_Store
 .coverage
 htmlcov/
+.ci-cache/
 packaging/live/cache/
 packaging/live/chroot/
 packaging/live/.build/

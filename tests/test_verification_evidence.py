@@ -130,28 +130,26 @@ def test_complete_evidence_verifies():
     assert set(verified) >= set(REQUIRED_GATES)
 
 
-def test_skipped_optional_gate_verifies_with_reason():
+def test_skipped_desktop_launchers_fails_as_required():
     gates = _complete_gates()
     gates["desktop-launchers"] = _receipt(
         "desktop-launchers",
         status="skip",
         measured={
-            "passed": 1,
+            "passed": 0,
             "failed": 0,
             "errors": 0,
-            "skipped": 0,
+            "skipped": 1,
             "xfailed": 0,
             "deselected": 0,
             "total": 1,
         },
-        skips=[],
+        skips=[{"id": "desktop-launchers", "kind": "skip", "reason": "not recorded"}],
         log_sha256="",
-        reason="no desktop changes in scope",
+        reason="not recorded",
     )
-    verified = verify_release_evidence(
-        {"schema": "beamo-wipe-test-evidence/1", "gates": gates}
-    )
-    assert verified["desktop-launchers"]["status"] == "skip"
+    with pytest.raises(RuntimeError, match="did not pass"):
+        verify_release_evidence({"schema": "beamo-wipe-test-evidence/1", "gates": gates})
 
 
 def test_skipped_required_gate_fails():
@@ -197,19 +195,11 @@ def test_failed_gate_fails_including_optional():
     gates2["desktop-launchers"] = _receipt(
         "desktop-launchers",
         status="fail",
-        measured={
-            "passed": 0,
-            "failed": 1,
-            "errors": 0,
-            "skipped": 0,
-            "xfailed": 0,
-            "deselected": 0,
-            "total": 1,
-        },
+        measured=_measured(passed=0, failed=1, skipped=0, total=1),
         skips=[],
         log_sha256="c" * 64,
     )
-    with pytest.raises(RuntimeError, match="failed"):
+    with pytest.raises(RuntimeError, match="did not pass"):
         verify_release_evidence({"schema": "beamo-wipe-test-evidence/1", "gates": gates2})
 
 
@@ -411,8 +401,9 @@ def test_cli_parse_junit_and_verify_receipts(tmp_path, capsys):
         main(["verify-receipts", "--receipt", str(out)])
 
 
-def test_optional_gates_are_known():
-    assert set(OPTIONAL_GATES) == {"desktop-launchers"}
+def test_desktop_launchers_is_required():
+    assert "desktop-launchers" in REQUIRED_GATES
+    assert OPTIONAL_GATES == ()
     assert not (set(REQUIRED_GATES) & set(OPTIONAL_GATES))
     digest = canonical_digest({"b": [1, 2], "a": 1})
     assert digest == canonical_digest({"a": 1, "b": [1, 2]})

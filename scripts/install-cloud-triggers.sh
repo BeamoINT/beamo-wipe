@@ -74,8 +74,8 @@ reconcile() {
 
 if ! reconcile beamo-wipe-pr-gate \
     --pull-request-pattern='^main$' \
-    --description='Beamo Wipe lint/pytest/preview/negative/ISO on PRs to main (QEMU runs on main)' \
-    --substitutions=_SKIP_QEMU=true \
+    --description='Beamo Wipe lint/pytest/preview/desktop/negative/ISO on PRs to main (QEMU runs on main; never publishes)' \
+    --substitutions=_SKIP_QEMU=true,_SKIP_ISO=false,_PUBLISH_RELEASE=false \
     --comment-control=COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY; then
   printf '\nConnect BeamoINT/beamo-wipe to Cloud Build in project %s, then re-run:\n' "$project" >&2
   printf '  https://console.cloud.google.com/cloud-build/triggers;add=github?project=%s\n' "$project" >&2
@@ -85,6 +85,7 @@ fi
 
 reconcile beamo-wipe-main-gate \
   --branch-pattern='^main$' \
-  --description='Beamo Wipe full gate (lint/pytest/preview/negative/ISO/QEMU) on pushes to main'
+  --description='Beamo Wipe full gate (lint/pytest/preview/desktop/negative/ISO/QEMU) on pushes to main; never publishes' \
+  --substitutions=_SKIP_QEMU=false,_SKIP_ISO=false,_PUBLISH_RELEASE=false
 
 gcloud builds triggers list --project="$project" --format='table(name,filename,github.owner,github.name)'

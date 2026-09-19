@@ -231,3 +231,28 @@ exit "$3"
         assert result.returncode == original_status
     if failed_resource == "target":
         assert target.read_bytes() == b"attached fixture"
+
+
+def test_timing_summary_prints_receipt_elapsed(tmp_path, capsys):
+    from beamo_wipe.ci_evidence import print_summary
+    from beamo_wipe.verification_evidence import build_gate_receipt
+
+    receipt = build_gate_receipt(
+        gate="preview",
+        status="pass",
+        command="fixture preview",
+        source_commit="a" * 40,
+        build_id="local",
+        environment={"runner": "fixture"},
+        measured=dict(passed=1, failed=0, errors=0, skipped=0, xfailed=0, deselected=0, total=1),
+        skips=[],
+        log_sha256="b" * 64,
+        started_at="2026-09-19T00:00:00Z",
+        ended_at="2026-09-19T00:00:12Z",
+    )
+    (tmp_path / "preview.receipt.json").write_text(json.dumps(receipt))
+    print_summary(tmp_path)
+    out = capsys.readouterr().out
+    assert "preview: pass 12s" in out
+    print_summary(tmp_path / "missing")
+    assert "no evidence directory" in capsys.readouterr().out

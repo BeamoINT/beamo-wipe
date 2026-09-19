@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -145,13 +146,39 @@ def finalize(root: Path) -> None:
     }, sort_keys=True), flush=True)
 
 
+def print_summary(evidence_dir: Path) -> None:
+    """Print pass/fail/skip and elapsed seconds for every written receipt."""
+    if not evidence_dir.is_dir():
+        print("CI timing summary: no evidence directory")
+        return
+    rows = []
+    for path in sorted(evidence_dir.glob("*.receipt.json")):
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        started = receipt.get("started_at", "")
+        ended = receipt.get("ended_at", "")
+        elapsed = "unknown"
+        try:
+            start = datetime.datetime.strptime(started, "%Y-%m-%dT%H:%M:%SZ")
+            end = datetime.datetime.strptime(ended, "%Y-%m-%dT%H:%M:%SZ")
+            elapsed = f"{int((end - start).total_seconds())}s"
+        except (TypeError, ValueError):
+            pass
+        rows.append((receipt.get("gate", path.stem), receipt.get("status", "?"), elapsed))
+    print("CI timing summary")
+    for gate, status, elapsed in rows:
+        print(f"  {gate}: {status} {elapsed}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("gate", choices=sorted(KNOWN_GATES) + ["inventory"])
+    parser.add_argument("gate", choices=sorted(KNOWN_GATES) + ["inventory", "summary"])
     parser.add_argument("--image-root", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     evidence = root / "dist/evidence"
+    if args.gate == "summary":
+        print_summary(evidence)
+        return 0
     if args.gate == "inventory":
         if args.image_root is None:
             parser.error("inventory requires --image-root")
@@ -165,6 +192,7 @@ def main() -> int:
         return 1
     if args.gate == "qemu" and receipt["status"] == "pass":
         finalize(root)
+        print_summary(evidence)
     return 0
 
 

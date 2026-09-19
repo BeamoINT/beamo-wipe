@@ -40,10 +40,10 @@ def _copy_iso_release_files(manifest: dict, directory: Path) -> None:
 
 def _sample_gate_receipts(commit: str, build_id: str = "local") -> list:
     """Measured gate receipts for every required gate (complete case)."""
-    from beamo_wipe.verification_evidence import build_gate_receipt
+    from beamo_wipe.verification_evidence import REQUIRED_GATES, build_gate_receipt
 
     receipts = []
-    for gate in ("lint", "tests", "preview", "negative", "iso", "qemu"):
+    for gate in REQUIRED_GATES:
         receipts.append(
             build_gate_receipt(
                 gate=gate,

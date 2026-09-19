@@ -11,7 +11,8 @@ closed on anything missing, failed, tampered, or secret-bearing.
 Required gates must all be present with status ``pass``. Optional gates may
 be ``pass`` or ``skip`` (with a reason); a failed or missing required gate,
 or any failed gate at all, fails verification. Unknown gates are rejected so
-a renamed step cannot silently drop out of the release record.
+a renamed step cannot silently drop out of the release record. Desktop
+launcher tests are required: they already run on every PR and main build.
 
 Deliberately excluded from every receipt: hostnames, usernames, absolute
 paths, PIDs, high-resolution timestamps, and secrets. The JUnit XML that
@@ -35,8 +36,16 @@ GATE_RECEIPT_SCHEMA = "beamo-wipe-gate-receipt/1"
 TEST_EVIDENCE_SCHEMA = "beamo-wipe-test-evidence/1"
 PACKAGE_INVENTORY_SCHEMA = "beamo-wipe-package-inventory/1"
 
-REQUIRED_GATES = ("lint", "tests", "preview", "negative", "iso", "qemu")
-OPTIONAL_GATES = ("desktop-launchers",)
+REQUIRED_GATES = (
+    "lint",
+    "tests",
+    "preview",
+    "desktop-launchers",
+    "negative",
+    "iso",
+    "qemu",
+)
+OPTIONAL_GATES: tuple[str, ...] = ()
 KNOWN_GATES = frozenset(REQUIRED_GATES + OPTIONAL_GATES)
 STATUSES = frozenset({"pass", "fail", "skip"})
 

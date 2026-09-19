@@ -9,7 +9,7 @@ Neither gate ever wipes a host disk.
 
 | Gate | Runner | What it proves |
 | --- | --- | --- |
-| **Cloud Build** `cloudbuild.yaml` (`./scripts/ci-cloud.sh`, project `beamo-wipe`) | One vulnerability-scanned, content-addressed Debian base on `E2_HIGHCPU_8`, `diskSizeGb: 200`; current Debian Python, Docker CLI, and test packages installed over signed HTTPS metadata | `lint`, fake-disk pytest under Xvfb 72 DPI, preview verification, negative test, amd64 ISO build, and controlled QEMU verification. Outputs remain ephemeral unless an operator explicitly invokes `--publish-release`; the standard-library publisher is post-QEMU, no-overwrite, byte-verified, and completion-marked. |
+| **Cloud Build** `cloudbuild.yaml` (`./scripts/ci-cloud.sh`, project `beamo-wipe`) | One vulnerability-scanned, content-addressed Debian base on `E2_HIGHCPU_8`, `diskSizeGb: 200`; current Debian Python, Docker CLI, and test packages installed over signed HTTPS metadata | `lint`, fake-disk pytest under Xvfb 72 DPI, preview, desktop launchers, negative test, amd64 ISO build, and controlled QEMU verification. Outputs remain ephemeral unless an operator explicitly invokes `--publish-release`; the standard-library publisher is post-QEMU, no-overwrite, byte-verified, and completion-marked. |
 
 ```bash
 python3 -m pytest                          # fast checkout (fake lsblk, no nwipe)
@@ -24,21 +24,22 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 
 | Phase | Step | What it runs |
 | --- | --- | --- |
-| `lint` | `lint` | Blocking compile, ShellCheck, and Ruff security rules; full Ruff and mypy remain advisory reports |
-| `tests` | `python-tests` | `xvfb-run … 72 DPI` with `BEAMO_WIPE_DRY_RUN=1`; destructive-boundary spies use fake runners, never real `nwipe` |
+| `lint` | `lint` | Blocking compile, ShellCheck, and Ruff security rules. Full Ruff and mypy still run and are printed; they stay advisory until the existing format/type backlog is cleared. |
+| `tests` | `python-tests` | `xvfb-run … 72 DPI` with `BEAMO_WIPE_DRY_RUN=1`; destructive-boundary spies use fake runners, never real `nwipe`. Sequential pip installs share `PIP_CACHE_DIR` under the Cloud Build workspace. |
 | `preview` | `preview` | `BEAMO_WIPE_NO_OPEN=1 ./preview --web` + `--console` + `--helper` (fake disks) |
+| `desktop-launchers` | `desktop-launchers` | `scripts/ci-desktop.sh` wrapped as a required gate receipt: Go race/vet/fuzz plus pinned Windows compile. ISO waits for this step so the image ships the tested pair. |
 | `negative` | `negative-test` | Waits for every source-reading gate, deliberately breaks `assert_boot_excluded`, expects the e2e test to fail, and restores from a private `mktemp` backup even on signals |
-| `iso` | `iso-build` | Waits for the restored negative-test workspace, then performs a privileged linux/amd64 build with no host `/dev` bind, content-addressed Debian build image, strict versioned output, PVD/size checks, manifest + sidecars |
-| `qemu` | `qemu-verify` | Exact verified ISO, read-only image inspection, Debian fixed-vulnerability scan, shipped nwipe on a proved disposable loop, and mandatory BIOS+UEFI probes; no host binary/image fallback |
+| `iso` | `iso-build` | Waits for the restored negative-test workspace **and** desktop-launchers, then performs a privileged linux/amd64 build with no host `/dev` bind, content-addressed Debian build image, strict versioned output, PVD/size checks, manifest + sidecars |
+| `qemu` | `qemu-verify` | Exact verified ISO, read-only image inspection, Debian fixed-vulnerability scan, shipped nwipe on a proved disposable loop, and mandatory BIOS+UEFI probes; no host binary/image fallback. Aborts if QEMU argv mentions `/dev/`. |
 
-`./scripts/ci-hosted.sh all` runs every verification phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`). `_PUBLISH_RELEASE` defaults to `false`; `./scripts/ci-cloud.sh --publish-release` is the explicit production path and refuses either skip. The publisher step explicitly maps Cloud Build's immutable `$BUILD_ID` substitution into its process environment; the publisher rejects a missing or malformed identifier before any upload.
+`./scripts/ci-hosted.sh all` runs every verification phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`). `_PUBLISH_RELEASE` defaults to `false`. GitHub triggers pin `_PUBLISH_RELEASE=false` and `_SKIP_ISO=false` so a stale trigger cannot publish or drop the ISO. Verification `./scripts/ci-cloud.sh` also appends `_PUBLISH_RELEASE=false`. `./scripts/ci-cloud.sh --publish-release` is the explicit production path and refuses either skip. The publisher step explicitly maps Cloud Build's immutable `$BUILD_ID` substitution into its process environment; the publisher rejects a missing or malformed identifier before any upload. After publish-or-not, the worker prints a `CI timing summary` from gate receipts.
 
 ## Triggers
 
 `scripts/install-cloud-triggers.sh` creates (requires the Cloud Build GitHub App connected to `BeamoINT/beamo-wipe` first):
 
-- `beamo-wipe-pr-gate` — PRs targeting `main`: lint, tests, preview, negative, ISO (QEMU skipped via `_SKIP_QEMU=true`).
-- `beamo-wipe-main-gate` — pushes to `main`: the full gate including QEMU.
+- `beamo-wipe-pr-gate` — PRs targeting `main`: lint, tests, preview, desktop-launchers, negative, ISO. Substitutions: `_SKIP_QEMU=true,_SKIP_ISO=false,_PUBLISH_RELEASE=false`.
+- `beamo-wipe-main-gate` — pushes to `main`: the full gate including QEMU. Substitutions: `_SKIP_QEMU=false,_SKIP_ISO=false,_PUBLISH_RELEASE=false`.
 
 The installer pins the production project's existing, constrained build service
 account explicitly; Cloud Build must not fall back to a legacy or implicit
@@ -47,7 +48,20 @@ accepting stale event, repository, substitution, or service-account settings.
 For a different project, set `BEAMO_WIPE_CLOUD_BUILD_SERVICE_ACCOUNT` to a
 fully qualified service-account resource in that same project.
 
-Branch protection on `main` should require these Cloud Build statuses.
+## Required checks
+
+Branch protection on `main` should require these Cloud Build check names (GitHub Checks API, not the older commit-status API):
+
+- PRs: `beamo-wipe-pr-gate (beamo-wipe)`
+- Pushes to `main`: `beamo-wipe-main-gate (beamo-wipe)`
+
+This checkout cannot read or change GitHub branch protection. An operator with
+admin access should confirm those checks are required and that `main` is not
+writable without them.
+
+## Publication and rollback
+
+Do not publish an ISO from a PR or from a main verification build. Production publication is only `./scripts/ci-cloud.sh --publish-release` after separate operator authorization. Uploads are no-overwrite under `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/` with `RELEASE_COMPLETE.txt` last. Rollback is the prior stable ISO documented in `docs/release-verification.md` (`beamo-wipe-0.2.0-amd64.iso`, SHA-256 `62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74`) plus `docs/runbook.md` §8. Never bind a host disk into QEMU.
 
 ## Billing
 
@@ -66,11 +80,6 @@ Cloud Build bills the `beamo-wipe` project (free tier covers 120 build-minutes/d
 | `docker: permission denied` | User not in `docker` group on nested VM | Use `sudo docker` (see `.cursor/start.sh`); ensure `/etc/docker/daemon.json` has `fuse-overlayfs` on nested hosts. |
 
 Local triage: reproduce with `BEAMO_WIPE_DRY_RUN=1 xvfb-run … python -m pytest -k "not test_iso_build and not test_live_config"` then `BEAMO_WIPE_NO_OPEN=1 ./preview --web`.
-
-## Required checks
-
-Branch protection on `main` should require the Cloud Build triggers (`beamo-wipe-pr-gate` on PRs, `beamo-wipe-main-gate` on pushes). See `scripts/install-cloud-triggers.sh`.
-
 
 ## Desktop and regular-file packaging checks
 

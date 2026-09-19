@@ -14,14 +14,17 @@ export DEBIAN_FRONTEND=noninteractive
 
 PHASE="${1:-all}"
 case "$PHASE" in
-  lint|tests|preview|negative|iso|qemu|all) ;;
+  lint|tests|preview|desktop-launchers|negative|iso|qemu|all) ;;
   *)
-    printf 'usage: %s [lint|tests|preview|negative|iso|all|qemu]\n' "$0" >&2
+    printf 'usage: %s [lint|tests|preview|desktop-launchers|negative|iso|qemu|all]\n' "$0" >&2
     exit 2
     ;;
 esac
 
 log() { printf '[ci-hosted] %s\n' "$*"; }
+
+mkdir -p "$ROOT/.ci-cache/pip"
+export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$ROOT/.ci-cache/pip}"
 
 install_test_deps() {
   if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
@@ -56,6 +59,13 @@ install_preview_deps() {
   if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends python3 python3-tk python3-qrcode git
+}
+
+install_desktop_meta() {
+  # python3+git are required before ci_evidence can wrap ci-desktop.sh.
+  if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends ca-certificates python3 git
 }
 
 install_qemu_deps() {
@@ -119,6 +129,11 @@ run_preview() {
   test -f web-preview/index.html
   BEAMO_WIPE_NO_OPEN=1 ./preview --console < /dev/null
   BEAMO_WIPE_NO_OPEN=1 ./preview --helper
+}
+
+run_desktop() {
+  log "desktop launchers (Go race/vet/fuzz + pinned Windows compile; fake firmware)"
+  ./scripts/ci-desktop.sh
 }
 
 run_negative() {
@@ -242,6 +257,10 @@ case "$PHASE" in
     install_preview_deps
     record_gate preview run_preview
     ;;
+  desktop-launchers)
+    install_desktop_meta
+    record_gate desktop-launchers run_desktop
+    ;;
   negative)
     install_test_deps
     record_gate negative run_negative
@@ -259,6 +278,7 @@ case "$PHASE" in
     install_test_deps
     record_gate tests run_pytest
     record_gate preview run_preview
+    record_gate desktop-launchers run_desktop
     record_gate negative run_negative
     record_gate iso run_iso
     install_qemu_deps
