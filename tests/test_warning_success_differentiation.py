@@ -304,7 +304,8 @@ def test_accessible_view_marks_severity_in_words_and_roles():
         assert name in source
     assert "Atk.Role.ALERT" in source
     assert "report-saved" in source
-    assert ".erase-warning { background: #FBF1D5; color: #7A5200;" in source
+    assert ".erase-warning" in source
+    assert "#FBF1D5" in source and "#7A5200" in source
     assert "def _error_text" in source
     assert source.count("_error_text(self.w)") == 2
 

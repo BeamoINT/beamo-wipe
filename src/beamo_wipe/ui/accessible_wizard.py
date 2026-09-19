@@ -61,35 +61,7 @@ class AccessibleWizard:
         self.window.get_settings().set_property("gtk-label-select-on-focus", False)
         self.window.set_name("beamo-accessible")
         self._style = Gtk.CssProvider()
-        self._style.load_from_data(b"""
-            #beamo-accessible { background: #FFFFFF; color: #12202E; }
-            #beamo-accessible label { font-size: 16px; }
-            #beamo-accessible .screen-heading { font-size: 26px; font-weight: bold; color: #12202E; }
-            #beamo-accessible .preview-notice { background: #E6A817; color: #0A1B34; padding: 8px; }
-            #beamo-accessible .disk-identity { background: #F0F5FA; color: #12202E; padding: 16px 20px; border: 1px solid #1C4A73; border-radius: 12px; }
-            #beamo-accessible button { padding: 10px 20px; border-radius: 999px; }
-            #beamo-accessible button.primary-action { background-image: none; background-color: #1C4A73; color: #FFFFFF; }
-            #beamo-accessible button.primary-action:hover { background-color: #163A5C; }
-            #beamo-accessible button.primary-action:active { background-color: #102A44; }
-            #beamo-accessible button.destructive-action { background-image: none; background-color: #B3261E; color: #FFFFFF; }
-            #beamo-accessible button.destructive-action:hover { background-color: #8E1D16; }
-            #beamo-accessible button.destructive-action:active { background-color: #6E1510; }
-            #beamo-accessible button:disabled { background-image: none; background-color: #E8ECF1; color: #6E7989; }
-            #beamo-accessible button:focus { outline: 3px solid #2563EB; outline-offset: 2px; }
-            #beamo-accessible checkbutton { padding: 8px 10px; border-radius: 12px; }
-            #beamo-accessible checkbutton:hover { background-color: #F4F6F8; }
-            #beamo-accessible checkbutton:checked { background-color: #F0F5FA; }
-            #beamo-accessible checkbutton:focus { outline: 3px solid #2563EB; outline-offset: 2px; }
-            #beamo-accessible entry { padding: 8px 12px; border-radius: 12px; }
-            #beamo-accessible button.utility-action { background-image: none; background-color: #FFFFFF; color: #1C4A73; box-shadow: none; }
-            #beamo-accessible button.utility-action:hover { background-color: #F0F5FA; }
-            #beamo-accessible button.utility-action:active { background-color: #D7E4F2; }
-            #beamo-accessible .erase-warning { background: #FBF1D5; color: #7A5200; padding: 12px 16px; border-radius: 12px; }
-            #beamo-accessible .screen-actions { border-top: 1px solid #E3E8EE; padding-top: 12px; }
-            #beamo-accessible .report-warning { background: #FBF1D5; color: #7A5200; padding: 10px 14px; border-radius: 12px; }
-            #beamo-accessible .report-saved { background: #E7F2EB; color: #17703F; padding: 10px 14px; border-radius: 12px; }
-            #beamo-accessible .error-message { color: #B3261E; font-weight: bold; }
-        """)
+        self._apply_type_css()
         # Size before the first show: a low-resolution live session may have
         # no window manager to constrain an oversized default for us.
         width, height = 900, 700
@@ -117,6 +89,41 @@ class AccessibleWizard:
         self.actions: dict[str, Gtk.Button] = {}
         self.render()
         self.timer = GLib.timeout_add(100, self.tick)
+
+    def _apply_type_css(self) -> None:
+        scale = getattr(self.w, "text_scale", 1.0)
+        body = max(12, int(round(16 * scale)))
+        heading = max(18, int(round(26 * scale)))
+        css = f"""
+            #beamo-accessible {{ background: #FFFFFF; color: #12202E; }}
+            #beamo-accessible label {{ font-size: {body}px; }}
+            #beamo-accessible .screen-heading {{ font-size: {heading}px; font-weight: bold; color: #12202E; }}
+            #beamo-accessible .preview-notice {{ background: #E6A817; color: #0A1B34; padding: 8px; }}
+            #beamo-accessible .disk-identity {{ background: #F0F5FA; color: #12202E; padding: 16px 20px; border: 1px solid #1C4A73; border-radius: 12px; }}
+            #beamo-accessible button {{ padding: 10px 20px; border-radius: 999px; }}
+            #beamo-accessible button.primary-action {{ background-image: none; background-color: #1C4A73; color: #FFFFFF; }}
+            #beamo-accessible button.primary-action:hover {{ background-color: #163A5C; }}
+            #beamo-accessible button.primary-action:active {{ background-color: #102A44; }}
+            #beamo-accessible button.destructive-action {{ background-image: none; background-color: #B3261E; color: #FFFFFF; }}
+            #beamo-accessible button.destructive-action:hover {{ background-color: #8E1D16; }}
+            #beamo-accessible button.destructive-action:active {{ background-color: #6E1510; }}
+            #beamo-accessible button:disabled {{ background-image: none; background-color: #E8ECF1; color: #6E7989; }}
+            #beamo-accessible button:focus {{ outline: 3px solid #2563EB; outline-offset: 2px; }}
+            #beamo-accessible checkbutton {{ padding: 8px 10px; border-radius: 12px; }}
+            #beamo-accessible checkbutton:hover {{ background-color: #F4F6F8; }}
+            #beamo-accessible checkbutton:checked {{ background-color: #F0F5FA; }}
+            #beamo-accessible checkbutton:focus {{ outline: 3px solid #2563EB; outline-offset: 2px; }}
+            #beamo-accessible entry {{ padding: 8px 12px; border-radius: 12px; }}
+            #beamo-accessible button.utility-action {{ background-image: none; background-color: #FFFFFF; color: #1C4A73; box-shadow: none; }}
+            #beamo-accessible button.utility-action:hover {{ background-color: #F0F5FA; }}
+            #beamo-accessible button.utility-action:active {{ background-color: #D7E4F2; }}
+            #beamo-accessible .erase-warning {{ background: #FBF1D5; color: #7A5200; padding: 12px 16px; border-radius: 12px; }}
+            #beamo-accessible .screen-actions {{ border-top: 1px solid #E3E8EE; padding-top: 12px; }}
+            #beamo-accessible .report-warning {{ background: #FBF1D5; color: #7A5200; padding: 10px 14px; border-radius: 12px; }}
+            #beamo-accessible .report-saved {{ background: #E7F2EB; color: #17703F; padding: 10px 14px; border-radius: 12px; }}
+            #beamo-accessible .error-message {{ color: #B3261E; font-weight: bold; }}
+        """
+        self._style.load_from_data(css.encode())
 
     def label(self, text: str, *, focusable: bool = False):
         widget = Gtk.Label(label=text)
@@ -239,6 +246,7 @@ class AccessibleWizard:
 
     def render(self):
         self.generation += 1
+        self._apply_type_css()
         self.actions = {}
         self.primary = self.progress_label = self.countdown_label = None
         self.power_label = None
@@ -289,6 +297,14 @@ class AccessibleWizard:
             heading.set_text(C.TITLE_KEYBOARD)
             self.label(C.KEYBOARD_LEAD)
             self.label(C.KEYBOARD_LIMITS)
+            self.label(C.TEXT_SIZE_LEAD)
+            for size_id, label in C.TEXT_SIZE_LABELS.items():
+                state = "selected" if self.w.text_size == size_id else C.ACCESSIBLE_NOT_SELECTED
+                self.button(
+                    f"{label} ({state})",
+                    lambda sid=size_id: self.w.set_text_size(sid),
+                    in_body=True,
+                )
             for index, layout_id in enumerate(LAYOUT_ORDER, 1):
                 spec = _keyboard.LAYOUTS[layout_id]
                 state = "selected" if self.w.keyboard_layout == layout_id else C.ACCESSIBLE_NOT_SELECTED
@@ -730,6 +746,17 @@ class AccessibleWizard:
             self.button(C.BTN_REFRESH_UTILITY, self.w.open_refresh_confirm, utility=True)
         if self.w.can_open_keyboard and screen != Screen.KEYBOARD:
             self.button(C.KEYBOARD_UTILITY, self.w.open_keyboard, utility=True)
+        if screen not in {
+            Screen.SPLASH, Screen.KEYBOARD, Screen.WORKING, Screen.STOPPING,
+            Screen.CHECKING, Screen.REFRESHING, Screen.DONE, Screen.SHUTDOWN_CONFIRM,
+            Screen.METHOD, Screen.LAST_CHANCE, Screen.ADVANCED, Screen.LIMITS,
+            Screen.DISK_HELP, Screen.REPORT_HELP,
+        }:
+            self.button(
+                f"{C.TEXT_SIZE_UTILITY}: {C.TEXT_SIZE_LABELS.get(self.w.text_size, C.TEXT_SIZE_STANDARD)}",
+                self.w.cycle_text_size,
+                utility=True,
+            )
         if screen in {
             Screen.WHAT,
             Screen.OWNER,
