@@ -30,6 +30,9 @@ EXTRA_WORK_DOD = (
     "Three times the overwrites of {everyday}. "
     "Extra passes do not reach hidden storage."
 )
+PLAIN_LEAD_PRNG = "Overwrite the disk, then check the result."
+PLAIN_LEAD_DODSHORT = "Overwrite the disk three times, then check the result."
+PLAIN_LEAD_ZERO = "Overwrite the disk with zeros. This does not check the result."
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,15 @@ class NwipeMethodSpec:
             "prng": TITLE_PRNG,
             "dodshort": TITLE_DODSHORT,
             "zero": TITLE_ZERO,
+        }[self.nwipe_method]
+
+    @property
+    def plain_lead(self) -> str:
+        """Novice sentence first. Exact overwrite/verify counts follow."""
+        return {
+            "prng": PLAIN_LEAD_PRNG,
+            "dodshort": PLAIN_LEAD_DODSHORT,
+            "zero": PLAIN_LEAD_ZERO,
         }[self.nwipe_method]
 
     @property

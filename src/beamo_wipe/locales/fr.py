@@ -86,12 +86,17 @@ STRINGS = {
         "DONE_FAIL_PREVIEW": "Aperçu d’un effacement échoué. Rien n’a été effacé sur cet ordinateur.",
         "SAME_SIZE_HINT": "Deux disques ont la même taille. Comparez leur numéro de série ou identifiant matériel avant de choisir.",
         "RECOMMENDED_TAG": "Recommandé",
+        "EVERYDAY_LIMITS": (
+            "Cela vérifie seulement le stockage que le disque expose. Cela ne promet pas "
+            "combien de temps cela prendra. Un rapport enregistré n’est pas une preuve "
+            "supplémentaire des zones cachées."
+        ),
         "CONFIRM_LEAD": "Tapez ce que nous demandons, puis continuez.",
         "CONFIRM_MATCH_WAIT": "Tapez exactement, puis vous pourrez continuer.",
         "CONFIRM_MATCH_OK": "Cela correspond. Vous pouvez continuer.",
         "COUNTDOWN_CAPTION": "secondes avant que Effacer soit disponible.",
         "COUNTDOWN_READY": "Rien n’a commencé. Choisissez Effacer maintenant pour effacer ce disque.",
-        "METHOD_LEAD": "Choisissez avec quel soin écraser le disque.",
+        "METHOD_LEAD": "Choisissez avec quel soin écraser le disque. La durée n’est pas promise.",
         "LAST_LEAD": "Vérifiez le disque et la méthode choisis. Le compte à rebours ne déclenche jamais l’effacement.",
         "AUTHORIZATION_STALE": "Le disque ou la méthode a changé. Confirmez à nouveau.",
         "ADVANCED_LEAD": "Ce sont les noms nwipe. Pour les techniciens. Les autres écrans restent simples.",
@@ -466,6 +471,9 @@ STRINGS = {
             "Trois fois plus d’écrasements que {everyday}. "
             "Les passes supplémentaires n’atteignent pas le stockage caché."
         ),
+        "PLAIN_LEAD_PRNG": "Écrasez le disque, puis vérifiez le résultat.",
+        "PLAIN_LEAD_DODSHORT": "Écrasez le disque trois fois, puis vérifiez le résultat.",
+        "PLAIN_LEAD_ZERO": "Écrasez le disque avec des zéros. Cela ne vérifie pas le résultat.",
     },
     "power": {
         "AC_CONNECTED": "branché (signalé)",
