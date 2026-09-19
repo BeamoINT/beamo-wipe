@@ -167,3 +167,26 @@ def test_rendered_headers_name_preparation_erase_result_not_equal_pages(ui):  # 
     texts = _header_texts(app)
     assert "Result" in texts
     assert all(" of 8" not in text for text in texts)
+
+
+def test_curses_80x24_names_preparation_without_hiding_pick_count(monkeypatch):
+    from test_console_parity import _at_pick, _draw
+
+    wiz = _at_pick()
+    shown, packed, _term = _draw(monkeypatch, wiz, h=24, w=80)
+    assert "Preparation" in packed
+    assert "3 disks available to erase" in packed
+    assert wiz.selectable[0].serial in packed
+    assert "Step 1 of 8" not in shown
+
+
+def test_curses_16x48_keeps_count_when_journey_stage_cannot_fit(monkeypatch):
+    from test_console_parity import _at_pick, _draw
+
+    wiz = _at_pick()
+    first = sorted(wiz.selectable, key=lambda d: d.path)[0]
+    shown, packed, _term = _draw(monkeypatch, wiz, h=16, w=48)
+    assert "3 disks available to erase" in packed
+    assert first.serial in packed
+    assert "same size" in shown.lower()
+    assert "Step 1 of 8" not in shown
