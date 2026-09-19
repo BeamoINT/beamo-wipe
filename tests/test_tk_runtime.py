@@ -2144,6 +2144,48 @@ def test_method_identity_wraps_without_losing_values(ui, missing, enlarged):
     app.root.update()
     assert app._body_canvas.yview()[1] == 1.0
 
+
+@pytest.mark.parametrize("code", ["en", "de"])
+def test_method_plain_lead_and_limits_fit_card_column(ui, code):
+    """Would fail when EVERYDAY_LIMITS used wrapping_label inside _Box."""
+    from beamo_wipe import copy as C
+    from beamo_wipe import lang
+
+    lang.set_language(code)
+    try:
+        wiz, app = ui(size=(800, 600))
+        _drive_to(wiz, app, Screen.METHOD, size=(800, 600))
+        needles = [spec.plain_lead for spec in METHODS.values()] + [C.EVERYDAY_LIMITS]
+        found = {needle: False for needle in needles}
+
+        def visit(widget):
+            try:
+                mapped = widget.winfo_ismapped()
+            except tk.TclError:
+                return
+            if mapped and widget.winfo_class() == "Label":
+                text = str(widget.cget("text"))
+                for needle in needles:
+                    if needle == text:
+                        found[needle] = True
+                        wrap = int(float(widget.cget("wraplength") or 0))
+                        act_w = widget.winfo_width()
+                        req_w = widget.winfo_reqwidth()
+                        assert wrap == 0 or wrap <= act_w + 2
+                        assert req_w <= act_w + 2, (
+                            f"h-clip req={req_w} actual={act_w} wrap={wrap} {text[:56]!r}"
+                        )
+            for child in widget.winfo_children():
+                visit(child)
+
+        visit(app.root)
+        assert all(found.values()), found
+        assert _clipping_problems(app) == []
+        assert _off_window_problems(app) == []
+    finally:
+        lang.set_language("en")
+
+
 @pytest.mark.parametrize("size", [(800, 600), MIN_WINDOW, WINDOW, (1600, 1000)])
 def test_review_timer_is_secondary_and_completion_preserves_focus(ui, size):
     from tkinter import font
