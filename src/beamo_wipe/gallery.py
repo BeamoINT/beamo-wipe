@@ -134,6 +134,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "comparisonNote": view.comparison_note,
                 "idLabel": view.id_label,
                 "connection": view.connection,
+                "connectionNote": view.connection_note,
                 "missingNote": view.missing_note,
                 "ambiguousNote": view.ambiguous_note,
                 "duplicateNote": view.duplicate_note,
@@ -420,6 +421,7 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "journey": C.JOURNEY_LABELS,
         "selectedDisk": C.SELECTED_DISK,
         "serialLabel": C.SERIAL_LABEL,
+        "connectionLabel": _identity.CONNECTION_LABEL,
         "reviewCheck": C.REVIEW_CHECK,
         "splashRoadmap": C.SPLASH_ROADMAP,
         "sevWarning": C.SEVERITY_WARNING,
@@ -1254,14 +1256,14 @@ function recoveryHtml(sections) {
 }
 function metaLine(d, opts) {
   const detailId = opts && opts.detailId;
-  const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
+  const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, d.connectionNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
     .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
   const extra = showMore
     ? `<div class="small muted more-path"${detailId ? ` id="${detailId}"` : ""}>${esc(P.pathNote)}: ${esc(d.path)}</div>`
     : (detailId ? `<div id="${detailId}" hidden></div>` : "");
   return `<div class="meta"><span class="serialpair"><span class="serial-label">${esc(d.idLabel || P.serialLabel)}</span><span class="mono ser">${esc(screen === "pick" && !d.isBoot ? d.markedSerial || d.serial : d.serial)}</span></span>
     <span class="disktype">${esc(d.kindLabel)}</span>
-    <div class="connection"><span>${esc(d.connection || d.bus)}</span></div>${notes}${extra}</div>`;
+    <div class="connection"><span class="serial-label">${esc(P.connectionLabel)}</span><span>${esc(d.connection || d.bus)}</span></div>${notes}${extra}</div>`;
 }
 function summaryCard(d) {
   return `<div class="card hero identity"><div class="identity-label">${P.selectedDisk}</div><div class="row" style="align-items:flex-start">

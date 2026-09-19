@@ -529,6 +529,12 @@ STRINGS = {
     "identity": {
         "UNKNOWN_MODEL": "Unbekanntes Modell",
         "CONNECTION_UNKNOWN": "Anschluss unbekannt",
+        "CONNECTION_LABEL": "Anschluss",
+        "CONNECTION_OTHER": "Sonstiges",
+        "CONNECTION_BRIDGE_NOTE": (
+            "Das kann im Computer oder in einem USB-Gehäuse stecken. "
+            "Nutzen Sie den Anschlussnamen nicht zur Entscheidung."
+        ),
         "SERIAL_NOT_REPORTED": "Seriennummer nicht gemeldet",
         "HARDWARE_ID_LABEL": "Hardware-ID",
         "SERIAL_LABEL": "Seriennummer",

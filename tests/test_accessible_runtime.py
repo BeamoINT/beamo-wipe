@@ -978,6 +978,21 @@ def test_accessible_render_emits_only_fixed_screen_marker(ui, monkeypatch):
     assert all(marker.startswith("BEAMO_WIPE_ACCESSIBLE_SCREEN_") for marker in markers)
 
 
+def test_picker_select_buttons_announce_connection(ui):
+    from beamo_wipe.identity import CONNECTION_LABEL
+
+    wizard = make_demo_wizard()
+    wizard.screen = Screen.PICK
+    app = ui(wizard)
+    names = list(app.actions)
+    for disk in wizard.selectable:
+        view = wizard.disk_view(disk)
+        expected = f"Select {view.announcement}"
+        assert expected in names
+        assert f"{CONNECTION_LABEL}: {view.connection}" in expected
+    assert wizard.selected is None and not wizard.runner.started
+
+
 def test_picker_protected_identity_is_reader_not_select_action(ui):
     wizard = make_demo_wizard()
     wizard.screen = Screen.PICK

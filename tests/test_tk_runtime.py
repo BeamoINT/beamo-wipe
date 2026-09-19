@@ -1871,6 +1871,31 @@ def test_prepare_text_visible_for_system_and_data_disks(ui, contents, prepare, s
     assert not _off_window_problems(app)
 
 
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, (800, 600)])
+def test_connection_is_visible_on_pick_without_show_more(ui, size):
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.PICK
+    app._show_more = False
+    app._draw()
+    app.root.update()
+
+    def descendants(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from descendants(child)
+
+    shown = _label_text(app)
+    assert "USB" in shown and "SATA" in shown and "NVMe" in shown
+    labels = [w for w in descendants(app.root) if getattr(w, "_beamo_connection", False)]
+    assert labels
+    assert all(w.winfo_ismapped() for w in labels)
+    assert wiz.selected is None or wiz.selected.path not in shown
+    assert not app._show_more
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert not wiz.runner.started
+
+
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 @pytest.mark.parametrize("scenario", ["happy", "empty"])
 @pytest.mark.parametrize("long_identity", [False, True])

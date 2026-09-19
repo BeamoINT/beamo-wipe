@@ -13,7 +13,13 @@ from beamo_wipe.copy import kind_label
 from beamo_wipe.models import Disk
 
 UNKNOWN_MODEL = "Unknown model"
+CONNECTION_LABEL = "Connection"
 CONNECTION_UNKNOWN = "Connection unknown"
+CONNECTION_OTHER = "Other"
+CONNECTION_BRIDGE_NOTE = (
+    "This can be inside the computer or a USB enclosure. "
+    "Do not use the connection name to decide."
+)
 SERIAL_NOT_REPORTED = "Serial not reported"
 HARDWARE_ID_LABEL = "Hardware ID"
 SERIAL_LABEL = "Serial"
@@ -50,6 +56,7 @@ class DiskIdentityView:
     title: str
     capacity: str
     connection: str
+    connection_note: str
     kind_chip: str
     id_label: str
     id_value: str
@@ -75,7 +82,7 @@ class DiskIdentityView:
         if self.kind_chip:
             parts.append(self.kind_chip)
         if self.connection:
-            parts.append(self.connection)
+            parts.append(f"{CONNECTION_LABEL}: {self.connection}")
         parts.append(f"{self.id_label}: {self.id_value}")
         parts.extend(self.notes)
         return "; ".join(parts)
@@ -88,7 +95,13 @@ class DiskIdentityView:
     def notes(self) -> tuple[str, ...]:
         return tuple(
             note
-            for note in (self.missing_note, self.duplicate_note, self.ambiguous_note, self.comparison_note)
+            for note in (
+                self.missing_note,
+                self.duplicate_note,
+                self.ambiguous_note,
+                self.comparison_note,
+                self.connection_note,
+            )
             if note
         )
 
@@ -97,6 +110,7 @@ class DiskIdentityView:
             "title": self.title,
             "capacity": self.capacity,
             "connection": self.connection,
+            "connection_note": self.connection_note,
             "kind": self.kind_chip,
             "id_label": self.id_label,
             "id_value": self.id_value,
@@ -114,10 +128,20 @@ def display_title(disk: Disk) -> str:
 
 
 def connection_label(disk: Disk) -> str:
+    """Observed transport only. Never infer USB/SATA/NVMe from the kernel name."""
     bus = (disk.bus or "").strip()
     if bus in _CONNECTION:
         return _CONNECTION[bus]
-    return CONNECTION_UNKNOWN
+    if not bus:
+        return CONNECTION_UNKNOWN
+    return CONNECTION_OTHER
+
+
+def connection_note(disk: Disk) -> str:
+    """SATA/NVMe/SAS plus hotplug can be a USB enclosure. Do not guess location."""
+    if disk.bus in {"SATA", "NVMe", "SAS"} and disk.hotplug:
+        return CONNECTION_BRIDGE_NOTE
+    return ""
 
 
 def strongest_identifier(disk: Disk) -> tuple[str, str]:
@@ -176,6 +200,7 @@ def present_disk(
         title=display_title(disk),
         capacity=disk.size_phrase,
         connection=connection_label(disk),
+        connection_note=connection_note(disk),
         kind_chip=kind_label(disk.kind),
         id_label=id_label,
         id_value=id_value,

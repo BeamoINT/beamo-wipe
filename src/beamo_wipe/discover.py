@@ -622,6 +622,10 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
         mountpoints=mountpoints,
         raw_model=raw_model,
         contents=classify_contents(node),
+        hotplug=(
+            _as_bool(node.get("rm")) is True
+            or _as_bool(node.get("hotplug")) is True
+        ),
     )
 
 
