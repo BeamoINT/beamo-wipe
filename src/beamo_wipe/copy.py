@@ -645,6 +645,8 @@ def media_steps(*, stay_in_session: bool = False) -> str:
 
 HINT_WORKING = "Leave this USB in until the result appears."
 HINT_SPLASH = "Press any key to continue."
+ASSIST_LABEL = "Help and extra actions"
+NAV_LABEL = "Main actions"
 
 NO_CODE = "Serial not reported"
 KIND_UNKNOWN = "Type unknown"

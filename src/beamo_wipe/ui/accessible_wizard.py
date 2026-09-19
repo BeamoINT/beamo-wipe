@@ -258,9 +258,14 @@ class AccessibleWizard:
         self.utilities.set_column_homogeneous(True)
         self.utilities.set_column_spacing(6)
         self.utilities.set_row_spacing(4)
+        # Grouping names must not rewrite action or result heading ATK names.
+        self.utilities.get_accessible().set_role(Atk.Role.PANEL)
+        self.utilities.get_accessible().set_name(C.ASSIST_LABEL)
         self._utility_count = 0
         self.footer.pack_start(self.utilities, False, False, 0)
         self.navigation = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.navigation.get_accessible().set_role(Atk.Role.PANEL)
+        self.navigation.get_accessible().set_name(C.NAV_LABEL)
         self.footer.pack_start(self.navigation, False, False, 4)
         if self.w.preview:
             self.label(C.PREVIEW_BANNER).get_style_context().add_class("preview-notice")
