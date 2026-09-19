@@ -74,6 +74,37 @@ def test_gtk_names_assist_and_navigation_separately():
     ).read_text(encoding="utf-8")
     assert "ASSIST_LABEL" in source
     assert "NAV_LABEL" in source
+    assert "Atk.Role.PANEL" in source
+
+
+def test_assist_nav_names_do_not_rewrite_result_heading():
+    """Would fail if footer grouping ATK names prefixed the result heading."""
+    from gi.repository import Atk
+
+    from beamo_wipe.ui.accessible_wizard import AccessibleWizard
+    from test_accessible_runtime import drain, widgets
+    from test_result_presentations import CASES, case_evidence
+
+    wizard, _, _ = case_evidence(CASES[1])
+    app = AccessibleWizard(wizard)
+    try:
+        app.window.resize(800, 600)
+        drain()
+        expected = wizard.result_view.announcement
+        names = [w.get_accessible().get_name() for w in widgets(app.window)]
+        assert expected in names
+        assert C.NAV_LABEL in names
+        headings = [
+            w.get_accessible().get_name()
+            for w in widgets(app.window)
+            if w.get_accessible().get_role() == Atk.Role.HEADING
+        ]
+        assert headings[0] == expected
+        assert not headings[0].startswith(C.NAV_LABEL)
+        assert not headings[0].startswith(C.ASSIST_LABEL)
+    finally:
+        app.close()
+        drain()
 
 
 def test_console_keeps_extra_chrome_off_the_primary_action_line():
