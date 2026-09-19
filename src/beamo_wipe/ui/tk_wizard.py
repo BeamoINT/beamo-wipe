@@ -2175,7 +2175,7 @@ class TkWizard:
                 justify=tk.CENTER, anchor="center").pack(fill=tk.X, pady=(14, 0))
         hero = _Button(
             col,
-            text=C.BTN_CONTINUE,
+            text=C.primary_action(Screen.SPLASH),
             command=self._nav(self.w.skip_splash),
             font=self.font_btn,
             variant="primary",
@@ -2300,7 +2300,7 @@ class TkWizard:
         row = self._footer_shell(C.HINT_KEYBOARD)
         if self.w._keyboard_from:
             self._back_btn(row)
-        self._primary_btn(row, C.BTN_CONTINUE, self.w.accept_keyboard)
+        self._primary_btn(row, C.primary_action(Screen.KEYBOARD), self.w.accept_keyboard)
 
     def _typing_var_written(self, *_a) -> None:
         if self.w.screen != Screen.KEYBOARD:
@@ -2353,7 +2353,7 @@ class TkWizard:
         self._support_identity_block(zone)
         row = self._footer_shell(C.HINT_DEFAULT)
         self._secondary_btn(row, self._close_label(), self._click_shutdown)
-        self._primary_btn(row, C.BTN_UNDERSTAND, self.w.accept_what)
+        self._primary_btn(row, C.primary_action(Screen.WHAT), self.w.accept_what)
         if self._primary is not None:
             self._primary.focus_set()
 
@@ -2397,7 +2397,7 @@ class TkWizard:
         card.focus_set()
         row = self._footer_shell(C.HINT_OWNER)
         self._back_btn(row)
-        self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_owner, enabled=self.w.owner_ok)
+        self._primary_btn(row, C.primary_action(Screen.OWNER), self.w.continue_owner, enabled=self.w.owner_ok)
 
     def _owner_clicked(self, _event=None) -> str:
         self._owner_var.set(0 if self._owner_var.get() else 1)
@@ -2610,7 +2610,7 @@ class TkWizard:
         row = self._footer_shell(C.HINT_PICK)
         back = self._back_btn(row)
         can = self.w.selected is not None and not self.w.selected.is_boot
-        self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_pick, enabled=can)
+        self._primary_btn(row, C.primary_action(Screen.PICK), self.w.continue_pick, enabled=can)
         # Always land keyboard focus somewhere sensible: the obvious next
         # action when a disk is chosen, otherwise the safe way out.
         (self._primary if can and self._primary is not None else back).focus_set()
@@ -3119,7 +3119,7 @@ class TkWizard:
         self._paint_match()
         row = self._footer_shell(C.HINT_CONFIRM)
         self._back_btn(row)
-        self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_confirm, enabled=self.w.token_ok)
+        self._primary_btn(row, C.primary_action(Screen.CONFIRM), self.w.continue_confirm, enabled=self.w.token_ok)
 
     def _paint_match(self) -> None:
         if self._match_icon is None or self._match_label is None:
@@ -3289,7 +3289,7 @@ class TkWizard:
             self._method_card(zone, method)
         row = self._footer_shell(C.HINT_METHOD)
         self._back_btn(row)
-        self._primary_btn(row, C.BTN_CONTINUE, self.w.continue_method)
+        self._primary_btn(row, C.primary_action(Screen.METHOD), self.w.continue_method)
         if self._primary is not None:
             self._primary.focus_set()
 
@@ -3765,9 +3765,9 @@ class TkWizard:
             log_row, text=log, font=self.font_mono_sm, fg=INK, bg=BG, anchor="w"
         ).pack(side=tk.LEFT)
         self._p(zone, C.ADVANCED_LOG_NOTE, fg=MUTED, font=self.font_s).pack(fill=tk.X)
-        row = self._footer_shell(C.HINT_DEFAULT)
+        row = self._footer_shell(C.HINT_ADVANCED)
         self._back_btn(row)
-        self._primary_btn(row, C.BTN_CONTINUE, self.w.close_advanced)
+        self._primary_btn(row, C.primary_action(Screen.ADVANCED), self.w.close_advanced)
         if self._primary is not None:
             self._primary.focus_set()
 

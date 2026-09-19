@@ -403,7 +403,7 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     if screen == Screen.REPORT_HELP:
         return [C.CON_REPORT_HELP_FOOTER]
     if screen == Screen.ADVANCED:
-        return [C.CON_READ_BACK]
+        return [C.CON_ADVANCED_FOOTER]
     if screen == Screen.LAST_CHANCE:
         return [
             C.CON_LAST_WAIT.format(seconds=wizard.countdown_display)
