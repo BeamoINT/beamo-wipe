@@ -46,7 +46,7 @@ Checklist:
 - [ ] Keyboard-only can complete the flow.
 - [ ] The 10G disk appears with size + serial (QEMU may show a short serial).
 - [ ] The live disc is not selectable.
-- [ ] Wrong confirm token keeps Continue disabled.
+- [ ] Wrong confirm token keeps Choose erase method disabled.
 - [ ] Everyday wipe on the 10G disk completes; success screen.
 - [ ] Killing nwipe (or `--fail-demo` in demo) shows failure, not success.
 - [ ] `helper/index.html` opens in a browser and is obviously not a wiper.

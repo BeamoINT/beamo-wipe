@@ -12,6 +12,7 @@ import pytest
 
 pytest.importorskip("gi")
 from beamo_wipe.ui.accessible_wizard import AccessibleWizard, Gtk, Gdk, GLib  # noqa: E402
+from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe.demo import make_demo_wizard  # noqa: E402
 from beamo_wipe.models import DiskKind, MethodId, Screen  # noqa: E402
 from beamo_wipe.methods import METHODS  # noqa: E402
@@ -131,30 +132,27 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     wizard = app.w
     wizard.skip_intro()
     app.render()
-    app.actions["Continue"].clicked()
+    app.actions[C.BTN_UNDERSTAND].clicked()
     check = next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton))
-    assert not app.actions["Continue"].get_sensitive()
+    assert not app.actions[C.BTN_CHOOSE_DISK].get_sensitive()
     check.set_active(True)
-    app.actions["Continue"].clicked()
+    app.actions[C.BTN_CHOOSE_DISK].clicked()
     assert wizard.selected is None
     select = next(v for k, v in app.actions.items() if k.startswith("Select "))
     select.clicked()
     entry = next(w for w in widgets(app.window) if isinstance(w, Gtk.Entry))
     entry.set_text("WRONG")
-    assert not app.actions["Continue"].get_sensitive()
+    assert not app.actions[C.BTN_CHOOSE_METHOD].get_sensitive()
     entry.set_text(wizard.confirm.token)
-    app.actions["Continue"].clicked()
-    app.actions["Continue"].clicked()
+    app.actions[C.BTN_CHOOSE_METHOD].clicked()
+    app.actions[C.BTN_REVIEW_ERASE].clicked()
     assert wizard.screen == Screen.LAST_CHANCE
-    assert "Review before erasing" in text(app)
-    from beamo_wipe import copy as C
     assert C.LAST_LEAD in text(app)
     assert not app.actions["Erase now"].get_sensitive()
     stale_erase = app.actions["Erase now"]
     app.actions["Check disks again (F5)"].clicked()
     assert wizard.screen == Screen.REFRESH_CONFIRM
     assert wizard.selected is not None and wizard.owner_ok
-    from beamo_wipe import copy as C
     assert C.REFRESH_LEAD in text(app)
     app.actions[C.BTN_REFRESH].clicked()
     assert wizard.screen == Screen.WHAT
@@ -162,18 +160,18 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     # A queued action from the previous screen never starts a wipe.
     stale_erase.emit("clicked")
     assert not wizard.runner.started
-    app.actions["Continue"].clicked()
+    app.actions[C.BTN_UNDERSTAND].clicked()
     next(w for w in widgets(app.window) if isinstance(w, Gtk.CheckButton)).set_active(
         True
     )
-    app.actions["Continue"].clicked()
+    app.actions[C.BTN_CHOOSE_DISK].clicked()
     next(v for k, v in app.actions.items() if k.startswith("Select ")).clicked()
     next(w for w in widgets(app.window) if isinstance(w, Gtk.Entry)).set_text(
         wizard.confirm.token
     )
-    app.actions["Continue"].clicked()
+    app.actions[C.BTN_CHOOSE_METHOD].clicked()
     wizard.set_method(MethodId.QUICK_ZERO)
-    app.actions["Continue"].clicked()
+    app.actions[C.BTN_REVIEW_ERASE].clicked()
     wizard._erase_until = 0
     app.update_status()
     assert app.actions["Erase now"].get_sensitive()

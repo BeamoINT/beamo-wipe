@@ -604,6 +604,11 @@ def _gallery_html_for_current_language(lang: str) -> str:
             "closePreview": C.BTN_CLOSE_PREVIEW,
             "runAgain": C.BTN_RUN_AGAIN,
             "continue": C.BTN_CONTINUE,
+            "chooseDisk": C.BTN_CHOOSE_DISK,
+            "reviewDisk": C.BTN_REVIEW_DISK,
+            "chooseMethod": C.BTN_CHOOSE_METHOD,
+            "reviewErase": C.BTN_REVIEW_ERASE,
+            "returnMethods": C.BTN_RETURN_METHODS,
             "back": C.BTN_BACK,
             "erase": C.BTN_ERASE,
             "advanced": C.BTN_ADVANCED,
@@ -1418,7 +1423,7 @@ function draw() {
     card.onkeydown = (e) => { if (e.key === " ") { e.preventDefault(); toggle(); } };
     btnsL.append(btn(P.buttons.back, () => { screen = "what"; draw(); }));
     renderHint(P.hints.owner);
-    btnsR.append(btn(P.buttons.continue, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
+    btnsR.append(btn(P.buttons.chooseDisk, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
     main.innerHTML = `<div class="centerstage"><div class="badgehalo danger">${badge("danger", 51)}</div>
       <h1>${P.titles.blocked}</h1>${recoveryHtml(P.blockedRecovery)}<p class="small muted inventory-count" role="status">${esc(P.inventoryCount.blocked)}</p>${supportCodeBlock(P.sampleBlockedCode)}</div>`;
@@ -1467,7 +1472,7 @@ function draw() {
     });
     renderHint(P.hints.pick);
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
-    btnsR.append(btn(P.buttons.continue, () => { if (selected && !selected.isBoot) { screen = "confirm"; token=""; draw(); } }, "primary", !(selected && !selected.isBoot)));
+    btnsR.append(btn(P.buttons.reviewDisk, () => { if (selected && !selected.isBoot) { screen = "confirm"; token=""; draw(); } }, "primary", !(selected && !selected.isBoot)));
   } else if (screen === "confirm") {
     const d = selected;
     main.innerHTML = `<h1>${P.titles.confirm}</h1><div class="cz"><div class="czc">
@@ -1495,7 +1500,7 @@ function draw() {
     setTimeout(() => { inp.focus(); inp.setSelectionRange(token.length, token.length); }, 0);
     renderHint(P.hints.confirm);
     btnsL.append(btn(P.buttons.back, () => { screen = "pick"; draw(); }));
-    const cont = btn(P.buttons.continue, () => { if (tokenOk()) { screen = "method"; draw(); } }, "primary", !tokenOk());
+    const cont = btn(P.buttons.chooseMethod, () => { if (tokenOk()) { screen = "method"; draw(); } }, "primary", !tokenOk());
     cont.id = "cont";
     btnsR.append(cont);
   } else if (screen === "method") {
@@ -1526,7 +1531,7 @@ function draw() {
     main.querySelector("#limits").onclick = () => { screen = "limits"; draw(); };
     renderHint(P.hints.method);
     btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
-    btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
+    btnsR.append(btn(P.buttons.reviewErase, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
   } else if (screen === "refresh_confirm") {
     main.innerHTML = `<h1 class="sub">${P.titles.refresh}</h1><p class="subtitle">${P.refreshLead}</p>`;
     btnsL.append(btn(P.buttons.back, () => { screen = refreshFrom; draw(); }));
@@ -1581,7 +1586,7 @@ function draw() {
       <p class="muted small">${P.advancedNote}</p></div></div>`;
     main.innerHTML = html;
     btnsL.append(btn(P.buttons.back, () => { screen = "method"; draw(); }));
-    btnsR.append(btn(P.buttons.continue, () => { screen = "method"; draw(); }, "primary"));
+    btnsR.append(btn(P.buttons.returnMethods, () => { screen = "method"; draw(); }, "primary"));
   } else if (screen === "last") {
     if (!selected) { screen = "pick"; draw(); return; }
     const ready = tLeft <= 0;

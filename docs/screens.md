@@ -4,6 +4,8 @@ Every interface uses the same Wizard authorization and validated result model.
 
 Wayfinding uses three stages, not eight equal pages: **Preparation** (keyboard through the last review), **Erase** (the long destructive operation, including stopping), and **Result** (finished, failed, or stopped by you). The header names the stage. Wipe percentage appears only on the working screen and is never the journey chrome. **Stop could not be confirmed** stays in Erase because the disk may still be erasing. Recovery overlays (refresh confirm, shut down confirm) keep their own screens.
 
+Primary actions name the next step: **Choose a disk**, **Review this disk**, **Choose erase method**, **Review before erasing**. They never say the erase has started. **Erase now** stays on the last review after the countdown. Splash and keyboard keep **Continue**. Advanced uses **Back to methods**. The screen-reader picker has no footer Continue: choosing a disk is the next action.
+
 | Screen | Purpose |
 | --- | --- |
 | Splash / Keyboard / What | Splash explains that nothing starts automatically. Keyboard offers only the shipped US QWERTY, French AZERTY, and German QWERTZ layouts plus a typing-check box that is never saved. What explains ownership, irreversible erasure, backup copies, OS-disk consequences, wall-power reminder, display blanking, and supported PCs. Between the bullets and the power panel, What states the report-media requirements up front: a separate FAT32 USB with one volume, kept unplugged until the result screen asks, with already-plugged media refused, and points to Need a report? for details. |

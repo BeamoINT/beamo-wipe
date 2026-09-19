@@ -35,7 +35,7 @@ def test_unsure_browser_keyboard_and_reset(tmp_path, size):
         page.keyboard.press('Shift+Tab')
         page.keyboard.press('Escape')
         assert page.evaluate('screen') == 'pick'
-        assert page.get_by_role('button', name='Continue', exact=True).is_disabled()
+        assert page.get_by_role('button', name=C.BTN_REVIEW_DISK, exact=True).is_disabled()
         assert unsure.evaluate('(el) => el === document.activeElement')
         page.keyboard.press('Space')
         assert page.evaluate('screen') == 'disk_help'

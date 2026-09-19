@@ -163,7 +163,7 @@ class AccessibleWizard:
         context = widget.get_style_context()
         if text in {C.BTN_ERASE, C.SHUTDOWN_DISCARD}:
             context.add_class("destructive-action")
-        elif text in {C.BTN_CONTINUE, C.SHUTDOWN_KEEP, C.BTN_SAVE_REPORT}:
+        elif text in C.PRIMARY_ACTION_LABELS or text in {C.SHUTDOWN_KEEP, C.BTN_SAVE_REPORT}:
             context.add_class("primary-action")
         elif utility:
             context.add_class("utility-action")
@@ -276,7 +276,7 @@ class AccessibleWizard:
         arrival = heading
         if screen == Screen.SPLASH:
             heading.set_text(C.SPLASH_TAGLINE)
-            self.button(C.BTN_CONTINUE, self.w.skip_splash)
+            self.button(C.primary_action(Screen.SPLASH), self.w.skip_splash)
         elif screen == Screen.KEYBOARD:
             heading.set_text(C.TITLE_KEYBOARD)
             self.label(C.KEYBOARD_LEAD)
@@ -322,7 +322,7 @@ class AccessibleWizard:
             )
             self.body.pack_start(entry, False, False, 4)
             arrival = entry
-            self.button(C.BTN_CONTINUE, self.w.accept_keyboard)
+            self.button(C.primary_action(Screen.KEYBOARD), self.w.accept_keyboard)
         elif screen == Screen.WHAT:
             heading.set_text(C.TITLE_WHAT)
             self.label(C.WHAT_LEAD)
@@ -333,7 +333,7 @@ class AccessibleWizard:
             self.label(C.POWER_BLANKING)
             self.label(C.POWER_EVENTS, focusable=True)
             self.support_identity_labels()
-            self.button(C.BTN_CONTINUE, self.w.accept_what)
+            self.button(C.primary_action(Screen.WHAT), self.w.accept_what)
         elif screen == Screen.OWNER:
             heading.set_text(C.TITLE_OWNER)
             self.label(C.OWNER_LEAD)
@@ -343,7 +343,7 @@ class AccessibleWizard:
             check.set_active(self.w.owner_ok)
             self.body.pack_start(check, False, False, 4)
             self.primary = self.button(
-                C.BTN_CONTINUE, self.w.continue_owner, enabled=self.w.owner_ok
+                C.primary_action(Screen.OWNER), self.w.continue_owner, enabled=self.w.owner_ok
             )
             check.connect(
                 "toggled", lambda widget: self._owner(widget.get_active(), generation)
@@ -414,7 +414,7 @@ class AccessibleWizard:
             entry.set_text(self.w.confirm_input)
             self.body.pack_start(entry, False, False, 4)
             self.primary = self.button(
-                C.BTN_CONTINUE, self.w.continue_confirm, enabled=self.w.token_ok
+                C.primary_action(Screen.CONFIRM), self.w.continue_confirm, enabled=self.w.token_ok
             )
             entry.connect(
                 "changed", lambda widget: self._token(widget.get_text(), generation)
@@ -445,7 +445,7 @@ class AccessibleWizard:
                 )
             self.button(storage_limits.BUTTON, self.w.open_limits, utility=True)
             self.button(C.BTN_ADVANCED, self.w.open_advanced, utility=True)
-            self.button(C.BTN_CONTINUE, self.w.continue_method)
+            self.button(C.primary_action(Screen.METHOD), self.w.continue_method)
         elif screen == Screen.DISK_HELP:
             heading.set_text(C.DISK_HELP_TITLE)
             self.reader(C.DISK_HELP_TEXT)

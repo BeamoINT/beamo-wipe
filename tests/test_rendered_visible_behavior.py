@@ -208,13 +208,13 @@ def test_enlarged_type_still_keeps_warnings_and_actions(ui):  # noqa: F811
 def test_focus_order_and_gated_actions(ui):  # noqa: F811
     wiz, app = ui(size=WINDOW)
     _drive_to(wiz, app, Screen.OWNER, size=WINDOW)
-    continue_btn = _button_named(app, C.BTN_CONTINUE)
+    continue_btn = _button_named(app, C.primary_action(Screen.OWNER))
     assert not wiz.owner_ok
     assert not continue_btn._enabled
     wiz.set_owner(True)
     app._draw()
     app.root.update()
-    continue_btn = _button_named(app, C.BTN_CONTINUE)
+    continue_btn = _button_named(app, C.primary_action(Screen.OWNER))
     assert continue_btn._enabled
     wiz.continue_owner()
     disk = sorted(wiz.selectable, key=lambda d: d.path)[0]
@@ -223,14 +223,14 @@ def test_focus_order_and_gated_actions(ui):  # noqa: F811
     app._draw()
     app.root.update()
     assert wiz.screen == Screen.CONFIRM
-    confirm = _button_named(app, C.BTN_CONTINUE)
+    confirm = _button_named(app, C.primary_action(Screen.CONFIRM))
     assert not confirm._enabled
     assert app.root.focus_get() is not None
     wiz.set_confirm_input(wiz.confirm.token)
     app._confirm_var.set(wiz.confirm.token)
     app._draw()
     app.root.update()
-    confirm = _button_named(app, C.BTN_CONTINUE)
+    confirm = _button_named(app, C.primary_action(Screen.CONFIRM))
     assert confirm._enabled
     wiz.continue_confirm()
     wiz.continue_method()
