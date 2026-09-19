@@ -22,9 +22,12 @@ Primary actions name the next step: **Choose a disk**, **Review this disk**, **C
 
 ## Method operations
 
-- Everyday: Overwrite the disk, then check the result. 1 overwrite pass: random data. Then we check the last overwrite.
-- Three overwrites: Overwrite the disk three times, then check the result. 3 overwrite passes: a pattern, its inverse, then random data. Then we check the last overwrite.
+- Everyday: Overwrite the disk, then check the result.
+- Everyday: 1 overwrite pass: random data. Then we check the last overwrite.
+- Three overwrites: Overwrite the disk three times, then check the result.
+- Three overwrites: 3 overwrite passes: a pattern, its inverse, then random data. Then we check the last overwrite.
 - Three overwrites is marked More overwrites. Three times the overwrites of Everyday. Extra passes do not reach hidden storage.
+- Quick zero: Overwrite the disk with zeros. This does not check the result.
 - Quick zero: 1 overwrite pass: zeros. This method does not check the overwrite.
 - Quick zero is marked No check.
 
