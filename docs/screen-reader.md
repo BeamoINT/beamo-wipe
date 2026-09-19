@@ -35,7 +35,7 @@ with a speaker), `./preview --accessible` starts no
 audio or reader, and the keyboard console fallback has no speech.
 
 Tab and Shift+Tab move focus; Space activates a focused control. The ownership
-checkbox and typed confirmation still gate Continue. The Erase now button stays
+checkbox and typed confirmation still gate the next-action button. The Erase now button stays
 disabled for the five-second countdown and never activates automatically.
 F5 checks disks again before erasure. Escape goes back where allowed. Full
 **Storage limits** are available from method selection and return to that method.
