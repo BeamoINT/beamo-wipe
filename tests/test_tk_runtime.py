@@ -952,8 +952,15 @@ def test_pick_list_scrolls_selected_card_into_view(ui):
     content_h = float(canvas.bbox("all")[3])
     y0 = card.winfo_y() / content_h
     y1 = (card.winfo_y() + card.winfo_height()) / content_h
+    view_h = float(canvas.winfo_height())
+    card_h = float(card.winfo_height())
     assert y0 >= top - 0.02, "selected card scrolled above the view"
-    assert y1 <= bottom + 0.02, "selected card scrolled below the view"
+    if card_h <= view_h:
+        assert y1 <= bottom + 0.02, "selected card scrolled below the view"
+    else:
+        # Longer serial labels wrap until the card is taller than the list.
+        # Restore keeps the identity (top) in view rather than the footer.
+        assert abs(y0 - top) <= 0.02, "oversized selected card should stay top-aligned"
 
 
 def test_leaving_picker_cancels_registered_restore_events(ui):

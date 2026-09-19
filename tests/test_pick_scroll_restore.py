@@ -88,6 +88,16 @@ def test_layout_clamping_does_not_cancel_selected_card_restoration(change):
     assert card.y + card.height <= canvas.top + canvas.height
 
 
+def test_card_taller_than_viewport_keeps_identity_at_top():
+    app, canvas, card = picker()
+    canvas.height = 100
+    card.y = 200
+    card.height = 180
+    app._pick_restore_scroll()
+    assert canvas.top == 200, "oversized card must keep its heading in view"
+    assert canvas.top + canvas.height < card.y + card.height
+
+
 def test_direct_scroll_with_stable_geometry_keeps_user_position():
     app, canvas, _card = picker()
     app._pick_restore_scroll()
