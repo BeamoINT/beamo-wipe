@@ -590,6 +590,10 @@ HINT_WORKING = "Leave this USB in until the result appears."
 HINT_SPLASH = "Press any key to continue."
 
 NO_CODE = "Serial not reported"
+KIND_UNKNOWN = "Type unknown"
+CAPACITY_UNIT_NOTE = (
+    "GB and TB are decimal (1 TB = 1000 GB). They are not GiB."
+)
 
 
 def kind_label(kind: DiskKind) -> str:
@@ -598,7 +602,7 @@ def kind_label(kind: DiskKind) -> str:
         return KIND_HDD
     if kind in (DiskKind.SSD, DiskKind.NVME):
         return "SSD"
-    return ""
+    return KIND_UNKNOWN
 
 
 KIND_HDD = "Hard disk"

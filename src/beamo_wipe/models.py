@@ -24,6 +24,27 @@ CONTENTS_VALUES = frozenset(
 )
 
 
+def capacity_phrase(size_gb_label: str) -> str:
+    """Familiar decimal GB/TB from the confirm-token GB label.
+
+    TB is used only when the GB count is an exact tenth or whole TB, so two
+    nearby sizes never share a rounded TB name. The integer GB stays visible.
+    """
+    raw = (size_gb_label or "").strip()
+    if not raw.isdigit():
+        return "Capacity unknown"
+    gb = int(raw)
+    if gb <= 0:
+        return "0 GB"
+    if gb >= 1000 and gb % 1000 == 0:
+        return f"{gb // 1000} TB ({gb} GB)"
+    if gb >= 1000 and gb % 100 == 0:
+        tenths = gb // 100
+        whole, frac = divmod(tenths, 10)
+        return f"{whole}.{frac} TB ({gb} GB)"
+    return f"{gb} GB"
+
+
 class MethodId(str, Enum):
     EVERYDAY = "everyday"
     EXTRA = "extra"
@@ -92,7 +113,7 @@ class Disk:
 
     @property
     def size_phrase(self) -> str:
-        return f"{self.size_gb_label} GB"
+        return capacity_phrase(self.size_gb_label)
 
 
 @dataclass(frozen=True)

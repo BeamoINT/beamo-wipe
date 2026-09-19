@@ -1922,6 +1922,32 @@ def test_serial_number_label_is_visible_without_show_more(ui, size):
     assert not wiz.runner.started
 
 
+@pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW, (800, 600)])
+def test_pick_shows_tb_capacity_and_type_unknown(ui, size):
+    from beamo_wipe.copy import KIND_UNKNOWN
+    from beamo_wipe.models import DiskKind
+
+    wiz, app = ui(size=size)
+    wiz.screen = Screen.PICK
+    app._show_more = False
+    unknown = replace(wiz.selectable[0], kind=DiskKind.UNKNOWN)
+    wiz.discovery = replace(
+        wiz.discovery,
+        disks=tuple(unknown if d.path == unknown.path else d for d in wiz.discovery.disks),
+        selectable=tuple(unknown if d.path == unknown.path else d for d in wiz.discovery.selectable),
+    )
+    app._draw()
+    app.root.update()
+    shown = _label_text(app)
+    assert "1 TB (1000 GB)" in shown
+    assert "256 GB" in shown
+    assert KIND_UNKNOWN in shown
+    assert not app._show_more
+    assert not _clipping_problems(app)
+    assert not _off_window_problems(app)
+    assert not wiz.runner.started
+
+
 @pytest.mark.parametrize("size", [WINDOW, MIN_WINDOW])
 @pytest.mark.parametrize("scenario,expected", [
     ("happy", "3 disks available to erase · Beamo USB protected · 1 other device not available"),

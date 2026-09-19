@@ -172,6 +172,10 @@ STRINGS = {
         "HINT_SPLASH": "Appuyez sur une touche pour continuer.",
         "NO_CODE": "Numéro de série non communiqué",
         "KIND_HDD": "Disque dur",
+        "KIND_UNKNOWN": "Type inconnu",
+        "CAPACITY_UNIT_NOTE": (
+            "GB et To sont décimaux (1 To = 1000 Go). Ce ne sont pas des Gio."
+        ),
         "CONFIRM_TYPE_SIZE": "Tapez ces chiffres pour prouver que c’est le bon disque : {token}",
         "CONFIRM_TYPE_FOUR": "Tapez ces 4 caractères pour prouver que c’est le bon disque : {token}",
         "CONFIRM_TYPE_CHARS": "Tapez ces caractères pour prouver que c’est le bon disque : {token}",

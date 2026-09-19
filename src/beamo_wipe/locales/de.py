@@ -172,6 +172,10 @@ STRINGS = {
         "HINT_SPLASH": "Drücken Sie eine Taste, um fortzufahren.",
         "NO_CODE": "Seriennummer nicht gemeldet",
         "KIND_HDD": "Festplatte",
+        "KIND_UNKNOWN": "Typ unbekannt",
+        "CAPACITY_UNIT_NOTE": (
+            "GB und TB sind dezimal (1 TB = 1000 GB). Das sind keine GiB."
+        ),
         "CONFIRM_TYPE_SIZE": "Tippen Sie diese Zahlen, damit wir wissen, dass es der richtige Datenträger ist: {token}",
         "CONFIRM_TYPE_FOUR": "Tippen Sie diese 4 Zeichen, damit wir wissen, dass es der richtige Datenträger ist: {token}",
         "CONFIRM_TYPE_CHARS": "Tippen Sie diese Zeichen, damit wir wissen, dass es der richtige Datenträger ist: {token}",
