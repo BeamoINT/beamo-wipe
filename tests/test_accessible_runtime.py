@@ -487,7 +487,9 @@ def test_orca_announces_every_result(tmp_path, request):
             env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
             capture_output=True,
             text=True,
-            timeout=300,
+            # Descriptive next-action labels add speech on every screen.
+            # Bookworm Orca 43 still announces, but the child can exceed 300s.
+            timeout=480,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         assert "warning" not in result.stdout.lower(), result.stdout
