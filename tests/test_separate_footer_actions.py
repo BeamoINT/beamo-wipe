@@ -77,6 +77,22 @@ def test_gtk_names_assist_and_navigation_separately():
     assert "Atk.Role.PANEL" in source
 
 
+def test_assist_nav_labels_stay_on_the_swept_copy_surface():
+    """New footer grouping names must remain copy literals with FR/DE keys."""
+    from beamo_wipe import lang
+    from test_language_selection import _swept_surface
+
+    keys = set(_swept_surface()["copy"])
+    assert "ASSIST_LABEL" in keys
+    assert "NAV_LABEL" in keys
+    for code in ("fr", "de"):
+        table = set(lang.keys(code, "copy"))
+        assert "ASSIST_LABEL" in table
+        assert "NAV_LABEL" in table
+    assert lang.translated("fr", "copy", "ASSIST_LABEL") != C.ASSIST_LABEL
+    assert lang.translated("de", "copy", "NAV_LABEL") != C.NAV_LABEL
+
+
 def test_assist_nav_names_do_not_rewrite_result_heading():
     """Would fail if footer grouping ATK names prefixed the result heading."""
     from gi.repository import Atk

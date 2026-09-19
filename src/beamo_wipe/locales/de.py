@@ -165,6 +165,8 @@ STRINGS = {
         "SHUTDOWN_HINT": "Nichts wird automatisch gespeichert.",
         "HINT_WORKING": "Lassen Sie diesen USB-Stick stecken, bis das Ergebnis erscheint.",
         "HINT_SPLASH": "Drücken Sie eine Taste, um fortzufahren.",
+        "ASSIST_LABEL": "Hilfe und zusätzliche Aktionen",
+        "NAV_LABEL": "Hauptaktionen",
         "NO_CODE": "Seriennummer nicht gemeldet",
         "KIND_HDD": "Festplatte",
         "KIND_UNKNOWN": "Typ unbekannt",

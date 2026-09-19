@@ -165,6 +165,8 @@ STRINGS = {
         "SHUTDOWN_HINT": "Rien n’est enregistré automatiquement.",
         "HINT_WORKING": "Laissez cette clé USB branchée jusqu’à l’apparition du résultat.",
         "HINT_SPLASH": "Appuyez sur une touche pour continuer.",
+        "ASSIST_LABEL": "Aide et actions supplémentaires",
+        "NAV_LABEL": "Actions principales",
         "NO_CODE": "Numéro de série non communiqué",
         "KIND_HDD": "Disque dur",
         "KIND_UNKNOWN": "Type inconnu",
