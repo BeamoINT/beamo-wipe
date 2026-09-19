@@ -1702,10 +1702,10 @@ class TkWizard:
         return cap
 
     def _hint_bar(self, parent: tk.Widget, hint: str) -> tk.Frame:
-        """Hint copy with known key names rendered as key-caps, centered."""
+        """Hint copy with known key names rendered as key-caps."""
         bar = tk.Frame(parent, bg=BG)
         inner = tk.Frame(bar, bg=BG)
-        inner.pack(anchor="center", expand=True)
+        inner.pack(anchor="w")
         pos = 0
         for match in _KEY_TOKEN_RE.finditer(hint):
             if match.start() > pos:
@@ -1988,13 +1988,15 @@ class TkWizard:
         return C.BTN_CLOSE_PREVIEW if self.w.preview else C.BTN_SHUTDOWN
 
     def _footer_shell(self, hint: str) -> tk.Frame:
-        """One-row footer: secondary actions left, key hints centered,
-        the primary action right. A single hairline separates it from the
-        body. Buttons pack into ``row._left`` / ``row._right``."""
+        """Assist strip (utilities and keyboard hints) above a hairline;
+        navigation is Back/secondary left and the primary action right.
+        Buttons pack into ``row._left`` / ``row._right``."""
         assert self._footer is not None
         col = self._column(self._footer, fill_height=False)
-        tools = tk.Frame(col, bg=BG)
-        tools.pack(fill=tk.X, pady=(0, 4))
+        assist = tk.Frame(col, bg=BG)
+        assist.pack(fill=tk.X, pady=(0, 4))
+        tools = tk.Frame(assist, bg=BG)
+        tools.pack(fill=tk.X)
 
         tool_row = tk.Frame(tools, bg=BG)
         tool_row.pack(anchor="w")
@@ -2027,9 +2029,11 @@ class TkWizard:
                 utility(C.REPORT_HELP_TITLE, self._nav(self.w.open_report_help))
             if sys.platform.startswith("linux"):
                 utility(C.SCREEN_READER_VIEW, self._click_accessible)
+        if self.w.can_open_diagnostic:
+            utility(C.DIAGNOSTIC_TITLE, self._nav(self.w.open_diagnostic))
         if self.w.screen == Screen.DONE and not self.w.preview:
             note = tk.Label(
-                tools, text=C.ANOTHER_HINT, font=self.font_s, bg=BG,
+                assist, text=C.ANOTHER_HINT, font=self.font_s, bg=BG,
                 fg=MUTED, wraplength=self.lay.content_w, justify=tk.LEFT,
                 anchor="w",
             )
@@ -2037,33 +2041,28 @@ class TkWizard:
             # past an 1024-wide window; fill=X uses the content column.
             note.configure(width=1)
             note.pack(fill=tk.X, pady=(4, 0))
-        if self.w.can_open_diagnostic:
-            utility(C.DIAGNOSTIC_TITLE, self._nav(self.w.open_diagnostic))
+        if self.lay.short:
+            self._hint = self._p(assist, hint, font=self.font_s, fg=MUTED,
+                                 wraplength=self.lay.content_w - 8)
+            self._hint.configure(width=1)
+        else:
+            self._hint = self._hint_bar(assist, hint)
+        self._hint.pack(fill=tk.X, pady=(4, 0))
         tk.Frame(col, bg=BORDER, height=1).pack(fill=tk.X)
         row = tk.Frame(col, bg=BG)
         pad = self.lay.footer_pad_y
         row.pack(fill=tk.X, pady=(max(8, pad - 4), pad))
-        # Left first so Tab from Back reaches the primary, then the hint.
-        # Left actions still wrap if they would collide with the reserved
-        # primary width. The primary cluster is packed next so it stays on
-        # the right edge of the content column.
+        # Left first so Tab from Back reaches the primary. Left actions
+        # still wrap if they would collide with the reserved primary width.
+        # The primary cluster is packed next so it stays on the right edge
+        # of the content column. Hints stay in the assist strip so Done's
+        # four left actions plus Shut down still fit the 940px column.
         left_host = tk.Frame(row, bg=BG)
         left_host.pack(side=tk.LEFT)
         left = tk.Frame(left_host, bg=BG)
         left.pack(anchor="w")
         right = tk.Frame(row, bg=BG)
         right.pack(side=tk.RIGHT)
-        mid = tk.Frame(row, bg=BG)
-        mid.pack(fill=tk.BOTH, expand=True)
-        # Hints never share the action row: Done's four left actions plus
-        # Shut down already fill the 940px content column at 1024x740.
-        if self.lay.short:
-            self._hint = self._p(col, hint, font=self.font_s, fg=MUTED,
-                                 wraplength=self.lay.content_w - 8)
-            self._hint.configure(width=1)
-        else:
-            self._hint = self._hint_bar(col, hint)
-        self._hint.pack(fill=tk.X, before=row, pady=(4, 0))
         row._left_host = left_host  # type: ignore[attr-defined]
         row._left = left  # type: ignore[attr-defined]
         row._left_width = 0  # type: ignore[attr-defined]

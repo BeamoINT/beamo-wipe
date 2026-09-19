@@ -118,6 +118,7 @@ def test_gallery_mirrors_wizard_components():
     html = gallery_html()
     for marker in (
         "renderHint",  # key-cap hint bar
+        'class="assist"',  # utilities + hints above the nav row
         "entryshell",  # confirm entry shell card
         "ringwrap",  # countdown ring
         "countdownReady",

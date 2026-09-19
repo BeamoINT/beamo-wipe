@@ -713,6 +713,8 @@ def _gallery_html_for_current_language(lang: str) -> str:
         .replace("__GALLERY_POWER_LOW__", chrome["powerLow"])
         .replace("__GALLERY_POWER_DESKTOP__", chrome["powerDesktop"])
         .replace("__GALLERY_ERASE_STEPS__", chrome["eraseSteps"])
+        .replace("__ASSIST_LABEL__", C.ASSIST_LABEL)
+        .replace("__NAV_LABEL__", C.NAV_LABEL)
     )
 
 
@@ -865,12 +867,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .panel.ok .sev { color: var(--ok); }
   .panel.limits .sev { color: var(--primary); }
   .panel .extra { font-size: 14px; color: var(--muted); margin-top: 4px; }
-  /* One-row footer, mirroring _footer_shell: secondary actions left, key
-     hints centered, the primary action right, hairline on top. */
+  /* Assist (utilities + keyboard hints) above a hairline; navigation is
+     Back/secondary left and the primary action right. */
   .foot { padding: 0 32px; }
-  .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  .assist { max-width: 940px; margin: 0 auto; padding-top: 4px; }
+  .footrow { max-width: 940px; margin: 0 auto; padding: 16px 0 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .fleft, .fright { display: flex; gap: 12px; flex: none; }
-  .fhint { flex: 1; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.9; }
+  .fright { margin-left: auto; }
+  .fhint { color: var(--muted); font-size: 13px; line-height: 1.9; padding: 4px 0 8px; }
   .fhint .kbd { margin: 0 1px; }
   button.btn { font-size: 15px; font-weight: 600; padding: 11px 22px; border: 1px solid transparent; border-radius: var(--pill); cursor: pointer; min-width: 112px; letter-spacing: -.01em; }
   button.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -971,7 +975,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .disklist::-webkit-scrollbar { width: 10px; }
   .disklist::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid var(--bg); }
   .disklist::-webkit-scrollbar-track { background: transparent; }
-  .utilities { max-width: 940px; margin: auto; display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; }
+  .utilities { display: flex; flex-wrap: wrap; gap: 4px; }
   button.btn.ghost { background: transparent; color: var(--primary); border-color: transparent; min-width: 0; padding: 8px 16px; font-size: 14px; font-weight: 500; }
   button.btn.ghost:hover { background: var(--primary-tint); }
   .utilities:empty { display: none; }
@@ -1016,8 +1020,6 @@ _TEMPLATE = r"""<!DOCTYPE html>
     .hdr { padding: 0 16px; }
     .foot { padding: 0 16px; }
     .footrow { flex-wrap: wrap; gap: 12px; }
-    .fhint { order: 3; flex-basis: 100%; text-align: left; }
-    .fright { margin-left: auto; }
     .fleft { flex-wrap: wrap; }
     h1 { font-size: 28px; line-height: 1.2; }
     .wordmark { font-size: 42px; }
@@ -1054,7 +1056,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <div class="hdr"><div class="brandrow"><span class="brandchip">__LOGO_HEADER__</span><div id="brand"></div></div><ol class="journey" id="journey" aria-label="__GALLERY_ERASE_STEPS__"></ol><span class="steptext" id="step"></span></div>
     <div class="strip" id="sfill"></div>
     <div class="body" id="body"><div class="col" id="main"></div></div>
-    <div class="foot" id="foot"><div class="utilities" id="utilities"></div><div class="footrow"><div class="fleft" id="btnsL"></div><div class="fhint" id="hint"></div><div class="fright" id="btnsR"></div></div></div>
+    <div class="foot" id="foot"><div class="assist" id="assist" role="region" aria-label="__ASSIST_LABEL__"><div class="utilities" id="utilities"></div><div class="fhint" id="hint"></div></div><div class="footrow" role="navigation" aria-label="__NAV_LABEL__"><div class="fleft" id="btnsL"></div><div class="fright" id="btnsR"></div></div></div>
   </div>
 </div>
 <script>
@@ -1512,7 +1514,7 @@ function draw() {
         </div>
       </div>`;
     });
-    html += `<button class="linkbtn" id="adv">${P.buttons.advanced}</button></div></div>`;
+    html += `</div></div>`;
     main.innerHTML = html;
     bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
@@ -1521,7 +1523,6 @@ function draw() {
       el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
     });
     main.querySelector("#limits").onclick = () => { screen = "limits"; draw(); };
-    main.querySelector("#adv").onclick = () => { screen = "advanced"; draw(); };
     renderHint(P.hints.method);
     btnsL.append(btn(P.buttons.back, () => { screen = "confirm"; draw(); }));
     btnsR.append(btn(P.buttons.continue, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
@@ -1703,6 +1704,9 @@ function draw() {
   }
   if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm", "refresh_confirm"].includes(screen)) {
     utilities.prepend(btn(P.refreshUtility, requestRefresh, "ghost"));
+  }
+  if (screen === "method") {
+    utilities.prepend(btn(P.buttons.advanced, () => { screen = "advanced"; draw(); }, "ghost"));
   }
   if (screen === "last") {
     const focused = Array.from(foot.querySelectorAll("button"))

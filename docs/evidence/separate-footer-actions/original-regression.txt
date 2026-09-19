@@ -1,0 +1,21 @@
+# Original-problem regressions on origin/main 60d827a
+
+Command: PYTHONPATH=src python3 -m pytest tests/test_separate_footer_actions.py -q --tb=short
+
+Result before the footer split (3 failed, 1 passed):
+
+FAILED tests/test_separate_footer_actions.py::test_tk_footer_keeps_hints_out_of_the_action_row
+  AssertionError: 'mid.pack(fill=tk.BOTH, expand=True)' is contained in TkWizard._footer_shell
+
+FAILED tests/test_separate_footer_actions.py::test_gallery_hint_lives_in_assist_not_action_row
+  AttributeError: module 'beamo_wipe.copy' has no attribute 'ASSIST_LABEL'
+  (the structural pin is that #hint sat between #btnsL and #btnsR in .footrow)
+
+FAILED tests/test_separate_footer_actions.py::test_gtk_names_assist_and_navigation_separately
+  ASSIST_LABEL absent from accessible_wizard.py
+
+PASSED tests/test_separate_footer_actions.py::test_console_keeps_extra_chrome_off_the_primary_action_line
+  (console already kept extras off the primary action line)
+
+After the split, the same file passes: 4 source tests plus Tk geometry/tab tests
+at 1280×820, 1024×740, and 800×600 when DISPLAY=:0 is available.

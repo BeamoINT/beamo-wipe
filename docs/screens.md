@@ -51,6 +51,16 @@ The graphical wizard uses real layouts at 800×600 and 1024×600 as well as
 and footer actions stay reachable. Type enlarges slightly on large windows.
 Tk scaling stays pinned so X DPI does not change the layout.
 
+Footer actions are two regions. Help and extra actions (keyboard layout,
+check disks again, report help, screen-reader view, diagnostic, Advanced,
+and keyboard hints) sit above a hairline. The navigation row is Back or
+another secondary action on the left and the primary action on the right.
+Keyboard hints never sit between Back and Continue or Erase. GTK names the
+same two regions for AT-SPI and has no key-cap hint bar because each native
+control is already named. The 80×24 console prints primary actions first
+and drops extra chrome before an action is clipped. The boot helper has no
+wizard footer.
+
 Tk and the keyboard console support Tab, Enter, Escape, disk-selection arrows,
 1–2–3 for keyboard layouts and methods. L opens full limits from method selection. The 80×24
 console uses the same customer screen titles as Tk and the gallery, wraps every identity
