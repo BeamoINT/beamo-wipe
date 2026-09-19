@@ -243,7 +243,7 @@ STRINGS = {
         "CON_WHAT_FOOTER": "Enter: Ich verstehe    S: herunterfahren",
         "CON_READ_MORE": "Up/Down: mehr lesen",
         "CON_OWNER_FOOTER": "Space zum Aktivieren. Enter wählt nur einen Datenträger, wenn aktiviert. Esc: zurück",
-        "CON_PICK_NAV": "Up/Down, dann Enter prüft diesen Datenträger. PgUp/PgDn blättern. Esc zurück.",
+        "CON_PICK_NAV": "Up/Down, dann Enter prüft diesen Datenträger.",
         "CON_DISK_HELP": "U: {label}",
         "CON_COMPARE": "Datenträger vergleichen (C): nur lesen.",
         "CON_BOOT_IDENTITY": "{line} (B: Identität)",

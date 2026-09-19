@@ -864,7 +864,8 @@ CON_KEYBOARD_FOOTER = "1/2/3: layout. F2: language. Type to check. Enter continu
 CON_WHAT_FOOTER = "Enter: I understand    S: shut down"
 CON_READ_MORE = "Up/Down: read more"
 CON_OWNER_FOOTER = "Space to check. Enter chooses a disk only when checked. Esc: back"
-CON_PICK_NAV = "Up/Down then Enter reviews this disk. PgUp/PgDn page. Esc back."
+# Wrap column on 16x48 is width-2 (46). One line keeps the pick count.
+CON_PICK_NAV = "Up/Down then Enter reviews this disk."
 CON_DISK_HELP = "U: {label}"
 CON_COMPARE = "Compare disks (C): read only."
 CON_BOOT_IDENTITY = "{line} (B: identity)"

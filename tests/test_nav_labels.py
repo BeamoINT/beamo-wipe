@@ -64,6 +64,7 @@ def test_descriptive_labels_fit_footer_and_do_not_replace_erase_now():
     assert len(C.BTN_CHOOSE_METHOD) <= 24
     assert len(C.BTN_REVIEW_DISK) <= 24
     assert len(C.BTN_CHOOSE_DISK) <= 24
+    assert len(C.CON_PICK_NAV) <= 46
     assert C.BTN_REVIEW_ERASE != C.BTN_ERASE
     last = inspect.getsource(tkui.TkWizard._last)
     assert "BTN_ERASE" in last

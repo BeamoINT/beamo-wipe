@@ -243,7 +243,7 @@ STRINGS = {
         "CON_WHAT_FOOTER": "Enter : J’ai compris    S : éteindre",
         "CON_READ_MORE": "Up/Down : lire plus",
         "CON_OWNER_FOOTER": "Space pour cocher. Enter choisit un disque une fois cochée. Esc : retour",
-        "CON_PICK_NAV": "Up/Down puis Enter vérifie ce disque. PgUp/PgDn pour défiler. Esc retour.",
+        "CON_PICK_NAV": "Up/Down puis Enter vérifie ce disque.",
         "CON_DISK_HELP": "U : {label}",
         "CON_COMPARE": "Comparer les disques (C) : lecture seule.",
         "CON_BOOT_IDENTITY": "{line} (B : identité)",
