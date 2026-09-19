@@ -571,15 +571,24 @@ def test_orca_parent_isolates_x11_instead_of_raising_timeout():
     assert wait % 480 not in src
     assert '"Xvfb"' in src
     assert "xvfb-run" in src  # comment only: nested xvfb-run is forbidden
+    assert 'os.environ.get("BEAMO_HOSTED_ORCA_SEPARATE") == "1"' in src
     conftest = Path(__file__).with_name("conftest.py").read_text(encoding="utf-8")
     assert "pytest_collection_modifyitems" in conftest
     assert "test_orca_announces_every_result" in conftest
+    assert "BEAMO_HOSTED_ORCA_SEPARATE" in conftest
+    hosted = Path(__file__).resolve().parents[1] / "scripts" / "ci-hosted.sh"
+    script = hosted.read_text(encoding="utf-8")
+    assert "BEAMO_TEST_ORCA_CHILD=1" in script
+    assert "--deselect=tests/test_accessible_runtime.py::test_orca_announces_every_result" in script
+    assert "BEAMO_HOSTED_ORCA_SEPARATE=1" in script
 
 
 def test_orca_announces_every_result(tmp_path, request):
     """Real Orca reads GTK focus events via AT-SPI; no host audio/devices used."""
     import shutil
 
+    if os.environ.get("BEAMO_HOSTED_ORCA_SEPARATE") == "1":
+        pytest.skip("Orca already ran on a dedicated Xvfb before this suite")
     if os.environ.get("BEAMO_TEST_ORCA_CHILD") != "1":
         # A fresh application and private bus avoid previously destroyed test
         # windows in the AT-SPI registry. No application behavior is mocked.
