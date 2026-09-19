@@ -39,6 +39,7 @@ TRANSLATED_MODULES = (
     "wizard",
     "support_export",
     "copy",
+    "recovery",
 )
 
 _current = "en"

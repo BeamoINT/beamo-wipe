@@ -368,6 +368,15 @@ def _application(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
     ]
 
 
+def _recovery_fields(view: ResultView) -> list[tuple[str, str]]:
+    from beamo_wipe.recovery import recovery_for_view
+
+    sections = recovery_for_view(view)
+    if sections is None:
+        return []
+    return list(sections.labeled_pairs())
+
+
 def _result_fields(
     payload: Mapping[str, Any],
     view: ResultView,
@@ -385,6 +394,7 @@ def _result_fields(
         *_method_lines(payload),
         (H_ELAPSED, _elapsed(timestamps)),
         (H_RESULT, view.message),
+        *_recovery_fields(view),
         (H_VERIFICATION, _verification_status(payload)),
         (H_WARNINGS, _warnings(payload, secrets)),
         (H_LIMITATIONS, _limitations(payload)),

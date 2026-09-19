@@ -20,6 +20,13 @@ from gi.repository import Atk, Gdk, GLib, Gtk, Pango  # noqa: E402
 from beamo_wipe import copy as C  # noqa: E402
 from beamo_wipe import diagnostic_report as D, inventory, sound, storage_limits  # noqa: E402
 from beamo_wipe.outcomes import may_have_erased  # noqa: E402
+from beamo_wipe.recovery import (  # noqa: E402
+    recovery_for_blocked,
+    recovery_for_diagnostic,
+    recovery_for_empty,
+    recovery_for_view,
+    recovery_for_wizard_error,
+)
 from beamo_wipe import keyboard as _keyboard  # noqa: E402
 from beamo_wipe.keyboard import LAYOUT_ORDER  # noqa: E402
 from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER  # noqa: E402
@@ -119,6 +126,26 @@ class AccessibleWizard:
         if ident is None:
             return
         self.label(C.support_identity_text(ident), focusable=True)
+
+    def recovery(self, sections) -> None:
+        """Screen-reader order: happened, meaning, next, then technical."""
+        for label, body in sections.labeled_pairs():
+            heading = self.label(label, focusable=True)
+            heading.get_accessible().set_role(Atk.Role.HEADING)
+            heading.get_style_context().add_class("recovery-heading")
+            self.label(body, focusable=True)
+        if sections.technical:
+            from beamo_wipe import recovery as Rec
+
+            expander = Gtk.Expander.new(Rec.RECOVERY_TECHNICAL)
+            reader = Gtk.Label(label=sections.technical)
+            reader.set_line_wrap(True)
+            reader.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            reader.set_max_width_chars(65)
+            reader.set_selectable(True)
+            reader.set_can_focus(True)
+            expander.add(reader)
+            self.body.pack_start(expander, False, False, 4)
 
     def button(self, text: str, action: Callable, *, enabled: bool = True,
                utility: bool = False, in_body: bool = False):
@@ -268,7 +295,11 @@ class AccessibleWizard:
                     in_body=True,
                 )
             if self.w.error:
-                self.label(f"{C.SEVERITY_ERROR}: {self.w.error}")
+                sections = recovery_for_wizard_error(self.w.error)
+                if sections:
+                    self.recovery(sections)
+                else:
+                    self.label(f"{C.SEVERITY_ERROR}: {self.w.error}")
             elif self.w.keyboard_message:
                 self.label(f"{C.SEVERITY_WARNING}: {self.w.keyboard_message}")
             self.label(C.KEYBOARD_CHECK_LABEL)
@@ -318,7 +349,11 @@ class AccessibleWizard:
             if same_size_conflict(self.w.listed_disks):
                 self.label(f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}")
             if self.w.error:
-                self.label(f"{C.SEVERITY_ERROR}: {self.w.error}")
+                sections = recovery_for_wizard_error(self.w.error)
+                if sections:
+                    self.recovery(sections)
+                else:
+                    self.label(f"{C.SEVERITY_ERROR}: {self.w.error}")
             if self.w.report_wanted:
                 self.label(C.REPORT_MEDIA_WANTED, focusable=True)
             self._protected_boot()
@@ -343,14 +378,14 @@ class AccessibleWizard:
             heading.set_text(
                 C.TITLE_EMPTY if screen == Screen.PICK_EMPTY else C.blocked_title(self.w.error, recovered=self.w._recovered)
             )
-            self.label(
-                C.EMPTY_DISKS
-                if screen == Screen.PICK_EMPTY
-                else f"{C.SEVERITY_ERROR}: {self.w.error or C.IDENTIFY_ERROR}"
-            )
             if screen == Screen.PICK_EMPTY:
+                self.recovery(recovery_for_empty())
                 self.label(C.support_text(), focusable=True)
                 self._protected_boot()
+            else:
+                self.recovery(
+                    recovery_for_blocked(self.w.error, recovered=self.w._recovered)
+                )
             self.support_identity_labels()
             self._inventory()
             self.button(C.BTN_SHUTDOWN, self.w.shutdown)
@@ -466,7 +501,11 @@ class AccessibleWizard:
             arrival.get_accessible().set_role(Atk.Role.ALERT)
             self.label(self.w.method_summary)
             if self.w.error:
-                self.label(f"{C.SEVERITY_ERROR}: {self.w.error}", focusable=True)
+                sections = recovery_for_wizard_error(self.w.error)
+                if sections:
+                    self.recovery(sections)
+                else:
+                    self.label(f"{C.SEVERITY_ERROR}: {self.w.error}", focusable=True)
             self.support_identity_labels()
             self.countdown_label = self.label("")
             self.primary = self.button(
@@ -489,6 +528,10 @@ class AccessibleWizard:
             self.identity()
             self.label(self.w.method_summary)
             self.progress_label = self.label("")
+            if self.w.error:
+                sections = recovery_for_wizard_error(self.w.error)
+                if sections:
+                    self.recovery(sections)
             if self.w.evidence_warning:
                 self.label(f"{C.SEVERITY_WARNING}: {self.w.evidence_warning}")
             if self.w.stop_confirmation is not None:
@@ -504,7 +547,8 @@ class AccessibleWizard:
         elif screen == Screen.DONE:
             self.w.maybe_play_outcome_sound()
             result = self.w.result_view
-            heading.set_text(result.announcement)
+            sections = recovery_for_view(result)
+            heading.set_text(result.message if sections else result.announcement)
             heading.get_accessible().set_role(Atk.Role.HEADING)
             icon = Gtk.Image.new_from_icon_name(
                 {
@@ -534,7 +578,10 @@ class AccessibleWizard:
             self.identity()
             self.label(self.w.method_summary)
             self.label(self.w.elapsed_text)
-            self.label(self.w.result_view.next_step)
+            if sections:
+                self.recovery(sections)
+            else:
+                self.label(self.w.result_view.next_step)
             if self.w.done_support_needed:
                 self.label(C.support_text(), focusable=True)
             self.support_identity_labels()
@@ -609,11 +656,13 @@ class AccessibleWizard:
         elif screen == Screen.DIAGNOSTIC:
             view = self.w.diagnostic_view
             heading.set_text(D.report_title(self.w.startup_error_code))
-            self.label(D.NOTICE)
-            self.label(D.PREPARE)
-            self.label(view.message, focusable=True)
-            if self.w.diagnostic_step:
-                self.label(self.w.diagnostic_step, focusable=True)
+            self.recovery(
+                recovery_for_diagnostic(
+                    self.w.startup_error_code,
+                    view.message,
+                    self.w.diagnostic_step,
+                )
+            )
             self.support_identity_labels()
             self.button(
                 C.SAVE_DIAGNOSTIC_REPORT if view.ready else C.BTN_PREPARE,

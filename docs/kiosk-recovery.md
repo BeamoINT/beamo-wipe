@@ -42,6 +42,12 @@ exclusion, warning, or result is replaced by the generic recovery screen.
 Recovery cannot show a Beamo Wipe support code or build id: those values come
 from the Python wizard when a report cannot be saved.
 
+This supervisor menu is an intentional difference from wizard error recovery
+(#107). Wizard failures use **What happened**, **What it means for your disk**,
+and **What to do next**, with technical detail on demand. Item 3 here remains
+**Technical details and logs** because the supervisor has no disk identity,
+exclusions, or erase result to translate.
+
 Recovery resets terminal input and cursor state left behind by a crashed console
 UI. Its numbered choices require no pointing device and fit an 80-column,
 25-row console. A selected accessible boot mode speaks the recovery message,

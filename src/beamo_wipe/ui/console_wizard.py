@@ -12,11 +12,47 @@ import textwrap
 from beamo_wipe import copy as C
 from beamo_wipe import diagnostic_report as D
 from beamo_wipe.outcomes import may_have_erased
+from beamo_wipe.recovery import (
+    format_recovery_text,
+    recovery_for_blocked,
+    recovery_for_diagnostic,
+    recovery_for_empty,
+    recovery_for_view,
+    recovery_for_wizard_error,
+)
 from beamo_wipe import storage_limits as limits
 from beamo_wipe import inventory
 from beamo_wipe import keyboard as _keyboard
 from beamo_wipe.keyboard import LAYOUT_ORDER
 from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER
+
+
+def _print_recovery(sections) -> None:
+    print(format_recovery_text(sections, include_technical=True))
+
+
+def _print_error_recovery(error, *, recovered: bool = False) -> None:
+    sections = recovery_for_wizard_error(error)
+    if sections is None:
+        if error:
+            print(f"{C.SEVERITY_ERROR}: {error}")
+        return
+    print(C.SEVERITY_ERROR)
+    _print_recovery(sections)
+
+
+def _error_recovery_text(error, *, recovered: bool = False) -> str:
+    sections = (
+        recovery_for_blocked(error, recovered=True)
+        if recovered
+        else recovery_for_wizard_error(error)
+    )
+    if sections is None:
+        return f"{C.SEVERITY_ERROR}: {error}" if error else ""
+    return (
+        f"{C.SEVERITY_ERROR}\n"
+        f"{format_recovery_text(sections, include_technical=True, compact=True)}"
+    )
 
 
 def _next_language(wizard: Wizard) -> str:
@@ -456,11 +492,13 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.DIAGNOSTIC:
             print(D.report_title(wizard.startup_error_code))
-            print(D.NOTICE)
-            print(D.PREPARE)
-            print(wizard.diagnostic_message)
-            if wizard.diagnostic_step:
-                print(wizard.diagnostic_step)
+            _print_recovery(
+                recovery_for_diagnostic(
+                    wizard.startup_error_code,
+                    wizard.diagnostic_message,
+                    wizard.diagnostic_step,
+                )
+            )
             ident = _support_identity_text(wizard)
             if ident:
                 print(ident)
@@ -494,7 +532,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                 mark = ">" if wizard.language == code else " "
                 print(f"{mark} {LANGUAGE_NAMES[code]}")
             if wizard.error:
-                print(f"{C.SEVERITY_ERROR}: {wizard.error}")
+                _print_error_recovery(wizard.error)
                 if error_needs_support(wizard.error):
                     print(C.support_text())
             elif wizard.keyboard_message:
@@ -537,7 +575,10 @@ def _plain_loop_body(wizard: Wizard) -> int:
             continue
         if screen == Screen.PICK_BLOCKED:
             print(C.blocked_title(wizard.error, recovered=wizard._recovered))
-            print(f"{C.SEVERITY_ERROR}: {wizard.error or C.IDENTIFY_ERROR}")
+            print(f"{C.SEVERITY_ERROR}")
+            _print_recovery(
+                recovery_for_blocked(wizard.error, recovered=wizard._recovered)
+            )
             if error_needs_support(wizard.error):
                 print(C.support_text())
             ident = _support_identity_text(wizard)
@@ -547,7 +588,8 @@ def _plain_loop_body(wizard: Wizard) -> int:
             wizard.shutdown()
             continue
         if screen == Screen.PICK_EMPTY:
-            print(C.EMPTY_DISKS)
+            print(C.TITLE_EMPTY)
+            _print_recovery(recovery_for_empty())
             print(C.support_text())
             ident = _support_identity_text(wizard)
             if ident:
@@ -688,7 +730,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(f"{C.SEVERITY_WARNING}: {wizard.erase_label()}")
             print(wizard.method_summary)
             if wizard.error:
-                print(f"{C.SEVERITY_ERROR}: {wizard.error}")
+                _print_error_recovery(wizard.error)
                 if error_needs_support(wizard.error):
                     print(C.support_text())
             ident = _support_identity_text(wizard)
@@ -721,7 +763,7 @@ def _plain_loop_body(wizard: Wizard) -> int:
                     print(wizard.sound_message)
 
                 if wizard.error:
-                    print(f"{C.SEVERITY_ERROR}: {wizard.error}")
+                    _print_error_recovery(wizard.error)
                     if error_needs_support(wizard.error):
                         print(C.support_text())
                 if wizard.evidence_warning:
@@ -767,7 +809,11 @@ def _plain_loop_body(wizard: Wizard) -> int:
             print(wizard.method_summary)
             if wizard.selected:
                 _print_view(wizard.disk_view(wizard.selected))
-            print(wizard.result_view.next_step)
+            sections = recovery_for_view(wizard.result_view)
+            if sections:
+                _print_recovery(sections)
+            else:
+                print(wizard.result_view.next_step)
             if wizard.done_support_needed:
                 print(C.support_text())
             ident = _support_identity_text(wizard)
@@ -928,7 +974,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 lines.extend(_lines(f"{star} {LANGUAGE_NAMES[code]}", w))
             lines.append("")
             if wizard.error:
-                lines.extend(_lines(f"{C.SEVERITY_ERROR}: {wizard.error}", w))
+                lines.extend(_lines(_error_recovery_text(wizard.error), w))
                 if error_needs_support(wizard.error):
                     lines.extend(_lines(C.support_text(), w))
             elif wizard.keyboard_message:
@@ -958,7 +1004,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if same_size_conflict(wizard.listed_disks):
                 y = _wrap(stdscr, y, f"{C.SEVERITY_WARNING}: {C.SAME_SIZE_HINT}", w, y_max) + 1
             if wizard.error:
-                y = _wrap(stdscr, y, f"{C.SEVERITY_ERROR}: {wizard.error}", w, y_max) + 1
+                y = _wrap(stdscr, y, _error_recovery_text(wizard.error), w, y_max) + 1
                 if error_needs_support(wizard.error):
                     y = _wrap(stdscr, y, C.support_text(), w, y_max) + 1
             if wizard.report_wanted:
@@ -1003,11 +1049,22 @@ def _loop(stdscr, wizard: Wizard) -> int:
             )
             limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
         elif wizard.screen == Screen.DIAGNOSTIC:
-            y = _wrap(stdscr, y, D.report_title(wizard.startup_error_code) + "\n" + D.NOTICE, w, y_max)
-            y = _wrap(stdscr, y, D.PREPARE, w, y_max)
-            y = _wrap(stdscr, y, wizard.diagnostic_message, w, y_max)
-            if wizard.diagnostic_step:
-                y = _wrap(stdscr, y, wizard.diagnostic_step, w, y_max)
+            y = _wrap(stdscr, y, D.report_title(wizard.startup_error_code), w, y_max)
+            y = _wrap(
+                stdscr,
+                y,
+                format_recovery_text(
+                    recovery_for_diagnostic(
+                        wizard.startup_error_code,
+                        wizard.diagnostic_message,
+                        wizard.diagnostic_step,
+                    ),
+                    include_technical=True,
+                    compact=True,
+                ),
+                w,
+                y_max,
+            )
             ident = _support_identity_text(wizard)
             if ident:
                 y = _wrap(stdscr, y, ident, w, y_max)
@@ -1019,14 +1076,23 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 w,
                 y_max,
             )
-            y = _wrap(stdscr, y, f"{C.SEVERITY_ERROR}: {wizard.error or C.IDENTIFY_ERROR}", w, y_max)
+            y = _wrap(
+                stdscr,
+                y,
+                _error_recovery_text(wizard.error, recovered=wizard._recovered),
+                w,
+                y_max,
+            )
             if error_needs_support(wizard.error):
                 y = _wrap(stdscr, y, C.support_text(), w, y_max)
             ident = _support_identity_text(wizard)
             if ident:
                 y = _wrap(stdscr, y, ident, w, y_max)
         elif wizard.screen == Screen.PICK_EMPTY:
-            _empty_text = C.EMPTY_DISKS
+            y = _wrap(stdscr, y, C.TITLE_EMPTY, w, y_max)
+            _empty_text = format_recovery_text(
+                recovery_for_empty(), include_technical=True, compact=True
+            )
             if wizard.empty_detail:
                 _empty_text = f"{_empty_text}\n\n{wizard.empty_detail}"
             y = _wrap(stdscr, y, _empty_text, w, y_max)
@@ -1136,7 +1202,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             rest.extend(_lines(f"{C.SEVERITY_WARNING}: {wizard.erase_label()}", w))
             rest.extend(_lines(wizard.method_summary, w))
             if wizard.error:
-                rest.extend(_lines(f"{C.SEVERITY_ERROR}: {wizard.error}", w))
+                rest.extend(_lines(_error_recovery_text(wizard.error), w))
                 if error_needs_support(wizard.error):
                     rest.extend(_lines(C.support_text(), w))
             ident = _support_identity_text(wizard)
@@ -1147,7 +1213,7 @@ def _loop(stdscr, wizard: Wizard) -> int:
             if wizard.stop_confirmation is not None:
                 y = _wrap(stdscr, y, f"{C.SEVERITY_WARNING}: {C.STOP_TITLE} {C.STOP_LEAD}", w, y_max)
             if wizard.error:
-                y = _wrap(stdscr, y, f"{C.SEVERITY_ERROR}: {wizard.error}", w, y_max)
+                y = _wrap(stdscr, y, _error_recovery_text(wizard.error), w, y_max)
                 if error_needs_support(wizard.error):
                     y = _wrap(stdscr, y, C.support_text(), w, y_max)
             y = _wrap(stdscr, y, wizard.progress_view.status_text, w, y_max)
@@ -1187,12 +1253,11 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 y = _wrap_view(stdscr, y, wizard.disk_view(wizard.selected), w, y_max)
             y = _wrap(stdscr, y, wizard.method_result, w, y_max)
             y = _wrap(stdscr, y, wizard.method_summary, w, y_max)
+            sections = recovery_for_view(wizard.result_view)
+            # First 80x24 page keeps the pre-#107 landmarks: outcome, next
+            # step, post-erase note, Report status, then paged aftercare.
+            # Labeled meaning/technical follow in the paged tail.
             y = _wrap(stdscr, y, wizard.result_view.next_step, w, y_max)
-            if wizard.done_support_needed:
-                y = _wrap(stdscr, y, C.support_text(), w, y_max)
-            ident = _support_identity_text(wizard)
-            if ident:
-                y = _wrap(stdscr, y, ident, w, y_max)
             if may_have_erased(wizard.result_view.code):
                 y = _wrap(stdscr, y, C.POST_ERASE_BOOT, w, y_max)
             y = _wrap(stdscr, y, C.REPORT_STATUS_TITLE, w, y_max)
@@ -1204,12 +1269,23 @@ def _loop(stdscr, wizard: Wizard) -> int:
                         can_save=report.can_save, status=report.status, message=report.message
                     )
                 )
+            if report.evidence_error:
+                paras.append(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}")
+            if wizard.done_support_needed:
+                paras.append(C.support_text())
+            ident = _support_identity_text(wizard)
+            if ident:
+                paras.append(ident)
+            if sections:
+                from beamo_wipe import recovery as Rec
+
+                paras.append(f"{Rec.RECOVERY_MEANING}: {sections.meaning}")
+                if sections.technical:
+                    paras.append(f"{Rec.RECOVERY_TECHNICAL}: {sections.technical}")
             paras.append(wizard.elapsed_text)
             paras.append(C.REPORT_STATUS_NOTICE)
             if wizard.check_alerts:
                 paras.extend(f"{C.SEVERITY_WARNING}: {alert}" for alert in wizard.check_alerts)
-            if report.evidence_error:
-                paras.append(f"{C.SEVERITY_WARNING}: {wizard.evidence_warning}")
             content = "\n".join(paras)
             lines = [line for paragraph in content.split("\n") for line in _lines(paragraph, w)]
             page_size = max(1, y_max - y)

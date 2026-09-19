@@ -80,13 +80,24 @@ def ui():
 
 @pytest.mark.parametrize("case", CASES, ids=[case[0] for case in CASES])
 def test_accessible_results_use_canonical_announcement(ui, case):
+    from beamo_wipe import recovery as R
+
     wizard, _, _ = case_evidence(case)
     app = ui(wizard)
     expected = VIEWS[case[0]]
-    assert expected.announcement in text(app)
+    shown = text(app)
     names = [w.get_accessible().get_name() for w in widgets(app.window)]
-    assert expected.announcement in names
-    assert wizard.selected.serial in text(app)
+    if expected.success:
+        assert expected.announcement in shown
+        assert expected.announcement in names
+    else:
+        assert expected.message in shown
+        assert expected.next_step in shown
+        assert expected.message in names
+        assert R.RECOVERY_HAPPENED in shown
+        assert R.RECOVERY_MEANING in shown
+        assert R.RECOVERY_NEXT in shown
+    assert wizard.selected.serial in shown
     assert "Check disks again (F5)" not in app.actions
 
 
@@ -324,7 +335,12 @@ def test_result_focus_does_not_create_a_text_selection(ui, case):
     app = ui(wizard)
     heading = app.window.get_focus()
     assert isinstance(heading, Gtk.Label)
-    assert heading.get_text() == wizard.result_view.announcement
+    expected = (
+        wizard.result_view.announcement
+        if wizard.result_view.success
+        else wizard.result_view.message
+    )
+    assert heading.get_text() == expected
     assert heading.get_can_focus()
     assert heading.get_selectable()
     has_selection, start, end = heading.get_selection_bounds()
@@ -1067,9 +1083,20 @@ def test_separate_erase_and_report_headings(ui, case, status):
         for widget in widgets(app.window)
         if widget.get_accessible().get_role() == Atk.Role.HEADING
     }
-    # #95: the announcement is the erase heading; the generic label is gone.
+    # #95: the specific outcome is the erase heading; the generic label is gone.
+    # #107: failures then add What happened / meaning / next as headings.
     assert wizard.result_view == VIEWS[case[0]]
-    assert wizard.result_view.announcement in headings
+    if wizard.result_view.success:
+        assert wizard.result_view.announcement in headings
+    else:
+        from beamo_wipe import recovery as R
+
+        assert wizard.result_view.message in headings
+        assert R.RECOVERY_HAPPENED in headings
+        assert R.RECOVERY_MEANING in headings
+        assert R.RECOVERY_NEXT in headings
+        assert wizard.result_view.announcement not in headings
+    assert C.REPORT_STATUS_TITLE in headings
     assert C.REPORT_STATUS_TITLE in headings
     assert "Erase status" not in headings
     assert wizard.report_view.headline in text(app)
@@ -1288,7 +1315,9 @@ def test_done_announcement_is_first_heading(ui):
         for widget in widgets(app.window)
         if widget.get_accessible().get_role() == Atk.Role.HEADING
     ]
-    assert ordered[0] == wizard.result_view.announcement
+    view = wizard.result_view
+    expected = view.announcement if view.success else view.message
+    assert ordered[0] == expected
     assert "Erase status" not in ordered
     assert C.REPORT_STATUS_TITLE in ordered
 

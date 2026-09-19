@@ -19,6 +19,12 @@ from beamo_wipe.support_code import (
 from beamo_wipe import support_export as _export
 from beamo_wipe import inventory
 from beamo_wipe.outcomes import preview_view
+from beamo_wipe.recovery import (
+    recovery_for_blocked,
+    recovery_for_empty,
+    recovery_for_outcome,
+    recovery_for_view,
+)
 from beamo_wipe.demo import discovery_for_scenario
 from beamo_wipe import keyboard as _keyboard
 from beamo_wipe.keyboard import LAYOUT_ORDER
@@ -69,6 +75,17 @@ def _favicon_uri() -> str:
         + "</g></svg>"
     )
     return "data:image/svg+xml," + quote(svg, safe="")
+
+
+def _recovery_payload(sections) -> dict | None:
+    if sections is None:
+        return None
+    return {
+        "happened": sections.happened,
+        "meaning": sections.meaning,
+        "next": sections.next_step,
+        "technical": sections.technical,
+    }
 
 
 def _disks_payload(scenario: str = "happy") -> list[dict]:
@@ -136,6 +153,8 @@ def gallery_html(lang: str = "en") -> str:
 
 
 def _gallery_html_for_current_language(lang: str) -> str:
+    from beamo_wipe import recovery as Rec
+
     result = discovery_for_scenario("happy")
     payload = {
         "app": C.APP_NAME,
@@ -153,8 +172,19 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "sevLimits": C.SEVERITY_LIMITS,
         "previewResults": {
             "ok": preview_view(True).payload(),
-            "failed": preview_view(False).payload(),
+            "failed": {
+                **preview_view(False).payload(),
+                "recovery": _recovery_payload(recovery_for_view(preview_view(False))),
+            },
         },
+        "recoveryLabels": {
+            "happened": Rec.RECOVERY_HAPPENED,
+            "meaning": Rec.RECOVERY_MEANING,
+            "next": Rec.RECOVERY_NEXT,
+            "technical": Rec.RECOVERY_TECHNICAL,
+        },
+        "blockedRecovery": _recovery_payload(recovery_for_blocked(C.IDENTIFY_ERROR)),
+        "emptyRecovery": _recovery_payload(recovery_for_empty()),
         "compareTitle": inventory.COMPARE_TITLE,
         "compareIntro": inventory.COMPARE_INTRO,
         "comparison": inventory.comparison_entries(result.selectable, peers=listed_disks(result)),
@@ -261,7 +291,11 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "stop": {"title": C.STOP_TITLE, "lead": C.STOP_LEAD, "ask": C.STOP_ASK,
                  "keep": C.STOP_KEEP, "confirm": C.STOP_CONFIRM, "stopping": C.STOPPING_TEXT,
                  "stopped": C.VIEWS["cancelled"].payload(),
-                 "unconfirmed": C.VIEWS["stop_unconfirmed"].payload()},
+                 "stoppedRecovery": _recovery_payload(recovery_for_outcome("cancelled")),
+                 "unconfirmed": C.VIEWS["stop_unconfirmed"].payload(),
+                 "unconfirmedRecovery": _recovery_payload(
+                     recovery_for_outcome("stop_unconfirmed")
+                 )},
         "doneOk": C.DONE_OK_PREVIEW,
         "doneFail": C.DONE_FAIL_PREVIEW,
         "sounds": {
@@ -622,6 +656,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .result h1 { margin: 12px 0 4px; }
   .result h2 { font-size: 16px; margin: 16px 0 6px; }
   .statustext { font-size: 16px; color: var(--muted); max-width: 700px; margin: 0 auto; line-height: 1.45; }
+  .recovery { max-width: 700px; margin: 12px auto 0; text-align: left; }
+  .recovery h2 { font-size: 14px; font-weight: 700; margin: 12px 0 4px; }
+  .recovery p { margin: 0; font-size: 16px; line-height: 1.45; }
+  .recovery-tech { margin-top: 12px; }
+  .recovery-tech summary { cursor: pointer; font-weight: 600; }
   .support { display: flex; gap: 12px; align-items: center; max-width: 700px; margin: 16px auto 0; text-align: left; }
   .support svg { width: 132px; height: auto; flex: none; border: 1px solid var(--muted); background: #fff; }
   .support p { margin: 0; min-width: 0; }
@@ -914,6 +953,19 @@ function bindMore() {
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+function recoveryHtml(sections) {
+  if (!sections) return "";
+  const L = P.recoveryLabels;
+  let html = `<section class="recovery">
+    <h2>${esc(L.happened)}</h2><p>${esc(sections.happened)}</p>
+    <h2>${esc(L.meaning)}</h2><p>${esc(sections.meaning)}</p>
+    <h2>${esc(L.next)}</h2><p>${esc(sections.next)}</p>`;
+  if (sections.technical) {
+    html += `<details class="recovery-tech"><summary>${esc(L.technical)}</summary>
+      <p class="small muted">${esc(sections.technical)}</p></details>`;
+  }
+  return html + `</section>`;
+}
 function metaLine(d) {
   const notes = [d.missingNote, d.duplicateNote, d.ambiguousNote, screen === "pick" ? d.comparisonNote : ""].filter(Boolean)
     .map(note => `<div class="small muted">${esc(note)}</div>`).join("");
@@ -1063,12 +1115,12 @@ function draw() {
     btnsR.append(btn(P.buttons.continue, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
   } else if (screen === "blocked") {
     main.innerHTML = `<div class="centerstage"><div class="badgehalo danger">${badge("danger", 51)}</div>
-      <h1>${P.titles.blocked}</h1><p class="statustext">${P.identify}</p>${supportCodeBlock(P.sampleBlockedCode)}</div>`;
+      <h1>${P.titles.blocked}</h1>${recoveryHtml(P.blockedRecovery)}${supportCodeBlock(P.sampleBlockedCode)}</div>`;
     btnsL.append(btn(P.buttons.back, () => { screen = "owner"; draw(); }));
     btnsR.append(btn(P.buttons.closePreview, closePreview, "primary"));
   } else if (screen === "empty") {
     let html = `<div class="centerstage"><div class="badgehalo info">${badge("info", 51)}</div>
-      <h1>${P.titles.empty}</h1><p class="statustext">${P.empty}</p>${supportBlock()}${supportCodeBlock(P.sampleEmptyCode)}</div>`;
+      <h1>${P.titles.empty}</h1>${recoveryHtml(P.emptyRecovery)}${supportBlock()}${supportCodeBlock(P.sampleEmptyCode)}</div>`;
     html += `<div class="disklist">` + disks().map(diskCard).join("") + `</div>`;
     main.innerHTML = html;
     renderOtherDevices();
@@ -1277,10 +1329,12 @@ function draw() {
   } else if (["stop_confirm", "stopping", "stopped", "stop_unconfirmed"].includes(screen)) {
     const result = screen === "stopped" ? P.stop.stopped : P.stop.unconfirmed;
     const title = screen === "stop_confirm" ? P.stop.title : screen === "stopping" ? P.stoppingErase : result.message;
-    const detail = screen === "stop_confirm" ? P.stop.lead : screen === "stopping" ? P.stop.stopping : result.next_step;
+    const recovery = screen === "stopped" ? P.stop.stoppedRecovery
+      : screen === "stop_unconfirmed" ? P.stop.unconfirmedRecovery : null;
+    const detail = screen === "stop_confirm" ? P.stop.lead : screen === "stopping" ? P.stop.stopping : "";
     const stopSupport = (screen === "stopped" || screen === "stop_unconfirmed") ? supportBlock() : "";
     main.innerHTML = `<h1 tabindex="-1" id="stop-heading">${title}</h1>
-      <p role="status" aria-live="polite">${detail}</p>
+      ${recovery ? recoveryHtml(recovery) : `<p role="status" aria-live="polite">${detail}</p>`}
       <p>Preview only. Nothing on this computer was erased.</p>
       ${selected ? summaryCard(selected) : ""}
       ${stopSupport}
@@ -1311,9 +1365,10 @@ function draw() {
     if (!selected) { screen = "pick"; draw(); return; }
     const ok = !fail;
     const result = P.previewResults[ok ? "ok" : "failed"];
+    const recovery = ok ? "" : recoveryHtml(result.recovery);
     main.innerHTML = `<div class="result"><div class="status" aria-hidden="true"><div class="core">i</div></div>
       <section aria-labelledby="erase-status-heading"><h1 id="erase-status-heading">${result.message}</h1>
-      <p class="statustext" style="color:var(--ink)">${result.next_step}</p>
+      ${ok ? `<p class="statustext" style="color:var(--ink)">${result.next_step}</p>` : recovery}
       <p>${P.methods[method].summary}</p>
       </section>
       <div style="width:100%;margin-top:12px">${summaryCard(selected)}</div>
