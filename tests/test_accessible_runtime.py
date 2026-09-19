@@ -466,25 +466,31 @@ def test_callback_failure_stops_with_system_origin(ui, monkeypatch):
     assert app.failed and origins == ["system"]
 
 
-def test_orca_announces_every_result(ui, tmp_path):
+def test_orca_announces_every_result(tmp_path, request):
     """Real Orca reads GTK focus events via AT-SPI; no host audio/devices used."""
     import shutil
 
     if os.environ.get("BEAMO_TEST_ORCA_CHILD") != "1":
-        # A fresh application and private bus avoid previously destroyed test
-        # windows in the AT-SPI registry. No application behavior is mocked.
+        # Nested Xvfb + a private bus keep sibling GTK tests on DISPLAY=:99
+        # from occupying the AT-SPI registry. No application behavior is mocked.
+        # Do not construct the ui fixture in this parent process.
+        cmd = [
+            "dbus-run-session",
+            "--",
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "no:cacheprovider",
+            f"{__file__}::test_orca_announces_every_result",
+        ]
+        if shutil.which("xvfb-run"):
+            cmd[2:2] = ["xvfb-run", "-a", "-s", "-screen 0 1600x1000x24 -dpi 72"]
+        env = {**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"}
+        env.pop("DISPLAY", None)
         result = subprocess.run(
-            [
-                "dbus-run-session",
-                "--",
-                sys.executable,
-                "-m",
-                "pytest",
-                "-p",
-                "no:cacheprovider",
-                f"{__file__}::test_orca_announces_every_result",
-            ],
-            env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
+            cmd,
+            env=env,
             capture_output=True,
             text=True,
             timeout=300,
@@ -492,6 +498,7 @@ def test_orca_announces_every_result(ui, tmp_path):
         assert result.returncode == 0, result.stdout + result.stderr
         assert "warning" not in result.stdout.lower(), result.stdout
         return
+    ui = request.getfixturevalue("ui")
     assert shutil.which("orca"), "The supported Linux image requires Orca"
     assert os.environ.get("DBUS_SESSION_BUS_ADDRESS"), "Use dbus-run-session"
     audio = subprocess.Popen(
