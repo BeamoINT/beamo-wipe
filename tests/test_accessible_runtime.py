@@ -471,26 +471,22 @@ def test_orca_announces_every_result(tmp_path, request):
     import shutil
 
     if os.environ.get("BEAMO_TEST_ORCA_CHILD") != "1":
-        # Nested Xvfb + a private bus keep sibling GTK tests on DISPLAY=:99
-        # from occupying the AT-SPI registry. No application behavior is mocked.
-        # Do not construct the ui fixture in this parent process.
-        cmd = [
-            "dbus-run-session",
-            "--",
-            sys.executable,
-            "-m",
-            "pytest",
-            "-p",
-            "no:cacheprovider",
-            f"{__file__}::test_orca_announces_every_result",
-        ]
-        if shutil.which("xvfb-run"):
-            cmd[2:2] = ["xvfb-run", "-a", "-s", "-screen 0 1600x1000x24 -dpi 72"]
-        env = {**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"}
-        env.pop("DISPLAY", None)
+        # A fresh application and private bus avoid previously destroyed test
+        # windows in the AT-SPI registry. No application behavior is mocked.
+        # Do not construct the ui fixture in this parent process. Nested
+        # xvfb-run under Cloud Build's outer xvfb-run fails hosted python-tests.
         result = subprocess.run(
-            cmd,
-            env=env,
+            [
+                "dbus-run-session",
+                "--",
+                sys.executable,
+                "-m",
+                "pytest",
+                "-p",
+                "no:cacheprovider",
+                f"{__file__}::test_orca_announces_every_result",
+            ],
+            env={**os.environ, "BEAMO_TEST_ORCA_CHILD": "1"},
             capture_output=True,
             text=True,
             timeout=300,
