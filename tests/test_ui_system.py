@@ -406,19 +406,23 @@ def test_last_chance_does_not_repeat_the_check_line():
     assert "lastLead" in html
 
 
-def test_header_names_the_current_step_instead_of_a_full_map():
-    """Would fail on the eight numbered journey circles in the header."""
-    assert tkui.header_caption(4, "Step 4 of 8") == "Confirm · Step 4 of 8"
-    assert tkui.header_caption(1, "Step 1 of 8") == "Start · Step 1 of 8"
+def test_header_names_the_current_stage_instead_of_eight_equal_pages():
+    """Would fail on eight equal Step N of 8 pages or a growing step/8 fill."""
+    assert tkui.header_caption(1, C.STEP_OF.format(n=1, total=8)) == "Preparation"
+    assert tkui.header_caption(2, C.JOURNEY_LABELS[1]) == "Erase"
     assert tkui.header_caption(3, "Identify the disk") == "Identify the disk"
     assert tkui.header_caption(0, "") == ""
     source = inspect.getsource(tkui.TkWizard._draw_header)
-    assert "_draw_journey" not in source
     assert "header_caption" in source
+    strip = inspect.getsource(tkui.TkWizard._draw_strip)
+    assert "/ 8" not in strip
+    assert "len(C.JOURNEY_LABELS)" in strip
     html = gallery_html()
     assert "function headerCaption" in html
     assert ".journey .number" not in html
     assert "P.journey[n - 1]" in html
+    assert "/ 8 *" not in html.replace(" ", "")
+    assert "/ 8*" not in html
 
 
 def test_modern_visual_system_replaces_utility_chrome():

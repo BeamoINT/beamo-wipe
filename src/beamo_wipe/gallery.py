@@ -674,7 +674,7 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "confirmKeyboard": C.CONFIRM_KEYBOARD_LINE.format(
             layout=_keyboard.LAYOUTS["us"].title, language=LANGUAGE_NAMES[lang]
         ),
-        "steps": {str(n): C.STEP_OF.format(n=n, total=8) for n in range(1, 9)},
+        "steps": {str(n): C.JOURNEY_LABELS[n - 1] for n in range(1, len(C.JOURNEY_LABELS) + 1)},
         "stepPrefix": C.STEP_PREFIX,
         "stepIdentify": C.STEP_IDENTIFY,
         "stepOwnership": C.STEP_OWNERSHIP,
@@ -790,8 +790,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .brandrow { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; }
   .brandchip { display: flex; align-items: center; justify-content: center; flex: none; }
   .brandchip svg { display: block; }
-  /* Current-step text lives in .steptext. The list is a screen-reader
-     name only — never a numbered map of the whole journey. */
+  /* Current-stage text lives in .steptext. The list is a screen-reader
+     name only — never eight equal pages. */
   .journey { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; margin-top: 8px; }
   .review-grid .countcap { max-width: 260px; text-align: center; }
@@ -806,8 +806,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .pick-tools .morelink { margin-top: 0; }
   .inventory-count { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
   .steptext { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; }
-  .strip { height: 2px; background: var(--track); }
-  .strip .sfill { height: 100%; background: var(--accent); width: 0; transition: width .25s ease; border-radius: 0 1.5px 1.5px 0; }
+  .strip { display: flex; height: 2px; gap: 2px; background: transparent; }
+  .strip span { flex: 1; background: var(--track); }
+  .strip span.now { background: var(--accent); }
   .body { flex: 1; padding: 4px 32px 16px; background: var(--bg); display: flex; }
   .col { max-width: 940px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; }
   /* The one screen-header pattern, mirroring _title_block: bold title,
@@ -1051,7 +1052,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="shell">
     <div class="preview-stripe" id="stripe"></div>
     <div class="hdr"><div class="brandrow"><span class="brandchip">__LOGO_HEADER__</span><div id="brand"></div></div><ol class="journey" id="journey" aria-label="__GALLERY_ERASE_STEPS__"></ol><span class="steptext" id="step"></span></div>
-    <div class="strip"><div class="sfill" id="sfill"></div></div>
+    <div class="strip" id="sfill"></div>
     <div class="body" id="body"><div class="col" id="main"></div></div>
     <div class="foot" id="foot"><div class="utilities" id="utilities"></div><div class="footrow"><div class="fleft" id="btnsL"></div><div class="fhint" id="hint"></div><div class="fright" id="btnsR"></div></div></div>
   </div>
@@ -1190,15 +1191,15 @@ function disks() {
 }
 function selectable() { return disks().filter(d => d.eligible); }
 function stepInfo() {
-  const stepOf = (n) => P.steps[n];
-  const map = {splash:[0,"",""], keyboard:[0,"",P.titles.keyboard], what:[1,stepOf(1),P.titles.what], owner:[2,stepOf(2),P.stepOwnership],
-    pick:[3,stepOf(3),P.titles.pick], blocked:[3,stepOf(3),P.titles.pick], empty:[3,stepOf(3),P.titles.pick],
-    confirm:[4,stepOf(4),P.titles.confirm], method:[5,stepOf(5),P.titles.method],
-    disk_help:[3,P.diskHelpTitle,P.diskHelpTitle], limits:[5,P.limitsTitle,P.limitsTitle], advanced:[5,P.titles.advanced,P.titles.advanced], last:[6,stepOf(6),P.titles.last],
-    stop_confirm:[7,stepOf(7),P.stop.title], stopping:[7,stepOf(7),P.stoppingErase],
-    stop_unconfirmed:[7,stepOf(7),P.stop.unconfirmed.message], stopped:[8,stepOf(8),P.stop.stopped.message],
-
-    working:[7,stepOf(7),P.titles.working], done:[8,stepOf(8),P.titles.doneOk],
+  const prep = P.journey[0], erase = P.journey[1], result = P.journey[2];
+  const map = {splash:[0,"",""], keyboard:[1,prep,P.titles.keyboard], what:[1,prep,P.titles.what], owner:[1,prep,P.stepOwnership],
+    pick:[1,prep,P.titles.pick], blocked:[1,prep,P.titles.pick], empty:[1,prep,P.titles.pick],
+    confirm:[1,prep,P.titles.confirm], method:[1,prep,P.titles.method],
+    disk_help:[1,P.diskHelpTitle,P.diskHelpTitle], limits:[1,P.limitsTitle,P.limitsTitle], advanced:[1,P.titles.advanced,P.titles.advanced], last:[1,prep,P.titles.last],
+    stop_confirm:[2,erase,P.stop.title], stopping:[2,erase,P.stoppingErase],
+    stop_unconfirmed:[2,erase,P.stop.unconfirmed.message], stopped:[3,result,P.stop.stopped.message],
+    working:[2,erase,P.titles.working], done:[3,result,P.titles.doneOk],
+    report_help:[1,P.reportHelpTitle,P.reportHelpTitle],
     refresh_confirm:[0,"",P.titles.refresh]};
   return map[screen] || [0,"",""];
 }
@@ -1323,7 +1324,9 @@ function refreshPreview() {
 }
 function headerCaption(info) {
   const n = info[0], label = info[1];
-  if (n && String(label).indexOf(P.stepPrefix) === 0) return P.journey[n - 1] + " · " + label;
+  if (n && n <= P.journey.length && (!label || String(label).indexOf(P.stepPrefix) === 0 || P.journey.indexOf(label) >= 0)) {
+    return P.journey[n - 1];
+  }
   return label;
 }
 function draw() {
@@ -1334,10 +1337,12 @@ function draw() {
   const info = stepInfo();
   const stepEl = document.getElementById("step");
   document.getElementById("journey").innerHTML = info[0]
-    ? `<li aria-current="step">${esc(headerCaption(info))}</li>` : "";
+    ? P.journey.map((label, index) =>
+        `<li${index + 1 === info[0] ? ' aria-current="step"' : ''}>${esc(label)}</li>`).join("") : "";
   stepEl.textContent = headerCaption(info);
   stepEl.style.visibility = stepEl.textContent ? "visible" : "hidden";
-  document.getElementById("sfill").style.width = (info[0] / 8 * 100) + "%";
+  document.getElementById("sfill").innerHTML = P.journey.map((_, index) =>
+    `<span class="${index + 1 === info[0] ? "now" : ""}"></span>`).join("");
   const main = document.getElementById("main");
   const btnsL = document.getElementById("btnsL");
   const btnsR = document.getElementById("btnsR");

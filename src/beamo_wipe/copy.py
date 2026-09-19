@@ -18,13 +18,70 @@ from beamo_wipe.models import (
     CONTENTS_WINDOWS,
     Disk,
     DiskKind,
+    Screen,
 )
 from beamo_wipe.methods import METHODS
 
 APP_NAME = "Beamo Wipe"
 
 # Read-only wayfinding: these labels never act as navigation controls.
-JOURNEY_LABELS = ("Start", "Owner", "Disk", "Confirm", "Method", "Review", "Erase", "Result")
+# Three stages, not eight equal pages. Erase is the long destructive operation.
+# This chrome is not wipe percentage; engine percent lives on the Working screen.
+JOURNEY_LABELS = ("Preparation", "Erase", "Result")
+JOURNEY_PREPARATION = 1
+JOURNEY_ERASE = 2
+JOURNEY_RESULT = 3
+
+_JOURNEY_PREP_SCREENS = frozenset(
+    {
+        Screen.KEYBOARD,
+        Screen.WHAT,
+        Screen.OWNER,
+        Screen.PICK,
+        Screen.DISK_HELP,
+        Screen.PICK_EMPTY,
+        Screen.PICK_BLOCKED,
+        Screen.CONFIRM,
+        Screen.METHOD,
+        Screen.ADVANCED,
+        Screen.LIMITS,
+        Screen.LAST_CHANCE,
+        Screen.CHECKING,
+        Screen.REFRESHING,
+        Screen.REPORT_HELP,
+    }
+)
+_JOURNEY_ERASE_SCREENS = frozenset({Screen.WORKING, Screen.STOPPING})
+_JOURNEY_RESULT_SCREENS = frozenset({Screen.DONE})
+
+
+def journey_stage(screen: Screen) -> int:
+    """1=Preparation, 2=Erase, 3=Result, 0=no journey chrome."""
+    if screen in _JOURNEY_PREP_SCREENS:
+        return JOURNEY_PREPARATION
+    if screen in _JOURNEY_ERASE_SCREENS:
+        return JOURNEY_ERASE
+    if screen in _JOURNEY_RESULT_SCREENS:
+        return JOURNEY_RESULT
+    return 0
+
+
+def journey_caption(screen: Screen) -> str:
+    """Quiet header for the current stage. Never a percent."""
+    index = journey_stage(screen)
+    if not index:
+        return ""
+    return JOURNEY_LABELS[index - 1]
+
+
+def journey_announcement(screen: Screen) -> str:
+    """Spoken stage change. Distinct from wipe-percent progress."""
+    caption = journey_caption(screen)
+    if not caption:
+        return ""
+    return f"{caption}."
+
+
 SELECTED_DISK = "This disk"
 SERIAL_LABEL = "Serial number"
 REVIEW_CHECK = "Check the disk and method before you erase."

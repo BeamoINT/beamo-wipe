@@ -736,6 +736,11 @@ class AccessibleWizard:
         self.arrival = arrival
         arrival.grab_focus()
         self.update_status()
+        spoken_stage = C.journey_announcement(screen)
+        if spoken_stage:
+            heading.get_accessible().set_name(
+                f"{spoken_stage} {heading.get_text()}".strip()
+            )
         emit_serial_marker(f"BEAMO_WIPE_ACCESSIBLE_SCREEN_{screen.name}")
 
     def _protected_boot(self):
