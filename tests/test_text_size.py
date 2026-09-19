@@ -27,7 +27,7 @@ def test_text_size_survives_refresh_and_keyboard_layout():
     assert wiz.text_size == "large"
     assert wiz.open_refresh_confirm()
     assert wiz.confirm_refresh()
-    assert wiz.screen == Screen.WHAT
+    assert wiz.screen == Screen.OWNER and not wiz.owner_ok
     assert wiz.text_size == "large"
     assert wiz.method == MethodId.EVERYDAY
     assert wiz.selected is None
