@@ -411,6 +411,8 @@ def test_accessible_method_choices_visible_above_grouped_actions(ui):
 
 def test_accessible_method_radio_name_stays_summary(ui):
     """Would fail when plain_lead/limits were concatenated into the radio ATK name."""
+    from gi.repository import Atk
+
     from beamo_wipe import copy as C
 
     wizard = make_demo_wizard()
@@ -420,13 +422,39 @@ def test_accessible_method_radio_name_stays_summary(ui):
     choices = [w for w in widgets(app.body) if isinstance(w, Gtk.RadioButton)]
     shown = text(app)
     assert len(choices) == len(METHODS)
+    heading = app.window.get_focus()
+    assert isinstance(heading, Gtk.Label)
+    assert heading.get_text() == C.TITLE_METHOD
+    heading_names = [
+        widget.get_accessible().get_name()
+        for widget in widgets(app.window)
+        if widget.get_accessible().get_role() == Atk.Role.HEADING
+    ]
     for choice, spec in zip(choices, METHODS.values()):
         name = choice.get_accessible().get_name() or ""
         assert spec.summary in name
         assert spec.plain_lead not in name
         assert (choice.get_accessible().get_description() or "") == spec.plain_lead
         assert spec.plain_lead in shown
+        assert spec.plain_lead not in heading_names
     assert C.EVERYDAY_LIMITS in shown
+    assert C.TITLE_METHOD in shown
+
+
+def test_plain_lead_keys_stay_on_the_swept_language_surface():
+    """Same class as #61: new copy/methods literals need FR/DE table keys."""
+    from beamo_wipe import lang
+    from test_language_selection import _swept_surface
+
+    copy_keys = set(_swept_surface()["copy"])
+    method_keys = set(_swept_surface()["methods"])
+    assert "EVERYDAY_LIMITS" in copy_keys
+    for name in ("PLAIN_LEAD_PRNG", "PLAIN_LEAD_DODSHORT", "PLAIN_LEAD_ZERO"):
+        assert name in method_keys
+        assert name in set(lang.keys("fr", "methods"))
+        assert name in set(lang.keys("de", "methods"))
+    assert "EVERYDAY_LIMITS" in set(lang.keys("fr", "copy"))
+    assert "EVERYDAY_LIMITS" in set(lang.keys("de", "copy"))
 
 
 @pytest.mark.parametrize("screen", [Screen.CONFIRM, Screen.LAST_CHANCE])

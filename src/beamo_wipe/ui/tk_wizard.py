@@ -3296,16 +3296,7 @@ class TkWizard:
             self._chip(title_row, mark, fg=fg, bg=bg_chip).pack(
                 side=tk.LEFT, padx=(10, 0)
             )
-        tk.Label(
-            text_col,
-            text=lead,
-            font=self.font_b,
-            fg=INK,
-            bg=fill,
-            wraplength=self._method_card_wrap(),
-            justify=tk.LEFT,
-            anchor="w",
-        ).pack(fill=tk.X, pady=(4, 0))
+        self._wrapping_label(text_col, lead, font=self.font_b, bg=fill)
         tk.Label(
             text_col,
             text=blurb,
@@ -3344,16 +3335,9 @@ class TkWizard:
                 anchor="w",
             ).pack(fill=tk.X, pady=(4, 0))
         if limits_note:
-            tk.Label(
-                text_col,
-                text=limits_note,
-                font=self.font_s,
-                fg=MUTED,
-                bg=fill,
-                wraplength=self._method_card_wrap(),
-                justify=tk.LEFT,
-                anchor="w",
-            ).pack(fill=tk.X, pady=(4, 0))
+            self._wrapping_label(
+                text_col, limits_note, font=self.font_s, bg=fill, fg=MUTED
+            )
 
         def _click(_e, m=method):
             self._choose_method(m)
