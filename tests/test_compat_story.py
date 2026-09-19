@@ -289,6 +289,10 @@ def test_usb_story_strings_stay_on_the_swept_copy_surface():
 
 def test_what_screen_keeps_title_and_shows_this_usb_line():
     """this_usb_line is supporting copy, not a rewritten WHAT heading."""
+    import gi
+
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Atk", "1.0")
     from gi.repository import Atk, Gtk
 
     from beamo_wipe import copy as C
