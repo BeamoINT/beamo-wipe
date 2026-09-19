@@ -29,6 +29,11 @@ function show(v) {
         !["pass", "fail", "unverified", "unsupported", "blocked"].includes(c.state) ||
         [c.label, c.detail, c.next].some(text => typeof text !== "string" || !text)) ||
       typeof v.technical !== "string" || !v.technical ||
+      typeof v.identity_label !== "string" || !v.identity_label ||
+      typeof v.build_status !== "string" || !v.build_status ||
+      typeof v.version !== "string" || !v.version ||
+      typeof v.build_id !== "string" || typeof v.source_commit !== "string" ||
+      typeof v.manufactured !== "boolean" ||
       (v.ready && v.checks.some(c => c.state !== "pass"))) {
     throw new Error("The readiness results were incomplete. Choose Check again or reopen the launcher from the USB.");
   }
@@ -45,7 +50,15 @@ function show(v) {
   $("saved").checked=false; $("restart").disabled=true;
   $("preview").hidden = !v.preview;
   $("title").textContent = v.title; $("detail").textContent = v.detail;
-  $("version").textContent = `Version ${v.version} · Runs locally on this computer`;
+  const buildId = v.build_id || "not packaged";
+  const commit = v.source_commit || "not packaged";
+  $("identity-label").textContent = v.identity_label;
+  $("identity-version").textContent = v.version;
+  $("identity-build-id").textContent = buildId;
+  $("identity-commit").textContent = commit;
+  $("identity-status").textContent = v.build_status;
+  $("identity-footer").textContent = v.identity_label;
+  $("version").textContent = `Version ${v.version} · Release build ${buildId} · Runs locally on this computer`;
   $("inspect").hidden = v.ready; $("confirm").hidden = !v.ready;
   if (!v.ready) $("help").open = true;
 }

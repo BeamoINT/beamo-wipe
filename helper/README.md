@@ -1,10 +1,12 @@
 # Boot helper
 
-`index.html` is the Windows/macOS helper. Copy it to the USB data partition
-as `START-HERE.html`.
+`index.html` is the Windows/macOS helper. The ISO builder copies it to the USB
+data partition as `START-HERE.html` and fills the identity markers from the
+same `build-identity.json` written into the live image. The git copy is labeled
+**not a manufactured USB image**.
 
-It does **not** erase disks. It shows typical boot-menu keys, separate
-Windows 10 and Windows 11 Recovery Environment steps, a BitLocker
+It does **not** erase disks. It shows this image's build, typical boot-menu
+keys, separate Windows 10 and Windows 11 Recovery Environment steps, a BitLocker
 recovery-key warning before firmware changes, and an offline guided
 chooser for USB missing, an ineffective boot-menu key, firmware refusal,
 and launcher failure. A last card names **beamosupport.com** in text and
@@ -15,7 +17,7 @@ for someone already in the application; kiosk recovery and the Intel Mac
 Option key stay on this USB page because the launcher does not run on
 macOS and kiosk recovery is post-boot.
 
-An `.exe` is optional and not required for v0.1.0. The printed card can say
-“open START-HERE.html on that Windows PC.”
+The printed card can say “open START-HERE.html on that Windows PC.”
 Do not promise every computer: Intel/AMD PCs that boot from USB only —
-not Apple Silicon Macs, not Chromebooks (see `index.html`).
+not Apple Silicon Macs, not Chromebooks (see `index.html`). The helper
+describes this USB, not older sticks.

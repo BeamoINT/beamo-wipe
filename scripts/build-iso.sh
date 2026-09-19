@@ -110,6 +110,35 @@ mkdir -p "$STAGE_SHARE/sounds"
 cp "$ROOT/packaging/sounds/finished.wav" "$STAGE_SHARE/sounds/finished.wav"
 cp "$ROOT/packaging/sounds/attention.wav" "$STAGE_SHARE/sounds/attention.wav"
 cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"
+PYTHONPATH="$ROOT/src" python3 - <<'PYHELPER'
+from pathlib import Path
+from beamo_wipe import __version__
+from beamo_wipe.build_identity import load_injected_build
+from beamo_wipe.compat_story import inject_helper_html
+identity_path = Path(
+    "packaging/live/config/includes.chroot/usr/share/beamo-wipe/build-identity.json"
+)
+injected = load_injected_build(identity_path)
+if injected is None:
+    raise SystemExit("build identity missing after injection")
+for rel in (
+    "packaging/live/config/includes.chroot/usr/share/beamo-wipe/helper/index.html",
+    "packaging/live/config/includes.binary/START-HERE.html",
+):
+    path = Path(rel)
+    path.write_text(
+        inject_helper_html(
+            path.read_text(encoding="utf-8"),
+            version=__version__,
+            injected=injected,
+            packaged=True,
+        ),
+        encoding="utf-8",
+    )
+Path("packaging/live/config/includes.binary/build-identity.json").write_bytes(
+    identity_path.read_bytes()
+)
+PYHELPER
 # A local build compiles launchers; hosted CI supplies the exact tested pair.
 if [ ! -f "$ROOT/dist/desktop/desktop-build.json" ]; then
   "$ROOT/scripts/build-desktop.sh"
@@ -143,7 +172,7 @@ On Windows: open Start Beamo Wipe.exe and approve the permission prompt.
 On supported Linux desktops: open Start Beamo Wipe Linux.
 The launcher checks readiness and offers a guided restart when supported.
 You still choose and confirm the disk after restarting. Nothing erases automatically.
-Open START-HERE.html for boot-menu keys.
+Open START-HERE.html for this USB's build and boot-menu keys.
 Engine: nwipe (GPL). Wrapper: GPL-3.0-or-later. NO WARRANTY.
 https://github.com/BeamoINT/beamo-wipe
 EOF

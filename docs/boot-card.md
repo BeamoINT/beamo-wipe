@@ -10,8 +10,8 @@ and offers **Restart into Beamo Wipe** when supported. Save your work first.
 If the application cannot open or offer a restart, use the boot menu below.
 
 **Erasing still requires booting this USB.** Inserting it or opening the
-application does not erase anything. This card describes the development
-image; it does not change the contents of previously sold sticks.
+application does not erase anything. Open START-HERE.html on this USB to see
+this image's build. Older sticks may use different startup files.
 
 ## Open the boot menu (typical keys)
 
@@ -71,10 +71,10 @@ If a diagnostic or wipe report cannot be saved, read the **Support code**
 and **Build** lines on the screen and tell support those exact values.
 They do not include disk serials or paths.
 
-The development image includes signed Debian EFI components. Secure Boot
-still depends on the computer's trust settings and revocation updates. If
-firmware rejects the USB, record its exact message and use the computer
-manufacturer's guidance or contact support at **beamosupport.com**. Error
+This image includes signed Debian EFI components. Secure Boot still depends
+on the computer's trust settings and revocation updates. If firmware rejects
+the USB, record its exact message and use the computer manufacturer's
+guidance or contact support at **beamosupport.com**. Error
 screens and START-HERE.html show the same address as text and as a phone
 code. The application does not change Secure Boot settings. Older sticks
 may contain a different boot image.

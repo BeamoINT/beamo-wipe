@@ -327,6 +327,7 @@ class AccessibleWizard:
             heading.set_text(C.TITLE_WHAT)
             self.label(C.WHAT_LEAD)
             self.label("\n".join(C.WHAT_BULLETS))
+            self.label(C.this_usb_line())
             self.label(C.REPORT_MEDIA_WHAT, focusable=True)
             self.label(C.POWER_REMINDER)
             self.label(C.POWER_BLANKING)

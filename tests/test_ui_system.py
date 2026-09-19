@@ -222,7 +222,7 @@ def test_helper_page_documents_secure_boot_path():
     html = (ROOT / "helper" / "index.html").read_text(encoding="utf-8").lower()
     assert "secure boot" in html
     assert "firmware" in html
-    assert "signed boot components" in html
+    assert "signed boot files" in html
     assert "revocation" in html
     assert "does not change secure boot" in html
 

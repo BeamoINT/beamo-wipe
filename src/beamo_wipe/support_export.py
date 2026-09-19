@@ -1479,8 +1479,19 @@ def _bundle_files(
     if diagnostic:
         files = {"diagnostic.json": evidence,
                  "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}
-        readme = (diagnostic_payload["title"] + "\r\n" + NOTICE + "\r\n"
-                  + README_DIAG_TIME + "\r\n").encode()
+        from beamo_wipe.compat_story import sentence_from_application
+
+        identity_line = sentence_from_application(diagnostic_payload.get("application"))
+        readme = (
+            diagnostic_payload["title"]
+            + "\r\n"
+            + NOTICE
+            + "\r\n"
+            + identity_line
+            + "\r\n"
+            + README_DIAG_TIME
+            + "\r\n"
+        ).encode()
     files["README.txt"] = readme
     manifest = {
         "manifest_scope": "content_only",
