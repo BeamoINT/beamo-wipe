@@ -715,6 +715,8 @@ def test_lsblk_command_requests_identity_fields():
     assert "UUID" in discover.LSBLK_COLUMNS
     assert "WWN" in discover.LSBLK_COLUMNS
     assert "PARTUUID" in discover.LSBLK_COLUMNS
+    assert "PARTTYPE" in discover.LSBLK_COLUMNS
+    assert "PARTTYPENAME" in discover.LSBLK_COLUMNS
     assert "FSVER" in discover.LSBLK_COLUMNS
 
 

@@ -99,6 +99,82 @@ def test_data_disk_has_no_os_partitions():
     assert "every file on this disk" in text
 
 
+def test_windows_gpt_names_from_lsblk_partlabel_are_not_called_data():
+    """A normal Windows disk exposes OS identity in the GPT partition name.
+
+    Filesystem LABEL is often empty. PARTLABEL is present even when PARTTYPE
+    and PARTTYPENAME are absent. Those names must not be described as a data disk.
+    """
+    node = _disk_node(
+        path="/dev/nvme0n1",
+        children=[
+            _part(
+                "/dev/nvme0n1p1",
+                fstype="vfat",
+                partlabel="EFI system partition",
+            ),
+            _part(
+                "/dev/nvme0n1p2",
+                partlabel="Microsoft reserved partition",
+            ),
+            _part(
+                "/dev/nvme0n1p3",
+                fstype="ntfs",
+                partlabel="Basic data partition",
+            ),
+        ],
+    )
+    assert classify_contents(node) == "windows"
+    assert C.prepare_selected(node_to_disk(node, False)) == C.PREPARE_WINDOWS
+    reserved = _disk_node(
+        children=[_part("/dev/nvme0n1p1", partlabel="Microsoft reserved partition")]
+    )
+    assert classify_contents(reserved) == "windows"
+
+
+def test_partlabel_ntfs_data_and_linux_root_keep_their_claims():
+    photos = _disk_node(
+        path="/dev/sdd",
+        children=[
+            _part(
+                "/dev/sdd1",
+                fstype="ntfs",
+                label="PHOTOS",
+                partlabel="Basic data partition",
+            )
+        ],
+    )
+    assert classify_contents(photos) == "data"
+    linux = _disk_node(
+        children=[
+            _part("/dev/nvme0n1p1", fstype="vfat", partlabel="EFI system partition"),
+            _part("/dev/nvme0n1p2", fstype="ext4", partlabel="root"),
+        ]
+    )
+    assert classify_contents(linux) == "system"
+    removable = _disk_node(
+        children=[
+            _part("/dev/sdb1", fstype="vfat", partlabel="EFI system partition"),
+            _part("/dev/sdb2", fstype="vfat", label="DATA"),
+        ]
+    )
+    assert classify_contents(removable) == "data"
+
+
+def test_windows_partition_type_guid_without_names_is_windows():
+    node = _disk_node(
+        children=[
+            _part(
+                "/dev/nvme0n1p1",
+                fstype="vfat",
+                parttype="c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+            ),
+            _part("/dev/nvme0n1p2", fstype="ntfs"),
+        ]
+    )
+    assert classify_contents(node) == "windows"
+
+
 def test_ntfs_data_without_windows_marks_is_not_a_windows_claim():
     node = _disk_node(
         path="/dev/sdd",

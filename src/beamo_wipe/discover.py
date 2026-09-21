@@ -91,9 +91,13 @@ FINDMNT_TIMEOUT_S = 8
 LSBLK_BINARIES = ("/usr/bin/lsblk",)
 FINDMNT_BINARIES = ("/usr/bin/findmnt",)
 MOUNTINFO_PATH = "/proc/self/mountinfo"
+# PARTTYPE and PARTTYPENAME are read by classify_contents. Bookworm
+# util-linux 2.38 supports both; dropping them makes Windows GUID evidence
+# invisible and a real OS disk look like a data disk.
 LSBLK_COLUMNS = (
     "NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,RM,HOTPLUG,"
-    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,FSVER,VENDOR,PKNAME,UUID,WWN,PARTUUID,PARTLABEL,RO"
+    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,FSVER,VENDOR,PKNAME,UUID,WWN,"
+    "PARTTYPE,PARTTYPENAME,PARTUUID,PARTLABEL,RO"
 )
 TYPED_SOURCE_KEYS = frozenset({"LABEL", "UUID", "PARTUUID", "PARTLABEL"})
 
@@ -557,9 +561,14 @@ def classify_contents(node: Mapping[str, Any]) -> str:
             lab = _clean(item.get("label")).casefold()
             if lab:
                 labels.add(lab)
-            name = _clean(item.get("parttypename")).casefold()
-            if name:
-                partnames.add(name)
+            # PARTLABEL is the GPT name lsblk already returns. PARTTYPENAME is
+            # the type's human name. Windows often leaves LABEL empty, so both
+            # names are partition evidence, not a guess from the filesystem.
+            for key in ("parttypename", "partlabel"):
+                name = _clean(item.get(key)).casefold()
+                if name:
+                    partnames.add(name)
+                    labels.add(name)
             ptype = _clean(item.get("parttype")).casefold()
             if ptype:
                 parttypes.add(ptype)
