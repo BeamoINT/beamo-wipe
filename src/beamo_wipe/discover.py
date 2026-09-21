@@ -388,7 +388,9 @@ def _could_be_live_medium(node: Dict[str, Any]) -> bool:
         return True
     tran = (node.get("tran") or "").lower().strip()
     name = _clean(node.get("name")).lower()
-    if tran not in {"sata", "ata", "nvme", "mmc"} and not name.startswith("mmcblk"):
+    # Blank TRAN is normal for some NVMe disks. A small one is as plausible
+    # a live stick as tran=nvme of the same size. Large internals stay eligible.
+    if tran not in {"sata", "ata", "nvme", "mmc"} and not name.startswith(("mmcblk", "nvme")):
         return False
     size = _as_int(node.get("size"))
     # Decimal 128 GB covers 64 GiB USB-SATA/NVMe enclosures (68.7e9) that
@@ -407,7 +409,7 @@ def _node_type(node: Dict[str, Any]) -> str:
 # also be a single resolved stack (crypt -> lv); those keep unrelated disks.
 _UNRESOLVED_HOLDER_TYPES = frozenset({"mpath", "md"})
 _STACKED_HOLDER_TYPES = frozenset({"lvm", "linear"})
-_MEMBER_FILESYSTEMS = frozenset({"lvm2_member", "linux_raid_member"})
+_MEMBER_FILESYSTEMS = frozenset({"lvm2_member", "linux_raid_member", "bcache"})
 
 
 def _mounted_holder_hides_members(kind: str) -> bool:
@@ -443,7 +445,9 @@ def _cover_unlinked_stacked_members(
     """
     holder_mounts: List[str] = []
     for node, _parent in flat_nodes:
-        if _node_type(node) not in _STACKED_HOLDER_TYPES:
+        kind = _node_type(node)
+        name = _clean(node.get("name")).lower()
+        if kind not in _STACKED_HOLDER_TYPES and not name.startswith("bcache"):
             continue
         holder_mounts.extend(_node_mountpoints(node))
     if not holder_mounts:
@@ -1046,8 +1050,19 @@ def parse_lsblk_json(
             if not ancestors:
                 raise ValueError("lsblk mounted ancestry is unresolved")
             for ancestor, tree_parent in ancestors:
-                if _node_type(ancestor) in {"disk", "rom"}:
+                kind = _node_type(ancestor)
+                # One PKNAME on multipath or RAID hides the other leg.
+                if _mounted_holder_hides_members(kind):
+                    raise ValueError("lsblk mounted ancestry is unresolved")
+                if kind in {"disk", "rom"}:
                     flat_mounts.setdefault(ancestor_name, []).extend(mounts)
+                    # bcache and similar holders are type=disk and still
+                    # name the physical disk in PKNAME.
+                    holder_pk = ""
+                    if ancestor.get("pkname") is not None:
+                        holder_pk = _identity_text(ancestor.get("pkname"), "pkname")
+                    if holder_pk and holder_pk != ancestor_name:
+                        pending.append((holder_pk, trail | {ancestor_name}))
                     continue
                 next_name = _identity_text(ancestor.get("pkname"), "pkname")
                 if not next_name and tree_parent is not None:

@@ -105,6 +105,47 @@ def test_mounted_stacked_volume_does_not_leave_another_member_selectable(monkeyp
     assert [target.path for target in result.selectable] == ["/dev/sdd"]
 
 
+def test_flat_lvm_on_multipath_does_not_leave_the_other_leg_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("sdb", tran="sata"),
+        disk("sdc"),
+        disk("mpatha", type="mpath", pkname="sda"),
+        disk("dm-0", type="lvm", pkname="mpatha", mountpoints=["/"]),
+    ], boot="/dev/sdc")
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+def test_flat_partition_on_disk_holder_follows_the_backing_disk(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("bcache0", pkname="sda", tran=None, serial="BCACHE0"),
+        disk("bcache0p1", type="part", pkname="bcache0", mountpoints=["/home"], fstype="ext4"),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_mounted_bcache_does_not_leave_the_cache_disk_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            disk("sda1", type="part", fstype="bcache", children=[
+                disk("bcache0", mountpoints=["/mnt/data"], serial="BCACHE0"),
+            ]),
+        ]),
+        disk("sdb", tran="sata", children=[
+            disk("sdb1", type="part", fstype="bcache"),
+        ]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
 def test_flat_mounted_disk_holder_does_not_leave_its_backing_disk_selectable(monkeypatch):
     """A mounted holder emitted as its own type=disk row still belongs to pkname."""
     result = probe(monkeypatch, [

@@ -1002,6 +1002,51 @@ def test_leftover_usb_label_does_not_win_over_other_removable_media():
         assert result.selectable == (), other
 
 
+def test_blank_transport_small_nvme_blocks_leftover_label():
+    """A small NVMe with no lsblk transport is still a plausible live disk."""
+    for tran in ("", None):
+        payload = _payload(
+            [
+                {
+                    "name": "sda",
+                    "path": "/dev/sda",
+                    "size": 16_000_000_000,
+                    "type": "disk",
+                    "tran": "usb",
+                    "rota": True,
+                    "model": "Leftover stick",
+                    "serial": "OTHERUSB01",
+                    "ro": False,
+                    "children": [
+                        {"name": "sda1", "path": "/dev/sda1", "type": "part", "label": "BEAMO_WIPE", "ro": False}
+                    ],
+                },
+                {
+                    "name": "nvme0n1",
+                    "path": "/dev/nvme0n1",
+                    "size": 64_000_000_000,
+                    "type": "disk",
+                    "tran": tran,
+                    "rm": False,
+                    "hotplug": False,
+                    "rota": False,
+                    "model": "Possible enclosure",
+                    "serial": "NVME0001",
+                    "ro": False,
+                },
+            ]
+        )
+        result = discover(
+            lsblk_payload=payload,
+            boot_path=None,
+            mount_sources=[],
+            cmdline="",
+            env={"BEAMO_WIPE_DRY_RUN": "1"},
+        )
+        assert not result.boot_identified, tran
+        assert result.selectable == (), tran
+
+
 def test_unique_beamo_usb_label_still_identifies_with_internal_nvme():
     payload = _payload(
         [
