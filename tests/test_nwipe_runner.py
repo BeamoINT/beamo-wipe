@@ -479,6 +479,44 @@ def test_evaluate_nwipe_one_hundred_percent_last_pass_is_finished():
     assert summary == "finished"
 
 
+def test_truncated_drive_status_name_still_counts_as_erased():
+    """nwipe 0.42 prints an 8-column device field, stopping at the slash.
+
+    ``/dev/nvme0n100`` is ``vme0n100``. The last SIGUSR1 sample is often
+    below 100%, so the Erased row is the only completion marker.
+    """
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome, nwipe_status_device_field
+
+    device = "/dev/nvme0n100"
+    assert nwipe_status_device_field(device) == "vme0n100"
+    assert nwipe_status_device_field("/dev/sda") == "     sda"
+    assert nwipe_status_device_field("/dev/nvme0n1") == " nvme0n1"
+    log = (
+        f"{device}: 099.87%, round 1 of 1, pass 1 of 1, eta 00:00:02, [verifying]\n"
+        "  vme0n100 | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
+    )
+    ok, summary, reason = evaluate_nwipe_outcome(0, log, device)
+    assert (ok, summary, reason) == (True, "finished", "completed")
+    missed, _, missed_reason = evaluate_nwipe_outcome(
+        0, log.splitlines()[0] + "\n", device
+    )
+    assert missed is False
+    assert missed_reason == "completion_missing"
+
+
+def test_truncated_failed_status_is_not_finished_by_a_final_percent():
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome
+
+    device = "/dev/nvme0n100"
+    log = (
+        f"{device}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [verifying]\n"
+        "! vme0n100 |-FAILED-| 0MB/s | 00:01:00 | QEMU/DISK\n"
+    )
+    ok, _summary, reason = evaluate_nwipe_outcome(0, log, device)
+    assert ok is False
+    assert reason == "engine_failed"
+
+
 def test_evaluate_nwipe_erased_table_is_finished():
     from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
 

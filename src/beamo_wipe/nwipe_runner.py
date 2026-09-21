@@ -456,11 +456,56 @@ def _target_geometry_failed(log_text: str, device: str) -> bool:
     return False
 
 
+# nwipe 0.42 nwipe_strip_path(): right-align the basename in 8 columns and
+# stop at '/'. ``/dev/nvme0n100`` is printed ``vme0n100``, not the full name.
+NWIPE_STATUS_DEVICE_WIDTH = 8
+
+
+def nwipe_status_device_field(device: str) -> str:
+    """8-character Drive Status device column for this path."""
+    raw = device
+    if device.startswith("/"):
+        try:
+            raw = os.path.realpath(device)
+        except OSError:
+            raw = device
+    chars = [" "] * NWIPE_STATUS_DEVICE_WIDTH
+    dest = NWIPE_STATUS_DEVICE_WIDTH - 1
+    src = len(raw) - 1
+    while dest >= 0 and src >= 0:
+        ch = raw[src]
+        if ch == "/":
+            break
+        chars[dest] = ch
+        dest -= 1
+        src -= 1
+    return "".join(chars)
+
+
+def _status_device_names(device: str) -> List[str]:
+    names: List[str] = []
+    full = os.path.basename(os.path.realpath(device))
+    column = nwipe_status_device_field(device).strip()
+    for name in (full, column):
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def _status_column_has_name(line: str, name: str) -> bool:
+    return (
+        re.search(rf"(?:^|\s)!?\s*{re.escape(name)}\s*\|", line) is not None
+    )
+
+
 def _target_reported_failure(log_text: str, device: str) -> bool:
+    names = _status_device_names(device)
     for line in (log_text or "").splitlines():
         if not NWIPE_FAILURE_RE.search(line):
             continue
         if _line_mentions_device(line, device):
+            return True
+        if any(_status_column_has_name(line, name) for name in names):
             return True
     return False
 
@@ -546,12 +591,13 @@ def _target_reported_success(log_text: str, device: str) -> bool:
     nwipe 0.42 SIGUSR1 logs ``/dev/X: Success`` whenever the wipe thread
     pointer is unset and result is 0 — including after nwipe_options_log()
     and before pthread_create. That line is not a completed wipe.
+    The status table uses an 8-column basename, so a longer name is truncated.
     """
-    name = re.escape(os.path.basename(os.path.realpath(device)))
-    row = re.compile(rf"^\s*!?\s*{name}\s*\|\s*Erased\s*\|")
-    for line in (log_text or "").splitlines():
-        if row.match(line):
-            return True
+    for name in _status_device_names(device):
+        row = re.compile(rf"^\s*!?\s*{re.escape(name)}\s*\|\s*Erased\s*\|")
+        for line in (log_text or "").splitlines():
+            if row.match(line):
+                return True
     return False
 
 
