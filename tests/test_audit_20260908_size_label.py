@@ -29,6 +29,26 @@ def test_half_gb_sizes_round_half_up_not_to_even():
     assert size_gb_label(4_500_000_000) == "5"
 
 
+def test_under_half_gb_is_not_labeled_one_gb():
+    """Half-up to 0 must not be forced up to 1 GB.
+
+    A 100 MB disk and a 1.0 GB disk were both shown as "1 GB" and could
+    share a size confirmation token.
+    """
+    assert size_gb_label(1) == "0"
+    assert size_gb_label(100_000_000) == "0"
+    assert size_gb_label(499_999_999) == "0"
+    assert size_gb_label(500_000_000) == "1"
+    small = _disk("sda", 100_000_000)
+    one_gb = _disk("sdb", 1_000_000_000)
+    assert small.size_gb_label != one_gb.size_gb_label
+    assert small.size_phrase == "under 1 GB"
+    assert one_gb.size_phrase == "1 GB"
+    assert not same_size_conflict([small, one_gb])
+    assert confirm_spec(small, [small]).token == small.size_gb_label
+    assert confirm_spec(one_gb, [one_gb]).token == "1"
+
+
 def test_existing_decimal_gb_examples_stay_stable():
     assert size_gb_label(256060514304) == "256"
     assert size_gb_label(16_000_000_000) == "16"

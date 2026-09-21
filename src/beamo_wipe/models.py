@@ -113,6 +113,10 @@ class Disk:
 
     @property
     def size_phrase(self) -> str:
+        # A positive disk that half-up rounds to 0 GB is not empty and is
+        # not 1 GB. Zero-byte disks stay "0 GB".
+        if self.size_bytes > 0 and (self.size_gb_label or "").strip() == "0":
+            return "under 1 GB"
         return capacity_phrase(self.size_gb_label)
 
 

@@ -107,8 +107,10 @@ def size_gb_label(size_bytes: int) -> str:
         return "0"
     # Integer half-up in decimal GB. Python 3 round() is banker's rounding, so
     # 2.5e9 became "2 GB" and collided with a 1.5e9 disk also labeled "2 GB".
+    # Do not force a sub-0.5 GB disk up to 1: that shared a confirm token
+    # with a real 1 GB disk.
     gb = (int(size_bytes) + 500_000_000) // 1_000_000_000
-    return str(max(1, gb))
+    return str(gb)
 
 
 def classify_kind(name: str, tran: Optional[str], rota: Any) -> DiskKind:
