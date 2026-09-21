@@ -336,18 +336,46 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
     peers = [item for item in selectable if os.path.realpath(item.path) != want]
     peers.append(disk)
     same = [item for item in peers if item.size_gb_label == disk.size_gb_label]
-    if len(same) > 1:
-        spec = _stable_same_size_token(disk, same)
-        if spec is None:
-            raise SafetyError(AMBIGUOUS_IDENTITY)
-        return spec
-    token = _safe_token((disk.size_gb_label or "").strip())
-    if not token:
+    banned = _cross_disk_tokens(disk, peers)
+    if len(same) == 1:
+        token = _safe_token((disk.size_gb_label or "").strip())
+        if token and token.casefold() not in banned:
+            return ConfirmSpec(token=token, prompt=confirm_type_size(token))
+    spec = _stable_same_size_token(disk, same, banned=banned)
+    if spec is None:
         raise SafetyError(AMBIGUOUS_IDENTITY)
-    return ConfirmSpec(token=token, prompt=confirm_type_size(token))
+    return spec
 
 
-def _stable_same_size_token(disk: Disk, same: Sequence[Disk]) -> Optional[ConfirmSpec]:
+def _cross_disk_tokens(disk: Disk, peers: Sequence[Disk]) -> set[str]:
+    """Size labels and serial/WWN values another listed disk can show.
+
+    A confirmation token has to name one disk. The 1 TB size ``1000`` must
+    not also be the last four characters of a different disk's serial.
+    """
+    banned: set[str] = set()
+    want = os.path.realpath(disk.path)
+    for other in peers:
+        if os.path.realpath(other.path) == want:
+            continue
+        size = _safe_token((other.size_gb_label or "").strip())
+        if size:
+            banned.add(size.casefold())
+        for raw in (other.serial, other.wwn):
+            value = (raw or "").strip()
+            token = _safe_token(value)
+            if token:
+                banned.add(token.casefold())
+            if len(value) >= 4:
+                suffix = _safe_token(value[-4:])
+                if suffix:
+                    banned.add(suffix.casefold())
+    return banned
+
+
+def _stable_same_size_token(
+    disk: Disk, same: Sequence[Disk], *, banned: Optional[set[str]] = None
+) -> Optional[ConfirmSpec]:
     peer_names = _peer_name_tokens(disk, same)
     want = os.path.realpath(disk.path)
     # A peer may confirm by serial or WWN. Suffixes must avoid both its full
@@ -355,6 +383,9 @@ def _stable_same_size_token(disk: Disk, same: Sequence[Disk]) -> Optional[Confir
     # a short full ID remain usable while forcing its peer to use a longer ID.
     peer_full = set(peer_names)
     peer_suffixes = set()
+    if banned:
+        peer_full |= banned
+        peer_suffixes |= banned
     for other in same:
         if os.path.realpath(other.path) == want:
             continue

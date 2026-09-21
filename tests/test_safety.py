@@ -194,6 +194,36 @@ def test_live_size_check_still_refuses_sysfs_mismatch(monkeypatch):
         assert_size_unchanged("/dev/vda", 10_000_000_000)
 
 
+def test_size_token_cannot_equal_another_disks_serial_suffix():
+    """A 1 TB size token must not also confirm a different disk's serial."""
+    from beamo_wipe.discover import size_gb_label
+    from beamo_wipe.models import Disk, DiskKind
+
+    def make(path, size, serial):
+        return Disk(
+            path=path,
+            name=path.rsplit("/", 1)[-1],
+            model="Fake",
+            serial=serial,
+            size_bytes=size,
+            size_gb_label=size_gb_label(size),
+            kind=DiskKind.SSD,
+            bus="SATA",
+            label="",
+        )
+
+    one_tb = make("/dev/sda", 1_000_000_000_000, "AAAA1111")
+    two_a = make("/dev/sdb", 2_000_000_000_000, "WXYZ1000")
+    two_b = make("/dev/sdc", 2_000_000_000_000, "OTHER9999")
+    listed = [one_tb, two_a, two_b]
+    specs = {disk.path: confirm_spec(disk, listed) for disk in listed}
+    assert specs["/dev/sda"].token != specs["/dev/sdb"].token
+    assert not (
+        token_matches("1000", specs["/dev/sda"])
+        and token_matches("1000", specs["/dev/sdb"])
+    )
+
+
 def test_empty_confirm_token_never_matches():
     from beamo_wipe.models import ConfirmSpec
 
