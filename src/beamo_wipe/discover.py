@@ -373,19 +373,21 @@ def _could_be_live_medium(node: Dict[str, Any]) -> bool:
     """True for a disk that might be the live stick when mounts are missing.
 
     USB-SATA bridges often report tran=sata. USB-NVMe enclosures often report
-    tran=nvme. A leftover BEAMO_WIPE USB must not win label fallback while that
-    bridge remains a plausible live disk. Large internal SATA/NVMe disks are
-    not treated as competing live media.
+    tran=nvme, or no transport at all. SD and eMMC often report tran=mmc or
+    nothing. Any removable disk can be that stick. A leftover BEAMO_WIPE USB
+    must not win label fallback while one of those remains. Large internal
+    SATA/NVMe/eMMC disks are not treated as competing live media.
     """
     if _looks_like_live_medium(node):
         return True
     if _node_type(node) not in {"disk", "rom"}:
         return False
-    tran = (node.get("tran") or "").lower().strip()
-    if tran not in {"sata", "ata", "nvme"}:
-        return False
     if _as_bool(node.get("rm")) is True or _as_bool(node.get("hotplug")) is True:
         return True
+    tran = (node.get("tran") or "").lower().strip()
+    name = _clean(node.get("name")).lower()
+    if tran not in {"sata", "ata", "nvme", "mmc"} and not name.startswith("mmcblk"):
+        return False
     size = _as_int(node.get("size"))
     # Decimal 128 GB covers 64 GiB USB-SATA/NVMe enclosures (68.7e9) that
     # sit just above the previous 64e9 cutoff. 256 GB+ internals stay
@@ -395,6 +397,74 @@ def _could_be_live_medium(node: Dict[str, Any]) -> bool:
 
 def _node_type(node: Dict[str, Any]) -> str:
     return (node.get("type") or "").lower()
+
+
+# lsblk hangs a mounted RAID or multipath volume off one member. The other
+# member stays a normal disk unless the whole inventory is refused.
+# ``linear`` is md's level name, not a ``raid*`` type. LVM and linear can
+# also be a single resolved stack (crypt -> lv); those keep unrelated disks.
+_UNRESOLVED_HOLDER_TYPES = frozenset({"mpath", "md"})
+_STACKED_HOLDER_TYPES = frozenset({"lvm", "linear"})
+_MEMBER_FILESYSTEMS = frozenset({"lvm2_member", "linux_raid_member"})
+
+
+def _mounted_holder_hides_members(kind: str) -> bool:
+    return kind.startswith("raid") or kind in _UNRESOLVED_HOLDER_TYPES
+
+
+def _filesystems_under(node: Mapping[str, Any]) -> set[str]:
+    found: set[str] = set()
+
+    def walk(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        fs = _clean(item.get("fstype")).casefold()
+        if fs:
+            found.add(fs)
+        for child in item.get("children") or []:
+            walk(child)
+
+    walk(node)
+    return found
+
+
+def _cover_unlinked_stacked_members(
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    flat_mounts: Dict[str, List[str]],
+) -> None:
+    """Give every other LVM or md member the mounted volume's mountpoint.
+
+    lsblk names one physical disk for a mounted stack. A second disk that
+    still has a member filesystem is the same volume and must not be
+    selectable. A stack with no extra member filesystem stays on its pkname
+    chain, so an unrelated disk can still be erased.
+    """
+    holder_mounts: List[str] = []
+    for node, _parent in flat_nodes:
+        if _node_type(node) not in _STACKED_HOLDER_TYPES:
+            continue
+        holder_mounts.extend(_node_mountpoints(node))
+    if not holder_mounts:
+        return
+    covered = set(flat_mounts)
+    roots: List[Tuple[str, Dict[str, Any]]] = []
+    for node, parent in flat_nodes:
+        if parent is not None or _node_type(node) != "disk":
+            continue
+        if node.get("name") is None:
+            continue
+        name = _identity_text(node.get("name"), "name")
+        if not name:
+            continue
+        if _node_mountpoints(node):
+            covered.add(name)
+        roots.append((name, node))
+    for name, node in roots:
+        if name in covered:
+            continue
+        if not (_filesystems_under(node) & _MEMBER_FILESYSTEMS):
+            continue
+        flat_mounts.setdefault(name, []).extend(holder_mounts)
 
 
 def parent_disk_path(
@@ -929,15 +999,23 @@ def parse_lsblk_json(
             by_name.setdefault(name, []).append((candidate, parent))
     for candidate, _parent in flat_nodes:
         kind = _node_type(candidate)
-        if kind.startswith("raid") or kind in {"mpath", "md"}:
+        if _mounted_holder_hides_members(kind):
             # Nested lsblk -J trees attach the array under one member. The
             # sibling stays a normal unmounted disk unless we refuse the
             # whole inventory. Flat pkname rows have the same PKNAME gap.
             if _node_mountpoints(candidate):
                 raise ValueError("lsblk mounted ancestry is unresolved")
     for candidate, parent in flat_nodes:
-        if parent is not None or _node_type(candidate) == "disk":
+        if parent is not None:
             continue
+        # A holder such as bcache can be type=disk with PKNAME and its own
+        # mount. Skipping every disk row left that backing disk selectable.
+        if _node_type(candidate) == "disk":
+            holder_parent = ""
+            if candidate.get("pkname") is not None:
+                holder_parent = _identity_text(candidate.get("pkname"), "pkname")
+            if not holder_parent:
+                continue
         pkname = _identity_text(candidate.get("pkname"), "pkname")
         mounts = _node_mountpoints(candidate)
         if not mounts:
@@ -950,9 +1028,9 @@ def parse_lsblk_json(
                 continue
             raise ValueError("lsblk mounted ancestry is unresolved")
         kind = _node_type(candidate)
-        if kind.startswith("raid") or kind in {"mpath", "md"}:
-            # lsblk exposes one PKNAME. The other RAID/multipath member stays
-            # a normal unmounted disk unless we refuse the whole inventory.
+        if _mounted_holder_hides_members(kind):
+            # lsblk exposes one PKNAME. The other member stays a normal
+            # unmounted disk unless we refuse the whole inventory.
             raise ValueError("lsblk mounted ancestry is unresolved")
         # Flat lsblk rows can describe disk -> partition -> crypt/LVM chains.
         # Exclude every possible whole-disk ancestor; an unknown or cyclic
@@ -975,6 +1053,8 @@ def parse_lsblk_json(
                 if not next_name:
                     raise ValueError("lsblk mounted ancestry is unresolved")
                 pending.append((next_name, trail | {ancestor_name}))
+
+    _cover_unlinked_stacked_members(flat_nodes, flat_mounts)
 
     disks: List[Disk] = []
     identified_boot: Optional[Disk] = None

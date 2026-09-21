@@ -86,6 +86,37 @@ def test_nested_mounted_multiparent_volume_does_not_leave_sibling_selectable(mon
     assert result.selectable == ()
 
 
+@pytest.mark.parametrize("kind,member_fs", [("lvm", "LVM2_member"), ("linear", "linux_raid_member")])
+def test_mounted_stacked_volume_does_not_leave_another_member_selectable(monkeypatch, kind, member_fs):
+    """A second physical member is not the one lsblk hangs the mount on."""
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            disk("sda1", type="part", tran="sata", children=[
+                disk("holder0", type=kind, mountpoints=["/mnt/data"]),
+            ]),
+        ]),
+        disk("sdb", tran="sata", children=[
+            disk("sdb1", type="part", tran="sata", fstype=member_fs),
+        ]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_flat_mounted_disk_holder_does_not_leave_its_backing_disk_selectable(monkeypatch):
+    """A mounted holder emitted as its own type=disk row still belongs to pkname."""
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("bcache0", pkname="sda", mountpoints=["/mnt/data"], tran=None, serial="BCACHE0"),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
 def test_nested_mounted_child_without_pkname_uses_tree_parent(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", children=[disk("sda1", type="part", mountpoints=["/media/data"])]),
