@@ -1876,6 +1876,10 @@ class Wizard:
                 # Prefer runner's _log_tail if available, else read file
                 log_text = getattr(self.runner, "_log_tail", "") or ""
                 if not log_text and self._wipe_request and self._wipe_request.logfile:
+                    # Same window as NwipeRunner completion parsing. An 8 KiB
+                    # tail can sit entirely after the Erased row.
+                    from beamo_wipe.nwipe_runner import NWIPE_COMPLETION_LOG_BYTES
+
                     try:
                         fd = os.open(
                             self._wipe_request.logfile,
@@ -1889,7 +1893,7 @@ class Wizard:
                                 fd = -1
                                 fh.seek(0, 2)
                                 size = fh.tell()
-                                fh.seek(max(0, size - 8192))
+                                fh.seek(max(0, size - NWIPE_COMPLETION_LOG_BYTES))
                                 log_text = fh.read().decode("utf-8", errors="replace")
                         finally:
                             if fd >= 0:
