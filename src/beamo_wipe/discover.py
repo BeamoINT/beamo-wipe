@@ -501,22 +501,31 @@ def _cover_shared_filesystem_members(
     """Copy a mount onto every disk that shows the same filesystem UUID.
 
     lsblk records a multi-device filesystem mount on one member. The other
-    member keeps the fstype and UUID and an empty mount list. An empty UUID
-    is not an identity and must not glue unrelated disks together.
+    member keeps the UUID and an empty mount list, and it may not have filled
+    in fstype yet. An empty UUID is not an identity. A different fstype is a
+    different filesystem and must not be glued on.
     """
     mounted: Dict[Tuple[str, str], List[str]] = {}
+    mounted_uuid: Dict[str, List[str]] = {}
     for node, _parent in flat_nodes:
         fs = _clean(node.get("fstype")).casefold()
         uuid = _clean(node.get("uuid")).casefold()
         mounts = _node_mountpoints(node)
-        if fs and uuid and mounts:
+        if not uuid or not mounts:
+            continue
+        if fs:
             mounted.setdefault((fs, uuid), []).extend(mounts)
-    if not mounted:
+        mounted_uuid.setdefault(uuid, []).extend(mounts)
+    if not mounted and not mounted_uuid:
         return
     for node, parent in flat_nodes:
         fs = _clean(node.get("fstype")).casefold()
         uuid = _clean(node.get("uuid")).casefold()
-        mounts = mounted.get((fs, uuid))
+        if not uuid:
+            continue
+        mounts = mounted.get((fs, uuid)) if fs else None
+        if not mounts and not fs:
+            mounts = mounted_uuid.get(uuid)
         if not mounts:
             continue
         owner = _owner_disk_name(node, parent, by_name)

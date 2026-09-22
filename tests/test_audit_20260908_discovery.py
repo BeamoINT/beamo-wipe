@@ -198,6 +198,37 @@ def test_whole_disk_btrfs_member_is_not_selectable(monkeypatch):
     assert [target.path for target in result.selectable] == ["/dev/sdd"]
 
 
+def test_shared_uuid_without_fstype_is_not_selectable(monkeypatch):
+    """A member can show the filesystem UUID before fstype is filled in."""
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            _part("sda1", "sda", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
+        ]),
+        disk("sdb", tran="sata", children=[
+            _part("sdb1", "sdb", uuid="FS"),
+        ]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_shared_uuid_with_a_different_fstype_stays_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            _part("sda1", "sda", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
+        ]),
+        disk("sdb", tran="sata", children=[
+            _part("sdb1", "sdb", fstype="ext4", uuid="FS"),
+        ]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert "/dev/sdb" in [target.path for target in result.selectable]
+
+
 def test_different_btrfs_uuid_stays_selectable(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata", children=[
