@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -751,6 +752,38 @@ def classify_contents(node: Mapping[str, Any]) -> str:
     return CONTENTS_UNKNOWN
 
 
+def _layout_id(node: Mapping[str, Any]) -> str:
+    """Stable hash of filesystem identity. Empty when the disk has none.
+
+    A blank serial and WWN cannot tell two disks apart. Partition UUID,
+    type, label, and size can. The hash is not a confirmation token.
+    """
+    rows: List[str] = []
+
+    def add(item: Mapping[str, Any], *, partition: bool) -> None:
+        fstype = _clean(item.get("fstype")).casefold()
+        uuid = _clean(item.get("uuid")).casefold()
+        partuuid = _clean(item.get("partuuid")).casefold()
+        label = _clean(item.get("label")).casefold()
+        size = str(_as_int(item.get("size"))) if partition else ""
+        if fstype or uuid or partuuid or label:
+            rows.append("|".join(("p" if partition else "d", fstype, uuid, partuuid, label, size)))
+
+    def walk(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        if _node_type(item) == "part":
+            add(item, partition=True)
+        for child in item.get("children") or []:
+            walk(child)
+
+    add(node, partition=False)
+    walk(node)
+    if not rows:
+        return ""
+    return hashlib.sha256("\n".join(sorted(rows)).encode("utf-8")).hexdigest()
+
+
 def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
     name = _identity_text(node.get("name"), "name") if node.get("name") is not None else ""
     path = node_path(node)
@@ -789,6 +822,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
             _as_bool(node.get("rm")) is True
             or _as_bool(node.get("hotplug")) is True
         ),
+        layout_id=_layout_id(node),
     )
 
 

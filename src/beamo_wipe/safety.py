@@ -535,7 +535,7 @@ def normalize_whole_disk(path: str, *, allow_optical: bool = False) -> str:
     return real
 
 
-def disk_identity(disk: Disk) -> Tuple[str, str, int, str, str, str, str, str]:
+def disk_identity(disk: Disk) -> Tuple[str, str, int, str, str, str, str, str, str]:
     return (
         os.path.realpath(disk.path),
         (disk.serial or "").strip(),
@@ -545,6 +545,7 @@ def disk_identity(disk: Disk) -> Tuple[str, str, int, str, str, str, str, str]:
         (disk.vendor or "").strip(),
         (disk.bus or "").strip(),
         disk.kind.value if hasattr(disk.kind, "value") else str(disk.kind),
+        (disk.layout_id or "").strip(),
     )
 
 

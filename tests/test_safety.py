@@ -267,6 +267,68 @@ def test_char_device_is_not_a_wipe_target():
         assert_existing_is_block_device("/dev/null")
 
 
+def test_blank_disk_partition_change_is_a_different_disk(monkeypatch, tmp_path):
+    """Same path, model, and empty serial can still be another physical disk."""
+    from beamo_wipe.safety import assert_disk_identity
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+
+    def payload(part_uuid: str):
+        return {
+            "blockdevices": [
+                {
+                    "name": "sda",
+                    "path": "/dev/sda",
+                    "type": "disk",
+                    "size": 8_000_000_000,
+                    "tran": "usb",
+                    "model": "USB DISK",
+                    "serial": "",
+                    "wwn": "",
+                    "children": [
+                        {
+                            "name": "sda1",
+                            "path": "/dev/sda1",
+                            "type": "part",
+                            "fstype": "ntfs",
+                            "uuid": part_uuid,
+                            "label": "DATA",
+                            "size": 7_000_000_000,
+                        }
+                    ],
+                },
+                {
+                    "name": "sdb",
+                    "path": "/dev/sdb",
+                    "type": "disk",
+                    "size": 16_000_000_000,
+                    "tran": "usb",
+                    "model": "Beamo",
+                    "serial": "BOOT",
+                    "wwn": "boot-wwn",
+                },
+            ]
+        }
+
+    def scan(part_uuid: str):
+        return discover(
+            lsblk_payload=payload(part_uuid),
+            boot_path="/dev/sdb",
+            mount_sources=[],
+            cmdline="",
+            env={"BEAMO_WIPE_DRY_RUN": "1"},
+        )
+
+    original = scan("AAAA-AAAA")
+    disk = next(item for item in original.selectable if item.path == "/dev/sda")
+    assert disk.serial == ""
+    assert disk.wwn == ""
+    assert_disk_identity(disk, scan("AAAA-AAAA"))
+    with pytest.raises(SafetyError, match="identity"):
+        assert_disk_identity(disk, scan("BBBB-BBBB"))
+
+
 def test_identity_change_refuses_wipe(monkeypatch, tmp_path):
     from dataclasses import replace
 

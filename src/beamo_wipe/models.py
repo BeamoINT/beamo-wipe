@@ -105,6 +105,9 @@ class Disk:
     # Observed lsblk RM or HOTPLUG. SATA/NVMe with this set may be a USB
     # enclosure; presentation must not guess internal vs external location.
     hotplug: bool = False
+    # Hash of partition and whole-disk filesystem identity. Empty when none
+    # was recorded. Rediscovery uses it to catch a blank disk that was swapped.
+    layout_id: str = ""
 
     @property
     def display_name(self) -> str:
