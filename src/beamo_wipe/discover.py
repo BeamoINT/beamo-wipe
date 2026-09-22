@@ -758,16 +758,55 @@ def _layout_id(node: Mapping[str, Any]) -> str:
     A blank serial and WWN cannot tell two disks apart. Partition UUID,
     type, label, and size can. The hash is not a confirmation token.
     """
+    return _hash_layout_rows(_layout_rows(node))
+
+
+def _hash_layout_rows(rows: Sequence[str]) -> str:
+    kept = [row for row in rows if row]
+    if not kept:
+        return ""
+    return hashlib.sha256("\n".join(sorted(kept)).encode("utf-8")).hexdigest()
+
+
+def _flat_layout_id(
+    disk_node: Mapping[str, Any],
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Layout of this disk, including partitions emitted as their own rows."""
+    rows = list(_layout_rows(disk_node))
+    if disk_node.get("name") is None:
+        return _hash_layout_rows(rows)
+    disk_name = _identity_text(disk_node.get("name"), "name")
+    seen: set[str] = set()
+    for node, parent in flat_nodes:
+        if _node_type(node) != "part":
+            continue
+        path = node_path(node)
+        if not path or path in seen:
+            continue
+        if _owner_disk_name(node, parent, by_name) != disk_name:
+            continue
+        # A partition nested under this disk is already in its own rows.
+        if (
+            parent is not None
+            and parent.get("name") is not None
+            and _identity_text(parent.get("name"), "name") == disk_name
+        ):
+            seen.add(path)
+            continue
+        seen.add(path)
+        rows.append(_filesystem_layout_row(node, partition=True))
+    return _hash_layout_rows(rows)
+
+
+def _layout_rows(node: Mapping[str, Any]) -> List[str]:
     rows: List[str] = []
 
     def add(item: Mapping[str, Any], *, partition: bool) -> None:
-        fstype = _clean(item.get("fstype")).casefold()
-        uuid = _clean(item.get("uuid")).casefold()
-        partuuid = _clean(item.get("partuuid")).casefold()
-        label = _clean(item.get("label")).casefold()
-        size = str(_as_int(item.get("size"))) if partition else ""
-        if fstype or uuid or partuuid or label:
-            rows.append("|".join(("p" if partition else "d", fstype, uuid, partuuid, label, size)))
+        row = _filesystem_layout_row(item, partition=partition)
+        if row:
+            rows.append(row)
 
     def walk(item: object) -> None:
         if not isinstance(item, dict):
@@ -779,9 +818,18 @@ def _layout_id(node: Mapping[str, Any]) -> str:
 
     add(node, partition=False)
     walk(node)
-    if not rows:
+    return rows
+
+
+def _filesystem_layout_row(item: Mapping[str, Any], *, partition: bool) -> str:
+    fstype = _clean(item.get("fstype")).casefold()
+    uuid = _clean(item.get("uuid")).casefold()
+    partuuid = _clean(item.get("partuuid")).casefold()
+    label = _clean(item.get("label")).casefold()
+    size = str(_as_int(item.get("size"))) if partition else ""
+    if not partition and not (fstype or uuid or partuuid or label):
         return ""
-    return hashlib.sha256("\n".join(sorted(rows)).encode("utf-8")).hexdigest()
+    return "|".join(("p" if partition else "d", fstype, uuid, partuuid, label, size))
 
 
 def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
@@ -1212,6 +1260,7 @@ def parse_lsblk_json(
             if should_hide(node, boot_path) and not matched_boot:
                 continue
             disk = node_to_disk(node, is_boot=matched_boot)
+            disk = replace(disk, layout_id=_flat_layout_id(node, flat_nodes, by_name))
         except ValueError:
             try:
                 from beamo_wipe.diagnostics import log_diag
@@ -1240,6 +1289,7 @@ def parse_lsblk_json(
             if _node_type(node) in {"rom", "disk"}:
                 try:
                     disk = node_to_disk(node, is_boot=True)
+                    disk = replace(disk, layout_id=_flat_layout_id(node, flat_nodes, by_name))
                 except ValueError:
                     try:
                         from beamo_wipe.diagnostics import log_diag
