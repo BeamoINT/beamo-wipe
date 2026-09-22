@@ -351,6 +351,58 @@ def test_filesystem_on_bcache_disk_keeps_the_os_warning(monkeypatch):
     assert "/dev/bcache0" not in [target.path for target in result.selectable]
 
 
+def test_mounted_wwn_alias_is_not_selectable(monkeypatch):
+    """Another path with the mounted disk's WWN is the same LUN.
+
+    The mount is recorded on one path. The other path must not be erased.
+    """
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", wwn="Same-LUN", serial="PATH-A", children=[
+            _part("sda1", "sda", fstype="ext4", mountpoints=["/data"]),
+        ]),
+        disk("sdb", tran="sata", wwn="same-lun", serial="PATH-B"),
+        disk("sdd", tran="sata", wwn="other-lun", serial="OTHER"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_unmounted_duplicate_wwn_stays_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", wwn="same-lun", serial="PATH-A"),
+        disk("sdb", tran="sata", wwn="same-lun", serial="PATH-B"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sda", "/dev/sdb"]
+
+
+def test_blank_wwn_does_not_glue_a_mounted_disk(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", wwn="0x0000", serial="PATH-A", children=[
+            _part("sda1", "sda", fstype="ext4", mountpoints=["/data"]),
+        ]),
+        disk("sdb", tran="sata", wwn="0x0000", serial="PATH-B"),
+        disk("sdd", tran="sata", wwn="", serial="PLAIN"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdb", "/dev/sdd"]
+
+
+def test_same_serial_different_wwn_stays_selectable_when_one_is_mounted(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", wwn="wwn-a", serial="SAME-SERIAL", children=[
+            _part("sda1", "sda", fstype="ext4", mountpoints=["/data"]),
+        ]),
+        disk("sdb", tran="sata", wwn="wwn-b", serial="SAME-SERIAL"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdb"]
+
+
 @pytest.mark.parametrize("kind", ["dmraid", "faulty", "multipath"])
 def test_mounted_hidden_member_holder_fails_closed(monkeypatch, kind):
     """Bookworm lsblk types that do not start with ``raid`` still hide a leg."""

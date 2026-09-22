@@ -422,6 +422,47 @@ def _mounted_holder_hides_members(kind: str) -> bool:
     return kind.startswith("raid") or kind in _UNRESOLVED_HOLDER_TYPES
 
 
+def _meaningful_wwn(value: str) -> str:
+    """WWN that can name one LUN, or empty for padding.
+
+    An all-zero id is not a multipath alias. It must not glue a mounted
+    disk to every other disk that carries the same padding.
+    """
+    text = (value or "").strip().casefold()
+    body = text[2:] if text.startswith("0x") else text
+    if not body or set(body) <= {"0"}:
+        return ""
+    return text
+
+
+def _cover_mounted_wwn_aliases(disks: Sequence[Disk]) -> List[Disk]:
+    """Copy a mount onto every other path that shows that disk's WWN.
+
+    Multipath records the mount on one path. The other path is the same
+    LUN and must not stay selectable.
+    """
+    mounted: Dict[str, List[str]] = {}
+    for disk in disks:
+        wwn = _meaningful_wwn(disk.wwn)
+        if not wwn or not disk.mountpoints:
+            continue
+        mounted.setdefault(wwn, []).extend(disk.mountpoints)
+    if not mounted:
+        return list(disks)
+    covered: List[Disk] = []
+    for disk in disks:
+        extra = mounted.get(_meaningful_wwn(disk.wwn))
+        if not extra:
+            covered.append(disk)
+            continue
+        mounts = tuple(dict.fromkeys((*disk.mountpoints, *extra)))
+        if mounts == disk.mountpoints:
+            covered.append(disk)
+            continue
+        covered.append(replace(disk, mountpoints=mounts))
+    return covered
+
+
 def _resolve_owner_disk(
     node: Mapping[str, Any],
     parent: Optional[Dict[str, Any]],
@@ -1513,6 +1554,10 @@ def parse_lsblk_json(
         if previous is not None and disk != previous:
             raise ValueError("lsblk has conflicting observations for one disk")
         observed_disks[canonical] = disk
+    # A second path with a mounted disk's WWN is that LUN, not another target.
+    disks = _cover_mounted_wwn_aliases(disks)
+    if boot is not None:
+        boot = next((item for item in disks if item.path == boot.path), boot)
     # Retain even identical rows: final identity validation requires exactly
     # one observation and must continue refusing an ambiguous target.
     selectable = tuple(d for d in disks if is_wipeable_disk(d))
