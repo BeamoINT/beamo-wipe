@@ -137,6 +137,9 @@ REMOTE_BUS_TOKENS = frozenset(
 PROVEN_LOCAL_BUS_TOKENS = frozenset({"sata", "nvme", "usb", "sas", "virtio"})
 SCSI_DISK_NAME_RE = re.compile(r"^(?:sd|hd|dasd)[a-z]+$")
 REMOTE_SYSFS_TOKENS = ("iscsi", "rport-", "nvme-fabrics", "/fc/")
+# open-iscsi names its session device sessionN. The block device path is
+# .../hostN/sessionN/targetN:... and does not contain the word "iscsi".
+REMOTE_SYSFS_SESSION_RE = re.compile(r"/session\d+(?:/|$)")
 
 
 class SafetyError(Exception):
@@ -665,8 +668,13 @@ def assert_local_device_transport(path: str) -> None:
         resolved = os.path.realpath(str(device))
     except OSError as exc:
         raise SafetyError("Cannot prove the disk is locally attached.") from exc
+    # A missing device node realpath()s to itself. That is not a local bus.
+    if not device.exists() and os.path.normpath(resolved) == os.path.normpath(str(device)):
+        raise SafetyError("Cannot prove the disk is locally attached.")
     lowered = resolved.casefold()
-    if any(token in lowered for token in REMOTE_SYSFS_TOKENS):
+    if any(token in lowered for token in REMOTE_SYSFS_TOKENS) or REMOTE_SYSFS_SESSION_RE.search(
+        lowered
+    ):
         raise SafetyError("Refusing a remote or unknown SCSI transport.")
 
 

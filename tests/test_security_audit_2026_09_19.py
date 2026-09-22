@@ -110,6 +110,38 @@ def test_scsi_sysfs_iscsi_path_is_refused_off_preview(monkeypatch):
         assert_local_device_transport("/dev/sdz")
 
 
+def test_scsi_sysfs_session_path_is_refused_without_the_word_iscsi(monkeypatch):
+    """Kernel iSCSI devices are named sessionN. The path often lacks 'iscsi'."""
+    from beamo_wipe.safety import assert_local_device_transport
+
+    monkeypatch.delenv("BEAMO_WIPE_DRY_RUN", raising=False)
+    monkeypatch.delenv("BEAMO_WIPE_DEMO", raising=False)
+    import os as os_mod
+
+    os_realpath = os_mod.path.realpath
+
+    def fake_realpath(path):
+        text = str(path)
+        if text == "/dev/sdz":
+            return "/dev/sdz"
+        if text.endswith("/sys/block/sdz/device") or text == "/sys/block/sdz/device":
+            return "/sys/devices/platform/host5/session1/target5:0:0/5:0:0:0"
+        return os_realpath(text)
+
+    monkeypatch.setattr(os_mod.path, "realpath", fake_realpath)
+    with pytest.raises(SafetyError, match="remote or unknown SCSI"):
+        assert_local_device_transport("/dev/sdz")
+
+
+def test_missing_scsi_sysfs_does_not_count_as_local(monkeypatch):
+    from beamo_wipe.safety import assert_local_device_transport
+
+    monkeypatch.delenv("BEAMO_WIPE_DRY_RUN", raising=False)
+    monkeypatch.delenv("BEAMO_WIPE_DEMO", raising=False)
+    with pytest.raises(SafetyError, match="locally attached"):
+        assert_local_device_transport("/dev/sdz")
+
+
 def test_scsi_sysfs_local_ata_path_is_allowed_off_preview(monkeypatch):
     from beamo_wipe.safety import assert_local_device_transport
 
