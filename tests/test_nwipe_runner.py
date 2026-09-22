@@ -522,6 +522,34 @@ def test_one_pass_log_does_not_verify_three_overwrites():
         device="/dev/nvme0n1", interrupted=False, cancelled=False,
     )
     assert outcome == OUTCOME_VERIFIED
+    from beamo_wipe.evidence import build_evidence
+    from beamo_wipe.models import DiscoveryResult, Disk, DiskKind
+    from beamo_wipe.outcomes import present_evidence
+
+    disk = Disk(
+        path="/dev/nvme0n1", name="nvme0n1", model="Disk", serial="NVME",
+        size_bytes=10**12, size_gb_label="1000", kind=DiskKind.SSD, bus="nvme",
+        label="",
+    )
+    boot = Disk(
+        path="/dev/sdb", name="sdb", model="USB", serial="BOOT",
+        size_bytes=16_000_000_000, size_gb_label="16", kind=DiskKind.SSD,
+        bus="usb", label="", is_boot=True,
+    )
+    discovery = DiscoveryResult(
+        disks=(disk, boot), selectable=(disk,), boot=boot, boot_identified=True,
+    )
+    evidence = build_evidence(
+        disk=disk, discovery=discovery, method=MethodId.EXTRA, request=None,
+        result=result, started_at_wall=None, ended_at_wall=None,
+        started_mono=0, ended_mono=1, argv=["nwipe"], log_text=one_pass,
+    )
+    assert evidence["outcome"] == OUTCOME_FAILED
+    assert evidence["verification"]["verified"] is False
+    assert evidence["completion"]["reason"] == "completion_missing"
+    view = present_evidence(evidence)
+    assert view.code == "completion_missing"
+    assert view.success is False
 
 
 def test_truncated_drive_status_name_still_counts_as_erased():
