@@ -43,9 +43,7 @@ def test_duplicate_serials_show_the_unique_hardware_id_used_for_confirmation():
 
 
 @pytest.mark.parametrize("serial,wwn", [
-    ("SERIAL1111", "WWN1111"),  # suffix versus suffix
-    ("1111", "WWN1111"),  # full serial versus suffix
-    ("SERIAL1111", "1111"),  # suffix versus full hardware ID
+    ("SERIAL1111", "WWN1111"),  # suffix versus suffix; full values differ
     ("SERIALabcd", "WWNABCD"),  # matches are case-insensitive
 ])
 def test_mixed_identifiers_cannot_authorize_the_other_disk(serial, wwn):
@@ -58,6 +56,19 @@ def test_mixed_identifiers_cannot_authorize_the_other_disk(serial, wwn):
         assert token_matches(spec.token.swapcase(), spec)
         assert not token_matches(specs[1 - index].token, spec)
         assert confirm_spec(disks[index], list(reversed(disks))) == spec
+
+
+@pytest.mark.parametrize("serial,wwn,blocked", [
+    ("1111", "WWN1111", 0),  # full serial is the other disk's suffix
+    ("SERIAL1111", "1111", 1),  # full hardware ID is the other disk's suffix
+])
+def test_shared_suffix_value_is_not_a_confirmation_token(serial, wwn, blocked):
+    disks = [fake_disk("sda", serial=serial), fake_disk("sdc", wwn=wwn)]
+    with pytest.raises(SafetyError, match="too similar"):
+        confirm_spec(disks[blocked], disks)
+    spec = confirm_spec(disks[1 - blocked], disks)
+    assert spec.token.casefold() != "1111"
+    assert not token_matches("1111", spec)
 
 
 @pytest.mark.parametrize("left,right", [

@@ -759,6 +759,60 @@ def _same_device(left: DeviceFingerprint, right: DeviceFingerprint) -> bool:
     )
 
 
+def _blank_identity(item: DeviceFingerprint) -> bool:
+    return not item.serial and not item.wwn
+
+
+def _refuse_ambiguous_blank_disks(
+    roots: Sequence[Mapping[str, Any]], baseline: Sequence[DeviceFingerprint]
+) -> None:
+    """Refuse when a blank disk could be a relocated boot stick or target.
+
+    A disk with no serial and no WWN is only recognizable by its path. After
+    the kernel renames devices, that path can belong to a different disk, and
+    the original disk looks newly inserted. A same-size replacement that grew
+    a serial, WWN, or model is not proof the original disk stayed put. Two
+    blank disks that share size and model are not separable. A report stick
+    with a different size, model, serial, or WWN is still a new disk when
+    the blank disk at the original path is unchanged.
+    """
+    current = [_fingerprint_node(node) for node in roots]
+    for old in baseline:
+        if not _blank_identity(old):
+            continue
+        at_path = [
+            item
+            for item in current
+            if item.path == old.path and item.size_bytes == old.size_bytes
+        ]
+        if len(at_path) == 1:
+            item = at_path[0]
+            if not _blank_identity(item) or (
+                (item.model or "").casefold() != (old.model or "").casefold()
+            ):
+                raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
+        for item in current:
+            if item.path == old.path or not _blank_identity(item):
+                continue
+            if item.size_bytes != old.size_bytes:
+                continue
+            if (item.model or "").casefold() != (old.model or "").casefold():
+                continue
+            raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
+
+
+def _refuse_duplicate_wwns(roots: Sequence[Mapping[str, Any]]) -> None:
+    """Two disks with one WWN are not separable, even when the sizes differ."""
+    seen: set[str] = set()
+    for node in roots:
+        wwn = _fingerprint_node(node).wwn.casefold()
+        if not wwn:
+            continue
+        if wwn in seen:
+            raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
+        seen.add(wwn)
+
+
 def _root_disks(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     devices = payload.get("blockdevices")
     if not isinstance(devices, list) or any(not isinstance(node, dict) for node in devices):
@@ -807,6 +861,8 @@ def select_export_volume(
     """Return exactly one new, simple, writable FAT32 USB volume."""
     roots = _root_disks(payload)
     _require_baseline_present(roots, baseline)
+    _refuse_duplicate_wwns(roots)
+    _refuse_ambiguous_blank_disks(roots, baseline)
     new_usb: list[Mapping[str, Any]] = []
     for node in roots:
         if _strict_text(node, "type", required=True) != "disk":

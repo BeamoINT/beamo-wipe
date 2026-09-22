@@ -165,3 +165,102 @@ def test_nested_mounted_child_without_pkname_uses_tree_parent(monkeypatch):
     ])
     assert result.boot_identified
     assert [target.path for target in result.selectable] == ["/dev/sdc"]
+
+
+def _part(name, pk, **changes):
+    return disk(name, type="part", pkname=pk, tran="sata", **changes)
+
+
+def test_mounted_btrfs_member_is_not_selectable(monkeypatch):
+    """lsblk records the mount on one btrfs member. The other shares its UUID."""
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            _part("sda1", "sda", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
+        ]),
+        disk("sdb", tran="sata", children=[
+            _part("sdb1", "sdb", fstype="btrfs", uuid="FS"),
+        ]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_whole_disk_btrfs_member_is_not_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
+        disk("sdb", tran="sata", fstype="btrfs", uuid="FS"),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_different_btrfs_uuid_stays_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            _part("sda1", "sda", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
+        ]),
+        disk("sdb", tran="sata", children=[
+            _part("sdb1", "sdb", fstype="btrfs", uuid="OTHER"),
+        ]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdb", "/dev/sdd"]
+
+
+def test_empty_filesystem_uuid_does_not_glue_disks(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", fstype="btrfs", uuid="", mountpoints=["/data"]),
+        disk("sdb", tran="sata", fstype="btrfs", uuid=""),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdb", "/dev/sdd"]
+
+
+def test_flat_lvm_member_is_not_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("sdb", tran="sata"),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+        _part("sda1", "sda", fstype="LVM2_member"),
+        _part("sdb1", "sdb", fstype="LVM2_member"),
+        disk("vg-lv", type="lvm", pkname="sda1", mountpoints=["/mnt/data"]),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_flat_bcache_member_is_not_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("sdb", tran="sata"),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+        _part("sda1", "sda", fstype="bcache"),
+        _part("sdb1", "sdb", fstype="bcache"),
+        disk("bcache0", pkname="sda", mountpoints=["/mnt/data"], serial="BCACHE0"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+@pytest.mark.parametrize("kind", ["dmraid", "faulty", "multipath"])
+def test_mounted_hidden_member_holder_fails_closed(monkeypatch, kind):
+    """Bookworm lsblk types that do not start with ``raid`` still hide a leg."""
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[_part("sda1", "sda")]),
+        disk("sdb", tran="sata", children=[_part("sdb1", "sdb")]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+        disk("holder0", type=kind, pkname="sda1", mountpoints=["/data"]),
+    ], boot="/dev/sdc")
+    assert not result.boot_identified
+    assert result.selectable == ()

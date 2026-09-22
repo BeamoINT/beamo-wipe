@@ -210,10 +210,10 @@ def _outcome_for(
     completion_summary = ""
     if result.ok:
         try:
-            from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+            from beamo_wipe.nwipe_runner import completion_for_method
 
-            ok, completion_summary = evaluate_nwipe_completion(
-                exit_code, log_text or "", device
+            ok, completion_summary, _reason = completion_for_method(
+                exit_code, log_text or "", device, method
             )
         except Exception:
             ok = False

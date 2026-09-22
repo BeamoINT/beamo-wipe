@@ -37,7 +37,7 @@ from test_usb_report_workflow import (
 )
 
 
-def _volume(model: str = "Report USB", size: int = 32_000_000) -> ExportVolume:
+def _volume(model: str = "Report USB", size: int = 1_000_000_000) -> ExportVolume:
     parent = DeviceFingerprint("/dev/sdc", size, model, "REPORT-1", "report-wwn")
     return ExportVolume(parent, "/dev/sdc1", size, "vfat", "FAT32", "ABCD-1234")
 
@@ -71,7 +71,7 @@ def _receipt(**kwargs) -> ExportReceipt:
     ],
 )
 def test_destination_label_never_exposes_paths(model, want):
-    assert destination_label_for(model, 32_000_000) == want
+    assert destination_label_for(model, 1_000_000_000) == want
 
 
 def test_long_destination_label_is_truncated():

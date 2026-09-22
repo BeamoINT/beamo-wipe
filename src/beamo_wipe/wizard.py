@@ -320,6 +320,7 @@ class Wizard:
         self._progress_timing = ProgressTiming(self._clock, time.time)
         self._display_progress: Optional[ProgressView] = None
         self._display_progress_at = 0.0
+        self._stage_anchor = None
         self._evidence_argv: Optional[list[str]] = None
         self.evidence: Optional[dict] = None  # type: ignore[type-arg]
         self.evidence_path: Optional[str] = None
@@ -653,7 +654,9 @@ class Wizard:
             stages = _progress.plan_stages(
                 spec.overwrite_passes, bool(spec.verification_passes)
             )
-            position, mismatch = _progress.locate_stage(stages, observation)
+            position, mismatch = _progress.locate_stage(
+                stages, self._observation_for_stage(observation)
+            )
             old = bool(percent is not None and stale_for is not None)
             step_percent = (
                 observation.percent
@@ -1083,8 +1086,72 @@ class Wizard:
         self._done_keyboard_armed = False
         self.wants_new_session = True
 
+    def _runner_is_active(self) -> bool:
+        """True while this session may still be erasing and has no result.
+
+        A published wipe result means the wizard already accepted an outcome.
+        Tests and recovery can leave a dry-run clock set after that; power
+        off stays blocked only when the result is still unknown.
+        """
+        if self.wipe_result is not None:
+            return False
+        runner = self.runner
+        if getattr(runner, "_proc", None) is not None:
+            return True
+        return getattr(runner, "_started", None) is not None
+
+    def _observation_for_stage(self, observation):
+        """Keep a retry on the last definite step.
+
+        nwipe's retry line does not say whether the last pass is still
+        writing or already being read back. The previous definite phase
+        does. A retry with no earlier phase is left unchanged so the
+        locator does not guess.
+        """
+        if observation is None:
+            return None
+        if observation.phase != "Retrying":
+            self._stage_anchor = observation
+            return observation
+        anchor = self._stage_anchor
+        if (
+            anchor is not None
+            and anchor.counters == observation.counters
+            and anchor.phase in {"Writing", "Verifying", "Syncing"}
+        ):
+            from dataclasses import replace
+
+            return replace(observation, phase=anchor.phase)
+        return observation
+
+    def _arm_running_wipe(self, request: WipeRequest) -> None:
+        """Publish a run that start() has already handed to the engine."""
+        with self._lock:
+            self.error = None
+            self.startup_error_code = ""
+            self._wipe_request = request
+            self._cancel_requested = False
+            self._evidence_written_for = None
+            self._evidence_flag_hint = {}
+            self._stage_anchor = None
+            self.screen = Screen.WORKING
+            wall, provenance = self._capture_wall()
+            self._evidence_start_wall = wall
+            self._evidence_wall_provenance = provenance
+            self._evidence_start_mono = self.now
+            self._evidence_end_mono = None
+            self._progress_timing = ProgressTiming(self._clock, time.time)
+            self._progress_timing.start(self._evidence_start_mono)
+            self._display_progress = None
+            try:
+                self._evidence_argv = list(build_nwipe_argv(request))
+            except Exception:
+                self._evidence_argv = []
+
     def shutdown(self) -> None:
         with self._lock:
+            if self._runner_is_active():
+                return
             if self._recovery_busy():
                 return
             if self.wants_shutdown or self.wants_new_session or self.screen in {
@@ -1141,6 +1208,8 @@ class Wizard:
 
     def confirm_shutdown_without_saving(self, generation: int) -> None:
         with self._lock:
+            if self._runner_is_active():
+                return
             if (
                 self.screen != Screen.SHUTDOWN_CONFIRM
                 or self._shutdown_from is None
@@ -1576,6 +1645,7 @@ class Wizard:
 
     def _perform_start(self, claim: _StartClaim) -> None:
         disk, discovery, owner, token, method, countdown_complete = claim
+        request = None
         try:
             if not self.dry_run and not self.preview:
                 try:
@@ -1631,6 +1701,7 @@ class Wizard:
                     self.error = CLOSED_DURING_CHECK
                     return
                 self.runner.start(request)
+                self._arm_running_wipe(request)
             except SafetyError as exc:
                 self.error = (_safety.TOKEN_MISMATCH if str(exc) == _safety.TOKEN_MISMATCH else
                               PREFLIGHT_BLOCKED)
@@ -1648,31 +1719,8 @@ class Wizard:
                 self.error = STARTUP_UNCONFIRMED
                 self.startup_error_code = "unexpected_startup_failure"
                 return
-            with self._lock:
-                self.error = None
-                self.startup_error_code = ""
-                self._wipe_request = request
-                self._cancel_requested = False
-                self._evidence_written_for = None
-                self._evidence_flag_hint = {}
-                self.screen = Screen.WORKING
-                # Record evidence start (wall + monotonic) + redacted argv for later completion
-                wall, provenance = self._capture_wall()
-                self._evidence_start_wall = wall
-                self._evidence_wall_provenance = provenance
-                self._evidence_start_mono = self.now
-                self._evidence_end_mono = None
-                self._progress_timing = ProgressTiming(self._clock, time.time)
-                self._progress_timing.start(self._evidence_start_mono)
-                self._display_progress = None
-                try:
-                    # Build redacted argv now (never contains secrets; already sanitized)
-                    self._evidence_argv = list(build_nwipe_argv(request))
-                except Exception:
-                    self._evidence_argv = []
-                # Write initial started evidence (atomic, off-target)
-                # Do not hold the lock during file I/O; copy needed state
-                # and release lock before writing.
+            # Write initial started evidence (atomic, off-target).
+            # Do not hold the lock during file I/O.
             self._write_evidence(result=None, cancelled=False, interrupted=False)
             if self._start_abort.is_set():
                 self.cancel_wipe(origin="system")
@@ -1683,15 +1731,37 @@ class Wizard:
                 self.error = STARTUP_UNCONFIRMED
                 self.startup_error_code = "unexpected_startup_failure"
         finally:
+            # KeyboardInterrupt is not an Exception. If it lands after the
+            # engine is running and before the screen leaves CHECKING, stay
+            # on the running wipe. Returning to the last screen would arm
+            # Erase again and let the console power off.
+            arm_now = False
             with self._lock:
                 if self._start_claim is claim:
                     self._start_claim = None
-                    if self.screen == Screen.CHECKING:
+                    if (
+                        self.screen == Screen.CHECKING
+                        and request is not None
+                        and self._runner_is_active()
+                    ):
+                        arm_now = True
+                    elif self.screen == Screen.CHECKING:
                         if self.error:
                             # Identity/preflight failure must not leave Erase
                             # armed from the previous countdown.
                             self._erase_until = self.now + COUNTDOWN_S
                         self.screen = Screen.LAST_CHANCE
+            if arm_now and request is not None:
+                self._arm_running_wipe(request)
+                try:
+                    self._write_evidence(result=None, cancelled=False, interrupted=False)
+                except Exception:
+                    pass
+                if self._start_abort.is_set():
+                    try:
+                        self.cancel_wipe(origin="system")
+                    except Exception:
+                        pass
 
     def _finish(self, result: WipeResult, *, cancelled: bool = False, interrupted: bool = False, from_stop: bool = False) -> None:
         # Guard against double-finish from concurrent tick/cancel

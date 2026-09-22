@@ -32,6 +32,7 @@ from beamo_wipe.support_export import (
     OWNER_WIPE_FILE,
     VerifiedEvidence,
     baseline_fingerprints,
+    destination_label_for,
     export_to_new_usb,
     prepare_terminal_evidence,
     read_export_log,
@@ -172,6 +173,157 @@ def _discovery(baseline_disks) -> DiscoveryResult:
     )
 
 
+def _blank(path, size, model, *, children=None):
+    return _root(
+        path,
+        size=size,
+        tran="usb",
+        model=model,
+        serial="",
+        wwn="",
+        rm=1,
+        hotplug=1,
+        children=children,
+    )
+
+
+def _fp(path, size, model, serial="", wwn=""):
+    return SimpleNamespace(
+        path=path, size_bytes=size, model=model, serial=serial, wwn=wwn,
+    )
+
+
+def test_relocated_blank_disk_is_not_a_report_volume():
+    """Same size and model with no serial or WWN can be the boot stick renamed."""
+    target = _root(
+        "/dev/nvme0n1", size=256_000_000_000, tran="nvme",
+        model="Target", serial="TARGET-1", wwn="target-wwn",
+    )
+    payload = {"blockdevices": [
+        _blank("/dev/sdb", 8_000_000_000, "USB DISK"),
+        target,
+        _blank("/dev/sdc", 8_000_000_000, "USB DISK", children=[_partition("/dev/sdc1", pkname="sdc")]),
+    ]}
+    baseline = baseline_fingerprints((
+        _fp("/dev/sdb", 8_000_000_000, "USB DISK"),
+        _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
+    ))
+    with pytest.raises(SafetyError, match="could not be verified"):
+        select_export_volume(payload, baseline)
+
+
+def test_blank_disk_with_a_different_model_can_still_receive_the_report():
+    target = _root(
+        "/dev/nvme0n1", size=256_000_000_000, tran="nvme",
+        model="Target", serial="TARGET-1", wwn="target-wwn",
+    )
+    payload = {"blockdevices": [
+        _blank("/dev/sdb", 8_000_000_000, ""),
+        target,
+        _blank("/dev/sdc", 8_000_000_000, "SANDISK", children=[_partition()]),
+    ]}
+    baseline = baseline_fingerprints((
+        _fp("/dev/sdb", 8_000_000_000, ""),
+        _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
+    ))
+    assert select_export_volume(payload, baseline).path == "/dev/sdc1"
+
+
+def test_blank_boot_stick_moved_to_an_empty_model_name_is_not_a_report_volume():
+    target = _root(
+        "/dev/nvme0n1", size=256_000_000_000, tran="nvme",
+        model="Target", serial="TARGET-1", wwn="target-wwn",
+    )
+    payload = {"blockdevices": [
+        _blank("/dev/sdb", 8_000_000_000, "SANDISK"),
+        target,
+        _blank(
+            "/dev/sdc", 8_000_000_000, "",
+            children=[_partition("/dev/sdc1", pkname="sdc")],
+        ),
+    ]}
+    baseline = baseline_fingerprints((
+        _fp("/dev/sdb", 8_000_000_000, ""),
+        _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
+    ))
+    with pytest.raises(SafetyError, match="could not be verified"):
+        select_export_volume(payload, baseline)
+
+
+def test_blank_baseline_replaced_by_a_named_disk_is_not_still_present():
+    """An empty serial does not let a different disk inherit the boot path."""
+    target = _root(
+        "/dev/nvme0n1", size=256_000_000_000, tran="nvme",
+        model="Target", serial="TARGET-1", wwn="target-wwn",
+    )
+    replaced = _root(
+        "/dev/sdb", size=8_000_000_000, tran="usb", model="SANDISK",
+        serial="NEW", wwn="new-wwn", rm=1, hotplug=1,
+    )
+    report = _root(
+        "/dev/sdc", size=32_000_000, tran="usb", model="KINGSTON",
+        serial="REPORT-9", wwn="report-wwn", rm=1, hotplug=1,
+        children=[_partition()],
+    )
+    payload = {"blockdevices": [replaced, target, report]}
+    baseline = baseline_fingerprints((
+        _fp("/dev/sdb", 8_000_000_000, ""),
+        _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
+    ))
+    with pytest.raises(SafetyError, match="could not be verified"):
+        select_export_volume(payload, baseline)
+
+
+def test_copied_wwn_does_not_hide_a_second_report_stick():
+    payload, disks = _payload()
+    clone = _root(
+        "/dev/sdd", size=4_000_000_000, tran="usb", model="Clone",
+        serial="DIFF", wwn="boot-wwn", rm=1, hotplug=1,
+        children=[_partition("/dev/sdd1", pkname="sdd", uuid="EEEE-FFFF")],
+    )
+    payload["blockdevices"].append(clone)
+    with pytest.raises(SafetyError, match="could not be verified"):
+        select_export_volume(payload, baseline_fingerprints(disks))
+
+
+def test_blank_boot_still_accepts_a_report_stick_that_has_a_serial():
+    target = _root(
+        "/dev/nvme0n1", size=256_000_000_000, tran="nvme",
+        model="Target", serial="TARGET-1", wwn="target-wwn",
+    )
+    report = _root(
+        "/dev/sdc", size=8_000_000_000, tran="usb", model="USB DISK",
+        serial="REPORT-9", wwn="", rm=1, hotplug=1, children=[_partition()],
+    )
+    payload = {"blockdevices": [
+        _blank("/dev/sdb", 8_000_000_000, "USB DISK"),
+        target,
+        report,
+    ]}
+    baseline = baseline_fingerprints((
+        _fp("/dev/sdb", 8_000_000_000, "USB DISK"),
+        _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
+    ))
+    assert select_export_volume(payload, baseline).path == "/dev/sdc1"
+
+
+def test_blank_report_with_a_different_size_is_selected():
+    target = _root(
+        "/dev/nvme0n1", size=256_000_000_000, tran="nvme",
+        model="Target", serial="TARGET-1", wwn="target-wwn",
+    )
+    payload = {"blockdevices": [
+        _blank("/dev/sdb", 8_000_000_000, "USB DISK"),
+        target,
+        _blank("/dev/sdc", 32_000_000_000, "USB DISK", children=[_partition()]),
+    ]}
+    baseline = baseline_fingerprints((
+        _fp("/dev/sdb", 8_000_000_000, "USB DISK"),
+        _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
+    ))
+    assert select_export_volume(payload, baseline).path == "/dev/sdc1"
+
+
 def test_selects_exactly_one_new_unmounted_fat32_usb():
     payload, disks = _payload()
     volume = select_export_volume(payload, baseline_fingerprints(disks))
@@ -196,7 +348,7 @@ def test_selects_exactly_one_new_unmounted_fat32_usb():
         (lambda p: p["blockdevices"][2]["children"][0].__setitem__("pkname", "sdb"), "parent"),
         (lambda p: p["blockdevices"][2]["children"][0].__setitem__("uuid", None), "metadata"),
         (lambda p: p["blockdevices"][0].__setitem__("serial", "changed"), "Leave the Beamo"),
-        (lambda p: p["blockdevices"][2].__setitem__("wwn", "boot-wwn"), "exactly one"),
+        (lambda p: p["blockdevices"][2].__setitem__("wwn", "boot-wwn"), "could not be verified"),
     ],
 )
 def test_report_usb_malformed_duplicate_or_unsafe_fails_closed(mutation, message):
@@ -955,6 +1107,7 @@ def _success_receipt(**kwargs) -> ExportReceipt:
 
 def _worker_success_stdout(request, *, diagnostic: bool = False) -> str:
     session = "report-0123456789abcdef01234567"
+    parent = request["volume"]["parent"]
     return json.dumps(
         {
             "ok": True,
@@ -963,7 +1116,9 @@ def _worker_success_stdout(request, *, diagnostic: bool = False) -> str:
             "evidence_sha256": request["evidence_sha256"],
             "session_name": session,
             "log_status": request["log_status"],
-            "destination_label": "Report USB, 1 GB",
+            "destination_label": destination_label_for(
+                parent["model"], parent["size_bytes"]
+            ),
             "report_folder": f"BEAMO-WIPE-REPORTS/{session}",
             "share_copy": bool(request.get("privacy_reduced")) and not diagnostic,
             "owner_file": OWNER_DIAGNOSTIC_FILE if diagnostic else OWNER_WIPE_FILE,

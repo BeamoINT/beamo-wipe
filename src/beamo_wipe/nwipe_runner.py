@@ -573,6 +573,41 @@ def _progress_is_final_pass(match: re.Match) -> bool:
     return int(pass_i) == int(pass_n)
 
 
+def logged_last_pass_total(log_text: str, device: str) -> Optional[int]:
+    """Pass count on the last line when that line is 100% of a final pass.
+
+    A later line that is not 100% of the final pass clears the value. The
+    Erased row does not carry a pass count; callers treat that row separately.
+    """
+    total: Optional[int] = None
+    for match, value in _iter_target_progress(log_text, device):
+        if value >= 100.0 and _progress_is_final_pass(match):
+            total = int(match.group(6))
+        else:
+            total = None
+    return total
+
+
+def completion_for_method(
+    exit_code: Optional[int], log_text: str, device: str, method: Any
+) -> tuple[bool, str, str]:
+    """Engine completion constrained to the method that was launched.
+
+    ``| Erased |`` has no pass count and stays a completion marker. The
+    100% fallback is completion only when the logged pass count is the
+    method's overwrite count. A one-pass line must not finish Three
+    overwrites.
+    """
+    ok, summary, reason = evaluate_nwipe_outcome(exit_code, log_text, device)
+    if not ok or _target_reported_success(log_text, device):
+        return ok, summary, reason
+    spec = METHODS.get(method)
+    expected = spec.overwrite_passes if spec is not None else None
+    if expected is None or logged_last_pass_total(log_text, device) != expected:
+        return False, "nwipe exited without wiping", "completion_missing"
+    return ok, summary, reason
+
+
 def _target_reached_last_pass(log_text: str, device: str) -> bool:
     """True if the last SIGUSR1 line is 100% of the last pass of the last round.
 
@@ -585,6 +620,28 @@ def _target_reached_last_pass(log_text: str, device: str) -> bool:
     return bool(last)
 
 
+_LOG_DEVICE_RE = re.compile(r"/dev/[A-Za-z0-9]+")
+
+
+def _status_column_is_shared(log_text: str, device: str) -> bool:
+    """True when another logged path truncates to this disk's status column.
+
+    nwipe 0.42 keeps eight characters. ``/dev/nvme0n100`` and a different
+    name ending in those characters would otherwise share one Erased row.
+    """
+    column = nwipe_status_device_field(device).strip()
+    full = os.path.basename(os.path.realpath(device))
+    if not column or column == full:
+        return False
+    for match in _LOG_DEVICE_RE.finditer(log_text or ""):
+        other = os.path.basename(os.path.realpath(match.group(0)))
+        if other == full:
+            continue
+        if nwipe_status_device_field(match.group(0)).strip() == column:
+            return True
+    return False
+
+
 def _target_reported_success(log_text: str, device: str) -> bool:
     """True only for the Drive Status 'Erased' row.
 
@@ -592,8 +649,13 @@ def _target_reported_success(log_text: str, device: str) -> bool:
     pointer is unset and result is 0 — including after nwipe_options_log()
     and before pthread_create. That line is not a completed wipe.
     The status table uses an 8-column basename, so a longer name is truncated.
+    A column shared with another path in the same log is not this disk.
     """
+    shared = _status_column_is_shared(log_text, device)
+    full = os.path.basename(os.path.realpath(device))
     for name in _status_device_names(device):
+        if shared and name != full:
+            continue
         row = re.compile(rf"^\s*!?\s*{re.escape(name)}\s*\|\s*Erased\s*\|")
         for line in (log_text or "").splitlines():
             if row.match(line):
@@ -825,7 +887,9 @@ class NwipeRunner:
                     self._update_progress(percent)
         if not log_text.strip():
             _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
-        ok, summary, reason = evaluate_nwipe_outcome(code, log_text, request.device)
+        ok, summary, reason = completion_for_method(
+            code, log_text, request.device, request.method
+        )
         _try_log_diag("nwipe", reason, f"exit={code}; {summary}")
         if not ok and code == 0 and log_text:
             # Verification ambiguity: nwipe exit 0 without explicit success must

@@ -479,6 +479,51 @@ def test_evaluate_nwipe_one_hundred_percent_last_pass_is_finished():
     assert summary == "finished"
 
 
+def test_one_pass_log_does_not_verify_three_overwrites():
+    from beamo_wipe.evidence import OUTCOME_FAILED, OUTCOME_VERIFIED, _outcome_for
+    from beamo_wipe.models import MethodId, WipeResult
+    from beamo_wipe.nwipe_runner import completion_for_method
+
+    one_pass = (
+        "/dev/nvme0n1: 100.00%, round 1 of 1, pass 1 of 1, "
+        "eta 00:00:00, [writing]>\n"
+    )
+    three = (
+        "/dev/nvme0n1: 100.00%, round 1 of 1, pass 3 of 3, "
+        "eta 00:00:00, [verifying]>\n"
+    )
+    erased = " nvme0n1 | Erased |  120MB/s | 01:25:04 | QEMU\n"
+    result = WipeResult(ok=True, exit_code=0, summary="finished", logfile="/tmp/x")
+    ok, _summary, reason = completion_for_method(
+        0, one_pass, "/dev/nvme0n1", MethodId.EXTRA
+    )
+    assert ok is False and reason == "completion_missing"
+    outcome, _why = _outcome_for(
+        result=result, method=MethodId.EXTRA, log_text=one_pass,
+        device="/dev/nvme0n1", interrupted=False, cancelled=False,
+    )
+    assert outcome == OUTCOME_FAILED
+    ok, _summary, reason = completion_for_method(
+        0, three, "/dev/nvme0n1", MethodId.EXTRA
+    )
+    assert ok is True and reason == "completed"
+    outcome, _why = _outcome_for(
+        result=result, method=MethodId.EXTRA, log_text=three,
+        device="/dev/nvme0n1", interrupted=False, cancelled=False,
+    )
+    assert outcome == OUTCOME_VERIFIED
+    outcome, _why = _outcome_for(
+        result=result, method=MethodId.EXTRA, log_text=erased,
+        device="/dev/nvme0n1", interrupted=False, cancelled=False,
+    )
+    assert outcome == OUTCOME_VERIFIED
+    outcome, _why = _outcome_for(
+        result=result, method=MethodId.EVERYDAY, log_text=one_pass,
+        device="/dev/nvme0n1", interrupted=False, cancelled=False,
+    )
+    assert outcome == OUTCOME_VERIFIED
+
+
 def test_truncated_drive_status_name_still_counts_as_erased():
     """nwipe 0.42 prints an 8-column device field, stopping at the slash.
 
@@ -502,6 +547,20 @@ def test_truncated_drive_status_name_still_counts_as_erased():
     )
     assert missed is False
     assert missed_reason == "completion_missing"
+
+
+def test_shared_truncated_status_name_does_not_finish_the_other_disk():
+    from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome
+
+    log = (
+        "/dev/nvme0n100: 12.50%, round 1 of 1, pass 1 of 1, eta 01:00:00, [writing]\n"
+        "/dev/anvme0n100: 40.00%, round 1 of 1, pass 1 of 1, eta 01:00:00, [writing]\n"
+        "  vme0n100 | Erased |  120MB/s | 01:00:00 | FAKE/DISK\n"
+    )
+    for device in ("/dev/nvme0n100", "/dev/anvme0n100"):
+        ok, _summary, reason = evaluate_nwipe_outcome(0, log, device)
+        assert ok is False
+        assert reason == "completion_missing"
 
 
 def test_truncated_failed_status_is_not_finished_by_a_final_percent():

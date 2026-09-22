@@ -407,7 +407,12 @@ def _node_type(node: Dict[str, Any]) -> str:
 # member stays a normal disk unless the whole inventory is refused.
 # ``linear`` is md's level name, not a ``raid*`` type. LVM and linear can
 # also be a single resolved stack (crypt -> lv); those keep unrelated disks.
-_UNRESOLVED_HOLDER_TYPES = frozenset({"mpath", "md"})
+# util-linux 2.38 lowercases the device-mapper UUID prefix and the md level,
+# so DMRAID- is ``dmraid`` and md levels ``faulty`` / ``multipath`` do not
+# start with ``raid``. One PKNAME still hides the other member.
+_UNRESOLVED_HOLDER_TYPES = frozenset({
+    "mpath", "md", "dmraid", "faulty", "multipath",
+})
 _STACKED_HOLDER_TYPES = frozenset({"lvm", "linear"})
 _MEMBER_FILESYSTEMS = frozenset({"lvm2_member", "linux_raid_member", "bcache"})
 
@@ -416,25 +421,98 @@ def _mounted_holder_hides_members(kind: str) -> bool:
     return kind.startswith("raid") or kind in _UNRESOLVED_HOLDER_TYPES
 
 
-def _filesystems_under(node: Mapping[str, Any]) -> set[str]:
+def _owner_disk_name(
+    node: Mapping[str, Any],
+    parent: Optional[Dict[str, Any]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Physical disk that owns this node, following PKNAME through holders."""
+    own_pk = ""
+    if node.get("pkname") is not None:
+        own_pk = _identity_text(node.get("pkname"), "pkname")
+    if _node_type(node) in {"disk", "rom"} and not own_pk:
+        if node.get("name") is None:
+            return ""
+        return _identity_text(node.get("name"), "name")
+    seen: set[str] = set()
+    current = own_pk
+    if not current and parent is not None and parent.get("name") is not None:
+        current = _identity_text(parent.get("name"), "name")
+    while current:
+        if current in seen:
+            return ""
+        seen.add(current)
+        ancestors = list(by_name.get(current) or ())
+        if len(ancestors) != 1:
+            return ""
+        ancestor, tree_parent = ancestors[0]
+        ancestor_pk = ""
+        if ancestor.get("pkname") is not None:
+            ancestor_pk = _identity_text(ancestor.get("pkname"), "pkname")
+        if _node_type(ancestor) in {"disk", "rom"} and not ancestor_pk:
+            return current
+        if ancestor_pk:
+            current = ancestor_pk
+            continue
+        if tree_parent is not None and tree_parent.get("name") is not None:
+            current = _identity_text(tree_parent.get("name"), "name")
+            continue
+        return ""
+    return ""
+
+
+def _disk_member_filesystems(
+    disk_name: str,
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> set[str]:
+    """Member fstypes on this disk, including flat rows that only name it via PKNAME."""
     found: set[str] = set()
-
-    def walk(item: object) -> None:
-        if not isinstance(item, dict):
-            return
-        fs = _clean(item.get("fstype")).casefold()
-        if fs:
+    for node, parent in flat_nodes:
+        fs = _clean(node.get("fstype")).casefold()
+        if fs not in _MEMBER_FILESYSTEMS:
+            continue
+        if _owner_disk_name(node, parent, by_name) == disk_name:
             found.add(fs)
-        for child in item.get("children") or []:
-            walk(child)
-
-    walk(node)
     return found
+
+
+def _cover_shared_filesystem_members(
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    flat_mounts: Dict[str, List[str]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> None:
+    """Copy a mount onto every disk that shows the same filesystem UUID.
+
+    lsblk records a multi-device filesystem mount on one member. The other
+    member keeps the fstype and UUID and an empty mount list. An empty UUID
+    is not an identity and must not glue unrelated disks together.
+    """
+    mounted: Dict[Tuple[str, str], List[str]] = {}
+    for node, _parent in flat_nodes:
+        fs = _clean(node.get("fstype")).casefold()
+        uuid = _clean(node.get("uuid")).casefold()
+        mounts = _node_mountpoints(node)
+        if fs and uuid and mounts:
+            mounted.setdefault((fs, uuid), []).extend(mounts)
+    if not mounted:
+        return
+    for node, parent in flat_nodes:
+        fs = _clean(node.get("fstype")).casefold()
+        uuid = _clean(node.get("uuid")).casefold()
+        mounts = mounted.get((fs, uuid))
+        if not mounts:
+            continue
+        owner = _owner_disk_name(node, parent, by_name)
+        if not owner:
+            continue
+        flat_mounts.setdefault(owner, []).extend(mounts)
 
 
 def _cover_unlinked_stacked_members(
     flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
     flat_mounts: Dict[str, List[str]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
 ) -> None:
     """Give every other LVM or md member the mounted volume's mountpoint.
 
@@ -468,7 +546,7 @@ def _cover_unlinked_stacked_members(
     for name, node in roots:
         if name in covered:
             continue
-        if not (_filesystems_under(node) & _MEMBER_FILESYSTEMS):
+        if not _disk_member_filesystems(name, flat_nodes, by_name):
             continue
         flat_mounts.setdefault(name, []).extend(holder_mounts)
 
@@ -1071,7 +1149,8 @@ def parse_lsblk_json(
                     raise ValueError("lsblk mounted ancestry is unresolved")
                 pending.append((next_name, trail | {ancestor_name}))
 
-    _cover_unlinked_stacked_members(flat_nodes, flat_mounts)
+    _cover_unlinked_stacked_members(flat_nodes, flat_mounts, by_name)
+    _cover_shared_filesystem_members(flat_nodes, flat_mounts, by_name)
 
     disks: List[Disk] = []
     identified_boot: Optional[Disk] = None
