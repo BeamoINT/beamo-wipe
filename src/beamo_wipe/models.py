@@ -144,6 +144,9 @@ class WipeRequest:
     # rechecks it immediately before exec so a hotplug/rename cannot redirect
     # --exclude to a different node.
     boot_rdev: int = 0
+    # disk_identity() at confirmation. The device number of /dev/sdX does not
+    # change when a different disk reuses that name, so exec rechecks this.
+    device_identity: tuple = ()
 
 
 @dataclass(frozen=True)

@@ -552,6 +552,32 @@ def disk_identity(disk: Disk) -> Tuple[str, str, int, str, str, str, str, str, s
     )
 
 
+def assert_rediscovered_identity(request: WipeRequest, discovery: DiscoveryResult) -> None:
+    """The disk at this path must still be the one the owner confirmed.
+
+    /dev/sdX keeps the same device number when a different disk takes the
+    name. Size and rdev do not catch that. The rescan has to.
+    """
+    confirmed = tuple(request.device_identity or ())
+    if not confirmed:
+        raise SafetyError("Disk identity changed. Refusing to erase.")
+    boot = discovery.boot
+    if (
+        not discovery.boot_identified
+        or discovery.error
+        or boot is None
+        or os.path.realpath(boot.path) != os.path.realpath(request.boot_device)
+    ):
+        raise SafetyError("Boot device identity changed. Refusing to erase.")
+    matches = [
+        disk
+        for disk in selectable_disks(discovery)
+        if os.path.realpath(disk.path) == os.path.realpath(request.device)
+    ]
+    if len(matches) != 1 or disk_identity(matches[0]) != confirmed:
+        raise SafetyError("Disk identity changed. Refusing to erase.")
+
+
 def assert_disk_identity(disk: Disk, discovery: DiscoveryResult) -> None:
     """Selected disk must still be the same device (path + serial + size + model)."""
     want = os.path.realpath(disk.path)
@@ -943,6 +969,7 @@ def assert_ready_to_wipe(
         device_rdev=block_rdev(device) or 0,
         device_size_bytes=disk.size_bytes,
         boot_rdev=block_rdev(boot_path) or 0,
+        device_identity=disk_identity(disk),
     )
 
 

@@ -356,6 +356,7 @@ def test_sigusr1_not_sent_before_ready_and_throttled(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.nwipe_runner.assert_size_unchanged", lambda *a, **k: None)
     monkeypatch.setattr("beamo_wipe.nwipe_runner.assert_not_boot", lambda *a, **k: None)
     monkeypatch.setattr("beamo_wipe.nwipe_runner.block_rdev", lambda p: 123)
+    monkeypatch.setattr("beamo_wipe.nwipe_runner._recheck_identity_under_lock", lambda _r: None)
     # flaky lock
 
     monkeypatch.setattr(runner, "_acquire_wipe_lock", lambda r: None)

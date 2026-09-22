@@ -32,6 +32,7 @@ from beamo_wipe.safety import (
     assert_log_not_on_target,
     assert_local_device_transport,
     assert_not_boot,
+    assert_rediscovered_identity,
     assert_size_unchanged,
     block_rdev,
     normalize_whole_disk,
@@ -256,6 +257,17 @@ def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
         # failures; single unreadable entries are not treated as running
         # but are now visible for triage.
     return False
+
+
+def _recheck_identity_under_lock(request: WipeRequest) -> None:
+    """Read the bus again immediately before exec. A failed read is a refusal."""
+    from beamo_wipe.discover import discover
+
+    try:
+        fresh = discover()
+    except Exception as exc:
+        raise SafetyError("Disk identity changed. Refusing to erase.") from exc
+    assert_rediscovered_identity(request, fresh)
 
 
 def build_nwipe_argv(request: WipeRequest) -> List[str]:
@@ -781,6 +793,7 @@ class NwipeRunner:
                         raise SafetyError("Boot device identity changed. Refusing to erase.")
                     assert_local_device_transport(request.device)
                     assert_not_boot(request.device, request.boot_device, required=True)
+                    _recheck_identity_under_lock(request)
             except Exception:
                 self._release_wipe_lock()
                 raise
