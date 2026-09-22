@@ -714,38 +714,50 @@ _WINDOWS_PARTNAMES = (
 )
 
 
-def classify_contents(node: Mapping[str, Any]) -> str:
-    """Classify disk contents from partition evidence only. No guessing."""
-    fstypes: set[str] = set()
-    labels: set[str] = set()
-    partnames: set[str] = set()
-    parttypes: set[str] = set()
+def _record_partition_evidence(
+    item: Mapping[str, Any],
+    fstypes: set[str],
+    labels: set[str],
+    partnames: set[str],
+    parttypes: set[str],
+) -> None:
+    fs = _clean(item.get("fstype")).casefold()
+    if fs:
+        fstypes.add(fs)
+    lab = _clean(item.get("label")).casefold()
+    if lab:
+        labels.add(lab)
+    # PARTLABEL is the GPT name lsblk already returns. PARTTYPENAME is
+    # the type's human name. Windows often leaves LABEL empty, so both
+    # names are partition evidence, not a guess from the filesystem.
+    for key in ("parttypename", "partlabel"):
+        name = _clean(item.get(key)).casefold()
+        if name:
+            partnames.add(name)
+            labels.add(name)
+    ptype = _clean(item.get("parttype")).casefold()
+    if ptype:
+        parttypes.add(ptype)
 
-    def walk(item: object) -> None:
-        if not isinstance(item, dict):
-            return
-        if _node_type(item) == "part":
-            fs = _clean(item.get("fstype")).casefold()
-            if fs:
-                fstypes.add(fs)
-            lab = _clean(item.get("label")).casefold()
-            if lab:
-                labels.add(lab)
-            # PARTLABEL is the GPT name lsblk already returns. PARTTYPENAME is
-            # the type's human name. Windows often leaves LABEL empty, so both
-            # names are partition evidence, not a guess from the filesystem.
-            for key in ("parttypename", "partlabel"):
-                name = _clean(item.get(key)).casefold()
-                if name:
-                    partnames.add(name)
-                    labels.add(name)
-            ptype = _clean(item.get("parttype")).casefold()
-            if ptype:
-                parttypes.add(ptype)
-        for child in item.get("children") or []:
-            walk(child)
 
-    walk(node)
+def _record_opened_filesystem(
+    item: Mapping[str, Any], fstypes: set[str], labels: set[str]
+) -> None:
+    """Filesystem identity on an opened LUKS or LVM volume."""
+    fs = _clean(item.get("fstype")).casefold()
+    if fs:
+        fstypes.add(fs)
+    lab = _clean(item.get("label")).casefold()
+    if lab:
+        labels.add(lab)
+
+
+def _contents_from_evidence(
+    fstypes: set[str],
+    labels: set[str],
+    partnames: set[str],
+    parttypes: set[str],
+) -> str:
     windows_marks = bool(
         labels & _WINDOWS_LABELS
         or "bitlocker" in fstypes
@@ -765,6 +777,66 @@ def classify_contents(node: Mapping[str, Any]) -> str:
     if fstypes:
         return CONTENTS_DATA
     return CONTENTS_UNKNOWN
+
+
+def _content_evidence(
+    node: Mapping[str, Any],
+) -> Tuple[set[str], set[str], set[str], set[str]]:
+    fstypes: set[str] = set()
+    labels: set[str] = set()
+    partnames: set[str] = set()
+    parttypes: set[str] = set()
+
+    def walk(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        kind = _node_type(item)
+        if kind == "part":
+            _record_partition_evidence(item, fstypes, labels, partnames, parttypes)
+        elif item is not node and kind not in {"loop", "rom", "disk"}:
+            _record_opened_filesystem(item, fstypes, labels)
+        for child in item.get("children") or []:
+            walk(child)
+
+    walk(node)
+    return fstypes, labels, partnames, parttypes
+
+
+def classify_contents(node: Mapping[str, Any]) -> str:
+    """Classify disk contents from partition evidence only. No guessing."""
+    return _contents_from_evidence(*_content_evidence(node))
+
+
+def classify_disk_contents(
+    disk_node: Mapping[str, Any],
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Same classification, including partitions emitted as their own rows."""
+    fstypes, labels, partnames, parttypes = _content_evidence(disk_node)
+    if not isinstance(disk_node, dict) or disk_node.get("name") is None:
+        return _contents_from_evidence(fstypes, labels, partnames, parttypes)
+    disk_name = _identity_text(disk_node.get("name"), "name")
+    if not disk_name:
+        return _contents_from_evidence(fstypes, labels, partnames, parttypes)
+    disk_path = node_path(disk_node)
+    for node, parent in flat_nodes:
+        if not isinstance(node, dict):
+            continue
+        kind = _node_type(node)
+        if kind in {"loop", "rom"}:
+            continue
+        owner, ambiguous = _resolve_owner_disk(node, parent, by_name)
+        if ambiguous or owner != disk_name:
+            continue
+        path = node_path(node)
+        if disk_path and path == disk_path:
+            continue
+        if kind == "part":
+            _record_partition_evidence(node, fstypes, labels, partnames, parttypes)
+        elif kind != "disk":
+            _record_opened_filesystem(node, fstypes, labels)
+    return _contents_from_evidence(fstypes, labels, partnames, parttypes)
 
 
 def _layout_id(node: Mapping[str, Any]) -> str:
@@ -1306,7 +1378,11 @@ def parse_lsblk_json(
             if should_hide(node, boot_path) and not matched_boot:
                 continue
             disk = node_to_disk(node, is_boot=matched_boot)
-            disk = replace(disk, layout_id=_flat_layout_id(node, flat_nodes, by_name))
+            disk = replace(
+                disk,
+                layout_id=_flat_layout_id(node, flat_nodes, by_name),
+                contents=classify_disk_contents(node, flat_nodes, by_name),
+            )
         except ValueError:
             try:
                 from beamo_wipe.diagnostics import log_diag
@@ -1335,7 +1411,11 @@ def parse_lsblk_json(
             if _node_type(node) in {"rom", "disk"}:
                 try:
                     disk = node_to_disk(node, is_boot=True)
-                    disk = replace(disk, layout_id=_flat_layout_id(node, flat_nodes, by_name))
+                    disk = replace(
+                disk,
+                layout_id=_flat_layout_id(node, flat_nodes, by_name),
+                contents=classify_disk_contents(node, flat_nodes, by_name),
+            )
                 except ValueError:
                     try:
                         from beamo_wipe.diagnostics import log_diag

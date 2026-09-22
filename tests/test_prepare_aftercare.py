@@ -236,6 +236,140 @@ def test_disk_level_fstype_without_partitions_is_unknown():
     assert classify_contents(node) == "unknown"
 
 
+def test_opened_luks_or_lvm_root_is_not_called_a_data_disk():
+    """EFI plus an opened root filesystem is an OS disk, not a data disk."""
+    for holder, kind in (("crypto_LUKS", "crypt"), ("LVM2_member", "lvm")):
+        node = _disk_node(
+            children=[
+                _part(
+                    "/dev/nvme0n1p1",
+                    fstype="vfat",
+                    label="EFI",
+                    parttypename="EFI System",
+                ),
+                _part(
+                    "/dev/nvme0n1p2",
+                    fstype=holder,
+                    children=[
+                        {
+                            "name": "dm-0",
+                            "path": "/dev/dm-0",
+                            "type": kind,
+                            "fstype": "ext4",
+                            "label": "root",
+                        }
+                    ],
+                ),
+            ]
+        )
+        assert classify_contents(node) == "system"
+        assert C.prepare_selected(node_to_disk(node, False)) == C.PREPARE_SYSTEM
+
+
+def test_opened_windows_volume_is_not_called_a_data_disk():
+    node = _disk_node(
+        children=[
+            _part("/dev/nvme0n1p1", fstype="vfat", label="EFI", parttypename="EFI System"),
+            _part(
+                "/dev/nvme0n1p2",
+                fstype="crypto_LUKS",
+                children=[
+                    {
+                        "name": "dm-0",
+                        "path": "/dev/dm-0",
+                        "type": "crypt",
+                        "fstype": "ntfs",
+                        "label": "Windows",
+                    }
+                ],
+            ),
+        ]
+    )
+    assert classify_contents(node) == "windows"
+    assert C.prepare_selected(node_to_disk(node, False)) == C.PREPARE_WINDOWS
+
+
+def test_opened_ext4_without_efi_stays_a_data_disk():
+    node = _disk_node(
+        children=[
+            _part(
+                "/dev/sdb1",
+                fstype="crypto_LUKS",
+                children=[
+                    {
+                        "name": "dm-0",
+                        "path": "/dev/dm-0",
+                        "type": "crypt",
+                        "fstype": "ext4",
+                        "label": "photos",
+                    }
+                ],
+            )
+        ]
+    )
+    assert classify_contents(node) == "data"
+    assert C.prepare_selected(node_to_disk(node, False)) == C.PREPARE_DATA
+
+
+def test_flat_windows_partition_rows_keep_the_windows_warning(monkeypatch, tmp_path):
+    from beamo_wipe.discover import discover
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    found = discover(
+        lsblk_payload={
+            "blockdevices": [
+                {
+                    "name": "sda",
+                    "path": "/dev/sda",
+                    "type": "disk",
+                    "size": 80_000_000_000,
+                    "tran": "sata",
+                    "model": "WIN DISK",
+                    "serial": "WIN-1",
+                    "wwn": "win-wwn",
+                },
+                {
+                    "name": "sda1",
+                    "path": "/dev/sda1",
+                    "type": "part",
+                    "pkname": "sda",
+                    "fstype": "vfat",
+                    "label": "EFI",
+                    "parttypename": "EFI System",
+                    "size": 500_000_000,
+                },
+                {
+                    "name": "sda2",
+                    "path": "/dev/sda2",
+                    "type": "part",
+                    "pkname": "sda",
+                    "fstype": "ntfs",
+                    "label": "Windows",
+                    "size": 70_000_000_000,
+                },
+                {
+                    "name": "sdb",
+                    "path": "/dev/sdb",
+                    "type": "disk",
+                    "size": 16_000_000_000,
+                    "tran": "usb",
+                    "model": "Beamo",
+                    "serial": "BOOT",
+                    "wwn": "boot-wwn",
+                },
+            ]
+        },
+        boot_path="/dev/sdb",
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    disk = next(item for item in found.selectable if item.path == "/dev/sda")
+    assert disk.contents == "windows"
+    assert C.prepare_selected(disk) == C.PREPARE_WINDOWS
+
+
 def test_demo_disks_without_fstype_stay_unknown():
     from beamo_wipe.demo import make_demo_wizard
 
