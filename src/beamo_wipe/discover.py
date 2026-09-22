@@ -422,44 +422,59 @@ def _mounted_holder_hides_members(kind: str) -> bool:
     return kind.startswith("raid") or kind in _UNRESOLVED_HOLDER_TYPES
 
 
-def _owner_disk_name(
+def _resolve_owner_disk(
     node: Mapping[str, Any],
     parent: Optional[Dict[str, Any]],
     by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
-) -> str:
-    """Physical disk that owns this node, following PKNAME through holders."""
+) -> Tuple[str, bool]:
+    """Return (physical disk name, ambiguous).
+
+    PKNAME is followed through holders. A name shared by two nodes is
+    ambiguous: the caller must not guess which disk owns the filesystem.
+    """
     own_pk = ""
     if node.get("pkname") is not None:
         own_pk = _identity_text(node.get("pkname"), "pkname")
     if _node_type(node) in {"disk", "rom"} and not own_pk:
         if node.get("name") is None:
-            return ""
-        return _identity_text(node.get("name"), "name")
+            return "", False
+        return _identity_text(node.get("name"), "name"), False
     seen: set[str] = set()
     current = own_pk
     if not current and parent is not None and parent.get("name") is not None:
         current = _identity_text(parent.get("name"), "name")
     while current:
         if current in seen:
-            return ""
+            return "", False
         seen.add(current)
         ancestors = list(by_name.get(current) or ())
+        if len(ancestors) > 1:
+            return "", True
         if len(ancestors) != 1:
-            return ""
+            return "", False
         ancestor, tree_parent = ancestors[0]
         ancestor_pk = ""
         if ancestor.get("pkname") is not None:
             ancestor_pk = _identity_text(ancestor.get("pkname"), "pkname")
         if _node_type(ancestor) in {"disk", "rom"} and not ancestor_pk:
-            return current
+            return current, False
         if ancestor_pk:
             current = ancestor_pk
             continue
         if tree_parent is not None and tree_parent.get("name") is not None:
             current = _identity_text(tree_parent.get("name"), "name")
             continue
-        return ""
-    return ""
+        return "", False
+    return "", False
+
+
+def _owner_disk_name(
+    node: Mapping[str, Any],
+    parent: Optional[Dict[str, Any]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Physical disk that owns this node, following PKNAME through holders."""
+    return _resolve_owner_disk(node, parent, by_name)[0]
 
 
 def _disk_member_filesystems(
@@ -756,7 +771,8 @@ def _layout_id(node: Mapping[str, Any]) -> str:
     """Stable hash of filesystem identity. Empty when the disk has none.
 
     A blank serial and WWN cannot tell two disks apart. Partition UUID,
-    type, label, and size can. The hash is not a confirmation token.
+    opened-volume UUID, type, label, and partition size can. The hash is
+    not a confirmation token.
     """
     return _hash_layout_rows(_layout_rows(node))
 
@@ -768,59 +784,6 @@ def _hash_layout_rows(rows: Sequence[str]) -> str:
     return hashlib.sha256("\n".join(sorted(kept)).encode("utf-8")).hexdigest()
 
 
-def _flat_layout_id(
-    disk_node: Mapping[str, Any],
-    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
-    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
-) -> str:
-    """Layout of this disk, including partitions emitted as their own rows."""
-    rows = list(_layout_rows(disk_node))
-    if disk_node.get("name") is None:
-        return _hash_layout_rows(rows)
-    disk_name = _identity_text(disk_node.get("name"), "name")
-    seen: set[str] = set()
-    for node, parent in flat_nodes:
-        if _node_type(node) != "part":
-            continue
-        path = node_path(node)
-        if not path or path in seen:
-            continue
-        if _owner_disk_name(node, parent, by_name) != disk_name:
-            continue
-        # A partition nested under this disk is already in its own rows.
-        if (
-            parent is not None
-            and parent.get("name") is not None
-            and _identity_text(parent.get("name"), "name") == disk_name
-        ):
-            seen.add(path)
-            continue
-        seen.add(path)
-        rows.append(_filesystem_layout_row(node, partition=True))
-    return _hash_layout_rows(rows)
-
-
-def _layout_rows(node: Mapping[str, Any]) -> List[str]:
-    rows: List[str] = []
-
-    def add(item: Mapping[str, Any], *, partition: bool) -> None:
-        row = _filesystem_layout_row(item, partition=partition)
-        if row:
-            rows.append(row)
-
-    def walk(item: object) -> None:
-        if not isinstance(item, dict):
-            return
-        if _node_type(item) == "part":
-            add(item, partition=True)
-        for child in item.get("children") or []:
-            walk(child)
-
-    add(node, partition=False)
-    walk(node)
-    return rows
-
-
 def _filesystem_layout_row(item: Mapping[str, Any], *, partition: bool) -> str:
     fstype = _clean(item.get("fstype")).casefold()
     uuid = _clean(item.get("uuid")).casefold()
@@ -830,6 +793,89 @@ def _filesystem_layout_row(item: Mapping[str, Any], *, partition: bool) -> str:
     if not partition and not (fstype or uuid or partuuid or label):
         return ""
     return "|".join(("p" if partition else "d", fstype, uuid, partuuid, label, size))
+
+
+def _remember_layout_row(
+    rows: List[str],
+    seen: set[Tuple[str, str]],
+    item: Mapping[str, Any],
+    *,
+    partition: bool,
+) -> None:
+    row = _filesystem_layout_row(item, partition=partition)
+    if not row or not isinstance(item, dict):
+        return
+    key = (node_path(item), row)
+    if key in seen:
+        return
+    seen.add(key)
+    rows.append(row)
+
+
+def _collect_tree_layout(
+    node: Mapping[str, Any],
+    rows: List[str],
+    seen: set[Tuple[str, str]],
+) -> None:
+    """Filesystem rows for this node and devices nested under it."""
+
+    def walk(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        kind = _node_type(item)
+        if kind == "part":
+            _remember_layout_row(rows, seen, item, partition=True)
+        elif item is not node and kind not in {"loop", "rom"}:
+            # crypto_LUKS / LVM2_member keep a header UUID on the partition.
+            # The filesystem UUID of an opened volume is on the mapper child.
+            _remember_layout_row(rows, seen, item, partition=False)
+        for child in item.get("children") or []:
+            walk(child)
+
+    if isinstance(node, dict):
+        _remember_layout_row(rows, seen, node, partition=False)
+    walk(node)
+
+
+def _layout_rows(node: Mapping[str, Any]) -> List[str]:
+    rows: List[str] = []
+    _collect_tree_layout(node, rows, set())
+    return rows
+
+
+def _flat_layout_id(
+    disk_node: Mapping[str, Any],
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Layout of this disk, including flat rows and opened mapper filesystems."""
+    rows: List[str] = []
+    seen: set[Tuple[str, str]] = set()
+    _collect_tree_layout(disk_node, rows, seen)
+    if not isinstance(disk_node, dict) or disk_node.get("name") is None:
+        return _hash_layout_rows(rows)
+    disk_name = _identity_text(disk_node.get("name"), "name")
+    if not disk_name:
+        return _hash_layout_rows(rows)
+    disk_path = node_path(disk_node)
+    for node, parent in flat_nodes:
+        if not isinstance(node, dict):
+            continue
+        kind = _node_type(node)
+        if kind in {"loop", "rom"}:
+            continue
+        owner, ambiguous = _resolve_owner_disk(node, parent, by_name)
+        # A repeated parent name hides which disk owns this filesystem.
+        # Listing the disk anyway would erase past an unbound volume UUID.
+        if ambiguous and _filesystem_layout_row(node, partition=(kind == "part")):
+            raise ValueError("lsblk layout ancestry is unresolved")
+        if owner != disk_name:
+            continue
+        path = node_path(node)
+        if disk_path and path == disk_path:
+            continue
+        _remember_layout_row(rows, seen, node, partition=(kind == "part"))
+    return _hash_layout_rows(rows)
 
 
 def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:

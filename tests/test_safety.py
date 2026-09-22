@@ -388,6 +388,281 @@ def test_flat_blank_disk_partition_change_is_a_different_disk(monkeypatch, tmp_p
         assert_disk_identity(disk, scan("BBBB-BBBB"))
 
 
+def _open_volume_payload(shape: str, inner_uuid: str, *, mapper_name: str = "dm-0"):
+    """Blank disk whose real filesystem UUID sits on an open mapper."""
+    boot = {
+        "name": "sdb",
+        "path": "/dev/sdb",
+        "type": "disk",
+        "size": 16_000_000_000,
+        "tran": "usb",
+        "model": "Beamo",
+        "serial": "BOOT",
+        "wwn": "boot-wwn",
+    }
+    disk = {
+        "name": "sda",
+        "path": "/dev/sda",
+        "type": "disk",
+        "size": 8_000_000_000,
+        "tran": "usb",
+        "model": "USB DISK",
+        "serial": "",
+        "wwn": "",
+    }
+    if shape == "nested-luks":
+        disk["children"] = [
+            {
+                "name": "sda1",
+                "path": "/dev/sda1",
+                "type": "part",
+                "fstype": "crypto_LUKS",
+                "uuid": "LUKS-SAME",
+                "size": 7_000_000_000,
+                "children": [
+                    {
+                        "name": mapper_name,
+                        "path": f"/dev/{mapper_name}",
+                        "type": "crypt",
+                        "fstype": "ext4",
+                        "uuid": inner_uuid,
+                        "label": "HOME",
+                    }
+                ],
+            }
+        ]
+        return {"blockdevices": [disk, boot]}
+    if shape == "flat-luks":
+        return {
+            "blockdevices": [
+                disk,
+                {
+                    "name": "sda1",
+                    "path": "/dev/sda1",
+                    "type": "part",
+                    "pkname": "sda",
+                    "fstype": "crypto_LUKS",
+                    "uuid": "LUKS-SAME",
+                    "size": 7_000_000_000,
+                },
+                {
+                    "name": mapper_name,
+                    "path": f"/dev/{mapper_name}",
+                    "type": "crypt",
+                    "pkname": "sda1",
+                    "fstype": "ext4",
+                    "uuid": inner_uuid,
+                    "label": "HOME",
+                },
+                boot,
+            ]
+        }
+    if shape == "nested-lvm":
+        disk["children"] = [
+            {
+                "name": "sda1",
+                "path": "/dev/sda1",
+                "type": "part",
+                "fstype": "LVM2_member",
+                "uuid": "PV-SAME",
+                "size": 7_000_000_000,
+                "children": [
+                    {
+                        "name": "dm-1",
+                        "path": "/dev/dm-1",
+                        "type": "lvm",
+                        "fstype": "ext4",
+                        "uuid": "STABLE-LV",
+                        "label": "ROOT",
+                    },
+                    {
+                        "name": mapper_name,
+                        "path": f"/dev/{mapper_name}",
+                        "type": "lvm",
+                        "fstype": "ext4",
+                        "uuid": inner_uuid,
+                        "label": "HOME",
+                    },
+                ],
+            }
+        ]
+        return {"blockdevices": [disk, boot]}
+    if shape == "flat-lvm":
+        return {
+            "blockdevices": [
+                disk,
+                {
+                    "name": "sda1",
+                    "path": "/dev/sda1",
+                    "type": "part",
+                    "pkname": "sda",
+                    "fstype": "LVM2_member",
+                    "uuid": "PV-SAME",
+                    "size": 7_000_000_000,
+                },
+                {
+                    "name": mapper_name,
+                    "path": f"/dev/{mapper_name}",
+                    "type": "lvm",
+                    "pkname": "sda1",
+                    "fstype": "ext4",
+                    "uuid": inner_uuid,
+                    "label": "HOME",
+                },
+                boot,
+            ]
+        }
+    if shape == "held-luks":
+        # bcache is its own type=disk row. The open volume is not a child of sda.
+        disk["children"] = [
+            {
+                "name": "sda1",
+                "path": "/dev/sda1",
+                "type": "part",
+                "pkname": "sda",
+                "fstype": "bcache",
+                "uuid": "BCACHE-SAME",
+                "size": 7_000_000_000,
+            }
+        ]
+        return {
+            "blockdevices": [
+                disk,
+                {
+                    "name": "bcache0",
+                    "path": "/dev/bcache0",
+                    "type": "disk",
+                    "pkname": "sda",
+                    "size": 7_000_000_000,
+                    "children": [
+                        {
+                            "name": "bcache0p1",
+                            "path": "/dev/bcache0p1",
+                            "type": "part",
+                            "pkname": "bcache0",
+                            "fstype": "crypto_LUKS",
+                            "uuid": "LUKS-SAME",
+                            "size": 6_000_000_000,
+                            "children": [
+                                {
+                                    "name": mapper_name,
+                                    "path": f"/dev/{mapper_name}",
+                                    "type": "crypt",
+                                    "pkname": "bcache0p1",
+                                    "fstype": "ext4",
+                                    "uuid": inner_uuid,
+                                    "label": "HOME",
+                                }
+                            ],
+                        }
+                    ],
+                },
+                boot,
+            ]
+        }
+    raise AssertionError(shape)
+
+
+@pytest.mark.parametrize(
+    "shape",
+    ["nested-luks", "flat-luks", "nested-lvm", "flat-lvm", "held-luks"],
+)
+def test_open_volume_filesystem_change_is_a_different_disk(
+    monkeypatch, tmp_path, shape
+):
+    """A LUKS or LVM filesystem UUID is the disk, even when the header UUID is not."""
+    from beamo_wipe.safety import assert_disk_identity
+
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+
+    def scan(inner_uuid: str, mapper_name: str = "dm-0"):
+        return discover(
+            lsblk_payload=_open_volume_payload(
+                shape, inner_uuid, mapper_name=mapper_name
+            ),
+            boot_path="/dev/sdb",
+            mount_sources=[],
+            cmdline="",
+            env={"BEAMO_WIPE_DRY_RUN": "1"},
+        )
+
+    original = scan("AAAA-AAAA")
+    disk = next(item for item in original.selectable if item.path == "/dev/sda")
+    assert disk.serial == ""
+    assert disk.wwn == ""
+    assert_disk_identity(disk, scan("aaaa-aaaa"))
+    assert_disk_identity(disk, scan("AAAA-AAAA", mapper_name="dm-9"))
+    with pytest.raises(SafetyError, match="identity"):
+        assert_disk_identity(disk, scan("BBBB-BBBB"))
+
+
+def test_ambiguous_mapper_parent_lists_no_targets(monkeypatch, tmp_path):
+    """A mapper whose parent name is listed twice is not a known disk."""
+    monkeypatch.setenv("BEAMO_WIPE_DRY_RUN", "1")
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    payload = {
+        "blockdevices": [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "type": "disk",
+                "size": 8_000_000_000,
+                "tran": "usb",
+                "model": "USB DISK",
+                "serial": "",
+                "wwn": "",
+            },
+            {
+                "name": "sda1",
+                "path": "/dev/sda1",
+                "type": "part",
+                "pkname": "sda",
+                "fstype": "crypto_LUKS",
+                "uuid": "LUKS-SAME",
+                "size": 7_000_000_000,
+            },
+            {
+                "name": "sda1",
+                "path": "/dev/sda1",
+                "type": "part",
+                "pkname": "sda",
+                "fstype": "crypto_LUKS",
+                "uuid": "LUKS-SAME",
+                "size": 7_000_000_000,
+            },
+            {
+                "name": "dm-0",
+                "path": "/dev/dm-0",
+                "type": "crypt",
+                "pkname": "sda1",
+                "fstype": "ext4",
+                "uuid": "AAAA-AAAA",
+                "label": "HOME",
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "type": "disk",
+                "size": 16_000_000_000,
+                "tran": "usb",
+                "model": "Beamo",
+                "serial": "BOOT",
+                "wwn": "boot-wwn",
+            },
+        ]
+    }
+    found = discover(
+        lsblk_payload=payload,
+        boot_path="/dev/sdb",
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert found.selectable == ()
+    assert not found.boot_identified
+
+
 def test_identity_change_refuses_wipe(monkeypatch, tmp_path):
     from dataclasses import replace
 
