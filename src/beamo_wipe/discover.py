@@ -534,6 +534,49 @@ def _cover_shared_filesystem_members(
         flat_mounts.setdefault(owner, []).extend(mounts)
 
 
+def _is_stacked_holder(node: Mapping[str, Any]) -> bool:
+    kind = _node_type(node)
+    name = _clean(node.get("name")).lower()
+    return kind in _STACKED_HOLDER_TYPES or name.startswith("bcache")
+
+
+def _has_stacked_holder(
+    node: Mapping[str, Any],
+    parent: Optional[Dict[str, Any]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> bool:
+    """True when this node is an LVM, md-linear, or bcache device, or sits on one.
+
+    A mount on the opened filesystem above that holder still belongs to every
+    physical member. An unrelated LUKS volume does not.
+    """
+    if _is_stacked_holder(node):
+        return True
+    seen: set[str] = set()
+    current = ""
+    if node.get("pkname") is not None:
+        current = _identity_text(node.get("pkname"), "pkname")
+    if not current and parent is not None and parent.get("name") is not None:
+        current = _identity_text(parent.get("name"), "name")
+    while current:
+        if current in seen:
+            return False
+        seen.add(current)
+        ancestors = list(by_name.get(current) or ())
+        if len(ancestors) != 1:
+            return False
+        ancestor, tree_parent = ancestors[0]
+        if _is_stacked_holder(ancestor):
+            return True
+        nxt = ""
+        if ancestor.get("pkname") is not None:
+            nxt = _identity_text(ancestor.get("pkname"), "pkname")
+        if not nxt and tree_parent is not None and tree_parent.get("name") is not None:
+            nxt = _identity_text(tree_parent.get("name"), "name")
+        current = nxt
+    return False
+
+
 def _cover_unlinked_stacked_members(
     flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
     flat_mounts: Dict[str, List[str]],
@@ -541,18 +584,18 @@ def _cover_unlinked_stacked_members(
 ) -> None:
     """Give every other LVM or md member the mounted volume's mountpoint.
 
-    lsblk names one physical disk for a mounted stack. A second disk that
-    still has a member filesystem is the same volume and must not be
-    selectable. A stack with no extra member filesystem stays on its pkname
-    chain, so an unrelated disk can still be erased.
+    lsblk names one physical disk for a mounted stack. The mount may sit on
+    the holder or on a filesystem opened above it. A second disk that still
+    has a member filesystem is the same volume and must not be selectable.
+    A stack with no extra member filesystem stays on its pkname chain, so an
+    unrelated disk can still be erased.
     """
     holder_mounts: List[str] = []
-    for node, _parent in flat_nodes:
-        kind = _node_type(node)
-        name = _clean(node.get("name")).lower()
-        if kind not in _STACKED_HOLDER_TYPES and not name.startswith("bcache"):
+    for node, parent in flat_nodes:
+        mounts = _node_mountpoints(node)
+        if not mounts or not _has_stacked_holder(node, parent, by_name):
             continue
-        holder_mounts.extend(_node_mountpoints(node))
+        holder_mounts.extend(mounts)
     if not holder_mounts:
         return
     covered = set(flat_mounts)
@@ -802,7 +845,9 @@ def _content_evidence(
         kind = _node_type(item)
         if kind == "part":
             _record_partition_evidence(item, fstypes, labels, partnames, parttypes)
-        elif item is not node and kind not in {"loop", "rom", "disk"}:
+        elif item is not node and kind not in {"loop", "rom"}:
+            # bcache is type=disk. That filesystem is not the physical
+            # disk's own fstype, which stays unknown with no partitions.
             _record_opened_filesystem(item, fstypes, labels)
         for child in item.get("children") or []:
             walk(child)
@@ -843,7 +888,8 @@ def classify_disk_contents(
             continue
         if kind == "part":
             _record_partition_evidence(node, fstypes, labels, partnames, parttypes)
-        elif kind != "disk":
+        else:
+            # A type=disk holder such as bcache carries the opened filesystem.
             _record_opened_filesystem(node, fstypes, labels)
     return _contents_from_evidence(fstypes, labels, partnames, parttypes)
 

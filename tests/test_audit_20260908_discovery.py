@@ -283,6 +283,74 @@ def test_flat_bcache_member_is_not_selectable(monkeypatch):
     assert [target.path for target in result.selectable] == ["/dev/sdd"]
 
 
+def test_flat_mount_above_the_volume_does_not_leave_another_member_selectable(monkeypatch):
+    """The open filesystem can sit on a device above the LVM or md holder.
+
+    lsblk then puts the mount on that upper device. The other physical
+    member still shows only the member filesystem and must not be erased.
+    """
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("sdb", tran="sata"),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+        _part("sda1", "sda", fstype="LVM2_member"),
+        _part("sdb1", "sdb", fstype="LVM2_member"),
+        disk("dm-0", type="lvm", pkname="sda1", serial="LV"),
+        disk("dm-1", type="crypt", pkname="dm-0", mountpoints=["/mnt/data"], fstype="ext4", serial="CRYPT"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_flat_partition_above_linear_does_not_leave_another_member_selectable(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("sdb", tran="sata"),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+        _part("sda1", "sda", fstype="linux_raid_member"),
+        _part("sdb1", "sdb", fstype="linux_raid_member"),
+        disk("md0", type="linear", pkname="sda1", serial="MD"),
+        _part("md0p1", "md0", fstype="ext4", mountpoints=["/mnt/data"]),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+
+
+def test_single_disk_luks_does_not_consume_an_unrelated_member(monkeypatch):
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata", children=[
+            _part("sda1", "sda", fstype="crypto_LUKS", children=[
+                disk("dm-0", type="crypt", mountpoints=["/mnt/data"], fstype="ext4", serial="CRYPT"),
+            ]),
+        ]),
+        disk("sdb", tran="sata", children=[
+            _part("sdb1", "sdb", fstype="LVM2_member"),
+        ]),
+        disk("sdd", tran="sata"),
+        disk("sdc"),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    assert [target.path for target in result.selectable] == ["/dev/sdb", "/dev/sdd"]
+
+
+def test_filesystem_on_bcache_disk_keeps_the_os_warning(monkeypatch):
+    """bcache is a type=disk holder. Its filesystem is the backing disk's contents."""
+    result = probe(monkeypatch, [
+        disk("sda", tran="sata"),
+        disk("sdc"),
+        _part("sda1", "sda", fstype="vfat", label="EFI", parttypename="EFI System",
+              parttype="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"),
+        _part("sda2", "sda", fstype="bcache"),
+        disk("bcache0", pkname="sda", fstype="ext4", label="root", serial="BC0", tran=None),
+    ], boot="/dev/sdc")
+    assert result.boot_identified
+    backing = next(item for item in result.disks if item.path == "/dev/sda")
+    assert backing.contents == "system"
+    assert "/dev/bcache0" not in [target.path for target in result.selectable]
+
+
 @pytest.mark.parametrize("kind", ["dmraid", "faulty", "multipath"])
 def test_mounted_hidden_member_holder_fails_closed(monkeypatch, kind):
     """Bookworm lsblk types that do not start with ``raid`` still hide a leg."""

@@ -289,6 +289,53 @@ def test_opened_windows_volume_is_not_called_a_data_disk():
     assert C.prepare_selected(node_to_disk(node, False)) == C.PREPARE_WINDOWS
 
 
+def test_filesystem_on_a_bcache_disk_is_not_called_a_data_disk():
+    """lsblk reports bcache as type=disk. The filesystem still belongs to the backing disk."""
+    node = _disk_node(
+        children=[
+            _part("/dev/nvme0n1p1", fstype="vfat", label="EFI", parttypename="EFI System"),
+            _part(
+                "/dev/nvme0n1p2",
+                fstype="bcache",
+                children=[
+                    {
+                        "name": "bcache0",
+                        "path": "/dev/bcache0",
+                        "type": "disk",
+                        "pkname": "nvme0n1p2",
+                        "fstype": "ext4",
+                        "label": "root",
+                    }
+                ],
+            ),
+        ]
+    )
+    assert classify_contents(node) == "system"
+    assert C.prepare_selected(node_to_disk(node, False)) == C.PREPARE_SYSTEM
+
+    windows = _disk_node(
+        children=[
+            _part("/dev/nvme0n1p1", fstype="vfat", label="EFI", parttypename="EFI System"),
+            _part(
+                "/dev/nvme0n1p2",
+                fstype="bcache",
+                children=[
+                    {
+                        "name": "bcache0",
+                        "path": "/dev/bcache0",
+                        "type": "disk",
+                        "pkname": "nvme0n1p2",
+                        "fstype": "ntfs",
+                        "label": "Windows",
+                    }
+                ],
+            ),
+        ]
+    )
+    assert classify_contents(windows) == "windows"
+    assert C.prepare_selected(node_to_disk(windows, False)) == C.PREPARE_WINDOWS
+
+
 def test_opened_ext4_without_efi_stays_a_data_disk():
     node = _disk_node(
         children=[
