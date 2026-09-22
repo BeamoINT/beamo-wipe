@@ -83,7 +83,15 @@ def _names(device: str) -> frozenset[str]:
     base = os.path.basename((device or "").rstrip("/"))
     if not base:
         return frozenset()
-    return frozenset({base, f"/dev/{base}", device})
+    names = {base, f"/dev/{base}", device}
+    # Summary tables use nwipe_strip_path's 8-column basename.
+    if device.startswith("/"):
+        from beamo_wipe.nwipe_runner import nwipe_status_device_field
+
+        column = nwipe_status_device_field(device).strip()
+        if column:
+            names.add(column)
+    return frozenset(name for name in names if name)
 
 
 def _body(line: str) -> str:

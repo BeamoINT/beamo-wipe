@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -91,9 +92,13 @@ FINDMNT_TIMEOUT_S = 8
 LSBLK_BINARIES = ("/usr/bin/lsblk",)
 FINDMNT_BINARIES = ("/usr/bin/findmnt",)
 MOUNTINFO_PATH = "/proc/self/mountinfo"
+# PARTTYPE and PARTTYPENAME are read by classify_contents. Bookworm
+# util-linux 2.38 supports both; dropping them makes Windows GUID evidence
+# invisible and a real OS disk look like a data disk.
 LSBLK_COLUMNS = (
     "NAME,PATH,SIZE,TYPE,TRAN,ROTA,MODEL,SERIAL,RM,HOTPLUG,"
-    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,FSVER,VENDOR,PKNAME,UUID,WWN,PARTUUID,PARTLABEL,RO"
+    "MOUNTPOINT,MOUNTPOINTS,LABEL,FSTYPE,FSVER,VENDOR,PKNAME,UUID,WWN,"
+    "PARTTYPE,PARTTYPENAME,PARTUUID,PARTLABEL,RO"
 )
 TYPED_SOURCE_KEYS = frozenset({"LABEL", "UUID", "PARTUUID", "PARTLABEL"})
 
@@ -103,8 +108,10 @@ def size_gb_label(size_bytes: int) -> str:
         return "0"
     # Integer half-up in decimal GB. Python 3 round() is banker's rounding, so
     # 2.5e9 became "2 GB" and collided with a 1.5e9 disk also labeled "2 GB".
+    # Do not force a sub-0.5 GB disk up to 1: that shared a confirm token
+    # with a real 1 GB disk.
     gb = (int(size_bytes) + 500_000_000) // 1_000_000_000
-    return str(max(1, gb))
+    return str(gb)
 
 
 def classify_kind(name: str, tran: Optional[str], rota: Any) -> DiskKind:
@@ -369,19 +376,23 @@ def _could_be_live_medium(node: Dict[str, Any]) -> bool:
     """True for a disk that might be the live stick when mounts are missing.
 
     USB-SATA bridges often report tran=sata. USB-NVMe enclosures often report
-    tran=nvme. A leftover BEAMO_WIPE USB must not win label fallback while that
-    bridge remains a plausible live disk. Large internal SATA/NVMe disks are
-    not treated as competing live media.
+    tran=nvme, or no transport at all. SD and eMMC often report tran=mmc or
+    nothing. Any removable disk can be that stick. A leftover BEAMO_WIPE USB
+    must not win label fallback while one of those remains. Large internal
+    SATA/NVMe/eMMC disks are not treated as competing live media.
     """
     if _looks_like_live_medium(node):
         return True
     if _node_type(node) not in {"disk", "rom"}:
         return False
-    tran = (node.get("tran") or "").lower().strip()
-    if tran not in {"sata", "ata", "nvme"}:
-        return False
     if _as_bool(node.get("rm")) is True or _as_bool(node.get("hotplug")) is True:
         return True
+    tran = (node.get("tran") or "").lower().strip()
+    name = _clean(node.get("name")).lower()
+    # Blank TRAN is normal for some NVMe disks. A small one is as plausible
+    # a live stick as tran=nvme of the same size. Large internals stay eligible.
+    if tran not in {"sata", "ata", "nvme", "mmc"} and not name.startswith(("mmcblk", "nvme")):
+        return False
     size = _as_int(node.get("size"))
     # Decimal 128 GB covers 64 GiB USB-SATA/NVMe enclosures (68.7e9) that
     # sit just above the previous 64e9 cutoff. 256 GB+ internals stay
@@ -391,6 +402,262 @@ def _could_be_live_medium(node: Dict[str, Any]) -> bool:
 
 def _node_type(node: Dict[str, Any]) -> str:
     return (node.get("type") or "").lower()
+
+
+# lsblk hangs a mounted RAID or multipath volume off one member. The other
+# member stays a normal disk unless the whole inventory is refused.
+# ``linear`` is md's level name, not a ``raid*`` type. LVM and linear can
+# also be a single resolved stack (crypt -> lv); those keep unrelated disks.
+# util-linux 2.38 lowercases the device-mapper UUID prefix and the md level,
+# so DMRAID- is ``dmraid`` and md levels ``faulty`` / ``multipath`` do not
+# start with ``raid``. One PKNAME still hides the other member.
+_UNRESOLVED_HOLDER_TYPES = frozenset({
+    "mpath", "md", "dmraid", "faulty", "multipath",
+})
+_STACKED_HOLDER_TYPES = frozenset({"lvm", "linear"})
+_MEMBER_FILESYSTEMS = frozenset({"lvm2_member", "linux_raid_member", "bcache"})
+
+
+def _mounted_holder_hides_members(kind: str) -> bool:
+    return kind.startswith("raid") or kind in _UNRESOLVED_HOLDER_TYPES
+
+
+def _meaningful_wwn(value: str) -> str:
+    """WWN that can name one LUN, or empty for padding.
+
+    An all-zero id is not a multipath alias. It must not glue a mounted
+    disk to every other disk that carries the same padding.
+    """
+    text = (value or "").strip().casefold()
+    body = text[2:] if text.startswith("0x") else text
+    if not body or set(body) <= {"0"}:
+        return ""
+    return text
+
+
+def _cover_mounted_wwn_aliases(disks: Sequence[Disk]) -> List[Disk]:
+    """Copy a mount onto every other path that shows that disk's WWN.
+
+    Multipath records the mount on one path. The other path is the same
+    LUN and must not stay selectable.
+    """
+    mounted: Dict[str, List[str]] = {}
+    for disk in disks:
+        wwn = _meaningful_wwn(disk.wwn)
+        if not wwn or not disk.mountpoints:
+            continue
+        mounted.setdefault(wwn, []).extend(disk.mountpoints)
+    if not mounted:
+        return list(disks)
+    covered: List[Disk] = []
+    for disk in disks:
+        extra = mounted.get(_meaningful_wwn(disk.wwn))
+        if not extra:
+            covered.append(disk)
+            continue
+        mounts = tuple(dict.fromkeys((*disk.mountpoints, *extra)))
+        if mounts == disk.mountpoints:
+            covered.append(disk)
+            continue
+        covered.append(replace(disk, mountpoints=mounts))
+    return covered
+
+
+def _resolve_owner_disk(
+    node: Mapping[str, Any],
+    parent: Optional[Dict[str, Any]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> Tuple[str, bool]:
+    """Return (physical disk name, ambiguous).
+
+    PKNAME is followed through holders. A name shared by two nodes is
+    ambiguous: the caller must not guess which disk owns the filesystem.
+    """
+    own_pk = ""
+    if node.get("pkname") is not None:
+        own_pk = _identity_text(node.get("pkname"), "pkname")
+    if _node_type(node) in {"disk", "rom"} and not own_pk:
+        if node.get("name") is None:
+            return "", False
+        return _identity_text(node.get("name"), "name"), False
+    seen: set[str] = set()
+    current = own_pk
+    if not current and parent is not None and parent.get("name") is not None:
+        current = _identity_text(parent.get("name"), "name")
+    while current:
+        if current in seen:
+            return "", False
+        seen.add(current)
+        ancestors = list(by_name.get(current) or ())
+        if len(ancestors) > 1:
+            return "", True
+        if len(ancestors) != 1:
+            return "", False
+        ancestor, tree_parent = ancestors[0]
+        ancestor_pk = ""
+        if ancestor.get("pkname") is not None:
+            ancestor_pk = _identity_text(ancestor.get("pkname"), "pkname")
+        if _node_type(ancestor) in {"disk", "rom"} and not ancestor_pk:
+            return current, False
+        if ancestor_pk:
+            current = ancestor_pk
+            continue
+        if tree_parent is not None and tree_parent.get("name") is not None:
+            current = _identity_text(tree_parent.get("name"), "name")
+            continue
+        return "", False
+    return "", False
+
+
+def _owner_disk_name(
+    node: Mapping[str, Any],
+    parent: Optional[Dict[str, Any]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Physical disk that owns this node, following PKNAME through holders."""
+    return _resolve_owner_disk(node, parent, by_name)[0]
+
+
+def _disk_member_filesystems(
+    disk_name: str,
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> set[str]:
+    """Member fstypes on this disk, including flat rows that only name it via PKNAME."""
+    found: set[str] = set()
+    for node, parent in flat_nodes:
+        fs = _clean(node.get("fstype")).casefold()
+        if fs not in _MEMBER_FILESYSTEMS:
+            continue
+        if _owner_disk_name(node, parent, by_name) == disk_name:
+            found.add(fs)
+    return found
+
+
+def _cover_shared_filesystem_members(
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    flat_mounts: Dict[str, List[str]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> None:
+    """Copy a mount onto every disk that shows the same filesystem UUID.
+
+    lsblk records a multi-device filesystem mount on one member. The other
+    member keeps the UUID and an empty mount list, and it may not have filled
+    in fstype yet. An empty UUID is not an identity. A different fstype is a
+    different filesystem and must not be glued on.
+    """
+    mounted: Dict[Tuple[str, str], List[str]] = {}
+    mounted_uuid: Dict[str, List[str]] = {}
+    for node, _parent in flat_nodes:
+        fs = _clean(node.get("fstype")).casefold()
+        uuid = _clean(node.get("uuid")).casefold()
+        mounts = _node_mountpoints(node)
+        if not uuid or not mounts:
+            continue
+        if fs:
+            mounted.setdefault((fs, uuid), []).extend(mounts)
+        mounted_uuid.setdefault(uuid, []).extend(mounts)
+    if not mounted and not mounted_uuid:
+        return
+    for node, parent in flat_nodes:
+        fs = _clean(node.get("fstype")).casefold()
+        uuid = _clean(node.get("uuid")).casefold()
+        if not uuid:
+            continue
+        mounts = mounted.get((fs, uuid)) if fs else None
+        if not mounts and not fs:
+            mounts = mounted_uuid.get(uuid)
+        if not mounts:
+            continue
+        owner = _owner_disk_name(node, parent, by_name)
+        if not owner:
+            continue
+        flat_mounts.setdefault(owner, []).extend(mounts)
+
+
+def _is_stacked_holder(node: Mapping[str, Any]) -> bool:
+    kind = _node_type(node)
+    name = _clean(node.get("name")).lower()
+    return kind in _STACKED_HOLDER_TYPES or name.startswith("bcache")
+
+
+def _has_stacked_holder(
+    node: Mapping[str, Any],
+    parent: Optional[Dict[str, Any]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> bool:
+    """True when this node is an LVM, md-linear, or bcache device, or sits on one.
+
+    A mount on the opened filesystem above that holder still belongs to every
+    physical member. An unrelated LUKS volume does not.
+    """
+    if _is_stacked_holder(node):
+        return True
+    seen: set[str] = set()
+    current = ""
+    if node.get("pkname") is not None:
+        current = _identity_text(node.get("pkname"), "pkname")
+    if not current and parent is not None and parent.get("name") is not None:
+        current = _identity_text(parent.get("name"), "name")
+    while current:
+        if current in seen:
+            return False
+        seen.add(current)
+        ancestors = list(by_name.get(current) or ())
+        if len(ancestors) != 1:
+            return False
+        ancestor, tree_parent = ancestors[0]
+        if _is_stacked_holder(ancestor):
+            return True
+        nxt = ""
+        if ancestor.get("pkname") is not None:
+            nxt = _identity_text(ancestor.get("pkname"), "pkname")
+        if not nxt and tree_parent is not None and tree_parent.get("name") is not None:
+            nxt = _identity_text(tree_parent.get("name"), "name")
+        current = nxt
+    return False
+
+
+def _cover_unlinked_stacked_members(
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    flat_mounts: Dict[str, List[str]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> None:
+    """Give every other LVM or md member the mounted volume's mountpoint.
+
+    lsblk names one physical disk for a mounted stack. The mount may sit on
+    the holder or on a filesystem opened above it. A second disk that still
+    has a member filesystem is the same volume and must not be selectable.
+    A stack with no extra member filesystem stays on its pkname chain, so an
+    unrelated disk can still be erased.
+    """
+    holder_mounts: List[str] = []
+    for node, parent in flat_nodes:
+        mounts = _node_mountpoints(node)
+        if not mounts or not _has_stacked_holder(node, parent, by_name):
+            continue
+        holder_mounts.extend(mounts)
+    if not holder_mounts:
+        return
+    covered = set(flat_mounts)
+    roots: List[Tuple[str, Dict[str, Any]]] = []
+    for node, parent in flat_nodes:
+        if parent is not None or _node_type(node) != "disk":
+            continue
+        if node.get("name") is None:
+            continue
+        name = _identity_text(node.get("name"), "name")
+        if not name:
+            continue
+        if _node_mountpoints(node):
+            covered.add(name)
+        roots.append((name, node))
+    for name, node in roots:
+        if name in covered:
+            continue
+        if not _disk_member_filesystems(name, flat_nodes, by_name):
+            continue
+        flat_mounts.setdefault(name, []).extend(holder_mounts)
 
 
 def parent_disk_path(
@@ -540,33 +807,50 @@ _WINDOWS_PARTNAMES = (
 )
 
 
-def classify_contents(node: Mapping[str, Any]) -> str:
-    """Classify disk contents from partition evidence only. No guessing."""
-    fstypes: set[str] = set()
-    labels: set[str] = set()
-    partnames: set[str] = set()
-    parttypes: set[str] = set()
+def _record_partition_evidence(
+    item: Mapping[str, Any],
+    fstypes: set[str],
+    labels: set[str],
+    partnames: set[str],
+    parttypes: set[str],
+) -> None:
+    fs = _clean(item.get("fstype")).casefold()
+    if fs:
+        fstypes.add(fs)
+    lab = _clean(item.get("label")).casefold()
+    if lab:
+        labels.add(lab)
+    # PARTLABEL is the GPT name lsblk already returns. PARTTYPENAME is
+    # the type's human name. Windows often leaves LABEL empty, so both
+    # names are partition evidence, not a guess from the filesystem.
+    for key in ("parttypename", "partlabel"):
+        name = _clean(item.get(key)).casefold()
+        if name:
+            partnames.add(name)
+            labels.add(name)
+    ptype = _clean(item.get("parttype")).casefold()
+    if ptype:
+        parttypes.add(ptype)
 
-    def walk(item: object) -> None:
-        if not isinstance(item, dict):
-            return
-        if _node_type(item) == "part":
-            fs = _clean(item.get("fstype")).casefold()
-            if fs:
-                fstypes.add(fs)
-            lab = _clean(item.get("label")).casefold()
-            if lab:
-                labels.add(lab)
-            name = _clean(item.get("parttypename")).casefold()
-            if name:
-                partnames.add(name)
-            ptype = _clean(item.get("parttype")).casefold()
-            if ptype:
-                parttypes.add(ptype)
-        for child in item.get("children") or []:
-            walk(child)
 
-    walk(node)
+def _record_opened_filesystem(
+    item: Mapping[str, Any], fstypes: set[str], labels: set[str]
+) -> None:
+    """Filesystem identity on an opened LUKS or LVM volume."""
+    fs = _clean(item.get("fstype")).casefold()
+    if fs:
+        fstypes.add(fs)
+    lab = _clean(item.get("label")).casefold()
+    if lab:
+        labels.add(lab)
+
+
+def _contents_from_evidence(
+    fstypes: set[str],
+    labels: set[str],
+    partnames: set[str],
+    parttypes: set[str],
+) -> str:
     windows_marks = bool(
         labels & _WINDOWS_LABELS
         or "bitlocker" in fstypes
@@ -586,6 +870,180 @@ def classify_contents(node: Mapping[str, Any]) -> str:
     if fstypes:
         return CONTENTS_DATA
     return CONTENTS_UNKNOWN
+
+
+def _content_evidence(
+    node: Mapping[str, Any],
+) -> Tuple[set[str], set[str], set[str], set[str]]:
+    fstypes: set[str] = set()
+    labels: set[str] = set()
+    partnames: set[str] = set()
+    parttypes: set[str] = set()
+
+    def walk(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        kind = _node_type(item)
+        if kind == "part":
+            _record_partition_evidence(item, fstypes, labels, partnames, parttypes)
+        elif item is not node and kind not in {"loop", "rom"}:
+            # bcache is type=disk. That filesystem is not the physical
+            # disk's own fstype, which stays unknown with no partitions.
+            _record_opened_filesystem(item, fstypes, labels)
+        for child in item.get("children") or []:
+            walk(child)
+
+    walk(node)
+    return fstypes, labels, partnames, parttypes
+
+
+def classify_contents(node: Mapping[str, Any]) -> str:
+    """Classify disk contents from partition evidence only. No guessing."""
+    return _contents_from_evidence(*_content_evidence(node))
+
+
+def classify_disk_contents(
+    disk_node: Mapping[str, Any],
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Same classification, including partitions emitted as their own rows."""
+    fstypes, labels, partnames, parttypes = _content_evidence(disk_node)
+    if not isinstance(disk_node, dict) or disk_node.get("name") is None:
+        return _contents_from_evidence(fstypes, labels, partnames, parttypes)
+    disk_name = _identity_text(disk_node.get("name"), "name")
+    if not disk_name:
+        return _contents_from_evidence(fstypes, labels, partnames, parttypes)
+    disk_path = node_path(disk_node)
+    for node, parent in flat_nodes:
+        if not isinstance(node, dict):
+            continue
+        kind = _node_type(node)
+        if kind in {"loop", "rom"}:
+            continue
+        owner, ambiguous = _resolve_owner_disk(node, parent, by_name)
+        if ambiguous or owner != disk_name:
+            continue
+        path = node_path(node)
+        if disk_path and path == disk_path:
+            continue
+        if kind == "part":
+            _record_partition_evidence(node, fstypes, labels, partnames, parttypes)
+        else:
+            # A type=disk holder such as bcache carries the opened filesystem.
+            _record_opened_filesystem(node, fstypes, labels)
+    return _contents_from_evidence(fstypes, labels, partnames, parttypes)
+
+
+def _layout_id(node: Mapping[str, Any]) -> str:
+    """Stable hash of filesystem identity. Empty when the disk has none.
+
+    A blank serial and WWN cannot tell two disks apart. Partition UUID,
+    opened-volume UUID, type, label, and partition size can. The hash is
+    not a confirmation token.
+    """
+    return _hash_layout_rows(_layout_rows(node))
+
+
+def _hash_layout_rows(rows: Sequence[str]) -> str:
+    kept = [row for row in rows if row]
+    if not kept:
+        return ""
+    return hashlib.sha256("\n".join(sorted(kept)).encode("utf-8")).hexdigest()
+
+
+def _filesystem_layout_row(item: Mapping[str, Any], *, partition: bool) -> str:
+    fstype = _clean(item.get("fstype")).casefold()
+    uuid = _clean(item.get("uuid")).casefold()
+    partuuid = _clean(item.get("partuuid")).casefold()
+    label = _clean(item.get("label")).casefold()
+    size = str(_as_int(item.get("size"))) if partition else ""
+    if not partition and not (fstype or uuid or partuuid or label):
+        return ""
+    return "|".join(("p" if partition else "d", fstype, uuid, partuuid, label, size))
+
+
+def _remember_layout_row(
+    rows: List[str],
+    seen: set[Tuple[str, str]],
+    item: Mapping[str, Any],
+    *,
+    partition: bool,
+) -> None:
+    row = _filesystem_layout_row(item, partition=partition)
+    if not row or not isinstance(item, dict):
+        return
+    key = (node_path(item), row)
+    if key in seen:
+        return
+    seen.add(key)
+    rows.append(row)
+
+
+def _collect_tree_layout(
+    node: Mapping[str, Any],
+    rows: List[str],
+    seen: set[Tuple[str, str]],
+) -> None:
+    """Filesystem rows for this node and devices nested under it."""
+
+    def walk(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        kind = _node_type(item)
+        if kind == "part":
+            _remember_layout_row(rows, seen, item, partition=True)
+        elif item is not node and kind not in {"loop", "rom"}:
+            # crypto_LUKS / LVM2_member keep a header UUID on the partition.
+            # The filesystem UUID of an opened volume is on the mapper child.
+            _remember_layout_row(rows, seen, item, partition=False)
+        for child in item.get("children") or []:
+            walk(child)
+
+    if isinstance(node, dict):
+        _remember_layout_row(rows, seen, node, partition=False)
+    walk(node)
+
+
+def _layout_rows(node: Mapping[str, Any]) -> List[str]:
+    rows: List[str] = []
+    _collect_tree_layout(node, rows, set())
+    return rows
+
+
+def _flat_layout_id(
+    disk_node: Mapping[str, Any],
+    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
+    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
+) -> str:
+    """Layout of this disk, including flat rows and opened mapper filesystems."""
+    rows: List[str] = []
+    seen: set[Tuple[str, str]] = set()
+    _collect_tree_layout(disk_node, rows, seen)
+    if not isinstance(disk_node, dict) or disk_node.get("name") is None:
+        return _hash_layout_rows(rows)
+    disk_name = _identity_text(disk_node.get("name"), "name")
+    if not disk_name:
+        return _hash_layout_rows(rows)
+    disk_path = node_path(disk_node)
+    for node, parent in flat_nodes:
+        if not isinstance(node, dict):
+            continue
+        kind = _node_type(node)
+        if kind in {"loop", "rom"}:
+            continue
+        owner, ambiguous = _resolve_owner_disk(node, parent, by_name)
+        # A repeated parent name hides which disk owns this filesystem.
+        # Listing the disk anyway would erase past an unbound volume UUID.
+        if ambiguous and _filesystem_layout_row(node, partition=(kind == "part")):
+            raise ValueError("lsblk layout ancestry is unresolved")
+        if owner != disk_name:
+            continue
+        path = node_path(node)
+        if disk_path and path == disk_path:
+            continue
+        _remember_layout_row(rows, seen, node, partition=(kind == "part"))
+    return _hash_layout_rows(rows)
 
 
 def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
@@ -626,6 +1084,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
             _as_bool(node.get("rm")) is True
             or _as_bool(node.get("hotplug")) is True
         ),
+        layout_id=_layout_id(node),
     )
 
 
@@ -852,7 +1311,25 @@ def identify_boot_path(
                 return None
             if resolved not in cmdline_hits:
                 cmdline_hits.append(resolved)
-        return cmdline_hits[0] if len(cmdline_hits) == 1 else None
+        if len(cmdline_hits) != 1:
+            return None
+        # A bootloader line can name a large internal disk. That must not
+        # become the boot identity while a USB or other live medium is
+        # still attached, or the stick itself becomes a wipe target.
+        hit = cmdline_hits[0]
+        hit_aliases = _path_aliases(hit)
+        hit_node = None
+        for node in disk_nodes(blockdevices):
+            if hit_aliases & _path_aliases(node_path(node)):
+                hit_node = node
+                break
+        if hit_node is not None and not _could_be_live_medium(hit_node):
+            for node in disk_nodes(blockdevices):
+                if hit_aliases & _path_aliases(node_path(node)):
+                    continue
+                if _could_be_live_medium(node):
+                    return None
+        return hit
 
     labels = _label_boot_disks(blockdevices)
     if len(labels) == 1:
@@ -920,15 +1397,23 @@ def parse_lsblk_json(
             by_name.setdefault(name, []).append((candidate, parent))
     for candidate, _parent in flat_nodes:
         kind = _node_type(candidate)
-        if kind.startswith("raid") or kind in {"mpath", "md"}:
+        if _mounted_holder_hides_members(kind):
             # Nested lsblk -J trees attach the array under one member. The
             # sibling stays a normal unmounted disk unless we refuse the
             # whole inventory. Flat pkname rows have the same PKNAME gap.
             if _node_mountpoints(candidate):
                 raise ValueError("lsblk mounted ancestry is unresolved")
     for candidate, parent in flat_nodes:
-        if parent is not None or _node_type(candidate) == "disk":
+        if parent is not None:
             continue
+        # A holder such as bcache can be type=disk with PKNAME and its own
+        # mount. Skipping every disk row left that backing disk selectable.
+        if _node_type(candidate) == "disk":
+            holder_parent = ""
+            if candidate.get("pkname") is not None:
+                holder_parent = _identity_text(candidate.get("pkname"), "pkname")
+            if not holder_parent:
+                continue
         pkname = _identity_text(candidate.get("pkname"), "pkname")
         mounts = _node_mountpoints(candidate)
         if not mounts:
@@ -941,9 +1426,9 @@ def parse_lsblk_json(
                 continue
             raise ValueError("lsblk mounted ancestry is unresolved")
         kind = _node_type(candidate)
-        if kind.startswith("raid") or kind in {"mpath", "md"}:
-            # lsblk exposes one PKNAME. The other RAID/multipath member stays
-            # a normal unmounted disk unless we refuse the whole inventory.
+        if _mounted_holder_hides_members(kind):
+            # lsblk exposes one PKNAME. The other member stays a normal
+            # unmounted disk unless we refuse the whole inventory.
             raise ValueError("lsblk mounted ancestry is unresolved")
         # Flat lsblk rows can describe disk -> partition -> crypt/LVM chains.
         # Exclude every possible whole-disk ancestor; an unknown or cyclic
@@ -957,8 +1442,19 @@ def parse_lsblk_json(
             if not ancestors:
                 raise ValueError("lsblk mounted ancestry is unresolved")
             for ancestor, tree_parent in ancestors:
-                if _node_type(ancestor) in {"disk", "rom"}:
+                kind = _node_type(ancestor)
+                # One PKNAME on multipath or RAID hides the other leg.
+                if _mounted_holder_hides_members(kind):
+                    raise ValueError("lsblk mounted ancestry is unresolved")
+                if kind in {"disk", "rom"}:
                     flat_mounts.setdefault(ancestor_name, []).extend(mounts)
+                    # bcache and similar holders are type=disk and still
+                    # name the physical disk in PKNAME.
+                    holder_pk = ""
+                    if ancestor.get("pkname") is not None:
+                        holder_pk = _identity_text(ancestor.get("pkname"), "pkname")
+                    if holder_pk and holder_pk != ancestor_name:
+                        pending.append((holder_pk, trail | {ancestor_name}))
                     continue
                 next_name = _identity_text(ancestor.get("pkname"), "pkname")
                 if not next_name and tree_parent is not None:
@@ -966,6 +1462,9 @@ def parse_lsblk_json(
                 if not next_name:
                     raise ValueError("lsblk mounted ancestry is unresolved")
                 pending.append((next_name, trail | {ancestor_name}))
+
+    _cover_unlinked_stacked_members(flat_nodes, flat_mounts, by_name)
+    _cover_shared_filesystem_members(flat_nodes, flat_mounts, by_name)
 
     disks: List[Disk] = []
     identified_boot: Optional[Disk] = None
@@ -975,6 +1474,11 @@ def parse_lsblk_json(
             if should_hide(node, boot_path) and not matched_boot:
                 continue
             disk = node_to_disk(node, is_boot=matched_boot)
+            disk = replace(
+                disk,
+                layout_id=_flat_layout_id(node, flat_nodes, by_name),
+                contents=classify_disk_contents(node, flat_nodes, by_name),
+            )
         except ValueError:
             try:
                 from beamo_wipe.diagnostics import log_diag
@@ -1003,6 +1507,11 @@ def parse_lsblk_json(
             if _node_type(node) in {"rom", "disk"}:
                 try:
                     disk = node_to_disk(node, is_boot=True)
+                    disk = replace(
+                disk,
+                layout_id=_flat_layout_id(node, flat_nodes, by_name),
+                contents=classify_disk_contents(node, flat_nodes, by_name),
+            )
                 except ValueError:
                     try:
                         from beamo_wipe.diagnostics import log_diag
@@ -1045,6 +1554,10 @@ def parse_lsblk_json(
         if previous is not None and disk != previous:
             raise ValueError("lsblk has conflicting observations for one disk")
         observed_disks[canonical] = disk
+    # A second path with a mounted disk's WWN is that LUN, not another target.
+    disks = _cover_mounted_wwn_aliases(disks)
+    if boot is not None:
+        boot = next((item for item in disks if item.path == boot.path), boot)
     # Retain even identical rows: final identity validation requires exactly
     # one observation and must continue refusing an ambiguous target.
     selectable = tuple(d for d in disks if is_wipeable_disk(d))

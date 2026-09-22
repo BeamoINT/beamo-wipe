@@ -105,6 +105,9 @@ class Disk:
     # Observed lsblk RM or HOTPLUG. SATA/NVMe with this set may be a USB
     # enclosure; presentation must not guess internal vs external location.
     hotplug: bool = False
+    # Hash of partition and whole-disk filesystem identity. Empty when none
+    # was recorded. Rediscovery uses it to catch a blank disk that was swapped.
+    layout_id: str = ""
 
     @property
     def display_name(self) -> str:
@@ -113,6 +116,10 @@ class Disk:
 
     @property
     def size_phrase(self) -> str:
+        # A positive disk that half-up rounds to 0 GB is not empty and is
+        # not 1 GB. Zero-byte disks stay "0 GB".
+        if self.size_bytes > 0 and (self.size_gb_label or "").strip() == "0":
+            return "under 1 GB"
         return capacity_phrase(self.size_gb_label)
 
 
@@ -137,6 +144,9 @@ class WipeRequest:
     # rechecks it immediately before exec so a hotplug/rename cannot redirect
     # --exclude to a different node.
     boot_rdev: int = 0
+    # disk_identity() at confirmation. The device number of /dev/sdX does not
+    # change when a different disk reuses that name, so exec rechecks this.
+    device_identity: tuple = ()
 
 
 @dataclass(frozen=True)

@@ -181,6 +181,15 @@ def locate_stage(
         return None, False
     if pass_n != len(overwrites):
         return None, True
+    # nwipe 0.42 replaces [verifying] with [retrying] and keeps the last
+    # overwrite's pass counters. That line is also a retry of the last
+    # write. Without an earlier definite phase, neither step is known.
+    if (
+        observation.phase == "Retrying"
+        and verify_at is not None
+        and pass_i == len(overwrites)
+    ):
+        return None, False
     return pass_i - 1, False
 
 

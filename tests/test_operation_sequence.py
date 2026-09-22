@@ -163,6 +163,30 @@ def test_retrying_keeps_located_stage():
     assert (position, mismatch) == (1, False)
 
 
+def test_last_pass_retry_is_not_labeled_as_the_last_overwrite():
+    """nwipe keeps pass N of N for both the last write and its read-back."""
+    stages = plan_stages(3, True)
+    obs = sample(40, phase="retrying", counters="round 1 of 1, pass 3 of 3")
+    position, mismatch = locate_stage(stages, obs)
+    assert (position, mismatch) == (None, False)
+    assert step_text(stages, position, mismatch) == "Current step not reported yet"
+
+
+def test_verify_retry_stays_on_read_back_after_that_phase_was_seen():
+    wiz, _clock = _working(MethodId.EXTRA)
+    wiz.runner.progress_observation = sample(
+        90, phase="verifying", counters="round 1 of 1, pass 3 of 3"
+    )
+    assert "Step 4 of 4: Read-back verification" in wiz.progress_view.status_text
+    wiz.runner.progress_observation = sample(
+        90, phase="retrying", counters="round 1 of 1, pass 3 of 3"
+    )
+    text = wiz.progress_view.status_text
+    assert "Retrying" in text
+    assert "Step 4 of 4: Read-back verification" in text
+    assert "Overwrite 3 of 3 (now)" not in text
+
+
 def test_sequence_marks_done_current_and_todo():
     stages = plan_stages(3, True)
     assert sequence_text(stages, 1).splitlines() == [
@@ -310,6 +334,66 @@ def test_dry_run_synthesis_moves_through_plan():
     assert seen[0] == 0
     assert seen[-1] == 3
     assert sorted(set(seen)) == [0, 1, 2, 3]
+
+
+def test_interrupt_after_engine_start_stays_on_the_running_wipe():
+    from beamo_wipe.ui import console_wizard
+
+    clock = {"t": 0.0}
+
+    def now():
+        return clock["t"]
+
+    wiz = make_demo_wizard()
+    wiz.dry_run = False
+    wiz.preview = False
+    wiz._clock = now
+    runner = DryRunRunner(duration_s=30.0, clock=now)
+    original = runner.start
+
+    def start(request):
+        original(request)
+        raise KeyboardInterrupt
+
+    runner.start = start
+    wiz.runner = runner
+    wiz.skip_intro()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock["t"] = 100.0
+    state = {"n": 0}
+    original_body = console_wizard._plain_loop_body
+
+    def body(wizard):
+        state["n"] += 1
+        if state["n"] == 1:
+            wizard.confirm_erase()
+        return 7
+
+    console_wizard._plain_loop_body = body
+    try:
+        code = console_wizard._plain_loop(wiz)
+    finally:
+        console_wizard._plain_loop_body = original_body
+    assert code == 7
+    assert wiz.screen == Screen.WORKING
+    assert wiz._wipe_request is not None
+    assert runner._started is not None
+    assert wiz.stop_confirmation is not None
+    assert wiz.wants_shutdown is False
+    running = wiz._wipe_request
+    wiz.shutdown()
+    assert wiz.wants_shutdown is False
+    wiz.confirm_erase()
+    assert wiz.screen == Screen.WORKING
+    assert wiz._wipe_request is running
+    assert runner._request is running
 
 
 def test_dry_run_default_stays_silent():

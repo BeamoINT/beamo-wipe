@@ -715,6 +715,8 @@ def test_lsblk_command_requests_identity_fields():
     assert "UUID" in discover.LSBLK_COLUMNS
     assert "WWN" in discover.LSBLK_COLUMNS
     assert "PARTUUID" in discover.LSBLK_COLUMNS
+    assert "PARTTYPE" in discover.LSBLK_COLUMNS
+    assert "PARTTYPENAME" in discover.LSBLK_COLUMNS
     assert "FSVER" in discover.LSBLK_COLUMNS
 
 
@@ -936,6 +938,115 @@ def test_leftover_usb_label_without_mounts_does_not_select_sata_bridge():
     assert result.error
 
 
+def test_leftover_usb_label_does_not_win_over_other_removable_media():
+    """Label fallback must not guess while another removable disk could be live.
+
+    USB-SATA and USB-NVMe are already competing media. An SD/eMMC, a disk
+    with an empty transport, or a removable SAS/VirtIO node is the same
+    uncertainty: mounts are missing, so the leftover label is not proof.
+    """
+    others = [
+        {"name": "mmcblk0", "tran": None, "rm": True, "hotplug": True, "size": 64_000_000_000},
+        {"name": "nvme0n1", "tran": "", "rm": True, "hotplug": True, "size": 256_000_000_000},
+        {"name": "sdb", "tran": "sas", "rm": True, "hotplug": True, "size": 16_000_000_000},
+        {"name": "vda", "tran": "virtio", "rm": True, "hotplug": True, "size": 16_000_000_000},
+        {"name": "mmcblk0", "tran": "mmc", "rm": False, "hotplug": False, "size": 64_000_000_000},
+    ]
+    for other in others:
+        payload = _payload(
+            [
+                {
+                    "name": "sda",
+                    "path": "/dev/sda",
+                    "size": 16_000_000_000,
+                    "type": "disk",
+                    "tran": "usb",
+                    "rota": True,
+                    "model": "Leftover stick",
+                    "serial": "OTHERUSB01",
+                    "ro": False,
+                    "children": [
+                        {
+                            "name": "sda1",
+                            "path": "/dev/sda1",
+                            "type": "part",
+                            "label": "BEAMO_WIPE",
+                            "fstype": "iso9660",
+                            "ro": False,
+                        }
+                    ],
+                },
+                {
+                    "name": other["name"],
+                    "path": f"/dev/{other['name']}",
+                    "size": other["size"],
+                    "type": "disk",
+                    "tran": other["tran"],
+                    "rm": other["rm"],
+                    "hotplug": other["hotplug"],
+                    "rota": False,
+                    "model": "Possible live medium",
+                    "serial": "LIVE0001",
+                    "ro": False,
+                },
+            ]
+        )
+        result = discover(
+            lsblk_payload=payload,
+            boot_path=None,
+            mount_sources=[],
+            cmdline="",
+            env={"BEAMO_WIPE_DRY_RUN": "1"},
+        )
+        assert not result.boot_identified, other
+        assert result.selectable == (), other
+
+
+def test_blank_transport_small_nvme_blocks_leftover_label():
+    """A small NVMe with no lsblk transport is still a plausible live disk."""
+    for tran in ("", None):
+        payload = _payload(
+            [
+                {
+                    "name": "sda",
+                    "path": "/dev/sda",
+                    "size": 16_000_000_000,
+                    "type": "disk",
+                    "tran": "usb",
+                    "rota": True,
+                    "model": "Leftover stick",
+                    "serial": "OTHERUSB01",
+                    "ro": False,
+                    "children": [
+                        {"name": "sda1", "path": "/dev/sda1", "type": "part", "label": "BEAMO_WIPE", "ro": False}
+                    ],
+                },
+                {
+                    "name": "nvme0n1",
+                    "path": "/dev/nvme0n1",
+                    "size": 64_000_000_000,
+                    "type": "disk",
+                    "tran": tran,
+                    "rm": False,
+                    "hotplug": False,
+                    "rota": False,
+                    "model": "Possible enclosure",
+                    "serial": "NVME0001",
+                    "ro": False,
+                },
+            ]
+        )
+        result = discover(
+            lsblk_payload=payload,
+            boot_path=None,
+            mount_sources=[],
+            cmdline="",
+            env={"BEAMO_WIPE_DRY_RUN": "1"},
+        )
+        assert not result.boot_identified, tran
+        assert result.selectable == (), tran
+
+
 def test_unique_beamo_usb_label_still_identifies_with_internal_nvme():
     payload = _payload(
         [
@@ -1058,6 +1169,95 @@ def test_unique_beamo_usb_label_still_identifies_with_internal_sata():
         boot_path=None,
         mount_sources=[],
         cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot_identified
+    assert result.boot is not None
+    assert result.boot.path == "/dev/sdb"
+    assert [disk.path for disk in result.selectable] == ["/dev/sda"]
+
+
+def test_cmdline_internal_disk_does_not_expose_the_usb():
+    """A kernel line that names a large internal disk is not the live stick."""
+    payload = _payload(
+        [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500_000_000_000,
+                "type": "disk",
+                "tran": "sata",
+                "rota": True,
+                "model": "Internal",
+                "serial": "INT1",
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16_000_000_000,
+                "type": "disk",
+                "tran": "usb",
+                "rm": True,
+                "hotplug": True,
+                "model": "Beamo",
+                "serial": "USB1",
+                "children": [
+                    {
+                        "name": "sdb1",
+                        "path": "/dev/sdb1",
+                        "type": "part",
+                        "label": "BEAMO_WIPE",
+                    }
+                ],
+            },
+        ]
+    )
+    for cmdline in ("boot=live img_dev=/dev/sda", "boot=live bootfrom=/dev/sda"):
+        result = discover(
+            lsblk_payload=payload,
+            boot_path=None,
+            mount_sources=[],
+            cmdline=cmdline,
+            env={"BEAMO_WIPE_DRY_RUN": "1"},
+        )
+        assert not result.boot_identified, cmdline
+        assert result.selectable == ()
+
+
+def test_cmdline_usb_partition_still_identifies_that_stick():
+    payload = _payload(
+        [
+            {
+                "name": "sda",
+                "path": "/dev/sda",
+                "size": 500_000_000_000,
+                "type": "disk",
+                "tran": "sata",
+                "rota": True,
+                "model": "Internal",
+                "serial": "INT1",
+            },
+            {
+                "name": "sdb",
+                "path": "/dev/sdb",
+                "size": 16_000_000_000,
+                "type": "disk",
+                "tran": "usb",
+                "rm": True,
+                "hotplug": True,
+                "model": "Beamo",
+                "serial": "USB1",
+                "children": [
+                    {"name": "sdb1", "path": "/dev/sdb1", "type": "part"}
+                ],
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="boot=live img_dev=/dev/sdb1",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
     assert result.boot_identified

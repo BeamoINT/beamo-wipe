@@ -62,6 +62,52 @@ def _wiz(tmp_path: Path, clock=None, dry_run=True, wall=None):
 # ---------------------------------------------------------------------------
 
 
+def test_evidence_log_fallback_uses_the_completion_window(tmp_path, monkeypatch):
+    """A success marker more than 8 KiB from EOF is still completion evidence.
+
+    NwipeRunner accepts markers in the last 1 MiB. The wizard fallback must
+    use that same window when the runner has not cached a tail, or a finished
+    erase is stored as failed.
+    """
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    wiz, clock = _wiz(tmp_path)
+    wiz.skip_intro()
+    wiz.accept_what()
+    wiz.set_owner(True)
+    wiz.continue_owner()
+    wiz.select_disk(wiz.selectable[0].path)
+    wiz.continue_pick()
+    wiz.set_confirm_input(wiz.confirm.token)  # type: ignore[union-attr]
+    wiz.continue_confirm()
+    wiz.continue_method()
+    clock.add(5.0)
+    wiz.tick()
+    wiz.confirm_erase()
+    request = wiz._wipe_request
+    assert request is not None
+    name = os.path.basename(request.device)
+    marker = f"  {name} | Erased |\n"
+    padding = "note: trailing controller output\n" * 400
+    text = marker + padding
+    assert len(text.encode()) > 8192
+    assert marker not in text.encode()[-8192:].decode()
+    Path(request.logfile).write_text(text, encoding="utf-8")
+    wiz.runner._log_tail = ""
+    wiz._evidence_written_for = None
+    wiz._pending_evidence_path = None
+    result = WipeResult(
+        ok=True,
+        exit_code=0,
+        summary="finished-from-log",
+        logfile=request.logfile,
+        reason="completed",
+    )
+    wiz.wipe_result = result
+    wiz._write_evidence(result=result, cancelled=False, interrupted=False)
+    assert wiz.evidence is not None
+    assert wiz.evidence["outcome"] == OUTCOME_VERIFIED
+
+
 def test_schema_covers_required_fields(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)

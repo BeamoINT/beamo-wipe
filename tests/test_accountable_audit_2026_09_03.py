@@ -145,6 +145,76 @@ def test_cross_process_lock_refusal_precedes_log_truncation(tmp_path, monkeypatc
     assert log.read_text(encoding="utf-8") == "other process progress\n"
 
 
+def test_locked_boundary_refuses_a_different_disk_on_the_same_name(monkeypatch):
+    """Kernel names keep their device numbers. A rescan has to see the swap."""
+    from dataclasses import replace
+
+    import beamo_wipe.nwipe_runner as nr
+    from beamo_wipe.models import Disk, DiskKind, DiscoveryResult
+    from beamo_wipe.safety import disk_identity
+
+    original = Disk(
+        path="/dev/vda",
+        name="vda",
+        model="Target",
+        serial="SERIAL-A",
+        size_bytes=500,
+        size_gb_label="1",
+        kind=DiskKind.SSD,
+        bus="SATA",
+        label="",
+        wwn="wwn-a",
+        layout_id="layout-a",
+    )
+    boot = Disk(
+        path="/dev/sdb",
+        name="sdb",
+        model="Beamo",
+        serial="BOOT",
+        size_bytes=16_000_000_000,
+        size_gb_label="16",
+        kind=DiskKind.SSD,
+        bus="USB",
+        label="",
+        wwn="boot-wwn",
+        is_boot=True,
+    )
+    swapped = replace(original, serial="SERIAL-B", layout_id="layout-b")
+    fresh = DiscoveryResult(
+        disks=(swapped, boot),
+        selectable=(swapped,),
+        boot=boot,
+        boot_identified=True,
+    )
+    runner = nr.NwipeRunner()
+    req = WipeRequest(
+        "/dev/vda",
+        MethodId.EVERYDAY,
+        "/dev/sdb",
+        "/tmp/fake.log",
+        device_rdev=1,
+        device_size_bytes=500,
+        boot_rdev=2,
+        device_identity=disk_identity(original),
+    )
+    monkeypatch.setattr(nr, "require_real_live_for_nwipe", lambda: None)
+    monkeypatch.setattr(nr, "pinned_nwipe_already_running", lambda **_k: False)
+    monkeypatch.setattr(nr, "_verify_pinned_nwipe", lambda _p: None)
+    monkeypatch.setattr(nr, "assert_existing_is_block_device", lambda *_a, **_k: None)
+    monkeypatch.setattr(nr, "assert_size_unchanged", lambda *_a, **_k: None)
+    monkeypatch.setattr(nr, "assert_local_device_transport", lambda *_a: None)
+    monkeypatch.setattr(nr, "block_rdev", lambda p: 1 if p == "/dev/vda" else 2)
+    monkeypatch.setattr(nr, "assert_not_boot", lambda *_a, **_k: None)
+    monkeypatch.setattr(nr, "assert_log_not_on_target", lambda *_a, **_k: None)
+    monkeypatch.setattr(nr, "truncate_log_file", lambda *_a, **_k: None)
+    monkeypatch.setattr(runner, "_acquire_wipe_lock", lambda _r: None)
+    monkeypatch.setattr(runner, "_release_wipe_lock", lambda: None)
+    monkeypatch.setattr("beamo_wipe.discover.discover", lambda **_k: fresh)
+    monkeypatch.setattr(nr.subprocess, "Popen", lambda *_a, **_k: pytest.fail("exec reached"))
+    with pytest.raises(SafetyError, match="identity"):
+        runner.start(req)
+
+
 def test_locked_boundary_rechecks_size_before_exec(monkeypatch):
     import beamo_wipe.nwipe_runner as nr
 

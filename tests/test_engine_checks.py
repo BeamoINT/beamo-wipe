@@ -95,6 +95,27 @@ def test_foreign_device_lines_do_not_apply():
     assert checks["io_media"].status == "pass"
 
 
+def test_eight_column_status_name_still_attributes_errors_and_shortfall():
+    """nwipe 0.42 prints /dev/nvme0n100 as vme0n100 in the summary tables."""
+    text = """******************************** Error Summary *********************************
+!   Device | Pass Errors | Verifications Errors | Fdatasync I\\O Errors
+--------------------------------------------------------------------------------
+  vme0n100 |           3 |                    1 |                    0
+********************************************************************************
+******************************* Erasure Summary ********************************
+!   Device |      Bytes Erased |      Bytes Total | Percentage Erased
+--------------------------------------------------------------------------------
+  vme0n100 |             1000000 |          2000000 |            50.00%
+********************************************************************************
+"""
+    checks = _by_id(evaluate_engine_checks(text, "/dev/nvme0n100"))
+    assert checks["io_media"].status == "fail"
+    assert checks["hidden_capacity"].status == "warning"
+    other = _by_id(evaluate_engine_checks(text, "/dev/nvme0n1"))
+    assert other["io_media"].status == "unavailable"
+    assert other["hidden_capacity"].status == "unavailable"
+
+
 def test_io_errors_are_fail_and_keep_engine_failure():
     text = _log("io_errors.log")
     checks = _by_id(evaluate_engine_checks(text, "/dev/sda"))

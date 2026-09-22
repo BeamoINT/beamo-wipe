@@ -210,10 +210,10 @@ def _outcome_for(
     completion_summary = ""
     if result.ok:
         try:
-            from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+            from beamo_wipe.nwipe_runner import completion_for_method
 
-            ok, completion_summary = evaluate_nwipe_completion(
-                exit_code, log_text or "", device
+            ok, completion_summary, _reason = completion_for_method(
+                exit_code, log_text or "", device, method
             )
         except Exception:
             ok = False
@@ -298,17 +298,22 @@ def build_evidence(
 
     device_presentation = present_disk(disk, selectable).payload() if disk is not None else None
 
-    # Verification
+    # Verification uses the same method-aware completion decision as outcome.
+    # A one-pass 100% line is not verification of Three overwrites.
     validated_ok = False
-    if result is not None and result.ok:
+    completion_ok = False
+    completion_reason = "indeterminate"
+    if result is not None:
         try:
-            from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
+            from beamo_wipe.nwipe_runner import completion_for_method
 
-            validated_ok, _summary = evaluate_nwipe_completion(
-                result.exit_code, log_text or "", device_path
+            completion_ok, _summary, completion_reason = completion_for_method(
+                exit_code, log_text or "", device_path, method
             )
         except Exception:
-            validated_ok = False
+            completion_ok = False
+            completion_reason = "indeterminate"
+        validated_ok = bool(result.ok and completion_ok)
     verification_requested, verified = _verification_state(
         method,
         log_text or "",
@@ -336,14 +341,12 @@ def build_evidence(
             outcome = OUTCOME_RUNNING
         failure_reason = None
 
-    from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome
     from beamo_wipe.outcomes import present_evidence
 
     validated = False
-    reason = "indeterminate"
+    reason = completion_reason
     if result is not None:
-        completion_ok, _detail, reason = evaluate_nwipe_outcome(result.exit_code, log_text or "", device_path)
-        validated = not completion_ok or result.ok
+        validated = (not completion_ok) or result.ok
     if interrupted or cancelled:
         verified = False
         reason = "cancelled" if cancelled else "interrupted"
@@ -519,7 +522,6 @@ def recover_result(path: Path):
     recheck its exact log snapshot. Missing/replaced evidence stays indeterminate.
     """
     from beamo_wipe.outcomes import present_evidence
-    from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome
     try:
         evidence = json.loads(_verified_evidence_bytes(Path(path)))
         view = present_evidence(evidence)
@@ -533,8 +535,14 @@ def recover_result(path: Path):
             )
             if status not in {"complete", "tail"}:
                 return present_evidence(None)
-            ok, _detail, reason = evaluate_nwipe_outcome(
-                evidence["exit_evidence"]["exit_code"], snapshot.decode("utf-8"), evidence["device"]["path"])
+            from beamo_wipe.nwipe_runner import completion_for_method
+
+            ok, _detail, reason = completion_for_method(
+                evidence["exit_evidence"]["exit_code"],
+                snapshot.decode("utf-8"),
+                evidence["device"]["path"],
+                evidence["method"]["id"],
+            )
             if not ok or reason != "completed":
                 return present_evidence(None)
         return view
