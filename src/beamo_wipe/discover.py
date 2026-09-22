@@ -1015,7 +1015,25 @@ def identify_boot_path(
                 return None
             if resolved not in cmdline_hits:
                 cmdline_hits.append(resolved)
-        return cmdline_hits[0] if len(cmdline_hits) == 1 else None
+        if len(cmdline_hits) != 1:
+            return None
+        # A bootloader line can name a large internal disk. That must not
+        # become the boot identity while a USB or other live medium is
+        # still attached, or the stick itself becomes a wipe target.
+        hit = cmdline_hits[0]
+        hit_aliases = _path_aliases(hit)
+        hit_node = None
+        for node in disk_nodes(blockdevices):
+            if hit_aliases & _path_aliases(node_path(node)):
+                hit_node = node
+                break
+        if hit_node is not None and not _could_be_live_medium(hit_node):
+            for node in disk_nodes(blockdevices):
+                if hit_aliases & _path_aliases(node_path(node)):
+                    continue
+                if _could_be_live_medium(node):
+                    return None
+        return hit
 
     labels = _label_boot_disks(blockdevices)
     if len(labels) == 1:
