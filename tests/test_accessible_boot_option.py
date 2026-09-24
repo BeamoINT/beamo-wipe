@@ -406,6 +406,7 @@ def test_speech_boot_probe_requires_mode_discovery_and_rendering(mode, missing, 
     harness = '''
 BOOT_WAIT_SECONDS=0
 marker_count() { if [ "$MODE" = yes ]; then echo 1; else echo 0; fi; }
+report_marker_summary() { :; }
 wait_for_marker() { printf '%s\\n' "$2"; [ "$2" != "$MISSING" ]; }
 log() { :; }
 '''
@@ -418,3 +419,55 @@ log() { :; }
         assert result.stdout.splitlines() == [
             "BEAMO_WIPE_STAGE_DONE", "BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD",
         ]
+
+
+def test_uefi_speech_hotkey_cannot_boot_default_when_menu_appears_between_keys():
+    """A Return after an early, dropped S can boot GRUB's normal default."""
+    source = QEMU_VERIFY.read_text()
+    helper = re.search(r"drive_speech_boot\(\) \{\n.*?\n\}\n", source, re.S)
+    assert helper
+    harness = '''
+set -euo pipefail
+BOOT_WAIT_SECONDS=120
+state=firmware
+attempts=0
+marker_count() { [[ "$state" == speech ]] && echo 1 || echo 0; }
+send_key() {
+  printf 'key=%s\\n' "$2"
+  if [[ "$2" == s && "$state" == firmware ]]; then
+    state=menu  # The first key arrived before GRUB accepted input.
+  elif [[ "$2" == s && "$state" == menu ]]; then
+    state=speech
+  elif [[ "$2" == ret && "$state" == menu ]]; then
+    state=normal  # Return activates the default entry.
+  fi
+}
+sleep() { attempts=$((attempts + 1)); ((attempts < 3)); }
+wait_for_marker() { [[ "$state" == speech ]]; }
+log() { :; }
+'''
+    result = subprocess.run(
+        ["bash", "-c", harness + helper.group(0) + "\ndrive_speech_boot uefi-speech-usb /fake/qmp"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["key=s", "key=s"]
+
+
+def test_speech_boot_timeout_reports_only_fixed_diagnostic_markers():
+    source = QEMU_VERIFY.read_text()
+    helper = re.search(r"drive_speech_boot\(\) \{\n.*?\n\}\n", source, re.S)
+    assert helper
+    harness = '''
+BOOT_WAIT_SECONDS=0
+marker_count() { echo 0; }
+report_marker_summary() { printf 'safe summary for %s\\n' "$1" >&2; }
+'''
+    result = subprocess.run(
+        ["bash", "-c", harness + helper.group(0) + "\ndrive_speech_boot uefi-speech-usb /fake/qmp"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    assert "safe summary for uefi-speech-usb" in result.stderr
+    assert "BEAMO_WIPE_UI_MODE=accessible" in source
+    assert "BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD" in source

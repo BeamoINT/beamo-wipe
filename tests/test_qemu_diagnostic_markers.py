@@ -15,6 +15,8 @@ from beamo_wipe.ui import tk_wizard
 ROOT = Path(__file__).resolve().parents[1]
 QEMU = ROOT / "scripts/qemu-verify.sh"
 BOOT_MARKERS = {
+    "BEAMO_WIPE_UI_MODE=accessible",
+    "BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD",
     "BEAMO_WIPE_BOOT_FINDMNT_MULTIROW",
     "BEAMO_WIPE_BOOT_SOURCE_UNRESOLVED",
     "BEAMO_WIPE_BOOT_SOURCE_LOOP",

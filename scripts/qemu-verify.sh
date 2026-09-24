@@ -829,6 +829,8 @@ report_marker_summary() {
     BEAMO_WIPE_STAGE_DONE \
     BEAMO_WIPE_STAGE_FAILED \
     BEAMO_WIPE_STAGE_STALLED \
+    BEAMO_WIPE_UI_MODE=accessible \
+    BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD \
     BEAMO_WIPE_SCREEN_SPLASH \
     BEAMO_WIPE_SCREEN_KEYBOARD \
     BEAMO_WIPE_SCREEN_WHAT \
@@ -1150,15 +1152,18 @@ drive_speech_boot() {
   local label="$1" qmp_socket="$2" deadline
   deadline=$((SECONDS + BOOT_WAIT_SECONDS))
   # Exercise the shipped menu hotkey. BIOS selects the entry with S and
-  # activates it with Return; GRUB's S hotkey activates it directly.
+  # activates it with Return; GRUB's S hotkey activates it directly. On
+  # UEFI, a Return after an early S can reach GRUB just as its menu appears
+  # and boot the normal default before the next S has a chance to select speech.
   # Stop sending keys before X starts, at the supervisor's mode marker.
   while [[ "$(marker_count "$label" BEAMO_WIPE_UI_MODE=accessible)" == 0 ]]; do
     if (( SECONDS >= deadline )); then
+      report_marker_summary "$label"
       echo "QEMU $label never selected the speech boot entry" >&2
       return 1
     fi
     send_key "$qmp_socket" s
-    send_key "$qmp_socket" ret
+    if [[ "$label" == bios* ]]; then send_key "$qmp_socket" ret; fi
     sleep 1
   done
   wait_for_marker "$label" BEAMO_WIPE_STAGE_DONE "$BOOT_WAIT_SECONDS" || return 1
