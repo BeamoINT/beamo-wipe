@@ -131,7 +131,7 @@ steps:
         apt-get install -y -qq --no-install-recommends ca-certificates git python3
         if [ "$$PUBLISH_RELEASE" = true ]; then
           apt-get install -y -qq --no-install-recommends python3-pip
-          python3 -m pip install --break-system-packages -q 'cryptography==49.0.0'
+          python3 -m pip install --break-system-packages -q 'cryptography==50.0.1'
         fi
         python3 scripts/publish_release_gcs.py
         PYTHONPATH=src python3 -m beamo_wipe.ci_evidence summary

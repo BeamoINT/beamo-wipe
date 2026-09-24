@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -569,6 +570,23 @@ def test_hosted_python_tests_install_cryptography_for_release_signing():
     hosted = (ROOT / "scripts" / "ci-hosted.sh").read_text(encoding="utf-8")
     test_deps = hosted.split("install_test_deps() {", 1)[1].split("\n}", 1)[0]
     assert "'cryptography==" in test_deps
+
+
+def test_release_signing_cryptography_pins_are_patched_and_identical():
+    """Keep developer, test, and publication installs above the advisory floor."""
+    sources = {
+        "pyproject.toml": 2,
+        "scripts/ci-hosted.sh": 1,
+        "cloudbuild.yaml": 1,
+    }
+    versions = []
+    for path, expected_count in sources.items():
+        content = (ROOT / path).read_text(encoding="utf-8")
+        matches = re.findall(r"cryptography==(\d+\.\d+\.\d+)", content)
+        assert len(matches) == expected_count, path
+        versions.extend(matches)
+    assert len(set(versions)) == 1
+    assert tuple(map(int, versions[0].split("."))) >= (50, 0, 0)
 
 
 def test_qemu_phase_installs_pytest_for_fake_disk_gate():

@@ -39,7 +39,7 @@ install_test_deps() {
     python3-qrcode \
     git \
     ca-certificates
-  python3 -m pip install --break-system-packages -q 'pytest==9.0.3' 'cryptography==49.0.0'
+  python3 -m pip install --break-system-packages -q 'pytest==9.0.3' 'cryptography==50.0.1'
 }
 
 install_lint_deps() {
