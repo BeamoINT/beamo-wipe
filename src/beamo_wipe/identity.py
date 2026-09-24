@@ -145,10 +145,12 @@ def connection_note(disk: Disk) -> str:
 
 
 def strongest_identifier(disk: Disk) -> tuple[str, str]:
+    from beamo_wipe.safety import meaningful_wwn
+
     serial = (disk.serial or "").strip()
     if serial:
         return "serial", serial
-    wwn = (disk.wwn or "").strip()
+    wwn = meaningful_wwn(disk.wwn)
     if wwn:
         return "wwn", wwn
     return "missing", ""
@@ -159,14 +161,16 @@ def _norm(value: str) -> str:
 
 
 def duplicate_identifier(disk: Disk, peers: Sequence[Disk]) -> bool:
+    from beamo_wipe.safety import meaningful_wwn
+
     serial = _norm(disk.serial)
-    wwn = _norm(disk.wwn)
+    wwn = meaningful_wwn(disk.wwn)
     for other in peers:
         if other.path == disk.path:
             continue
         if serial and _norm(other.serial) == serial:
             return True
-        if wwn and _norm(other.wwn) == wwn:
+        if wwn and meaningful_wwn(other.wwn) == wwn:
             return True
     return False
 

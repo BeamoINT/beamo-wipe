@@ -37,13 +37,65 @@ BUILD_OUT=""
 BACKUP_DIR=""
 bundle_in_progress=0
 BUNDLE_FILES="$ISO_NAME beamo-wipe-${VERSION}-amd64.manifest.json beamo-wipe-${VERSION}-amd64.manifest.json.sha256 beamo-wipe-${VERSION}-amd64.iso.sha256 SHA256SUMS"
+same_regular_inode() {
+  python3 - "$1" "$2" <<'PYINODE'
+import os
+import stat
+import sys
+
+try:
+    first = os.stat(sys.argv[1], follow_symlinks=False)
+    second = os.stat(sys.argv[2], follow_symlinks=False)
+except OSError:
+    raise SystemExit(1)
+if not stat.S_ISREG(first.st_mode) or not stat.S_ISREG(second.st_mode):
+    raise SystemExit(1)
+raise SystemExit(0 if (first.st_dev, first.st_ino) == (second.st_dev, second.st_ino) else 1)
+PYINODE
+}
+require_prior_bundle_paths() {
+  for name in $BUNDLE_FILES; do
+    if [ -e "$OUT_DIR/$name" ] && [ ! -f "$OUT_DIR/$name" ] && [ ! -L "$OUT_DIR/$name" ]; then
+      echo "Unsafe prior ISO bundle path: $OUT_DIR/$name" >&2
+      return 1
+    fi
+  done
+}
 cleanup() {
   rc=$?
   if [ "$bundle_in_progress" -gt 0 ] && [ -n "$BACKUP_DIR" ]; then
+    rollback_safe=1
+    if [ "$bundle_in_progress" -eq 2 ]; then
+      # The staged ISO remains as an inode receipt for the published hardlink.
+      # Manifest sidecars are written in dist by the generator, so a pathname
+      # present there after failure cannot be proven to belong to this build.
+      if [ -e "$OUT_DIR/$ISO_NAME" ] || [ -L "$OUT_DIR/$ISO_NAME" ]; then
+        if ! same_regular_inode "$OUT_DIR/$ISO_NAME" "$BUILD_OUT/$ISO_NAME"; then
+          rollback_safe=0
+        fi
+      fi
+      for name in $BUNDLE_FILES; do
+        [ "$name" = "$ISO_NAME" ] && continue
+        if [ -e "$OUT_DIR/$name" ] || [ -L "$OUT_DIR/$name" ]; then
+          rollback_safe=0
+        fi
+      done
+    fi
+    if [ "$rollback_safe" -eq 0 ]; then
+      echo "Could not safely roll back the ISO bundle; prior files are retained in $BACKUP_DIR" >&2
+    fi
     for name in $BUNDLE_FILES; do
-      if [ "$bundle_in_progress" -eq 2 ]; then rm -f -- "$OUT_DIR/$name"; fi
-      if [ -f "$BACKUP_DIR/$name" ]; then
-        mv -- "$BACKUP_DIR/$name" "$OUT_DIR/$name" || true
+      if [ "$rollback_safe" -eq 1 ]; then
+        if [ "$bundle_in_progress" -eq 2 ] && [ "$name" = "$ISO_NAME" ] &&
+           same_regular_inode "$OUT_DIR/$name" "$BUILD_OUT/$ISO_NAME"; then
+          rm -f -- "$OUT_DIR/$name"
+        fi
+        if [ -e "$BACKUP_DIR/$name" ] || [ -L "$BACKUP_DIR/$name" ]; then
+          # Do not replace a path another process created during rollback.
+          if [ ! -e "$OUT_DIR/$name" ] && [ ! -L "$OUT_DIR/$name" ]; then
+            mv -- "$BACKUP_DIR/$name" "$OUT_DIR/$name" || true
+          fi
+        fi
       fi
     done
   fi
@@ -64,136 +116,30 @@ fi
 
 echo "Staging live-build includes…"
 STAGE_PY="$LIVE/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe"
-STAGE_SHARE="$LIVE/config/includes.chroot/usr/share/beamo-wipe"
-STAGE_DOC="$LIVE/config/includes.chroot/usr/share/doc/beamo-wipe"
-STAGE_BIN="$LIVE/config/includes.binary"
-rm -rf "$STAGE_PY" "$STAGE_SHARE" "$STAGE_DOC"
-mkdir -p "$STAGE_PY" "$STAGE_SHARE/helper" "$STAGE_DOC" "$STAGE_BIN" \
-  "$LIVE/config/includes.chroot/usr/local/bin"
+python3 "$ROOT/scripts/stage_wrapper_sources.py" --prepare "$LIVE"
 
 # Stage only Git-tracked wrapper files. Ignored/untracked executable bytes can
 # never enter the ISO, while an explicit ALLOW_DIRTY local build can still test
 # modifications to already tracked files.
-git ls-files -- src/beamo_wipe | while IFS= read -r tracked; do
-  rel="${tracked#src/beamo_wipe/}"
-  mkdir -p "$STAGE_PY/$(dirname "$rel")"
-  cp "$ROOT/$tracked" "$STAGE_PY/$rel"
-done
-# Bytecode is a local runtime artifact, not reviewed source. Never ship it.
-find "$STAGE_PY" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-find "$STAGE_PY" -type d -name __pycache__ -empty -delete
-# Record only bounded immutable build identity inside the live image.
-PYTHONPATH="$ROOT/src" python3 - <<'PYIDENTITY'
-import os, pathlib
-from beamo_wipe.build_identity import write_injected
-from beamo_wipe.release_manifest import git_commit, git_dirty, live_build_inputs
-build_id = os.environ.get("BUILD_ID", "local")
-dirty = git_dirty()[0]
-try:
-    write_injected(
-        pathlib.Path("packaging/live/config/includes.chroot/usr/share/beamo-wipe/build-identity.json"),
-        source_commit=git_commit(),
-        source_sha256=live_build_inputs()["src/beamo_wipe/"],
-        build_id=build_id,
-        source_dirty=dirty,
-        allow_dirty=os.environ.get("ALLOW_DIRTY") == "1",
-        hosted=os.environ.get("PROJECT_ID") == "beamo-wipe",
-    )
-except RuntimeError as exc:
-    raise SystemExit(str(exc)) from exc
-PYIDENTITY
-cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"
-cp "$ROOT/helper/fr.html" "$STAGE_SHARE/helper/fr.html"
-cp "$ROOT/helper/de.html" "$STAGE_SHARE/helper/de.html"
-# Outcome earcons (tracked source; missing files fail the build loudly).
-mkdir -p "$STAGE_SHARE/sounds"
-cp "$ROOT/packaging/sounds/finished.wav" "$STAGE_SHARE/sounds/finished.wav"
-cp "$ROOT/packaging/sounds/attention.wav" "$STAGE_SHARE/sounds/attention.wav"
-cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"
-PYTHONPATH="$ROOT/src" python3 - <<'PYHELPER'
-from pathlib import Path
-from beamo_wipe import __version__
-from beamo_wipe.build_identity import load_injected_build
-from beamo_wipe.compat_story import inject_helper_html
-identity_path = Path(
-    "packaging/live/config/includes.chroot/usr/share/beamo-wipe/build-identity.json"
-)
-injected = load_injected_build(identity_path)
-if injected is None:
-    raise SystemExit("build identity missing after injection")
-for rel in (
-    "packaging/live/config/includes.chroot/usr/share/beamo-wipe/helper/index.html",
-    "packaging/live/config/includes.binary/START-HERE.html",
-):
-    path = Path(rel)
-    path.write_text(
-        inject_helper_html(
-            path.read_text(encoding="utf-8"),
-            version=__version__,
-            injected=injected,
-            packaged=True,
-        ),
-        encoding="utf-8",
-    )
-Path("packaging/live/config/includes.binary/build-identity.json").write_bytes(
-    identity_path.read_bytes()
-)
-PYHELPER
+python3 "$ROOT/scripts/stage_wrapper_sources.py" "$ROOT" "$STAGE_PY"
+# Bytecode is a local runtime artifact, not reviewed source. The stager skips it.
 # A local build compiles launchers; hosted CI supplies the exact tested pair.
 if [ ! -f "$ROOT/dist/desktop/desktop-build.json" ]; then
   "$ROOT/scripts/build-desktop.sh"
 fi
-python3 - "$ROOT" <<'PYDESKTOP'
-import hashlib,json,pathlib,subprocess,sys
+python3 - "$ROOT" "$WRAPPER_VERSION" <<'PYDESKTOP'
+import pathlib,subprocess,sys
 root=pathlib.Path(sys.argv[1]);out=root/'dist/desktop'
-manifest=json.loads((out/'desktop-build.json').read_text())
+sys.path.insert(0,str(root/'scripts'))
+from build_desktop import verify_desktop_bundle
 source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
-if manifest['source_commit']!=source: raise SystemExit('Desktop launchers are from a different source commit; rebuild them')
-for name in ('Start Beamo Wipe.exe','Start Beamo Wipe Linux'):
-    if hashlib.sha256((out/name).read_bytes()).hexdigest()!=manifest['files'].get(name):
-        raise SystemExit('Desktop launcher checksum mismatch')
+dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=root,text=True).strip())
+try:
+    verify_desktop_bundle(root,out,source,sys.argv[2],dirty)
+except RuntimeError as exc:
+    raise SystemExit(str(exc)) from exc
 PYDESKTOP
-cp "$ROOT/dist/desktop/Start Beamo Wipe.exe" "$STAGE_BIN/Start Beamo Wipe.exe"
-cp "$ROOT/dist/desktop/Start Beamo Wipe Linux" "$STAGE_BIN/Start Beamo Wipe Linux"
-cp "$ROOT/dist/desktop/desktop-build.json" "$STAGE_BIN/desktop-build.json"
-cp "$ROOT/desktop/GO-LICENSE.txt" "$STAGE_BIN/GO-LICENSE.txt"
-cp "$ROOT/desktop/GO-PATENTS.txt" "$STAGE_BIN/GO-PATENTS.txt"
-cp "$ROOT/NOTICE" "$STAGE_DOC/NOTICE"
-cp "$ROOT/LICENSE" "$STAGE_DOC/LICENSE"
-cp "$ROOT/THIRD_PARTY.md" "$STAGE_DOC/THIRD_PARTY.md"
-cp "$ROOT/NOTICE" "$STAGE_BIN/NOTICE"
-cp "$ROOT/LICENSE" "$STAGE_BIN/LICENSE"
-printf '%s\n' "Source: https://github.com/BeamoINT/beamo-wipe" > "$STAGE_BIN/SOURCE.txt"
-printf '%s\n' "Source: https://github.com/BeamoINT/beamo-wipe" > "$STAGE_DOC/SOURCE.txt"
-cat > "$STAGE_BIN/README.txt" <<'EOF'
-Beamo Wipe
-This USB is a bootable nwipe front-end. It does not wipe from Windows.
-On Windows: open Start Beamo Wipe.exe and approve the permission prompt.
-On supported Linux desktops: open Start Beamo Wipe Linux.
-The launcher checks readiness and offers a guided restart when supported.
-You still choose and confirm the disk after restarting. Nothing erases automatically.
-Open START-HERE.html for this USB's build and boot-menu keys.
-Engine: nwipe (GPL). Wrapper: GPL-3.0-or-later. NO WARRANTY.
-https://github.com/BeamoINT/beamo-wipe
-EOF
-
-if [ ! -x "$LIVE/config/includes.chroot/usr/local/bin/beamo-wipe" ]; then
-  echo "ERROR: includes.chroot/usr/local/bin/beamo-wipe missing or not executable" >&2
-  echo "Next: check packaging/live/config/includes.chroot layout" >&2
-  exit 1
-fi
-chmod +x "$LIVE/config/includes.chroot/usr/local/bin/beamo-wipe"
-# Fail closed if hooks missing - do not silently continue with incomplete build.
-if ! ls "$LIVE/config/hooks/normal/"*.hook.chroot >/dev/null 2>&1; then
-  echo "ERROR: no hook scripts found in $LIVE/config/hooks/normal/" >&2
-  exit 1
-fi
-unexpected_hook="$(find "$LIVE/config/hooks/normal" -maxdepth 1 -type f -name '*.hook.chroot' ! -name '0500-build-nwipe.hook.chroot' -print -quit)"
-if [ -n "$unexpected_hook" ]; then
-  echo "ERROR: unapproved live-build hook: $unexpected_hook" >&2
-  exit 1
-fi
-chmod +x "$LIVE/config/hooks/normal/"*.hook.chroot
+PYTHONPATH="$ROOT/src" python3 "$ROOT/scripts/stage_live_assets.py" "$ROOT" "$LIVE"
 
 mkdir -p "$OUT_DIR"
 BUILD_OUT="$(mktemp -d "$OUT_DIR/.build-output.XXXXXX")"
@@ -220,19 +166,28 @@ if [ "$docker_status" -ne 0 ]; then
   exit 1
 fi
 
-if [ ! -f "$BUILD_OUT/$ISO_NAME" ]; then
+if [ ! -f "$BUILD_OUT/$ISO_NAME" ] || [ -L "$BUILD_OUT/$ISO_NAME" ]; then
   echo "live-build finished but staged $ISO_NAME was not written." >&2
   exit 1
 fi
+require_prior_bundle_paths
 BACKUP_DIR="$(mktemp -d "$OUT_DIR/.bundle-backup.XXXXXX")"
 bundle_in_progress=1
 for name in $BUNDLE_FILES; do
-  if [ -f "$OUT_DIR/$name" ]; then
+  if [ -e "$OUT_DIR/$name" ] || [ -L "$OUT_DIR/$name" ]; then
     mv -- "$OUT_DIR/$name" "$BACKUP_DIR/$name"
+    if [ ! -f "$BACKUP_DIR/$name" ] && [ ! -L "$BACKUP_DIR/$name" ]; then
+      echo "Unsafe prior ISO bundle path changed during backup: $OUT_DIR/$name" >&2
+      exit 1
+    fi
   fi
 done
 bundle_in_progress=2
-mv -- "$BUILD_OUT/$ISO_NAME" "$OUT_DIR/$ISO_NAME"
+# os.link fails if the destination exists, including a directory or symlink.
+# `ln source destination` can instead create a file inside a directory that
+# another process put at the destination between backup and publication.
+python3 -c 'import os, sys; os.link(sys.argv[1], sys.argv[2], follow_symlinks=False)' \
+  "$BUILD_OUT/$ISO_NAME" "$OUT_DIR/$ISO_NAME"
 echo "Wrote $OUT_DIR/$ISO_NAME"
 ls -lh "$OUT_DIR/$ISO_NAME"
 # Generate provenance manifest (fails closed on dirty/placeholder/missing
@@ -248,6 +203,16 @@ for _f in "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VE
     exit 1
   fi
 done
+# A replacement between manifest verification and finalization must not be
+# reported as this build's ISO or cause its previous bundle to be discarded.
+if ! same_regular_inode "$OUT_DIR/$ISO_NAME" "$BUILD_OUT/$ISO_NAME"; then
+  echo "ERROR: published ISO was replaced before bundle finalization" >&2
+  exit 1
+fi
 bundle_in_progress=0
-for name in $BUNDLE_FILES; do rm -f -- "$BACKUP_DIR/$name"; done
+for name in $BUNDLE_FILES; do
+  if ! rm -f -- "$BACKUP_DIR/$name"; then
+    echo "Could not remove prior ISO bundle backup: $BACKUP_DIR/$name" >&2
+  fi
+done
 ls -lh "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"

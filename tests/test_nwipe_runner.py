@@ -336,7 +336,7 @@ def test_evaluate_nwipe_busy_on_boot_usb_does_not_fail_target():
 
     log = (
         "/dev/sdb is reported as IN USE (it could be mounted)\n"
-        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n"
+        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\n"
         "Nwipe successfully completed. See summary table for details.\n"
     )
     ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
@@ -521,7 +521,7 @@ def test_one_pass_log_does_not_verify_three_overwrites():
         result=result, method=MethodId.EVERYDAY, log_text=one_pass,
         device="/dev/nvme0n1", interrupted=False, cancelled=False,
     )
-    assert outcome == OUTCOME_VERIFIED
+    assert outcome == OUTCOME_FAILED
     from beamo_wipe.evidence import build_evidence
     from beamo_wipe.models import DiscoveryResult, Disk, DiskKind
     from beamo_wipe.outcomes import present_evidence

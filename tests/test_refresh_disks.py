@@ -25,7 +25,9 @@ def test_refresh_rereads_fake_json_and_reidentifies_boot(change, tmp_path, monke
     )
     source = tmp_path / "disks.json"
     source.write_text(json.dumps(payload))
-    wiz = _build_wizard(_parser().parse_args(["--lsblk-json", str(source)]))
+    wiz = _build_wizard(_parser().parse_args([
+        "--lsblk-json", str(source), "--boot-device", "/dev/sdb",
+    ]))
     assert wiz.discovery.boot.path == "/dev/sdb"
     nodes = payload["blockdevices"]
     if change == "added":
@@ -40,13 +42,11 @@ def test_refresh_rereads_fake_json_and_reidentifies_boot(change, tmp_path, monke
     source.write_text("invalid JSON" if change == "invalid" else json.dumps(payload))
     wiz.skip_intro()
     assert wiz.refresh_disks()
-    if change == "invalid":
+    if change in {"invalid", "boot_changed"}:
         assert wiz.screen == Screen.PICK_BLOCKED and not wiz.selectable
     else:
         assert wiz.screen == Screen.OWNER
-        assert wiz.discovery.boot.path == (
-            "/dev/sdy" if change == "boot_changed" else "/dev/sdb"
-        )
+        assert wiz.discovery.boot.path == "/dev/sdb"
         assert {disk.path for disk in wiz.selectable} == {
             node["path"] for node in nodes[1:]
         }

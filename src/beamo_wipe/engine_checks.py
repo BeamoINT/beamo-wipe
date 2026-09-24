@@ -197,7 +197,15 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
         or _HDPARM_STREAM.search(_body(line))
         or _HDPARM_FAILED.search(_body(line))
     ]
-    reduced = _erasure_shortfall(log_text, names)
+    from beamo_wipe.nwipe_runner import _status_column_is_shared
+
+    # The Erasure Summary carries only eight characters of the disk name.
+    # A second logged path with the same cell makes that table unassignable.
+    erasure = (
+        "invalid"
+        if _status_column_is_shared(log_text, device)
+        else _erasure_summary_state(log_text, names)
+    )
     if sum(1 for flag in (bool(detected), bool(none), bool(unknown)) if flag) > 1:
         sample = (detected or none or unknown)[0]
         return _check(
@@ -207,7 +215,7 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
             HIDDEN_CONTRADICTORY,
             _provenance(parser, sample),
         )
-    if detected or reduced is True:
+    if detected or erasure == "shortfall":
         sample = (detected[0] if detected else "")
         return _check(
             "hidden_capacity",
@@ -225,7 +233,7 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
             HIDDEN_INDETERMINATE,
             _provenance(parser, sample),
         )
-    if none and reduced is not True:
+    if none and erasure in {"absent", "complete"}:
         return _check(
             "hidden_capacity",
             "pass",
@@ -242,28 +250,43 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
     )
 
 
-def _erasure_shortfall(log_text: str, names: frozenset[str]) -> Optional[bool]:
-    """True if v0.42 Erasure Summary shows bytes erased < bytes total for target."""
+def _erasure_summary_state(log_text: str, names: frozenset[str]) -> str:
+    """Classify the target's v0.42 summary without trusting a first row only."""
     in_table = False
+    found: Optional[bool] = None
     for raw in (log_text or "").splitlines():
         body = _body(raw)
         if _ERASURE_SUMMARY in body:
             in_table = True
             continue
         if in_table and body.startswith("***"):
-            return None
+            in_table = False
+            continue
         if not in_table:
             continue
         match = _ERASURE_ROW.match(body)
         if not match:
+            # A target row with invalid numbers or a missing percentage must
+            # not be ignored while an earlier, apparently complete row passes.
+            row_name = re.match(r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|", body)
+            if row_name and row_name.group(1) in names:
+                return "invalid"
             continue
         if match.group(1) not in names:
             continue
         erased, total = int(match.group(2)), int(match.group(3))
-        if total <= 0:
-            return None
-        return erased < total
-    return None
+        percentage = re.fullmatch(r"(\d{1,3})\.(\d{2})%", match.group(4))
+        if found is not None or total <= 0 or erased > total or percentage is None:
+            return "invalid"
+        hundredths = int(percentage.group(1)) * 100 + int(percentage.group(2))
+        # The printed percentage is rounded to two decimal places by nwipe.
+        # Compare in integer arithmetic so large byte counts cannot overflow.
+        if abs(hundredths * total - erased * 10000) > total // 2:
+            return "invalid"
+        found = erased < total
+    if found is None:
+        return "absent"
+    return "shortfall" if found else "complete"
 
 
 def _parse_io_media(log_text: str, device: str) -> CheckResult:
@@ -276,6 +299,25 @@ def _parse_io_media(log_text: str, device: str) -> CheckResult:
             IO_UNAVAILABLE,
             HIDDEN_NO_DEVICE,
             _provenance(parser, source="missing"),
+        )
+    from beamo_wipe.nwipe_runner import _status_column_is_shared
+
+    if _status_column_is_shared(log_text, device):
+        explicit_failures = [
+            line
+            for line in (log_text or "").splitlines()
+            if _mentions(line, (device,))
+            and (_FAILURE_MARK.search(line) or _VERIFY_MISMATCH.search(_body(line)))
+        ]
+        if explicit_failures:
+            return _check(
+                "io_media", "fail", IO_ERRORS, IO_FAILURE_MARK,
+                _provenance(parser, explicit_failures[0]),
+            )
+        return _check(
+            "io_media", "unavailable", IO_UNAVAILABLE,
+            "The nwipe status column is shared by another logged disk.",
+            _provenance(parser, source="nwipe_log"),
         )
     fail_lines = [
         line

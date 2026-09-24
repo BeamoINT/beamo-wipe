@@ -250,7 +250,8 @@ SEVERITY_PROTECTED = "Protected"
 SEVERITY_SAVED = "Saved"
 
 IDENTIFY_ERROR = (
-    "We cannot tell which disk is this USB. Unplug extra USB sticks and start again."
+    "We cannot tell which disk is this USB. Shut down, check USB connections, "
+    "and start again. If this repeats, contact support."
 )
 
 REDISCOVER_ERROR = "Could not check the disks again. Erase did not start."
@@ -750,7 +751,7 @@ def confirm_type_chars(token: str) -> str:
 
 
 def prepare_selected(disk: Disk) -> str:
-    """Consequence of erasing this disk, from partition evidence only."""
+    """Consequence of erasing this disk, from observed filesystem evidence."""
     contents = getattr(disk, "contents", CONTENTS_UNKNOWN)
     if contents == CONTENTS_WINDOWS:
         return PREPARE_WINDOWS
@@ -1100,4 +1101,3 @@ def _apply_language() -> None:
         EXPORT_STAGE_REMOVE,
     )
     PRIMARY_ACTION_LABELS = frozenset(_primary_by_screen().values()) | {BTN_CONTINUE}
-

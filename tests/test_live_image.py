@@ -215,7 +215,9 @@ def test_live_config_xinit_cannot_hijack_kiosk():
     before ~/.profile. Without nox11autologin (and a stub profile.d file),
     the wizard never starts."""
     docker = (ROOT / "packaging/live/inside-docker.sh").read_text(encoding="utf-8")
-    assert "nox11autologin" in docker
+    for option in ("--bootappend-live ", "--bootappend-live-failsafe "):
+        (line,) = [line for line in docker.splitlines() if option in line]
+        assert "nox11autologin" in line
     stub = (
         ROOT
         / "packaging/live/config/includes.chroot/etc/profile.d/zz-live-config_xinit.sh"

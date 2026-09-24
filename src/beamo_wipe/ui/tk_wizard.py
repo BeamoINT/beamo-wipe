@@ -1571,16 +1571,15 @@ class TkWizard:
                 log_diag("ui", "tk_runtime_failed", type(exc).__name__)
             except Exception:
                 pass
-            if self.w.screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+            try:
+                self.w.settle_failed_interface()
+            except Exception as cancel_exc:
                 try:
-                    self.w.interface_failed()
-                except Exception as cancel_exc:
-                    try:
-                        from beamo_wipe.diagnostics import log_diag
+                    from beamo_wipe.diagnostics import log_diag
 
-                        log_diag("ui", "tk_failure_cancel_failed", type(cancel_exc).__name__)
-                    except Exception:
-                        pass
+                    log_diag("ui", "tk_failure_cancel_failed", type(cancel_exc).__name__)
+                except Exception:
+                    pass
             self._teardown()
 
     def _draw(self) -> None:
@@ -2622,24 +2621,6 @@ class TkWizard:
         self._title_block(col, C.TITLE_PICK, C.pick_subtitle())
         _Button(col, text=C.DISK_HELP_BUTTON, command=self._nav(self.w.open_disk_help),
                 font=self.font_s_bold, variant="ghost", compact=True).pack(anchor="w", pady=(0, 4))
-        if same_size_conflict(self.w.listed_disks):
-            self._panel(col, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
-        if self.w.error:
-            sections = recovery_for_wizard_error(self.w.error)
-            if sections:
-                self._recovery_block(col, sections)
-            else:
-                self._panel(col, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
-            if error_needs_support(self.w.error):
-                self._support_block(col)
-        elif any(not self.w.disk_view(disk).confirmable for disk in self.w.selectable):
-            from beamo_wipe.identity import AMBIGUOUS_IDENTITY
-
-            self._panel(col, kind="warn", text=AMBIGUOUS_IDENTITY).pack(fill=tk.X, pady=(0, 12))
-        if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
-            self._panel(col, kind="limits", text=C.SSD_FOOTER, compact=True).pack(fill=tk.X, pady=(0, 8))
-        if self.w.report_wanted:
-            self._panel(col, kind="info", text=C.REPORT_MEDIA_WANTED, compact=True).pack(fill=tk.X, pady=(0, 8))
         tools = tk.Frame(col, bg=BG)
         tools.pack(fill=tk.X, pady=(0, 4))
         count = self._p(
@@ -2701,14 +2682,40 @@ class TkWizard:
             widget.bind("<Button-5>", _wheel)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
+        # Guidance can grow to several panels for similar or ambiguous disks.
+        # Keep it in the picker scroll region so the inventory controls and
+        # footer retain their full height on short screens.
+        guidance = tk.Frame(cards, bg=BG)
+        guidance.pack(fill=tk.X)
+        if same_size_conflict(self.w.listed_disks):
+            self._panel(guidance, kind="warn", text=C.SAME_SIZE_HINT).pack(fill=tk.X, pady=(0, 12))
+        if self.w.error:
+            sections = recovery_for_wizard_error(self.w.error)
+            if sections:
+                self._recovery_block(guidance, sections)
+            else:
+                self._panel(guidance, kind="danger", text=self.w.error).pack(fill=tk.X, pady=(0, 12))
+            if error_needs_support(self.w.error):
+                self._support_block(guidance)
+        elif any(not self.w.disk_view(disk).confirmable for disk in self.w.selectable):
+            from beamo_wipe.identity import AMBIGUOUS_IDENTITY
+
+            self._panel(guidance, kind="warn", text=AMBIGUOUS_IDENTITY).pack(fill=tk.X, pady=(0, 12))
+        if self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME):
+            self._panel(guidance, kind="limits", text=C.SSD_FOOTER, compact=True).pack(fill=tk.X, pady=(0, 8))
+        if self.w.report_wanted:
+            self._panel(guidance, kind="info", text=C.REPORT_MEDIA_WANTED, compact=True).pack(fill=tk.X, pady=(0, 8))
+
+        def bind_wheel(widget):
+            for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                widget.bind(sequence, _wheel)
+            for child in widget.winfo_children():
+                bind_wheel(child)
+
+        bind_wheel(guidance)
         boot_card = self._protected_boot(cards)
         if boot_card is not None:
-            def boot_wheel(widget):
-                for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
-                    widget.bind(sequence, _wheel)
-                for child in widget.winfo_children():
-                    boot_wheel(child)
-            boot_wheel(boot_card)
+            bind_wheel(boot_card)
         self._comparison(cards)
         items: List = sorted(self.w.selectable, key=lambda d: d.path)
         for disk in items:
@@ -2722,11 +2729,6 @@ class TkWizard:
             # Tk wheel events do not bubble from a row's labels to its
             # scrolling canvas. Scroll where the pointer actually rests,
             # without changing the disk selection or moving keyboard focus.
-            def bind_wheel(widget):
-                for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
-                    widget.bind(sequence, _wheel)
-                for child in widget.winfo_children():
-                    bind_wheel(child)
             bind_wheel(card)
         self._pick_canvas = canvas
         # Restore only inside a short post-rebuild window. Row boxes and the
@@ -2937,8 +2939,30 @@ class TkWizard:
             self._pick_applied = None
 
     def _click_disk(self, path: str) -> None:
-        self._pick_ensure_visible = False
+        # An SSD selection adds or removes the limits panel above the cards.
+        # Restore a clicked card only when it was actually visible before
+        # that layout change; a programmatic selection of an offscreen card
+        # must still preserve the owner's current scroll position.
+        old_limits = bool(
+            self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME)
+        )
+        visible = False
+        canvas = self._pick_canvas
+        card = self._pick_cards.get(path)
+        if canvas is not None and card is not None:
+            try:
+                bbox = canvas.bbox("all")
+                if bbox:
+                    top = canvas.yview()[0] * float(bbox[3])
+                    bottom = top + canvas.winfo_height()
+                    visible = card.winfo_y() < bottom and card.winfo_y() + card.winfo_height() > top
+            except tk.TclError:
+                pass
         self.w.select_disk(path)
+        new_limits = bool(
+            self.w.selected and self.w.selected.kind in (DiskKind.SSD, DiskKind.NVME)
+        )
+        self._pick_ensure_visible = visible and old_limits != new_limits
         self._draw()
 
     def _unbind_support_copy(self) -> None:
@@ -4142,18 +4166,50 @@ class TkWizard:
         seq = self.w.begin_refresh()
         if seq is None:
             return None
-        self._draw()
-        worker = threading.Thread(
-            target=self._refresh_worker, args=(seq,),
-            daemon=True, name=f"beamo-refresh-{seq}",
-        )
-        with self._refresh_lock:
-            self._refresh_threads[seq] = worker
-        worker.start()
+
+        def finish_failed_start(exc: BaseException) -> int:
+            # The refresh claim already cleared authorization. A failed
+            # status paint must resolve it just like a failed worker launch.
+            applied = self.w.finish_refresh(seq, exc)
+            try:
+                on_done(applied)
+            except tk.TclError:
+                pass
+            return seq
+
         try:
+            self._draw()
+        except BaseException as exc:
+            return finish_failed_start(exc)
+        launch_decided = threading.Event()
+        launch_allowed = [False]
+
+        def run_if_launched() -> None:
+            launch_decided.wait()
+            if launch_allowed[0]:
+                self._refresh_worker(seq)
+
+        try:
+            worker = threading.Thread(
+                target=run_if_launched,
+                daemon=True, name=f"beamo-refresh-{seq}",
+            )
+            with self._refresh_lock:
+                self._refresh_threads[seq] = worker
+            worker.start()
+            # Arm the only result poll before allowing discovery to run. If
+            # Tk cannot schedule it, abandon the claim and wake the worker
+            # with launch_allowed still false.
             self.root.after(50, lambda: self._poll_refresh(seq, on_done))
-        except tk.TclError:
-            pass
+        except BaseException as exc:
+            # Even if Thread.start spawned the OS thread before raising, the
+            # worker cannot enter discovery until this caller authorizes it.
+            launch_decided.set()
+            with self._refresh_lock:
+                self._refresh_threads.pop(seq, None)
+            return finish_failed_start(exc)
+        launch_allowed[0] = True
+        launch_decided.set()
         return seq
 
     def _refresh_worker(self, seq: int) -> None:
@@ -4165,19 +4221,35 @@ class TkWizard:
         except BaseException as exc:
             outcome = exc
         with self._refresh_lock:
-            self._refresh_results[seq] = outcome
+            if not self._ui_dead and seq in self._refresh_threads:
+                self._refresh_results[seq] = outcome
 
     def _poll_refresh(self, seq: int, on_done) -> None:
-        if self._ui_dead:
+        if self._ui_dead or seq != self.w._refresh_seq or self.w.screen != Screen.REFRESHING:
             return
         _missing = object()
         with self._refresh_lock:
             outcome = self._refresh_results.pop(seq, _missing)
+            if outcome is not _missing:
+                # A completed scan no longer needs its thread handle. Keep
+                # only in-flight workers so repeated refreshes do not retain
+                # every finished thread for the lifetime of the UI.
+                self._refresh_threads.pop(seq, None)
         if outcome is _missing:
             try:
                 self.root.after(50, lambda: self._poll_refresh(seq, on_done))
-            except tk.TclError:
-                pass
+            except BaseException as exc:
+                # Without a next timer, no UI callback could ever apply the
+                # worker result. Resolve the claimed scan as unavailable.
+                with self._refresh_lock:
+                    self._refresh_threads.pop(seq, None)
+                    self._refresh_results.pop(seq, None)
+                applied = self.w.finish_refresh(seq, exc)
+                if applied and not self._ui_dead:
+                    try:
+                        on_done(applied)
+                    except tk.TclError:
+                        pass
             return
         applied = False
         if not self._ui_dead:

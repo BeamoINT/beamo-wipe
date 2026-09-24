@@ -4,14 +4,26 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-	"unsafe"
 )
+
+func TestWindowsGuidedRestartIsAlwaysRefused(t *testing.T) {
+	if err := platformRestart(strings.Repeat("a", 64)); !errors.Is(err, errWindowsManual) {
+		t.Fatalf("restart helper did not refuse Windows BootNext: %v", err)
+	}
+	if err := platformElevate(context.Background(), strings.Repeat("a", 64)); !errors.Is(err, errWindowsManual) {
+		t.Fatalf("browser route did not refuse Windows BootNext: %v", err)
+	}
+	if relaunched, err := prepareDesktop(); relaunched || err != nil {
+		t.Fatalf("manual boot instructions should not demand elevation: relaunched=%v err=%v", relaunched, err)
+	}
+}
 
 func TestWindowsNativeReadOnlyPlatform(t *testing.T) {
 	if !nativeX64() {
@@ -19,9 +31,6 @@ func TestWindowsNativeReadOnlyPlatform(t *testing.T) {
 	}
 	if win := windowsDirectory(); win == "" || !filepath.IsAbs(win) {
 		t.Fatal("Windows directory API failed")
-	}
-	if unsafe.Sizeof(shellExecuteInfo{}) != 112 || unsafe.Offsetof(shellExecuteInfo{}.Process) != 104 {
-		t.Fatal("SHELLEXECUTEINFOW ABI mismatch")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

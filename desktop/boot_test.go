@@ -36,6 +36,49 @@ func TestExactBootOption(t *testing.T) {
 	}
 }
 
+func optionWithPrefix(prefix []byte) []byte {
+	base := option(1)
+	path := append(append([]byte(nil), prefix...), base[8:]...)
+	binary.LittleEndian.PutUint16(base[4:], uint16(len(path)))
+	return append(base[:8], path...)
+}
+
+func TestBootOptionRefusesMalformedHardwarePrefix(t *testing.T) {
+	bad := optionWithPrefix([]byte{1, 1, 4, 0}) // PCI nodes are six bytes.
+	if _, err := parseBootOption(bad); err == nil {
+		t.Fatal("accepted malformed PCI node")
+	}
+	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: bad}}
+	if p := makePlan(s); p.Direct {
+		t.Fatalf("malformed firmware path offered direct restart: %+v", p)
+	}
+}
+
+func TestBootOptionPreservesValidHardwarePrefix(t *testing.T) {
+	rootAndPCI := []byte{
+		2, 1, 12, 0, 0x41, 0xd0, 0x0a, 0x03, 0, 0, 0, 0, // PciRoot(0)
+		1, 1, 6, 0, 0, 0x1f, // Pci(0x1f,0)
+	}
+	cases := map[string][]byte{
+		"USB":  append(append([]byte(nil), rootAndPCI...), 3, 5, 6, 0, 1, 0),
+		"SATA": append(append([]byte(nil), rootAndPCI...), 3, 18, 10, 0, 1, 0, 0xff, 0xff, 0, 0),
+		"NVMe": append(append([]byte(nil), rootAndPCI...), 3, 23, 16, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+	}
+	for name, prefix := range cases {
+		t.Run(name, func(t *testing.T) {
+			entry := optionWithPrefix(prefix)
+			id, err := parseBootOption(entry)
+			if err != nil || id != "gpt:00000001-0000-0000-0000-000000000000" {
+				t.Fatalf("valid %s hardware path rejected: %q %v", name, id, err)
+			}
+			s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{id}, Entries: map[uint16][]byte{4: entry}}
+			if p := makePlan(s); !p.Direct {
+				t.Fatalf("valid %s hardware path lost direct restart: %+v", name, p)
+			}
+		})
+	}
+}
+
 func TestMalformedOptionsRefused(t *testing.T) {
 	valid := option(1)
 	for n := 0; n < len(valid); n++ {
@@ -81,6 +124,16 @@ func TestPlanningRequiresOneExactUSBEntry(t *testing.T) {
 	s.MediaID = ""
 	if makePlan(s).Direct {
 		t.Fatal("unidentified media accepted")
+	}
+}
+
+func TestWindowsManualRestartPolicy(t *testing.T) {
+	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+	if p := makePlanForHost(s, "linux"); !p.Direct {
+		t.Fatalf("Linux guided restart was lost: %+v", p)
+	}
+	if p := makePlanForHost(s, "windows"); p.Direct || p.Fingerprint != "" || p.Problem != "windows-manual" {
+		t.Fatalf("Windows retained a one-shot boot request despite cancelable shutdown: %+v", p)
 	}
 }
 

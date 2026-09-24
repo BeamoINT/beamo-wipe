@@ -28,6 +28,15 @@ def _write(path: Path, data: dict) -> None:
         stream.write("\n")
 
 
+def _unique_json_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise RuntimeError("duplicate CI evidence field")
+        result[key] = value
+    return result
+
+
 def run_gate(gate, command, *, root, evidence_dir, build_id):
     """Run once, retaining the exit status and exact combined output."""
     if gate not in KNOWN_GATES:
@@ -103,7 +112,9 @@ def load_receipts(directory: Path) -> list[dict]:
     """Bind every receipt to the retained execution log before finalization."""
     receipts = []
     for path in sorted(directory.glob("*.receipt.json")):
-        receipt = verify_gate_receipt(json.loads(path.read_text()))
+        receipt = verify_gate_receipt(
+            json.loads(path.read_text(), object_pairs_hook=_unique_json_fields)
+        )
         gate = receipt["gate"]
         if path.name != f"{gate}.receipt.json":
             raise RuntimeError("receipt filename does not match its gate")
@@ -118,20 +129,27 @@ def load_receipts(directory: Path) -> list[dict]:
 def finalize(root: Path) -> None:
     from beamo_wipe import release_manifest as rm
 
+    allow_dirty = os.environ.get("ALLOW_DIRTY") == "1"
     dist = root / "dist"
     dest = dist / f"beamo-wipe-{__version__}-amd64.manifest.json"
-    rm.verify_build_manifest(dest)
-    previous = json.loads(dest.read_text())
+    rm.verify_build_manifest(dest, allow_dirty=allow_dirty)
+    previous = json.loads(dest.read_text(), object_pairs_hook=_unique_json_fields)
     if (previous["source"]["commit"] != rm.git_commit()
             or previous["build"]["release_build_id"] != os.environ.get("BUILD_ID", "local")):
         raise RuntimeError("built artifact belongs to another source or build")
     receipts = load_receipts(dist / "evidence")
-    inventory = json.loads((dist / "evidence/packages.json").read_text())
-    manifest = rm.generate_manifest(gate_receipts=receipts, package_inventory=inventory)
+    inventory = json.loads(
+        (dist / "evidence/packages.json").read_text(),
+        object_pairs_hook=_unique_json_fields,
+    )
+    manifest = rm.generate_manifest(strict=not allow_dirty, gate_receipts=receipts, package_inventory=inventory)
     if manifest["artifact"] != previous["artifact"]:
         raise RuntimeError("artifact changed during verification")
+    for field in ("beamo_wipe_version", "source", "dependencies", "live_build_inputs", "nwipe"):
+        if manifest[field] != previous[field]:
+            raise RuntimeError("build inputs changed during verification")
     rm.write_manifest(manifest, dest)
-    rm.verify_manifest(dest)
+    rm.verify_manifest(dest, allow_dirty=allow_dirty)
     iso = dist / manifest["artifact"]["iso_name"]
     (dist / "SHA256SUMS").write_text(
         f"{rm.sha256_file(iso)}  {iso.name}\n{rm.sha256_file(dest)}  {dest.name}\n"
@@ -153,7 +171,9 @@ def print_summary(evidence_dir: Path) -> None:
         return
     rows = []
     for path in sorted(evidence_dir.glob("*.receipt.json")):
-        receipt = json.loads(path.read_text(encoding="utf-8"))
+        receipt = json.loads(
+            path.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_fields
+        )
         started = receipt.get("started_at", "")
         ended = receipt.get("ended_at", "")
         elapsed = "unknown"

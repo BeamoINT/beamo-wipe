@@ -136,7 +136,7 @@ REMOTE_BUS_TOKENS = frozenset(
 # SCSI names is not proof: iSCSI often still appears as /dev/sdX.
 PROVEN_LOCAL_BUS_TOKENS = frozenset({"sata", "nvme", "usb", "sas", "virtio"})
 SCSI_DISK_NAME_RE = re.compile(r"^(?:sd|hd|dasd)[a-z]+$")
-REMOTE_SYSFS_TOKENS = ("iscsi", "rport-", "nvme-fabrics", "/fc/")
+REMOTE_SYSFS_TOKENS = ("iscsi", "rport-", "nvme-fabrics", "/fc/", "/vhci_hcd")
 # open-iscsi names its session device sessionN. The block device path is
 # .../hostN/sessionN/targetN:... and does not contain the word "iscsi".
 REMOTE_SYSFS_SESSION_RE = re.compile(r"/session\d+(?:/|$)")
@@ -364,7 +364,7 @@ def _cross_disk_tokens(disk: Disk, peers: Sequence[Disk]) -> set[str]:
         size = _safe_token((other.size_gb_label or "").strip())
         if size:
             banned.add(size.casefold())
-        for raw in (other.serial, other.wwn):
+        for raw in (other.serial, meaningful_wwn(other.wwn)):
             value = (raw or "").strip()
             token = _safe_token(value)
             if token:
@@ -392,13 +392,17 @@ def _stable_same_size_token(
     for other in same:
         if os.path.realpath(other.path) == want:
             continue
-        for value in (other.serial, other.wwn):
+        for value in (other.serial, meaningful_wwn(other.wwn)):
             value = (value or "").strip()
             peer_full.add(_safe_token(value).casefold())
             if len(value) >= 4:
                 peer_suffixes.add(_safe_token(value[-4:]).casefold())
     for field in ("serial", "wwn"):
-        value = (getattr(disk, field) or "").strip()
+        value = (
+            meaningful_wwn(disk.wwn)
+            if field == "wwn"
+            else (disk.serial or "").strip()
+        )
         candidates = []
         if len(value) >= 4:
             candidates.append((_safe_token(value[-4:]), confirm_type_four, peer_full | peer_suffixes))
@@ -446,6 +450,15 @@ BOOT_APPEARED_ALIAS = "Boot USB appeared through another device path. Refusing t
 TOKEN_MISMATCH = "Confirm token does not match."  # noqa: S105 — UI message, not a secret
 
 
+def meaningful_wwn(value: str) -> str:
+    """Normalize a LUN identifier, ignoring all-zero device padding."""
+    text = (value or "").strip().casefold()
+    body = text[2:] if text.startswith("0x") else text
+    if not body or set(body) <= {"0"}:
+        return ""
+    return text
+
+
 def assert_boot_excluded(discovery: DiscoveryResult) -> None:
     if not discovery.boot_identified or discovery.boot is None:
         raise SafetyError(_copy.IDENTIFY_ERROR)
@@ -454,9 +467,9 @@ def assert_boot_excluded(discovery: DiscoveryResult) -> None:
     selectable_paths = {os.path.realpath(s.path) for s in discovery.selectable}
     if any(d.is_boot and os.path.realpath(d.path) in selectable_paths for d in discovery.disks):
         raise SafetyError(BOOT_APPEARED_SELECTABLE)
-    boot_wwn = (discovery.boot.wwn or "").strip().casefold()
+    boot_wwn = meaningful_wwn(discovery.boot.wwn)
     if boot_wwn and any(
-        (disk.wwn or "").strip().casefold() == boot_wwn
+        meaningful_wwn(disk.wwn) == boot_wwn
         for disk in discovery.selectable
     ):
         raise SafetyError(BOOT_APPEARED_ALIAS)
@@ -562,11 +575,14 @@ def assert_rediscovered_identity(request: WipeRequest, discovery: DiscoveryResul
     if not confirmed:
         raise SafetyError("Disk identity changed. Refusing to erase.")
     boot = discovery.boot
+    boot_confirmed = tuple(request.boot_identity or ())
     if (
         not discovery.boot_identified
         or discovery.error
         or boot is None
         or os.path.realpath(boot.path) != os.path.realpath(request.boot_device)
+        or not boot_confirmed
+        or disk_identity(boot) != boot_confirmed
     ):
         raise SafetyError("Boot device identity changed. Refusing to erase.")
     matches = [
@@ -694,8 +710,10 @@ def assert_local_device_transport(path: str) -> None:
         resolved = os.path.realpath(str(device))
     except OSError as exc:
         raise SafetyError("Cannot prove the disk is locally attached.") from exc
-    # A missing device node realpath()s to itself. That is not a local bus.
-    if not device.exists() and os.path.normpath(resolved) == os.path.normpath(str(device)):
+    # A dangling link can resolve to a plausible old PCI path. Its target
+    # can also disappear after realpath() but before this check. Both leave
+    # the local bus unproven, even when `resolved` looks like a PCI path.
+    if not device.exists():
         raise SafetyError("Cannot prove the disk is locally attached.")
     lowered = resolved.casefold()
     if any(token in lowered for token in REMOTE_SYSFS_TOKENS) or REMOTE_SYSFS_SESSION_RE.search(
@@ -790,21 +808,35 @@ def _log_filesystem_is_target(log: Path, target: str) -> bool:
 
     try:
         with open(MOUNTINFO_PATH, encoding="utf-8") as fh:
-            pairs = parse_mountinfo(fh.read())
+            mountinfo_text = fh.read()
+            pairs = parse_mountinfo(mountinfo_text)
     except OSError:
         return not is_preview_env()
+    if len(pairs) != sum(bool(line.strip()) for line in mountinfo_text.splitlines()):
+        # A dropped/truncated row could be a later mount over /tmp. A valid
+        # earlier tmpfs row cannot prove the effective log filesystem then.
+        return not is_preview_env()
     log_text = str(log)
-    best_source = ""
+    best_sources: list[str] = []
     best_len = -1
     for source, mountpoint in pairs:
         mp = mountpoint.rstrip("/") or "/"
         if log_text == mp or mp == "/" or log_text.startswith(mp + "/"):
             if len(mp) > best_len:
-                best_source = source
+                best_sources = [source]
                 best_len = len(mp)
-    if not best_source:
-        return False
-    src = best_source.split("[", 1)[0].strip()
+            elif len(mp) == best_len and source not in best_sources:
+                best_sources.append(source)
+    if not best_sources:
+        # A readable yet empty/incomplete mount table proves nothing about
+        # where /tmp lives. Treat it like an unreadable table on a live run.
+        return not is_preview_env()
+    if len(best_sources) != 1:
+        # Stacked mounts can share the longest mountpoint. The first row may
+        # be hidden by a later target-backed mount, so neither proves where
+        # this log will be written.
+        return not is_preview_env()
+    src = best_sources[0].split("[", 1)[0].strip()
     if not src.startswith("/dev/"):
         return False
     try:
@@ -970,6 +1002,7 @@ def assert_ready_to_wipe(
         device_size_bytes=disk.size_bytes,
         boot_rdev=block_rdev(boot_path) or 0,
         device_identity=disk_identity(disk),
+        boot_identity=disk_identity(boot),
     )
 
 

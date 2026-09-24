@@ -7,12 +7,38 @@ from pathlib import Path
 import re
 import subprocess
 
+from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.methods import METHODS
-from beamo_wipe.models import MethodId
+from beamo_wipe.models import MethodId, Screen
 
 
 ROOT = Path(__file__).resolve().parents[1]
 QEMU = ROOT / "scripts/qemu-verify.sh"
+
+
+def test_qemu_keyboard_handoff_matches_shipped_owner_flow():
+    wizard = make_demo_wizard()
+    wizard.skip_splash()
+    assert wizard.screen == Screen.KEYBOARD
+    wizard.accept_keyboard()
+    assert wizard.screen == Screen.OWNER
+
+    source = QEMU.read_text(encoding="utf-8")
+    boot = source.split("boot_probe() {", 1)[1].split("\n}", 1)[0]
+    export = source.split("drive_report_export() {", 1)[1].split("\n}", 1)[0]
+    phases = source.split("assert_guest_phases() {", 1)[1].split("\n}", 1)[0]
+    usb_probe = boot.split('elif [[ "$label" == *-usb ]]', 1)[1].split("\n  fi", 1)[0]
+    assert (
+        'wait_for_marker "$label" BEAMO_WIPE_SCREEN_KEYBOARD "$BOOT_WAIT_SECONDS"\n'
+        '  send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20'
+    ) in boot
+    assert 'send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_WHAT 20' not in boot
+    assert 'send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20' not in export
+    assert 'send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20' in export
+    assert 'send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20' not in usb_probe
+    assert 'send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20' in usb_probe
+    assert '"BEAMO_WIPE_SCREEN_OWNER"' in phases
+    assert '"BEAMO_WIPE_SCREEN_WHAT"' not in phases
 
 
 def _cases() -> list[dict[str, str]]:

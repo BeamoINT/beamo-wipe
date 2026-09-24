@@ -28,11 +28,15 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ./preview --console < /dev/null
 | `tests` | `python-tests` | `xvfb-run … 72 DPI` with `BEAMO_WIPE_DRY_RUN=1`; destructive-boundary spies use fake runners, never real `nwipe`. Sequential pip installs share `PIP_CACHE_DIR` under the Cloud Build workspace. |
 | `preview` | `preview` | `BEAMO_WIPE_NO_OPEN=1 ./preview --web` + `--console` + `--helper` (fake disks) |
 | `desktop-launchers` | `desktop-launchers` | `scripts/ci-desktop.sh` wrapped as a required gate receipt: Go race/vet/fuzz plus pinned Windows compile. ISO waits for this step so the image ships the tested pair. |
-| `negative` | `negative-test` | Waits for every source-reading gate, deliberately breaks `assert_boot_excluded`, expects the e2e test to fail, and restores from a private `mktemp` backup even on signals |
-| `iso` | `iso-build` | Waits for the restored negative-test workspace **and** desktop-launchers, then performs a privileged linux/amd64 build with no host `/dev` bind, content-addressed Debian build image, strict versioned output, PVD/size checks, manifest + sidecars |
+| `negative` | `negative-test` | Waits for every source-reading gate, breaks `assert_boot_excluded` only in a private temporary package copy, and expects the e2e test to fail; the shared source tree stays intact |
+| `iso` | `iso-build` | Waits for the negative test **and** desktop-launchers, then performs a privileged linux/amd64 build with no host `/dev` bind, content-addressed Debian build image, strict versioned output, PVD/size checks, manifest + sidecars |
 | `qemu` | `qemu-verify` | Exact verified ISO, read-only image inspection, Debian fixed-vulnerability scan, shipped nwipe on a proved disposable loop, and mandatory BIOS+UEFI probes; no host binary/image fallback. Aborts if QEMU argv mentions `/dev/`. |
 
 `./scripts/ci-hosted.sh all` runs every verification phase in dependency order. Skip flags: `SKIP_ISO=true` / `SKIP_QEMU=true` (cloudbuild substitutions `_SKIP_ISO` / `_SKIP_QEMU`). `_PUBLISH_RELEASE` defaults to `false`. GitHub triggers pin `_PUBLISH_RELEASE=false` and `_SKIP_ISO=false` so a stale trigger cannot publish or drop the ISO. Verification `./scripts/ci-cloud.sh` also appends `_PUBLISH_RELEASE=false`. `./scripts/ci-cloud.sh --publish-release` is the explicit production path and refuses either skip. The publisher step explicitly maps Cloud Build's immutable `$BUILD_ID` substitution into its process environment; the publisher rejects a missing or malformed identifier before any upload. After publish-or-not, the worker prints a `CI timing summary` from gate receipts.
+
+`./scripts/ci-cloud.sh --skip-iso` is a shortened verification run that skips both ISO and its dependent QEMU phase. It cannot publish a release or count as the full hosted gate.
+
+For a precommit checkout gate, `./scripts/ci-cloud.sh` detects uncommitted edits and passes `_ALLOW_DIRTY=1` to the ISO and QEMU verification steps. The build identity and manifest retain `source.dirty=true`; full checksums and measured evidence still run. The publisher does not receive this override and rejects dirty source. `--publish-release` refuses an uncommitted checkout before submitting. After a successful precommit gate, commit the audited paths, run a clean hosted gate for the committed source identity, then push only after that gate passes.
 
 ## Triggers
 
@@ -61,7 +65,7 @@ writable without them.
 
 ## Publication and rollback
 
-Do not publish an ISO from a PR or from a main verification build. Production publication is only `./scripts/ci-cloud.sh --publish-release` after separate operator authorization. Uploads are no-overwrite under `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/` with `RELEASE_COMPLETE.txt` last. Rollback is the prior stable ISO documented in `docs/release-verification.md` (`beamo-wipe-0.2.0-amd64.iso`, SHA-256 `62437ec152a5b2ffc7c89fc503a7659d561c32699376a8851ab838f665491c74`) plus `docs/runbook.md` §8. Never bind a host disk into QEMU.
+Do not publish an ISO from a PR or from a main verification build. Production publication is only `./scripts/ci-cloud.sh --publish-release` after separate operator authorization. Uploads are no-overwrite under `gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/` with `RELEASE_COMPLETE.txt` last. Rollback is the prior stable ISO documented in `docs/release-verification.md` (`beamo-wipe-0.2.9-amd64.iso`, SHA-256 `4042f85e0e7c155dd2340dc93a6b879c35ebe2f13da9c81c1ba6269524a6b169`) plus `docs/runbook.md` §8. Never bind a host disk into QEMU.
 
 ## Billing
 
@@ -101,5 +105,8 @@ The hosted Python phase installs `dosfstools` and `mtools`. With those tools on 
 64 MiB regular-file FAT32 fixtures, embeds them at the image's 1 MiB partition
 offset, and checks manifest/launcher readback and failure cases. No mount,
 loop device, or physical device is used. This does not replace ISO provenance,
-Syslinux/GRUB boot, or the full 2 GiB image gate. The image builder writes its
-checksum and ISO-binding sidecars only after successful final-image readback.
+Syslinux/GRUB boot, or the full 2 GiB image gate. The image builder assembles
+and reads back a private staged image on the output filesystem, then publishes
+the image and its checksum and ISO-binding sidecars with no-overwrite links.
+A failed assembly or readback leaves no final image or sidecars, so a corrected
+build can be retried without deleting an unverified artifact by hand.

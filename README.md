@@ -13,9 +13,11 @@ and this wizard. You do not pay for a secret wipe algorithm.
 
 ## Desktop entry (development)
 
-The new Windows and Linux launchers provide a local readiness check and an
-explicit **Restart into Beamo Wipe** action when firmware exposes an exact USB
-boot entry. They never erase a disk. Booting the USB normally remains available.
+The Windows and Linux launchers provide a local readiness check. Linux can
+offer an explicit **Restart into Beamo Wipe** action when firmware exposes an
+exact USB boot entry. Windows gives boot-menu instructions and leaves restart
+and firmware settings to the owner. The launchers never erase a disk.
+Booting the USB normally remains available.
 A separate FAT32 `.img` is intended for the desktop-readable USB layout; the
 `.iso` remains available for conventional booting.
 

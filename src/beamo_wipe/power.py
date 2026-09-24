@@ -158,7 +158,16 @@ class PowerMonitor:
             self.status = PowerStatus()
         if not self.pending and now >= self._next:
             reader, results = self.reader, self._results
+            launch_decided = threading.Event()
+            launch_allowed = threading.Event()
+
             def read() -> None:
+                # Thread.start can raise after the OS thread exists. That
+                # rejected worker must never leave a stale reading in the
+                # queue for the next accepted sampling attempt.
+                launch_decided.wait()
+                if not launch_allowed.is_set():
+                    return
                 try:
                     value = reader()
                     if not isinstance(value, PowerStatus):
@@ -170,7 +179,10 @@ class PowerMonitor:
             self._started = now
             try:
                 threading.Thread(target=read, daemon=True, name='beamo-power').start()
-            except RuntimeError:
+                launch_allowed.set()
+            except BaseException:
                 self.pending = False
                 self.status = PowerStatus()
                 self._next = now + REFRESH_SECONDS
+            finally:
+                launch_decided.set()

@@ -11,7 +11,7 @@ publish_release=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --skip-iso) export SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_SKIP_ISO=true" ;;
+    --skip-iso) export SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_SKIP_ISO=true,_SKIP_QEMU=true" ;;
     --publish-release)
       publish_release=true
       export SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_PUBLISH_RELEASE=true"
@@ -56,6 +56,12 @@ if [ "$publish_release" = false ]; then
   esac
   SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_PUBLISH_RELEASE=false"
 fi
+case ",${SUBSTITUTIONS:-}," in
+  *,_ALLOW_DIRTY=*)
+    printf 'dirty-source verification is selected from git status, not SUBSTITUTIONS\n' >&2
+    exit 2
+    ;;
+esac
 
 # CLOUDSDK_* in the shell profile can pin a different account/project.
 # shellcheck disable=SC2046
@@ -64,6 +70,35 @@ unset $(env | awk -F= '/^CLOUDSDK_/ {print $1}') 2>/dev/null || true
 extra=()
 if [ -n "${SUBSTITUTIONS:-}" ]; then
   extra+=(--substitutions="$SUBSTITUTIONS")
+fi
+
+# gcloud checks symlinks before applying .gcloudignore. An earlier local
+# live-build run leaves absolute hook links into Linux's /usr/share/live/build;
+# those links are dangling on macOS and crash source packaging. Remove only
+# untracked generated links to that exact hook tree. lb config recreates them.
+for hook in packaging/live/config/hooks/live/*.hook.chroot \
+            packaging/live/config/hooks/normal/*.hook.chroot; do
+  [ -L "$hook" ] || continue
+  link_target="$(readlink "$hook")"
+  case "$link_target" in
+    /usr/share/live/build/hooks/*) ;;
+    *) continue ;;
+  esac
+  [ -e "$hook" ] && continue
+  [ -z "$(git ls-files -- "$hook")" ] || continue
+  rm -- "$hook"
+done
+
+# A checkout gate must run before the audited edits are committed. Mark that
+# build as dirty for provenance, while keeping publication commit-only. Cloud
+# Build defaults _ALLOW_DIRTY to 0 for clean submissions and GitHub triggers.
+if [ -n "$(git status --porcelain)" ]; then
+  if [ "$publish_release" = true ]; then
+    printf 'release publication requires committed source; uncommitted source is present\n' >&2
+    exit 2
+  fi
+  SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_ALLOW_DIRTY=1"
+  extra=(--substitutions="$SUBSTITUTIONS")
 fi
 
 exec gcloud builds submit \

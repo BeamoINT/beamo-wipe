@@ -87,11 +87,16 @@ def test_build_provenance_can_precede_qemu_but_cannot_pass_release(build_provena
         rm.verify_build_manifest(dest)
 
 
-def test_finalize_requires_all_executed_gates_and_image_inventory(build_provenance):
+@pytest.mark.parametrize("dirty,drift", [(False, False), (True, False), (True, True)])
+def test_finalize_requires_all_executed_gates_and_image_inventory(build_provenance, monkeypatch, dirty, drift):
     from beamo_wipe.ci_evidence import finalize, collect_inventory
     from beamo_wipe.verification_evidence import REQUIRED_GATES, build_gate_receipt
 
     root, dest, _ = build_provenance
+    if dirty:
+        monkeypatch.setenv("ALLOW_DIRTY", "1")
+        monkeypatch.setattr(rm, "git_dirty", lambda: (True, [" M src/beamo_wipe/wizard.py"]))
+        rm.write_manifest(rm.generate_manifest(strict=False, build_only=True), dest)
     evidence = root / "dist/evidence"
     evidence.mkdir()
     image = root / "mounted-fixture"
@@ -113,8 +118,16 @@ def test_finalize_requires_all_executed_gates_and_image_inventory(build_provenan
             with pytest.raises(RuntimeError, match="missing required gate"):
                 finalize(root)
         (evidence / f"{gate}.receipt.json").write_text(json.dumps(receipt))
+    if drift:
+        monkeypatch.setattr(rm, "live_build_inputs", lambda: {"src/beamo_wipe/": "c" * 64})
+        with pytest.raises(RuntimeError, match="build inputs changed during verification"):
+            finalize(root)
+        return
     finalize(root)
-    rm.verify_manifest(dest)
+    rm.verify_manifest(dest, allow_dirty=dirty)
+    if dirty:
+        with pytest.raises(RuntimeError, match="uncommitted source state"):
+            rm.verify_manifest(dest)
     assert json.loads(dest.read_text())["test_evidence"]["measured"] is True
     for line in (root / "dist/SHA256SUMS").read_text().splitlines():
         digest, name = line.split("  ")

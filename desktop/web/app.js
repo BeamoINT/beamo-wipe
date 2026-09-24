@@ -1,11 +1,33 @@
 "use strict";
 const $ = id => document.getElementById(id);
-let token = location.hash.slice(1);
+const tokenPattern = /^[a-f0-9]{64}$/;
+const fragment = location.hash.slice(1);
+let token = tokenPattern.test(fragment) ? fragment : "";
+let tokenSaved = false;
 try {
-  token = token || sessionStorage.getItem("beamo-session") || "";
-  if (/^[a-f0-9]{64}$/.test(token)) sessionStorage.setItem("beamo-session", token);
+  const previous = sessionStorage.getItem("beamo-session") || "";
+  if (!token && tokenPattern.test(previous)) token = previous;
+  if (token) {
+    sessionStorage.setItem("beamo-session", token);
+    tokenSaved = true;
+  }
 } catch (_) { /* A restricted browser can still use the initial fragment. */ }
-history.replaceState(null, "", "/");
+if (!token) {
+  try {
+    const remembered = history.state && history.state.beamoToken;
+    if (tokenPattern.test(remembered)) token = remembered;
+  } catch (_) { /* The initial fragment remains the fallback. */ }
+}
+if (tokenSaved && tokenPattern.test(fragment)) history.replaceState(null, "", "/");
+if (!tokenSaved && token) {
+  // A help link replaces the fragment. Keep the token in this tab's history
+  // entry when sessionStorage is unavailable, including after hash navigation.
+  const rememberToken = () => {
+    try { history.replaceState({beamoToken: token}, ""); } catch (_) {}
+  };
+  rememberToken();
+  window.addEventListener("hashchange", rememberToken);
+}
 let busy = false;
 let ready = false;
 function clearChecks(message) {
@@ -96,6 +118,7 @@ $("restart").onclick=()=>action(async()=>{
 $("close").onclick=()=>action(async()=>{
   await api("close"); token="";
   try { sessionStorage.removeItem("beamo-session"); } catch (_) {}
+  try { history.replaceState(null, "", "/"); } catch (_) {}
   $("close").remove();
   const main=document.querySelector("main");
   main.textContent="Beamo Wipe is closed. You can close this tab. Nothing was erased by the launcher.";

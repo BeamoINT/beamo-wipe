@@ -29,6 +29,15 @@ STATUS_DIRTY = "dirty"
 STATUS_MISMATCH = "source_mismatch"
 
 
+def _unique_identity_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise ValueError("duplicate JSON field in build identity")
+        fields[key] = value
+    return fields
+
+
 def runtime_source_sha256() -> str | None:
     """Hash installed application bytes with the release manifest's framing."""
     root = Path(__file__).parent
@@ -116,7 +125,7 @@ def load_injected_build(path: Path | None = None) -> dict[str, Any] | None:
             raw = _read_at(fd, target.name, limit=4096)
         finally:
             os.close(fd)
-        return parse_injected_build(json.loads(raw))
+        return parse_injected_build(json.loads(raw, object_pairs_hook=_unique_identity_fields))
     except (
         OSError,
         SafetyError,
@@ -124,6 +133,7 @@ def load_injected_build(path: Path | None = None) -> dict[str, Any] | None:
         TypeError,
         UnicodeDecodeError,
         json.JSONDecodeError,
+        RecursionError,
     ):
         return None
 

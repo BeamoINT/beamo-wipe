@@ -47,10 +47,9 @@ RUN_ROOT="$(mktemp -d /tmp/beamo-wipe-qemu.XXXXXX)"
 EVIDENCE_DIR="$RUN_ROOT/evidence"
 TARGET="$RUN_ROOT/target.qcow2"
 TARGET_RAW="$RUN_ROOT/target.raw"
-# Small disks still display as 1 GB (size_gb_label floors at 1). Unique
-# serials therefore remain the confirmation tokens against the ISO, which
-# also rounds to 1 GB. Method flags stay the production mapping; only the
-# fixture size is bounded.
+# The guest target is deliberately small. Its displayed size is now 0 GB;
+# derive the confirmation token from the same production policy as the UI
+# instead of assuming the target serial or a particular ISO size.
 QEMU_TARGET_SERIAL="0001"
 HOST_METHOD_BYTES=67108864
 # case|key|nwipe_method|verify|outcome|host_timeout_s|guest_done_timeout_s|serial
@@ -226,8 +225,9 @@ git rev-parse HEAD >"$EVIDENCE_DIR/source-commit.txt"
   sha256sum -c "$(basename "$MANIFEST").sha256"
 ) >"$EVIDENCE_DIR/checksums.txt" 2>&1
 log "artifact checksums verified"
+QEMU_USB_SHA="$(sha256sum "$USB_IMAGE" | awk '{print $1}')"
 PYTHONPATH="$ROOT/src" python3 -c \
-  'import pathlib,sys; from beamo_wipe.release_manifest import verify_build_manifest; verify_build_manifest(pathlib.Path(sys.argv[1]))' \
+  'import os,pathlib,sys; from beamo_wipe.release_manifest import verify_build_manifest; verify_build_manifest(pathlib.Path(sys.argv[1]), allow_dirty=os.environ.get("ALLOW_DIRTY") == "1")' \
   "$MANIFEST"
 magic="$(dd if="$ISO" bs=1 skip=32769 count=5 status=none)"
 [[ "$magic" == CD001 ]] || { echo "ISO 9660 PVD check failed" >&2; exit 2; }
@@ -278,6 +278,35 @@ grep -q "Beamo Wipe: start the erase guide (nothing is erased yet)" "$EFI_GRUB" 
   echo "ISO UEFI menu lost the branded normal entry" >&2; exit 2; }
 grep -q "Beamo Wipe: troubleshoot startup (nothing is erased yet)" "$EFI_GRUB" || {
   echo "ISO UEFI menu lost the troubleshooting entry" >&2; exit 2; }
+# Check the kernel lines in the built ISO, not just the entry labels or the
+# source lb config. A missing nox11autologin lets live-config seize tty1 before
+# the kiosk starts, including when the owner chooses troubleshooting mode.
+bios_failsafe_append="$(awk '
+  /^label live-.*-failsafe[[:space:]]*$/ { in_entry=1; next }
+  in_entry && /^label / { exit }
+  in_entry && /^[[:space:]]*append[[:space:]]/ { print; exit }
+' "$BIOS_LIVE")"
+uefi_failsafe_linux="$(awk '
+  /^[[:space:]]*menuentry "Beamo Wipe: troubleshoot startup/ { in_entry=1; next }
+  in_entry && /^[[:space:]]*}/ { exit }
+  in_entry && /^[[:space:]]*linux[[:space:]]/ { print; exit }
+' "$EFI_GRUB")"
+for boot_line in "$bios_failsafe_append" "$uefi_failsafe_linux"; do
+  for required in boot=live nopersistence noswap ip=frommedia nox11autologin \
+                  memtest noapic noapm nodma nomce nolapic nosmp nosplash vga=788; do
+    if ! printf '%s\n' "$boot_line" | grep -Eq "(^|[[:space:]])${required}([[:space:]]|$)"; then
+      echo "ISO troubleshooting kernel line lost required flag: $required" >&2; exit 2
+    fi
+  done
+done
+for menu in "$BIOS_LIVE" "$EFI_GRUB"; do
+  if ! awk '
+    /^[[:space:]]*(append|linux)[[:space:]]/ && /boot=live/ &&
+      !/(^|[[:space:]])nox11autologin([[:space:]]|$)/ { exit 1 }
+  ' "$menu"; then
+    echo "ISO boot entry lost the live-config autologin guard" >&2; exit 2
+  fi
+done
 grep -Eq 'Beamo Wipe: \^?speech for screen readers' "$BIOS_LIVE" || {
   echo "ISO BIOS menu lost the speech entry" >&2; exit 2; }
 grep -q 'beamo.ui=accessible' "$BIOS_LIVE" || {
@@ -614,7 +643,7 @@ BOOT_LOOP=""
 
 # BIOS and UEFI get only the ISO and disposable qcow2 files. Each production
 # method gets an isolated BIOS journey, its own 64 MiB target, and its own
-# FAT32 report image. UEFI still has to reach the real Tk WHAT screen.
+# FAT32 report image. UEFI still has to reach the real Tk owner screen.
 make_guest_target() {
   local img="$1"
   qemu-img create -f qcow2 "$img" "${HOST_METHOD_BYTES}" >>"$EVIDENCE_DIR/qemu-img.txt" 2>&1
@@ -1022,6 +1051,37 @@ type_token_for_marker() {
     "$label" "$qmp_socket" "${token: -1}" "$marker" "$limit"
 }
 
+guest_confirmation_token() {
+  local boot_media="$1" target_bytes="$2" serial="$3"
+  PYTHONPATH="$ROOT/src" python3 - "$boot_media" "$target_bytes" "$serial" <<'PY'
+import pathlib
+import re
+import sys
+
+from beamo_wipe.discover import size_gb_label
+from beamo_wipe.models import Disk, DiskKind
+from beamo_wipe.safety import confirm_spec
+
+boot_size = pathlib.Path(sys.argv[1]).stat().st_size
+target_size = int(sys.argv[2])
+serial = sys.argv[3]
+boot = Disk(
+    path="/dev/guest-boot-media", name="guest-boot-media", model="QEMU boot media",
+    serial="", size_bytes=boot_size, size_gb_label=size_gb_label(boot_size),
+    kind=DiskKind.UNKNOWN, bus="ata", label="Beamo Wipe", is_boot=True,
+)
+target = Disk(
+    path="/dev/vda", name="vda", model="QEMU target", serial=serial,
+    size_bytes=target_size, size_gb_label=size_gb_label(target_size),
+    kind=DiskKind.HDD, bus="virtio", label="",
+)
+token = confirm_spec(target, (target, boot)).token
+if not re.fullmatch(r"[0-9]+", token):
+    raise SystemExit("QEMU confirmation token is not numeric")
+print(token)
+PY
+}
+
 wait_for_report_saved() {
   local label="$1" pid
   pid="$(guest_pid "$label")"
@@ -1058,7 +1118,6 @@ wait_for_report_saved() {
 drive_report_export() {
   local label="$1" qmp_socket="$2" method_key="${3:-3}" token="${4:-$QEMU_TARGET_SERIAL}"
   local done_limit="${5:-300}" report_img="${6:-$REPORT_RAW}"
-  send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
   send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20
   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_PICK 20
   send_key_for_marker "$label" "$qmp_socket" down BEAMO_WIPE_SCREEN_PICK 20
@@ -1111,7 +1170,7 @@ boot_probe() {
   local label="$1" exercise_export="$2"
   local method_key=3 token="${QEMU_TARGET_SERIAL:-}"
   local target_img="${TARGET:-}" report_img="${REPORT_RAW:-}" done_limit=300
-  local qmp_socket pid machine
+  local qmp_socket pid machine boot_media confirmation_token
   shift 2
   if [[ "${1:-}" =~ ^[123]$ ]]; then method_key="$1"; shift; fi
   if [[ "${1:-}" =~ ^[A-Za-z0-9._:-]+$ && "${1:-}" != -* && "${1:-}" != *.qcow2 && "${1:-}" != *.raw ]]; then
@@ -1126,11 +1185,14 @@ boot_probe() {
   : >"$EVIDENCE_DIR/${label}-serial.txt"
   machine="pc,accel=kvm:tcg"
   if [[ "$label" == secureboot-usb ]]; then machine="q35,accel=kvm:tcg,smm=on"; fi
+  boot_media="$ISO"
   local media_args=(-cdrom "$ISO" -boot order=d)
   if [[ "$label" == *-usb ]]; then
+    boot_media="$USB_IMAGE"
     media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=on,file=$USB_IMAGE"
       -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,bootindex=1")
   fi
+  confirmation_token="$(guest_confirmation_token "$boot_media" "$HOST_METHOD_BYTES" "$token")"
   # shellcheck disable=SC2054 # commas are inside QEMU values, not separators
   local qemu_args=(
     qemu-system-x86_64 -machine "$machine" -m 1024 -nic none
@@ -1156,33 +1218,29 @@ boot_probe() {
     return 0
   fi
   wait_for_marker "$label" BEAMO_WIPE_SCREEN_KEYBOARD "$BOOT_WAIT_SECONDS"
-  send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_WHAT 20
+  send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
   # The rendered Tk screen is the authoritative kiosk-ready boundary.  The
   # supervisor's earlier serial marker is best-effort and deliberately
   # suppresses device/write failures even when the shipped UI starts.
-  wait_for_marker "$label" BEAMO_WIPE_SCREEN_WHAT "$BOOT_WAIT_SECONDS" || {
-    echo "QEMU $label never rendered the shipped Tk WHAT screen" >&2
+  wait_for_marker "$label" BEAMO_WIPE_SCREEN_OWNER "$BOOT_WAIT_SECONDS" || {
+    echo "QEMU $label never rendered the shipped Tk owner screen" >&2
     return 1
   }
   if [[ "$label" == secureboot-usb ]]; then
     wait_for_marker "$label" 'BEAMO_WIPE_SECURE_BOOT=1' 20
   fi
   if [[ "$exercise_export" == yes ]]; then
-    drive_report_export "$label" "$qmp_socket" "$method_key" "$token" "$done_limit" "$report_img"
+    drive_report_export "$label" "$qmp_socket" "$method_key" "$confirmation_token" "$done_limit" "$report_img"
   elif [[ "$label" == *-usb ]]; then
     # A visible welcome screen alone does not prove the new FAT32 layout is
     # recognized as protected boot media. Reach the disposable target's exact
     # confirmation without accepting it or starting an erase in these probes.
-    send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
     send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20
     send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_PICK 20
     send_key_for_marker "$label" "$qmp_socket" down BEAMO_WIPE_SCREEN_PICK 20
     send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_CONFIRM 20
     wait_for_marker "$label" BEAMO_WIPE_CONFIRM_FOCUSED 20
-    # The 2 GiB USB image differs from the 1 GiB target, so this layout asks
-    # for the unique displayed size. The ISO probe instead needs the serial
-    # token because its optical boot medium also rounds to 1 GB.
-    type_token_for_marker "$label" "$qmp_socket" 1 BEAMO_WIPE_CONFIRM_MATCHED 20
+    type_token_for_marker "$label" "$qmp_socket" "$confirmation_token" BEAMO_WIPE_CONFIRM_MATCHED 20
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "QEMU $label exited immediately after its final marker" >&2
@@ -1197,7 +1255,7 @@ boot_probe() {
   if [[ "$exercise_export" == yes ]]; then
     log "$label boot completed the shipped Wizard report export"
   else
-    log "$label boot reached the shipped Tk WHAT screen"
+    log "$label boot reached the shipped Tk owner screen"
   fi
 }
 
@@ -1227,6 +1285,14 @@ import re
 import stat
 import sys
 
+def unique_report_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise SystemExit("duplicate JSON field in guest report")
+        fields[key] = value
+    return fields
+
 mountpoint = pathlib.Path(sys.argv[1])
 expected_outcome, expected_method, expected_nwipe, expected_title = sys.argv[2:6]
 expected_build_id, expected_source = sys.argv[6:8]
@@ -1250,7 +1316,7 @@ for path in session.iterdir():
     actual[path.name] = path.read_bytes()
 if "COMPLETE" not in actual or "result.json" not in actual or "result.json.sha256" not in actual:
     raise SystemExit("report completion files are missing")
-complete = json.loads(actual["COMPLETE"].decode("utf-8"))
+complete = json.loads(actual["COMPLETE"].decode("utf-8"), object_pairs_hook=unique_report_fields)
 expected_complete_keys = {
     "files",
     "log_status",
@@ -1294,7 +1360,7 @@ for name, expected in manifest.items():
 result_digest = hashlib.sha256(actual["result.json"]).hexdigest()
 if actual["result.json.sha256"] != f"{result_digest}  result.json\n".encode("ascii"):
     raise SystemExit("result.json sidecar mismatch")
-result = json.loads(actual["result.json"].decode("utf-8"))
+result = json.loads(actual["result.json"].decode("utf-8"), object_pairs_hook=unique_report_fields)
 if result.get("source_commit") != expected_source or result.get("build_id") != expected_build_id:
     raise SystemExit("guest report is for another source or build")
 if result.get("outcome") != expected_outcome:
@@ -1401,7 +1467,6 @@ import sys
 
 required = (
     "BEAMO_WIPE_SCREEN_KEYBOARD",
-    "BEAMO_WIPE_SCREEN_WHAT",
     "BEAMO_WIPE_SCREEN_OWNER",
     "BEAMO_WIPE_OWNER_CHECKED",
     "BEAMO_WIPE_SCREEN_PICK",
@@ -1466,27 +1531,25 @@ for candidate in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd; d
 done
 [[ -n "$OVMF_CODE" ]] || { echo "OVMF firmware missing" >&2; exit 2; }
 OVMF_VARS="${OVMF_CODE/CODE/VARS}"
-if [[ -f "$OVMF_VARS" ]]; then
-  cp "$OVMF_VARS" "$RUN_ROOT/ovmf-vars.fd"
-  boot_probe uefi no \
-    -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
-    -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-vars.fd"
-else
-  boot_probe uefi no -bios "$OVMF_CODE"
-fi
+uefi_boot_probe() {
+  local probe_name=$1 vars_name=$2
+  if [[ -f "$OVMF_VARS" ]]; then
+    cp "$OVMF_VARS" "$RUN_ROOT/$vars_name"
+    boot_probe "$probe_name" no \
+      -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+      -drive "if=pflash,format=raw,file=$RUN_ROOT/$vars_name"
+  else
+    boot_probe "$probe_name" no -bios "$OVMF_CODE"
+  fi
+}
+uefi_boot_probe uefi ovmf-vars.fd
 
 boot_probe bios-usb no
-cp "$OVMF_VARS" "$RUN_ROOT/ovmf-usb-vars.fd"
-boot_probe uefi-usb no \
-  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
-  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-usb-vars.fd"
+uefi_boot_probe uefi-usb ovmf-usb-vars.fd
 
 # Both real USB boot menus must select the new view, not merely contain its text.
 boot_probe bios-speech-usb no
-cp "$OVMF_VARS" "$RUN_ROOT/ovmf-speech-vars.fd"
-boot_probe uefi-speech-usb no \
-  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
-  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-speech-vars.fd"
+uefi_boot_probe uefi-speech-usb ovmf-speech-vars.fd
 
 # Enrolled Microsoft keys and SMM enforcement. A bare OVMF boot is not
 # Secure Boot evidence. The guest must report the actual firmware variable.
@@ -1499,8 +1562,13 @@ boot_probe secureboot-usb no \
   -drive "if=pflash,format=raw,readonly=on,file=$SECURE_CODE" \
   -drive "if=pflash,format=raw,file=$RUN_ROOT/secureboot-vars.fd"
 
-printf 'iso_sha256=%s\nnwipe_sha256=%s\nsource_commit=%s\nbuild_id=%s\nrepetitions=2\ncases=%s\neveryday=pass\nextra=pass\nquick_zero=pass\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nspeech_bios_usb=pass\nspeech_uefi_usb=pass\nreport_export=pass\n' \
-  "$(sha256sum "$ISO" | awk '{print $1}')" "$shipped_sha" \
+if [[ "$(sha256sum "$USB_IMAGE" | awk '{print $1}')" != "$QEMU_USB_SHA" ]]; then
+  echo 'ABORT: USB image changed during QEMU verification' >&2
+  exit 2
+fi
+log "usb_image_sha256=$QEMU_USB_SHA"
+printf 'iso_sha256=%s\nusb_image_sha256=%s\nnwipe_sha256=%s\nsource_commit=%s\nbuild_id=%s\nrepetitions=2\ncases=%s\neveryday=pass\nextra=pass\nquick_zero=pass\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nspeech_bios_usb=pass\nspeech_uefi_usb=pass\nreport_export=pass\n' \
+  "$(sha256sum "$ISO" | awk '{print $1}')" "$QEMU_USB_SHA" "$shipped_sha" \
   "$(tr -d '\n' <"$EVIDENCE_DIR/source-commit.txt")" \
   "${BUILD_ID:-local}" "${EXECUTED_CASES}" \
   >"$EVIDENCE_DIR/summary.txt"

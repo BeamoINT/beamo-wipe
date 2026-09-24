@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"path/filepath"
 	"regexp"
 )
@@ -57,6 +58,45 @@ func formatIdentity(info identityInfo) string {
 	return fmt.Sprintf("%s\nRelease build: %s\nSource: %s\nBuild status: %s\n", info.Label, buildID, commit, info.Status)
 }
 
+func completeIdentityFields(raw []byte) bool {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	start, err := dec.Token()
+	if err != nil || start != json.Delim('{') {
+		return false
+	}
+	want := map[string]bool{"source_commit": false, "source_sha256": false, "build_id": false, "source_dirty": false}
+	for dec.More() {
+		key, err := dec.Token()
+		name, ok := key.(string)
+		if err != nil || !ok {
+			return false
+		}
+		seen, allowed := want[name]
+		if !allowed || seen {
+			return false
+		}
+		want[name] = true
+		var value json.RawMessage
+		if dec.Decode(&value) != nil {
+			return false
+		}
+	}
+	end, err := dec.Token()
+	if err != nil || end != json.Delim('}') {
+		return false
+	}
+	var trailing json.RawMessage
+	if dec.Decode(&trailing) != io.EOF {
+		return false
+	}
+	for _, seen := range want {
+		if !seen {
+			return false
+		}
+	}
+	return true
+}
+
 func loadUSBIdentity(exe string) identityInfo {
 	stub := stubIdentity()
 	root := filepath.Dir(exe)
@@ -68,21 +108,34 @@ func loadUSBIdentity(exe string) identityInfo {
 	if err != nil {
 		return stub
 	}
+	if !completeIdentityFields(raw) {
+		return stub
+	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	var injected injectedIdentity
 	if err := dec.Decode(&injected); err != nil {
 		return stub
 	}
-	if dec.More() {
+	// More only describes members of an open array/object; after a complete
+	// top-level value it misses stray closing delimiters. Require true EOF.
+	var trailing json.RawMessage
+	if err := dec.Decode(&trailing); err != io.EOF {
 		return stub
 	}
 	if !commitRe.MatchString(injected.SourceCommit) || !sha256Re.MatchString(injected.SourceSHA256) || !buildIDRe.MatchString(injected.BuildID) {
 		return stub
 	}
+	// The JSON can be copied beside a launcher. Do not describe that copy as
+	// a manufactured USB when the bootable media layout is absent or invalid.
+	if !mediaLayout(exe) {
+		return stub
+	}
 	status := "production"
 	switch {
-	case injected.SourceCommit != sourceCommit:
+	case sourceDirty != "true" && sourceDirty != "false":
+		status = "source mismatch"
+	case injected.SourceCommit != sourceCommit || injected.SourceDirty != (sourceDirty == "true"):
 		status = "source mismatch"
 	case injected.SourceDirty:
 		status = "dirty"

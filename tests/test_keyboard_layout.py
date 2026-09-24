@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import threading
 
 import pytest
 
@@ -161,6 +162,43 @@ def test_successful_layout_change_clears_full_confirmation_flow(layout_id):
     assert wiz.screen == Screen.OWNER
     wiz.continue_owner()
     assert wiz.screen == Screen.OWNER
+
+
+def test_layout_apply_and_erase_claim_cannot_cross(tmp_path, monkeypatch):
+    from beamo_wipe.keyboard import ApplyResult
+
+    monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+    confirmed = threading.Event()
+    results = []
+
+    def delayed_apply(layout_id):
+        started.set()
+        assert release.wait(3)
+        return ApplyResult(True, "", layout_id)
+
+    wiz = _wiz(delayed_apply)
+    _authorized(wiz)
+    wiz._erase_until = 0
+    layout_thread = threading.Thread(target=lambda: results.append(wiz.set_keyboard_layout("fr")))
+    claim_thread = threading.Thread(target=lambda: (wiz.confirm_erase(), confirmed.set()))
+    layout_thread.start()
+    try:
+        assert started.wait(2)
+        claim_thread.start()
+        assert not confirmed.wait(0.1)
+    finally:
+        release.set()
+        layout_thread.join(3)
+        if claim_thread.ident is not None:
+            claim_thread.join(3)
+    assert results == [True]
+    assert confirmed.is_set()
+    assert wiz.keyboard_layout == "fr"
+    assert wiz.screen == Screen.OWNER
+    assert wiz.selected is None and not wiz.owner_ok
+    assert wiz._wipe_request is None
 
 
 def test_repeated_same_layout_does_not_invalidate():

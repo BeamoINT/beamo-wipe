@@ -27,12 +27,12 @@ func (linuxFirmware) read(name string) ([]byte, error) {
 	}
 	return b[4:], nil
 }
-func (linuxFirmware) write(name string, data []byte) error {
+func (linuxFirmware) write(name string, data []byte) (bool, error) {
 	if name != "BootNext" || len(data) != 2 {
-		return errors.New("unsupported firmware write")
+		return false, errors.New("unsupported firmware write")
 	}
 	path := "/sys/firmware/efi/efivars/BootNext-" + efiGlobal
-	return writeExclusiveFile(path, append([]byte{7, 0, 0, 0}, data...), syscall.O_NOFOLLOW)
+	return writeExclusiveFileOwned(path, append([]byte{7, 0, 0, 0}, data...), syscall.O_NOFOLLOW)
 }
 func (linuxFirmware) remove(name string) error {
 	if name != "BootNext" {
@@ -60,6 +60,33 @@ type linuxNode struct {
 	MajMin   string      `json:"maj:min"`
 	Sector   json.Number `json:"log-sec"`
 	Children []linuxNode `json:"children"`
+}
+
+// A partition's kernel path must name the disk that lsblk claims is its
+// parent. The JSON tree alone can be contradictory, and its ancestry is used
+// to authorize a one-time firmware boot entry for the mounted launcher.
+func linuxPartitionOfDisk(disk, part string) bool {
+	if !strings.HasPrefix(disk, "/dev/") || !strings.HasPrefix(part, disk) {
+		return false
+	}
+	suffix := strings.TrimPrefix(part, disk)
+	if disk[len(disk)-1] >= '0' && disk[len(disk)-1] <= '9' {
+		if !strings.HasPrefix(suffix, "p") {
+			return false
+		}
+		suffix = suffix[1:]
+	}
+	number, err := strconv.ParseUint(suffix, 10, 32)
+	return err == nil && number != 0
+}
+
+func linuxMeaningfulWWN(value string) string {
+	text := strings.ToLower(strings.TrimSpace(value))
+	body := strings.TrimPrefix(text, "0x")
+	if body == "" || strings.Trim(body, "0") == "" {
+		return ""
+	}
+	return text
 }
 
 func linuxMedia(data []byte, source string) (string, []string, error) {
@@ -91,8 +118,23 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 		return "", nil, errors.New("ambiguous source")
 	}
 	d := found[0]
-	if d.Type != "disk" || d.Tran != "usb" || (d.Serial == "" && d.WWN == "") || d.MajMin == "" || !strings.HasPrefix(d.Path, "/dev/") {
+	if d.Type != "disk" || d.Tran != "usb" || (strings.TrimSpace(d.Serial) == "" && linuxMeaningfulWWN(d.WWN) == "") || d.MajMin == "" || !strings.HasPrefix(d.Path, "/dev/") {
 		return "", nil, errors.New("unidentified USB")
+	}
+	sourceParts := 0
+	for _, child := range d.Children {
+		if child.Type != "part" {
+			continue
+		}
+		if !linuxPartitionOfDisk(d.Path, child.Path) {
+			return "", nil, errors.New("contradictory USB partition parent")
+		}
+		if child.Path == source {
+			sourceParts++
+		}
+	}
+	if sourceParts != 1 {
+		return "", nil, errors.New("launcher source is not one direct USB partition")
 	}
 	var parts []string
 	counts := map[string]int{}
@@ -122,7 +164,7 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 		}
 	}
 	for _, p := range d.Children {
-		if p.Type != "part" {
+		if p.Type != "part" || p.Path != source {
 			continue
 		}
 		guid := strings.ToLower(p.PartUUID)

@@ -24,5 +24,9 @@ cd "$ROOT/desktop"
 # Cross-compilation checks platform-specific test code without claiming native
 # Windows execution. Run this test executable on a separate Windows worker.
 GOOS=windows GOARCH=amd64 "$BEAMO_GO_BIN" test -c -o "$TOOL_ROOT/desktop-windows.test.exe"
-"$BEAMO_GO_BIN" test -run='^$' -fuzz=FuzzBootOption -fuzztime=15s -parallel=2
+# A duration can expire while Go's coordinator is stopping workers and report
+# its own context deadline as a failure. Count completed fuzz executions so
+# worker scheduling changes do not turn a healthy run red. This exceeds the
+# 346,790 executions observed in the failed 15-second hosted run.
+"$BEAMO_GO_BIN" test -run='^$' -fuzz=FuzzBootOption -fuzztime=350000x -parallel=2
 "$ROOT/scripts/build-desktop.sh"

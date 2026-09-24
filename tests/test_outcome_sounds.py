@@ -147,7 +147,9 @@ def test_outcome_play_is_fire_and_forget(monkeypatch):
             return 0
 
     monkeypatch.setattr(subprocess, "Popen", FakePopen)
-    monkeypatch.setattr("beamo_wipe.safety.resolve_system_binary", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(
+        "beamo_wipe.safety.resolve_system_binary", lambda name: f"/usr/bin/{name}"
+    )
     result = sound.play_outcome(sound.KIND_ATTENTION)
     assert result.ok is True
     assert len(launched) == 1
@@ -395,6 +397,6 @@ def test_shipped_assets_are_valid_bounded_distinct_and_reproducible(tmp_path):
     assert proc.returncode == 0, proc.stderr
     assert (tmp_path / "finished.wav").read_bytes() == finished.read_bytes()
     assert (tmp_path / "attention.wav").read_bytes() == attention.read_bytes()
-    staging = (ROOT / "scripts/build-iso.sh").read_text()
-    assert '"$STAGE_SHARE/sounds/finished.wav"' in staging
-    assert '"$STAGE_SHARE/sounds/attention.wav"' in staging
+    staging = (ROOT / "scripts/stage_live_assets.py").read_text()
+    assert '"finished.wav", "attention.wav"' in staging
+    assert 'share / "sounds" / name' in staging

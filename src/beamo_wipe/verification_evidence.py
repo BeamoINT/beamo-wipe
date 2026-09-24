@@ -82,6 +82,15 @@ FORBIDDEN_ENV_KEYS = frozenset(
 )
 
 
+def _unique_receipt_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise RuntimeError("duplicate JSON field in gate receipt")
+        fields[key] = value
+    return fields
+
+
 def utc_now_s() -> str:
     """Current UTC time at second precision, normalized form."""
     return (
@@ -719,7 +728,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     receipts = []
     for path in args.receipt:
-        receipts.append(json.loads(_read_text_file(Path(path), what="gate receipt")))
+        receipts.append(
+            json.loads(
+                _read_text_file(Path(path), what="gate receipt"),
+                object_pairs_hook=_unique_receipt_fields,
+            )
+        )
     verified = verify_release_evidence(
         {"schema": TEST_EVIDENCE_SCHEMA, "gates": {r.get("gate"): r for r in receipts}}
     )

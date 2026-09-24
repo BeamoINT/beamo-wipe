@@ -81,15 +81,17 @@ def test_untrusted_or_malformed_log_lines_cannot_complete(line):
 
 
 def test_exact_status_row_and_progress_still_complete():
-    assert evaluate_nwipe_completion(0, " vda | Erased | 1 MB/s | 00:01 | disk", "/dev/vda")[0]
+    assert evaluate_nwipe_completion(
+        0, " vda | Erased | 1 MB/s | 00:01 | disk", "/dev/vda"
+    )[0]
     assert evaluate_nwipe_completion(
         0,
-        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00",
+        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]",
         "/dev/vda",
     )[0]
     assert evaluate_nwipe_completion(
         0,
-        "[2026/09/03 12:34:56]    info: /dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00",
+        "[2026/09/03 12:34:56]    info: /dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]",
         "/dev/vda",
     )[0]
 
@@ -136,7 +138,9 @@ def test_cross_process_lock_refusal_precedes_log_truncation(tmp_path, monkeypatc
     monkeypatch.setattr(
         runner,
         "_acquire_wipe_lock",
-        lambda _request: (_ for _ in ()).throw(SafetyError("A wipe is already running.")),
+        lambda _request: (_ for _ in ()).throw(
+            SafetyError("A wipe is already running.")
+        ),
     )
 
     with pytest.raises(SafetyError, match="already running"):
@@ -210,7 +214,9 @@ def test_locked_boundary_refuses_a_different_disk_on_the_same_name(monkeypatch):
     monkeypatch.setattr(runner, "_acquire_wipe_lock", lambda _r: None)
     monkeypatch.setattr(runner, "_release_wipe_lock", lambda: None)
     monkeypatch.setattr("beamo_wipe.discover.discover", lambda **_k: fresh)
-    monkeypatch.setattr(nr.subprocess, "Popen", lambda *_a, **_k: pytest.fail("exec reached"))
+    monkeypatch.setattr(
+        nr.subprocess, "Popen", lambda *_a, **_k: pytest.fail("exec reached")
+    )
     with pytest.raises(SafetyError, match="identity"):
         runner.start(req)
 
@@ -220,8 +226,13 @@ def test_locked_boundary_rechecks_size_before_exec(monkeypatch):
 
     runner = nr.NwipeRunner()
     req = WipeRequest(
-        "/dev/vda", MethodId.EVERYDAY, "/dev/sdb", "/tmp/fake.log",
-        device_rdev=1, device_size_bytes=500, boot_rdev=2,
+        "/dev/vda",
+        MethodId.EVERYDAY,
+        "/dev/sdb",
+        "/tmp/fake.log",
+        device_rdev=1,
+        device_size_bytes=500,
+        boot_rdev=2,
     )
     calls = 0
 
@@ -242,7 +253,9 @@ def test_locked_boundary_rechecks_size_before_exec(monkeypatch):
     monkeypatch.setattr(nr, "assert_log_not_on_target", lambda *_a, **_k: None)
     monkeypatch.setattr(nr, "truncate_log_file", lambda *_a, **_k: None)
     monkeypatch.setattr(runner, "_acquire_wipe_lock", lambda _r: None)
-    monkeypatch.setattr(nr.subprocess, "Popen", lambda *_a, **_k: pytest.fail("exec reached"))
+    monkeypatch.setattr(
+        nr.subprocess, "Popen", lambda *_a, **_k: pytest.fail("exec reached")
+    )
     with pytest.raises(SafetyError, match="size changed"):
         runner.start(req)
     assert calls == 2
@@ -285,8 +298,12 @@ def test_scalar_mountpoint_and_flat_partition_are_not_selectable():
 
     target = _node("sda")
     partition = {
-        "name": "sda1", "path": "/dev/sda1", "type": "part", "pkname": "sda",
-        "mountpoint": "/media/target", "mountpoints": ["/media/target"],
+        "name": "sda1",
+        "path": "/dev/sda1",
+        "type": "part",
+        "pkname": "sda",
+        "mountpoint": "/media/target",
+        "mountpoints": ["/media/target"],
     }
     result = parse_lsblk_json(
         {"blockdevices": [target, partition, boot]}, boot_path="/dev/sdb"
@@ -326,9 +343,12 @@ def test_control_character_device_path_is_rejected_not_repaired():
 
 def test_conflicting_cmdline_boot_tokens_fail_closed():
     nodes = [_node("sda"), _node("sdb", boot=True)]
-    assert identify_boot_path(
-        nodes, mount_sources=[], cmdline="bootfrom=/dev/sda live-media=/dev/sdb"
-    ) is None
+    assert (
+        identify_boot_path(
+            nodes, mount_sources=[], cmdline="bootfrom=/dev/sda live-media=/dev/sdb"
+        )
+        is None
+    )
 
 
 def test_transport_and_media_class_are_part_of_rediscovery_identity():
@@ -365,13 +385,24 @@ def test_evidence_revalidates_contradictory_success():
         disk.path, MethodId.EVERYDAY, base.discovery.boot.path, "/tmp/fake.log"
     )
     for result, log in (
-        (WipeResult(True, 1, "finished", request.logfile), f"{disk.path}: 100.00%, round 1 of 1"),
+        (
+            WipeResult(True, 1, "finished", request.logfile),
+            f"{disk.path}: 100.00%, round 1 of 1",
+        ),
         (WipeResult(True, 0, "finished", request.logfile), ""),
     ):
         evidence = build_evidence(
-            disk=disk, discovery=base.discovery, method=MethodId.EVERYDAY,
-            request=request, result=result, started_at_wall="a", ended_at_wall="b",
-            started_mono=0.0, ended_mono=1.0, argv=[], log_text=log,
+            disk=disk,
+            discovery=base.discovery,
+            method=MethodId.EVERYDAY,
+            request=request,
+            result=result,
+            started_at_wall="a",
+            ended_at_wall="b",
+            started_mono=0.0,
+            ended_mono=1.0,
+            argv=[],
+            log_text=log,
         )
         assert evidence["outcome"] == OUTCOME_FAILED
         assert evidence["verification"]["verified"] is False
@@ -394,9 +425,9 @@ def test_export_copies_the_bytes_it_authenticated(tmp_path, monkeypatch):
     original = evidence._read_regular_nofollow
     reads = 0
 
-    def replace_after_data(path):
+    def replace_after_data(path, **kwargs):
         nonlocal reads
-        data = original(path)
+        data = original(path, **kwargs)
         reads += 1
         if Path(path) == src:
             src.write_bytes(b'{"forged":true}\n')
@@ -485,7 +516,7 @@ def test_cancel_preserves_completion_that_won_race(tmp_path, monkeypatch):
 
         def start(self, request):
             self.request = request
-            self._log_tail = f"{request.device}: 100.00%, round 1 of 1, pass 1 of 1\n"
+            self._log_tail = f"{request.device}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [verifying]\n"
 
         def poll(self, _request):
             return self.result
@@ -502,7 +533,9 @@ def test_cancel_preserves_completion_that_won_race(tmp_path, monkeypatch):
     assert wizard.evidence["outcome"] == "verified"
 
 
-def test_delayed_started_evidence_cannot_replace_terminal_evidence(tmp_path, monkeypatch):
+def test_delayed_started_evidence_cannot_replace_terminal_evidence(
+    tmp_path, monkeypatch
+):
     import beamo_wipe.evidence as evidence
 
     entered = threading.Event()
@@ -515,7 +548,7 @@ def test_delayed_started_evidence_cannot_replace_terminal_evidence(tmp_path, mon
 
         def start(self, request):
             self.request = request
-            self._log_tail = f"{request.device}: 100.00%, round 1 of 1, pass 1 of 1\n"
+            self._log_tail = f"{request.device}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [verifying]\n"
             self.result = WipeResult(True, 0, "finished", request.logfile)
 
         def poll(self, _request):
@@ -526,6 +559,7 @@ def test_delayed_started_evidence_cannot_replace_terminal_evidence(tmp_path, mon
 
     writer = evidence.write_evidence_atomic
     terminal_paths = []
+
     def fake_write(ev, **kwargs):
         if ev["outcome"] == "started":
             entered.set()
@@ -577,7 +611,8 @@ def test_live_tk_failure_returns_to_supervisor_before_console(monkeypatch):
     from beamo_wipe import app
 
     fake = SimpleNamespace(
-        wants_shutdown=False, wants_new_session=False,
+        wants_shutdown=False,
+        wants_new_session=False,
         dry_run=False,
         screen=Screen.WHAT,
         cancel_wipe=lambda: None,
@@ -607,12 +642,15 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
 
     cancelled = []
     fake = SimpleNamespace(
-        wants_shutdown=False, wants_new_session=False,
+        wants_shutdown=False,
+        wants_new_session=False,
         screen=Screen.WORKING,
         preview=False,
         progress=None,
         power_text="Wall power: unknown.",
-        progress_view=SimpleNamespace(status_text="Preparing. Elapsed: less than 1 minute"),
+        progress_view=SimpleNamespace(
+            status_text="Preparing. Elapsed: less than 1 minute"
+        ),
         evidence_warning="",
         evidence_error=None,
         error=None,
@@ -631,13 +669,19 @@ def test_plain_console_cancel_works_without_sigint(monkeypatch):
         fake.wants_shutdown = True
 
     fake.stop_confirmation = None
+
     def request_stop():
         fake.stop_confirmation = object()
+
     fake.request_stop = request_stop
     fake.keep_erasing = lambda: setattr(fake, "stop_confirmation", None)
     fake.confirm_stop = lambda confirmation: cancel()
-    monkeypatch.setattr(console_wizard.select, "select", lambda *_a: ([object()], [], []))
-    monkeypatch.setattr(console_wizard.sys, "stdin", io.StringIO("CANCEL\nCANCEL\nSTOP\n"))
+    monkeypatch.setattr(
+        console_wizard.select, "select", lambda *_a: ([object()], [], [])
+    )
+    monkeypatch.setattr(
+        console_wizard.sys, "stdin", io.StringIO("CANCEL\nCANCEL\nSTOP\n")
+    )
     assert console_wizard._plain_loop_body(fake) == 0
     assert cancelled == [True]
 
@@ -693,7 +737,9 @@ def test_read_diagnostics_reads_tail_not_old_prefix(tmp_path):
     path = tmp_path / "diagnostics.log"
     old = json.dumps({"code": "OLD", "pad": "x" * 1000}) + "\n"
     latest = json.dumps({"code": "LATEST"}) + "\n"
-    path.write_text(old * (DIAG_LOG_MAX_BYTES // len(old) + 4) + latest, encoding="utf-8")
+    path.write_text(
+        old * (DIAG_LOG_MAX_BYTES // len(old) + 4) + latest, encoding="utf-8"
+    )
     assert read_diagnostics(tmp_path, limit=1) == [{"code": "LATEST"}]
 
 
@@ -701,14 +747,13 @@ def test_qemu_gate_requires_rendered_kiosk_screen_and_media_readback():
     root = Path(__file__).resolve().parents[1]
     qemu = (root / "scripts/qemu-verify.sh").read_text(encoding="utf-8")
     kiosk = (
-        root
-        / "packaging/live/config/includes.chroot/usr/local/sbin/beamo-wipe-kiosk"
+        root / "packaging/live/config/includes.chroot/usr/local/sbin/beamo-wipe-kiosk"
     ).read_text(encoding="utf-8")
     assert "BEAMO_WIPE_KIOSK_READY" in kiosk
     assert "BEAMO_WIPE_KIOSK_READY" in qemu
-    assert 'BEAMO_WIPE_SCREEN_WHAT "$BOOT_WAIT_SECONDS"' in qemu
-    assert "never rendered the shipped Tk WHAT screen" in qemu
-    assert "chunk = b\"\\xa5\"" in qemu
+    assert 'BEAMO_WIPE_SCREEN_OWNER "$BOOT_WAIT_SECONDS"' in qemu
+    assert "never rendered the shipped Tk owner screen" in qemu
+    assert 'chunk = b"\\xa5"' in qemu
     assert 'cmp -n "$HOST_METHOD_BYTES" "$raw" /dev/zero' in qemu
     assert "HOST_METHOD_BYTES=67108864" in qemu
 
@@ -716,10 +761,13 @@ def test_qemu_gate_requires_rendered_kiosk_screen_and_media_readback():
 def test_build_omits_bytecode_and_enforces_wrapper_version():
     root = Path(__file__).resolve().parents[1]
     build = (root / "scripts/build-iso.sh").read_text(encoding="utf-8")
+    stager = (root / "scripts/stage_wrapper_sources.py").read_text(encoding="utf-8")
     inside = (root / "packaging/live/inside-docker.sh").read_text(encoding="utf-8")
     assert "WRAPPER_VERSION" in build
-    assert "git ls-files -- src/beamo_wipe" in build
-    assert "-name '*.pyc'" in build
+    assert 'python3 "$ROOT/scripts/stage_wrapper_sources.py"' in build
+    assert '"ls-files", "-z", "--", "src/beamo_wipe"' in stager
+    assert "os.O_NOFOLLOW" in stager
+    assert 'relative.suffix in {".pyc", ".pyo"}' in stager
     assert "--exclude '*.pyc'" in inside
-    assert "unapproved live-build hook" in build
+    assert "unapproved live-build hook" in stager
     assert ".bundle-backup." in build

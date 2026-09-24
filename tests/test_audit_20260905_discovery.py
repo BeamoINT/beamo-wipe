@@ -81,7 +81,7 @@ def test_production_accepted_mount_shapes(monkeypatch, mounts, selectable):
     assert bool(result.selectable) is selectable
 
 
-def test_flat_deep_mounted_ancestry_preserves_unrelated_disk():
+def test_flat_deep_mounted_lvm_ancestry_refuses_unknown_members():
     payload = {"blockdevices": [
         _disk("sda"), _disk("sdb"), _disk("sdc"),
         _disk("sda1", type="part", pkname="sda"),
@@ -90,7 +90,10 @@ def test_flat_deep_mounted_ancestry_preserves_unrelated_disk():
         _disk("dm-2", type="lvm", pkname="dm-1", mountpoints=["/media/data"]),
     ]}
     result = _discover(payload, ["/dev/sdb"])
-    assert [disk.path for disk in result.selectable] == ["/dev/sdc"]
+    # Even a resolved PKNAME chain does not prove sdc is outside this LVM
+    # volume when its member metadata could be absent from lsblk.
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 @pytest.mark.parametrize("parent", ["dm-1", "missing"])
@@ -105,7 +108,7 @@ def test_flat_mounted_cycle_or_unknown_ancestor_fails_closed(parent):
     assert result.selectable == ()
 
 
-def test_flat_mounted_duplicate_parent_excludes_each_possible_disk():
+def test_flat_mounted_duplicate_parent_with_invalid_partition_names_fails_closed():
     payload = {"blockdevices": [
         _disk("sda"), _disk("sdb"), _disk("sdc"),
         _disk("partition", type="part", pkname="sda"),
@@ -113,7 +116,10 @@ def test_flat_mounted_duplicate_parent_excludes_each_possible_disk():
         _disk("dm-0", type="crypt", pkname="partition", mountpoints=["/media/data"]),
     ]}
     result = _discover(payload, ["/dev/sdb"])
-    assert result.boot_identified
+    # A real partition's kernel name must identify its physical parent.
+    # Neither synthetic `partition` row can prove its claimed PKNAME, so the
+    # mounted mapper's ancestry and content identity are unsafe to publish.
+    assert not result.boot_identified
     assert result.selectable == ()
 
 

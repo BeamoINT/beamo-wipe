@@ -39,7 +39,9 @@ import binascii
 import datetime
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence
@@ -270,6 +272,15 @@ def _version_tuple(version: str) -> tuple:
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
+def _unique_json_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise RuntimeError("duplicate JSON field")
+        fields[key] = value
+    return fields
+
+
 def verify_release_acceptance(
     manifest_bytes: bytes,
     signature: Mapping[str, Any],
@@ -285,7 +296,10 @@ def verify_release_acceptance(
     """
     result = verify_with_registry(manifest_bytes, signature, registry)
     try:
-        manifest = json.loads(bytes(manifest_bytes).decode("utf-8"))
+        manifest = json.loads(
+            bytes(manifest_bytes).decode("utf-8"),
+            object_pairs_hook=_unique_json_fields,
+        )
     except (UnicodeDecodeError, ValueError) as exc:
         raise RuntimeError("signed manifest bytes are not JSON") from exc
     if not isinstance(manifest, dict):
@@ -304,7 +318,7 @@ def _read_json_file(path: Path, *, what: str) -> Any:
     except OSError as exc:
         raise RuntimeError(f"{what} cannot be read: {path}") from exc
     try:
-        return json.loads(raw.decode("utf-8"))
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_fields)
     except (UnicodeDecodeError, ValueError) as exc:
         raise RuntimeError(f"{what} is not JSON: {path}") from exc
 
@@ -317,6 +331,22 @@ def _read_bytes_file(path: Path, *, what: str) -> bytes:
     if not data:
         raise RuntimeError(f"{what} is empty: {path}")
     return data
+
+
+def _write_new_file(path: Path, data: bytes, mode: int) -> None:
+    """Create a key file with final permissions before writing any bytes."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, mode)
+    with os.fdopen(fd, "wb") as stream:
+        if (
+            mode == 0o600
+            and os.name == "posix"
+            and stat.S_IMODE(os.fstat(stream.fileno()).st_mode) != 0o600
+        ):
+            raise RuntimeError("key file permissions were not private at creation")
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -343,12 +373,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "keygen":
         private_raw, public_raw = generate_keypair()
         private_path = Path(args.private_out)
-        private_path.write_bytes(private_raw)
-        try:
-            private_path.chmod(0o600)
-        except OSError as exc:
-            raise RuntimeError("cannot protect the generated key file") from exc
-        Path(args.public_out).write_bytes(public_raw)
+        public_path = Path(args.public_out)
+        if (
+            private_path == public_path
+            or public_path.exists()
+            or public_path.is_symlink()
+        ):
+            raise FileExistsError("key output path already exists")
+        _write_new_file(private_path, private_raw, 0o600)
+        _write_new_file(public_path, public_raw, 0o644)
         print(f"key id {key_id(public_raw)}; guard the private file accordingly")
         return 0
     if args.command == "sign":

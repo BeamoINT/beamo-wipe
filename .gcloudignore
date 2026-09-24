@@ -25,8 +25,23 @@ packaging/live/.build/
 packaging/live/.stage/
 packaging/live/binary/
 packaging/live/tmp/
+# live-build creates local config files and absolute hook symlinks during lb
+# config. Uploading those stale outputs can break source packaging on macOS.
+packaging/live/config/binary
+packaging/live/config/bootstrap
+packaging/live/config/chroot
+packaging/live/config/common
+packaging/live/config/source
+packaging/live/config/package-lists/live.list.chroot
+packaging/live/config/hooks/live/
+packaging/live/config/hooks/normal/*.hook.chroot
+!packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot
 # Generated live-build copies of src/. Uploading a stale local tree makes
 # test_staged_chroot_package_matches_src fail before the ISO step restages.
 packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/
 packaging/live/config/includes.chroot/usr/share/beamo-wipe/
 packaging/live/config/includes.chroot/usr/share/doc/beamo-wipe/
+.env.*
+# Keep local captures, caches, and generated live-build files out of uploads.
+# This project deliberately retains .git/ so hosted build provenance works.
+#!include:.gitignore

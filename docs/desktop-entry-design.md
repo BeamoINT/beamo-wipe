@@ -7,10 +7,12 @@ physical checks. No new platform claim is established by this design alone.
 
 ## Customer flow
 
-Insert the USB, open Start Beamo Wipe, let the automatic read-only check finish,
-and explicitly request a restart. The live wizard remains the only erase engine
-entry. It asks for ownership, exact target confirmation, and the existing delay.
-A restart request never authorizes an erase after boot.
+Insert the USB, open Start Beamo Wipe, and let the automatic read-only check
+finish. On Linux, an exact verified UEFI entry may offer a guided restart. On
+Windows, save work, use the normal Restart command, and select the USB from the
+computer's boot menu. The live wizard remains the only erase engine entry. It
+asks for ownership, exact target confirmation, and the existing delay. A
+restart never authorizes an erase after boot.
 Ordinary BIOS/UEFI boot remains independent of the desktop launcher.
 
 The first delivery keeps both system and separate-drive erasure offline. The
@@ -27,14 +29,14 @@ No decorative dashboard, algorithm menu, or device-path selector. The browser
 is only a local presentation surface; no internet or account is required.
 
     Beamo Wipe                         Close
-    Ready for a guided restart
+    Ready for a guided restart (Linux, when verified)
     Save your work. You choose and confirm the disk after restarting.
     [ Restart into Beamo Wipe ]
 
 ## Restart boundary
 
 - The launcher has no erase, format, mount-write, or engine invocation API.
-- Direct restart is offered only for an exact active UEFI boot option whose
+- Linux direct restart is offered only for an exact active UEFI boot option whose
   hard-drive partition identity belongs to the USB holding the launcher.
   A label such as USB or Beamo is never sufficient identity.
 - Require the shipped media layout, USB transport, stable OS identity, no
@@ -42,11 +44,15 @@ is only a local presentation surface; no internet or account is required.
 - Re-read the media and boot option in the elevated helper. Compare with the
   inspected plan before changing anything. Do not accept a target device path
   or an arbitrary command from the browser or command line.
-- Write only BootNext, verify readback, and request a normal reboot without
+- On Linux, write only BootNext, verify readback, and request a normal reboot without
   forcing applications closed. Restore only our unchanged BootNext value if
   reboot fails. Do not modify permanent boot order or Secure Boot settings.
 - Unsupported firmware, missing/ambiguous entry, missing privileges, changed
   devices, and unsupported architecture receive a clear manual boot path.
+- Windows always uses the manual boot path. `ExitWindowsEx` can report success
+  before another application or the user cancels shutdown, which could strand
+  `BootNext` for a later restart. The Windows launcher does not request a reboot
+  or write firmware startup variables.
 - No automatic launch, restart, or erase on insertion. No automatic erase on
   boot. Preview cannot invoke platform mutation APIs.
 
@@ -58,7 +64,7 @@ the address bar; tab-scoped session storage retains only this token so refresh
 works, and Close clears it. Serve only embedded assets, prohibit
 framing and external content, reject other methods and malformed bodies, and
 never place device identifiers in browser responses. Require an explicit restart
-button after the check. Repeated requests cannot start concurrent helpers. Close and
+button for an available Linux guided route. Repeated requests cannot start concurrent helpers. Close and
 idle timeout end the process; it is not an installed background service.
 
 ## Required evidence
@@ -85,10 +91,10 @@ Opening files is explicit. Windows may show publisher/reputation warnings;
 the current Windows executable has no Authenticode signature. Linux desktop
 file execution/trust rules vary, and a noexec mount cannot run this ELF directly.
 No automatic insertion launch or universal double-click claim is justified.
-An exact existing USB Boot#### entry is required for direct restart; firmware
-that exposes only a generic USB path receives manual boot instructions.
-Windows applications can veto a requested restart after ExitWindowsEx returns;
-then BootNext may remain for the next restart. This never authorizes erasure.
+An exact existing USB Boot#### entry is required for Linux direct restart;
+firmware that exposes only a generic USB path receives manual boot instructions.
+Windows always receives manual boot instructions because a canceled shutdown
+could leave a one-time USB boot entry armed for a later restart.
 
 Native Windows Server runtime tests cover the actual Win32 read-only API and
 PowerShell inventory parser with simulated disks. They do not establish

@@ -1,11 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Google Cloud Build is the project's CI. GitHub Actions is not used."""
 
+import ast
+import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,7 +49,7 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     # Negative test temporarily patches safety.py, so every read-only source
     # consumer must finish before it runs and the ISO build must wait for the
     # restored tree.
-    assert "waitFor: ['python-tests', 'lint', 'preview']" in cfg
+    assert "waitFor: ['python-tests', 'lint', 'preview', 'desktop-launchers']" in cfg
     iso_at = cfg.find("  - id: iso-build\n")
     assert iso_at != -1
     assert "waitFor: ['negative-test', 'desktop-launchers']" in cfg[iso_at:qemu_at]
@@ -64,8 +69,13 @@ def test_hosted_gate_runs_full_pipeline_on_cloud_build():
     assert "--project=" in submit
     assert "beamo-wipe" in submit
     assert "--publish-release" in submit
-    assert 'SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_PUBLISH_RELEASE=false"' in submit
-    publisher = (ROOT / "scripts" / "publish_release_gcs.py").read_text(encoding="utf-8")
+    assert (
+        'SUBSTITUTIONS="${SUBSTITUTIONS:+$SUBSTITUTIONS,}_PUBLISH_RELEASE=false"'
+        in submit
+    )
+    publisher = (ROOT / "scripts" / "publish_release_gcs.py").read_text(
+        encoding="utf-8"
+    )
     assert 'os.environ.get("PUBLISH_RELEASE", "false")' in publisher
     assert "SKIP_ISO" in publisher and "SKIP_QEMU" in publisher
     assert '"ifGenerationMatch": "0"' in publisher
@@ -94,6 +104,70 @@ def test_github_actions_not_used():
     # Build is the gate. Templates and agent instructions are not CI.
     workflows = ROOT / ".github" / "workflows"
     assert not workflows.exists(), f"{workflows} must not exist"
+
+
+def test_desktop_bundle_rejects_stale_dirty_source(tmp_path):
+    """A desktop manifest bound only to HEAD and binary hashes can hide stale Go code."""
+    from scripts.build_desktop import desktop_source_digest, verify_desktop_bundle
+
+    desktop = tmp_path / "desktop"
+    web = desktop / "web"
+    web.mkdir(parents=True)
+    (desktop / "go.mod").write_text("module fake/desktop\n", encoding="utf-8")
+    go_source = desktop / "main.go"
+    go_source.write_text("package main\nfunc main() {}\n", encoding="utf-8")
+    (web / "index.html").write_text("<main>old</main>\n", encoding="utf-8")
+    output = tmp_path / "dist" / "desktop"
+    output.mkdir(parents=True)
+    names = ("Start Beamo Wipe.exe", "Start Beamo Wipe Linux")
+    binary_hashes = {}
+    for name in names:
+        data = ("fake binary: " + name).encode()
+        (output / name).write_bytes(data)
+        binary_hashes[name] = hashlib.sha256(data).hexdigest()
+    source_commit = "a" * 40
+    manifest = {
+        "source_commit": source_commit,
+        "source_sha256": desktop_source_digest(tmp_path),
+        "source_dirty": True,
+        "version": "0.2.9",
+        "go": "go1.26.8",
+        "files": binary_hashes,
+    }
+    (output / "desktop-build.json").write_text(json.dumps(manifest), encoding="utf-8")
+    verify_desktop_bundle(tmp_path, output, source_commit, "0.2.9", True)
+
+    go_source.write_text(
+        'package main\nfunc main() { println("changed") }\n', encoding="utf-8"
+    )
+    # The previous guard still sees the same HEAD and intact cached binaries.
+    assert manifest["source_commit"] == source_commit
+    assert all(
+        hashlib.sha256((output / name).read_bytes()).hexdigest() == binary_hashes[name]
+        for name in names
+    )
+    with pytest.raises(RuntimeError, match="source"):
+        verify_desktop_bundle(tmp_path, output, source_commit, "0.2.9", True)
+
+
+def test_shipped_usb_readme_uses_windows_manual_boot_route():
+    build = (ROOT / "scripts" / "build-iso.sh").read_text(encoding="utf-8")
+    assert "stage_live_assets.py" in build
+    script = ast.parse(
+        (ROOT / "scripts" / "stage_live_assets.py").read_text(encoding="utf-8")
+    )
+    readme = next(
+        node.value.value
+        for node in script.body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "README"
+            for target in node.targets
+        )
+    )
+    assert "On Windows:" in readme
+    assert "boot menu" in readme
+    assert "permission prompt" not in readme
 
 
 def test_release_publisher_is_default_off_and_rejects_skipped_gates():
@@ -159,6 +233,122 @@ def test_cloud_submit_rejects_hidden_or_wrong_project_publication():
     assert "restricted to gcp project beamo-wipe" in wrong_project.stderr.lower()
 
 
+def test_cloud_submit_verifies_dirty_checkout_without_enabling_publication(tmp_path):
+    """A precommit gate must upload the edited source and mark its provenance dirty."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    real_git = shutil.which("git")
+    assert real_git is not None
+    fake_git = fake_bin / "git"
+    fake_git.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = status ] && [ "$2" = --porcelain ]; then\n'
+        "  printf ' M src/beamo_wipe/wizard.py\\n'\n"
+        "  exit 0\n"
+        "fi\n"
+        f'exec "{real_git}" "$@"\n',
+        encoding="utf-8",
+    )
+    fake_git.chmod(0o755)
+    fake_gcloud = fake_bin / "gcloud"
+    fake_gcloud.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        'Path(os.environ["FAKE_GCLOUD_CALLS"]).write_text(json.dumps(sys.argv[1:]))\n',
+        encoding="utf-8",
+    )
+    fake_gcloud.chmod(0o755)
+    calls = tmp_path / "calls.json"
+    env = os.environ.copy()
+    env.pop("SUBSTITUTIONS", None)
+    env.update(
+        PATH=f"{fake_bin}{os.pathsep}{env['PATH']}", FAKE_GCLOUD_CALLS=str(calls)
+    )
+    script = ROOT / "scripts/ci-cloud.sh"
+    verification = subprocess.run(
+        ["bash", str(script)],
+        cwd=ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert verification.returncode == 0, verification.stderr
+    args = json.loads(calls.read_text())
+    assert "--substitutions=_PUBLISH_RELEASE=false,_ALLOW_DIRTY=1" in args
+
+    calls.unlink()
+    publication = subprocess.run(
+        ["bash", str(script), "--publish-release"],
+        cwd=ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert publication.returncode == 2
+    assert "uncommitted source" in publication.stderr.lower()
+    assert not calls.exists()
+
+
+def test_cloud_dirty_verification_is_explicit_and_not_a_release_override():
+    config = (ROOT / "cloudbuild.yaml").read_text(encoding="utf-8")
+    assert '_ALLOW_DIRTY: "0"' in config
+    iso = config.split("  - id: iso-build\n", 1)[1].split("  - id: qemu-verify\n", 1)[0]
+    qemu = config.split("  - id: qemu-verify\n", 1)[1].split(
+        "  - id: publish-release\n", 1
+    )[0]
+    assert "ALLOW_DIRTY=${_ALLOW_DIRTY}" in iso
+    assert "ALLOW_DIRTY=${_ALLOW_DIRTY}" in qemu
+    assert (
+        "ALLOW_DIRTY=${_ALLOW_DIRTY}"
+        not in config.split("  - id: publish-release\n", 1)[1]
+    )
+    for name in ("build-usb-image.sh", "qemu-verify.sh"):
+        assert (
+            'allow_dirty=os.environ.get("ALLOW_DIRTY") == "1"'
+            in (ROOT / "scripts" / name).read_text()
+        )
+
+
+def test_cloud_skip_iso_also_skips_dependent_qemu(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_gcloud = fake_bin / "gcloud"
+    fake_gcloud.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        'Path(os.environ["FAKE_GCLOUD_CALLS"]).write_text(json.dumps(sys.argv[1:]))\n',
+        encoding="utf-8",
+    )
+    fake_gcloud.chmod(0o755)
+    calls = tmp_path / "calls.json"
+    env = os.environ.copy()
+    env.pop("SUBSTITUTIONS", None)
+    env.update(
+        PATH=f"{fake_bin}{os.pathsep}{env['PATH']}", FAKE_GCLOUD_CALLS=str(calls)
+    )
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/ci-cloud.sh"), "--skip-iso"],
+        cwd=ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    args = json.loads(calls.read_text())
+    values = next(
+        arg.split("=", 1)[1] for arg in args if arg.startswith("--substitutions=")
+    )
+    substitutions = dict(item.split("=", 1) for item in values.split(","))
+    assert substitutions["_SKIP_ISO"] == "true"
+    assert substitutions["_SKIP_QEMU"] == "true"
+    assert substitutions["_PUBLISH_RELEASE"] == "false"
+
+
 def test_cloud_triggers_cover_prs_and_main():
     text = (ROOT / "scripts" / "install-cloud-triggers.sh").read_text(encoding="utf-8")
     assert "beamo-wipe-pr-gate" in text
@@ -219,19 +409,25 @@ if args[:3] == ["builds", "triggers", "describe"]:
         assert completed.returncode == 0, completed.stderr
         recorded = [json.loads(line) for line in calls.read_text().splitlines()]
         mutations = [
-            args
-            for args in recorded
-            if args[:3] == ["builds", "triggers", verb]
+            args for args in recorded if args[:3] == ["builds", "triggers", verb]
         ]
         assert len(mutations) == (2 if verb == "create" else 4)
-        structural = [args for args in mutations if "--build-config=cloudbuild.yaml" in args]
+        structural = [
+            args for args in mutations if "--build-config=cloudbuild.yaml" in args
+        ]
         assert len(structural) == 2
-        assert all(f"--service-account={service_account}" in args for args in structural)
+        assert all(
+            f"--service-account={service_account}" in args for args in structural
+        )
         mutation_text = [" ".join(args) for args in mutations]
         assert any("beamo-wipe-pr-gate" in args for args in mutation_text)
         assert any("beamo-wipe-main-gate" in args for args in mutation_text)
-        pr_calls = [args for args in mutations if "beamo-wipe-pr-gate" in " ".join(args)]
-        main_calls = [args for args in mutations if "beamo-wipe-main-gate" in " ".join(args)]
+        pr_calls = [
+            args for args in mutations if "beamo-wipe-pr-gate" in " ".join(args)
+        ]
+        main_calls = [
+            args for args in mutations if "beamo-wipe-main-gate" in " ".join(args)
+        ]
         pr_subs = "_SKIP_QEMU=true,_SKIP_ISO=false,_PUBLISH_RELEASE=false"
         main_subs = "_SKIP_QEMU=false,_SKIP_ISO=false,_PUBLISH_RELEASE=false"
         substitution_flag = (
@@ -310,6 +506,55 @@ def test_cloud_submit_uploads_git_metadata():
     assert ".ci-cache/" in rules
     staged = "packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/"
     assert staged in rules
+
+
+def test_cloud_upload_excludes_local_captures_and_env_files(tmp_path):
+    gcloud = shutil.which("gcloud")
+    if gcloud is None:
+        pytest.skip("gcloud CLI is unavailable")
+    upload = tmp_path / "upload"
+    upload.mkdir()
+    for name in (".gcloudignore", ".gitignore"):
+        (upload / name).write_bytes((ROOT / name).read_bytes())
+    paths = (
+        ".git/HEAD",
+        ".env",
+        ".env.local",
+        ".playwright-mcp/private-page.png",
+        ".mypy_cache/cache.db",
+        ".ruff_cache/cache.db",
+        "packaging/live/config/includes.binary/START-HERE.html",
+        "packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot",
+    )
+    for name in paths:
+        path = upload / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("fake fixture\n", encoding="utf-8")
+    env = dict(os.environ)
+    env["CLOUDSDK_CONFIG"] = str(tmp_path / "gcloud-config")
+    env["CLOUDSDK_GCLOUDIGNORE_ENABLED"] = "true"
+    proc = subprocess.run(
+        [gcloud, "meta", "list-files-for-upload", str(upload)],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+    assert proc.returncode == 0, proc.stderr
+    uploaded = set(proc.stdout.splitlines())
+    assert ".git/HEAD" in uploaded
+    assert "packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot" in uploaded
+    assert (
+        not (
+            set(paths)
+            - {
+                ".git/HEAD",
+                "packaging/live/config/hooks/normal/0500-build-nwipe.hook.chroot",
+            }
+        )
+        & uploaded
+    )
 
 
 def test_hosted_python_tests_install_git_for_fail_closed_manifest():

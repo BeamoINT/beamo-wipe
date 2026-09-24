@@ -7,6 +7,7 @@ from typing import Callable
 import os
 import subprocess
 import sys
+import threading
 
 import gi
 
@@ -87,6 +88,8 @@ class AccessibleWizard:
         self.shown = None
         self.report_revision = -1
         self.actions: dict[str, Gtk.Button] = {}
+        self._refresh_lock = threading.Lock()
+        self._refresh_result: tuple[int, object] | None = None
         self.render()
         self.timer = GLib.timeout_add(100, self.tick)
 
@@ -684,7 +687,7 @@ class AccessibleWizard:
         elif screen == Screen.REFRESH_CONFIRM:
             heading.set_text(C.TITLE_REFRESH)
             self.label(C.REFRESH_LEAD, focusable=True)
-            self.button(C.BTN_REFRESH, self.w.confirm_refresh)
+            self.button(C.BTN_REFRESH, self._begin_refresh_scan)
             self.button(C.BTN_BACK, self.w.back)
         elif screen == Screen.SHUTDOWN_CONFIRM:
             heading.set_text(self.w.exit_confirmation_title)
@@ -1031,7 +1034,56 @@ class AccessibleWizard:
             if changed and message:
                 self.error_label.grab_focus()
 
+    def _begin_refresh_scan(self) -> bool:
+        """Keep GTK and Orca responsive while inventory I/O runs."""
+        seq = self.w.begin_refresh()
+        if seq is None:
+            return False
+        launch_decided = threading.Event()
+        launch_allowed = [False]
+
+        def run_if_launched() -> None:
+            launch_decided.wait()
+            if launch_allowed[0]:
+                self._refresh_worker(seq)
+
+        try:
+            threading.Thread(
+                target=run_if_launched,
+                name=f"beamo-accessible-refresh-{seq}",
+                daemon=True,
+            ).start()
+        except BaseException as exc:
+            # Thread.start may be interrupted after the OS thread exists.
+            # It must never scan after this claimed refresh was abandoned.
+            launch_decided.set()
+            self.w.finish_refresh(seq, exc)
+            return True
+        launch_allowed[0] = True
+        launch_decided.set()
+        return True
+
+    def _refresh_worker(self, seq: int) -> None:
+        try:
+            outcome = self.w._run_rediscovery()
+        except BaseException as exc:
+            outcome = exc
+        # The GTK timer applies the result; the worker never calls GTK or
+        # mutates wizard state. Close may discard this daemon's final result.
+        with self._refresh_lock:
+            self._refresh_result = (seq, outcome)
+
+    def _drain_refresh_result(self) -> None:
+        with self._refresh_lock:
+            pending = self._refresh_result
+            self._refresh_result = None
+        if pending is not None:
+            self.w.finish_refresh(*pending)
+
     def tick(self):
+        if self.closed:
+            return False
+        self._drain_refresh_result()
         self.w.tick()
         if self.w.wants_shutdown or self.w.wants_new_session:
             self.close()
@@ -1072,7 +1124,7 @@ class AccessibleWizard:
             return True
         if key == Gdk.KEY_F5 and self.w.can_refresh:
             if self.w.screen == Screen.REFRESH_CONFIRM:
-                self.w.confirm_refresh()
+                self._begin_refresh_scan()
             else:
                 self.w.open_refresh_confirm()
             self.render()
@@ -1118,16 +1170,16 @@ class AccessibleWizard:
             Gtk.main_quit()
 
     def _runtime_failure(self, _kind, error, _traceback):
-        from beamo_wipe.diagnostics import log_diag
-
         self.failed = True
         try:
+            from beamo_wipe.diagnostics import log_diag
+
             log_diag("ui", "accessible_runtime_failed", type(error).__name__)
-        except Exception:
+        except BaseException:
+            # Logging is optional; losing it must never release a live erase.
             pass
         try:
-            if self.w.screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
-                self.w.interface_failed()
+            self.w.settle_failed_interface()
         finally:
             self.close()
 

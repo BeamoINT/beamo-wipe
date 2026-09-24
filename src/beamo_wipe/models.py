@@ -147,6 +147,9 @@ class WipeRequest:
     # disk_identity() at confirmation. The device number of /dev/sdX does not
     # change when a different disk reuses that name, so exec rechecks this.
     device_identity: tuple = ()
+    # The same hotplug/path-reuse check also applies to the boot medium before
+    # nwipe receives --exclude for its /dev path.
+    boot_identity: tuple = ()
 
 
 @dataclass(frozen=True)

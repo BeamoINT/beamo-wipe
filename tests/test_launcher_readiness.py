@@ -28,8 +28,12 @@ def browser_cases(tmp_path_factory):
         browser.close()
 
 
-def open_launcher(browser, value, size=(1024, 900), restart_status=200):
+def open_launcher(browser, value, size=(1024, 900), restart_status=200, storage_denied=False):
     page = browser.new_page(viewport={"width": size[0], "height": size[1]})
+    if storage_denied:
+        page.add_init_script("""Object.defineProperty(window, 'sessionStorage', {
+          configurable: true, get() { throw new DOMException('blocked', 'SecurityError'); }
+        });""")
     calls = []
     responses = {"check": value, "state": {"preview": False}}
 
@@ -52,6 +56,115 @@ def open_launcher(browser, value, size=(1024, 900), restart_status=200):
     page.goto("http://launcher.test/#" + "a" * 64)
     page.wait_for_function("document.querySelector('#readiness').getAttribute('aria-busy') === 'false'")
     return page, calls, responses
+
+
+def test_launcher_token_survives_help_reload_and_unavailable_storage():
+    """Exercise the shipped token bootstrap without probing disks or firmware."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js is needed for the launcher JavaScript bootstrap test")
+    script = r"""
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const source = fs.readFileSync(process.argv[1], "utf8");
+const end = source.indexOf("let busy = false;");
+assert.ok(end > 0, "launcher bootstrap boundary missing");
+const bootstrap = source.slice(0, end) + "\nglobalThis.observedToken = token;";
+const expected = "a".repeat(64);
+const saved = new Map();
+function load(fragment, storageDenied = false, priorHistoryState = null) {
+  let hash = fragment;
+  let state = priorHistoryState;
+  let onHashChange = null;
+  const context = {
+    location: {get hash() { return hash; }, pathname: "/", search: ""},
+    history: {
+      get state() { return state; },
+      replaceState(nextState, _title, url) {
+        state = nextState;
+        if (url !== undefined) {
+          assert.equal(url, "/");
+          hash = "";
+        }
+      }
+    },
+    window: {addEventListener(name, fn) {
+      if (name === "hashchange") onHashChange = fn;
+    }}
+  };
+  if (storageDenied) {
+    Object.defineProperty(context, "sessionStorage", {get() { throw Error("storage denied"); }});
+  } else {
+    context.sessionStorage = {
+      getItem(key) { return saved.get(key) || null; },
+      setItem(key, value) { saved.set(key, value); }
+    };
+  }
+  vm.runInNewContext(bootstrap, context);
+  return {
+    token: context.observedToken,
+    get hash() { return hash; },
+    get state() { return state; },
+    navigate(nextHash) {
+      hash = nextHash;
+      state = null; // A fragment navigation can create a new history entry.
+      if (onHashChange) onHashChange();
+    }
+  };
+}
+assert.equal(load("#" + expected).token, expected);
+assert.equal(saved.get("beamo-session"), expected);
+assert.equal(load("#trouble-usb").token, expected,
+             "a help anchor must not override the stored session token");
+const firstRestricted = load("#" + expected, true);
+assert.equal(firstRestricted.token, expected);
+assert.equal(firstRestricted.hash, "#" + expected,
+             "keep the token fragment when storage cannot preserve it");
+assert.equal(load(firstRestricted.hash, true).token, expected,
+             "reload must keep working when browser storage is unavailable");
+firstRestricted.navigate("#trouble-usb");
+assert.equal(firstRestricted.hash, "#trouble-usb");
+assert.equal(load(firstRestricted.hash, true, firstRestricted.state).token, expected,
+             "help anchor and reload must retain the session when storage is unavailable");
+"""
+    subprocess.run([node, "-e", script, str(ROOT / "desktop/web/app.js")],
+                   check=True, capture_output=True, text=True)
+
+
+def test_help_anchor_reload_keeps_launcher_session(browser_cases):
+    browser, fixtures = browser_cases
+    page, calls, _ = open_launcher(browser, fixtures["pass"])
+    try:
+        page.locator("#help summary").click()
+        page.locator('.chooser a[href="#trouble-usb"]').click()
+        assert page.url.endswith("#trouble-usb")
+        page.reload()
+        page.wait_for_function("document.querySelector('#readiness').getAttribute('aria-busy') === 'false'")
+        assert page.locator("#confirm").is_visible()
+        assert calls.count("check") == 2
+        assert page.locator("#status").get_attribute("class") != "error"
+    finally:
+        page.close()
+
+
+def test_help_anchor_reload_with_storage_denied(browser_cases):
+    browser, fixtures = browser_cases
+    page, calls, _ = open_launcher(browser, fixtures["pass"], storage_denied=True)
+    try:
+        expected = "a" * 64
+        assert page.url.endswith("#" + expected)
+        page.locator("#help summary").click()
+        page.locator('.chooser a[href="#trouble-usb"]').click()
+        page.wait_for_function("history.state && history.state.beamoToken === '" + expected + "'")
+        assert page.url.endswith("#trouble-usb")
+        page.reload()
+        page.wait_for_function("document.querySelector('#readiness').getAttribute('aria-busy') === 'false'")
+        assert page.evaluate("token") == expected
+        assert page.locator("#confirm").is_visible()
+        assert calls.count("check") == 2
+    finally:
+        page.close()
 
 
 @pytest.mark.parametrize("case", ["pass", "partial", "fail", "unsupported", "permission", "legacy", "pending", "unattended", "live", "timeout", "cancelled"])

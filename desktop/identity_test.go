@@ -72,6 +72,27 @@ func TestInvalidIdentityJSONIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestUSBIdentityRejectsTrailingJSONTokens(t *testing.T) {
+	origCommit := sourceCommit
+	t.Cleanup(func() { sourceCommit = origCommit })
+	sourceCommit = strings.Repeat("a", 40)
+	root := mediaFixture(t)
+	payload, _ := json.Marshal(injectedIdentity{
+		SourceCommit: sourceCommit,
+		SourceSHA256: strings.Repeat("b", 64),
+		BuildID:      "12345678-1234-1234-1234-123456789abc",
+	})
+	for _, suffix := range []string{"}", "]", `{"extra":true}`} {
+		t.Run(suffix, func(t *testing.T) {
+			fixtureFile(t, root, "build-identity.json", string(payload)+suffix)
+			got := loadUSBIdentity(filepath.Join(root, "app"))
+			if got.Manufactured || got.Status != "unavailable" {
+				t.Fatalf("accepted trailing JSON %q: %+v", suffix, got)
+			}
+		})
+	}
+}
+
 func TestPlanViewAlwaysIncludesIdentity(t *testing.T) {
 	v := planView(Plan{Direct: true}, false)
 	if v.IdentityLabel == "" || v.BuildStatus == "" || v.Version == "" {

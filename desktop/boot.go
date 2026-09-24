@@ -40,6 +40,83 @@ func guidString(b []byte) string {
 	return fmt.Sprintf("%08x-%04x-%04x-%x-%x", binary.LittleEndian.Uint32(b), binary.LittleEndian.Uint16(b[4:]), binary.LittleEndian.Uint16(b[6:]), b[8:10], b[10:16])
 }
 
+// UEFI 2.10 section 10.3 defines each supported prefix node's subtype and
+// size. A generic four-byte header is not a complete PCI, ACPI or USB node.
+// Unknown nodes stay unsupported because this parser authorizes BootNext.
+func validBootPrefix(node []byte) bool {
+	length := len(node)
+	switch node[0] {
+	case 1: // Hardware Device Path
+		switch node[1] {
+		case 1: // PCI: function, device
+			return length == 6 && node[4] < 8 && node[5] < 32
+		case 2: // PCCARD
+			return length == 5
+		case 3: // Memory mapped
+			return length == 24
+		case 4: // Vendor GUID and optional vendor data
+			return length >= 20
+		case 5: // Controller
+			return length == 8
+		case 6: // BMC interface and address
+			return length == 13 && node[4] <= 3
+		}
+	case 2: // ACPI Device Path
+		switch node[1] {
+		case 1: // Numeric HID and UID
+			return length == 12
+		case 2: // Numeric HID/UID/CID, then three NUL-terminated strings
+			if length < 19 || node[length-1] != 0 || bytes.Count(node[16:], []byte{0}) != 3 {
+				return false
+			}
+			for _, b := range node[16:] {
+				if b != 0 && (b < 32 || b > 126) {
+					return false
+				}
+			}
+			return true
+		case 3: // One or more four-byte ADR values
+			return length >= 8 && (length-4)%4 == 0
+		case 4: // NVDIMM device handle
+			return length == 8
+		}
+	case 3: // Messaging Device Path, storage-related subtypes
+		switch node[1] {
+		case 1: // ATAPI
+			return length == 8 && node[4] <= 1 && node[5] <= 1
+		case 2, 6: // SCSI, I2O
+			return length == 8
+		case 3, 21: // Fibre Channel, Fibre Channel Ex
+			return length == 24
+		case 4: // IEEE 1394
+			return length == 16
+		case 5: // USB port and interface
+			return length == 6
+		case 10: // Vendor GUID and optional device-specific data
+			return length >= 20
+		case 15: // USB class
+			return length == 11
+		case 16: // USB WWID with a nonempty UTF-16 serial, at most 64 code units
+			return length >= 12 && length <= 138 && length%2 == 0
+		case 18: // SATA
+			return length == 10 && binary.LittleEndian.Uint16(node[4:]) != 0xffff
+		case 22: // SAS Ex
+			return length == 32
+		case 23: // NVMe namespace
+			if length != 16 {
+				return false
+			}
+			nsid := binary.LittleEndian.Uint32(node[4:])
+			return nsid != 0 && nsid != 0xffffffff
+		case 25: // UFS
+			return length == 6
+		case 26, 29: // SD, eMMC
+			return length == 5
+		}
+	}
+	return false
+}
+
 // EFI structures are untrusted firmware data. Accept one complete, active,
 // unambiguous disk/file path to the shipped removable-media loader only.
 func parseBootOption(data []byte) (string, error) {
@@ -111,8 +188,8 @@ func parseBootOption(data []byte) (string, error) {
 			}
 			ended = true
 		default:
-			// Hardware, ACPI and messaging nodes may precede the disk path.
-			if id != "" || node[0] < 1 || node[0] > 3 {
+			// Hardware, ACPI and storage messaging nodes may precede the disk.
+			if id != "" || !validBootPrefix(node) {
 				return "", bad
 			}
 		}
@@ -127,6 +204,16 @@ func makePlan(s Snapshot) Plan {
 	p := restartPlan(s)
 	p.checks, p.technical = explainReadiness(s, p)
 	return p
+}
+
+// Windows can cancel an ExitWindowsEx reboot after it reports success. Keep
+// BootNext untouched on that host, including if a probe accidentally returns
+// an otherwise complete snapshot.
+func makePlanForHost(s Snapshot, host string) Plan {
+	if host == "windows" && s.Problem == "" {
+		s.Problem = "windows-manual"
+	}
+	return makePlan(s)
 }
 
 func restartPlan(s Snapshot) Plan {
@@ -180,7 +267,9 @@ func restartPlan(s Snapshot) Plan {
 
 type firmware interface {
 	read(string) ([]byte, error)
-	write(string, []byte) error
+	// write reports whether this attempt created BootNext. A failed exclusive
+	// create must not authorize cleanup of another writer's request.
+	write(string, []byte) (bool, error)
 	remove(string) error
 }
 
@@ -212,9 +301,12 @@ func restartOnce(f firmware, p Plan, reboot func() error) error {
 		}
 		return nil
 	}
-	if err := f.write("BootNext", want); err != nil {
-		if undo := rollback(); undo != nil {
-			return undo
+	created, err := f.write("BootNext", want)
+	if err != nil {
+		if created {
+			if undo := rollback(); undo != nil {
+				return undo
+			}
 		}
 		return errors.New("restart request could not be written")
 	}

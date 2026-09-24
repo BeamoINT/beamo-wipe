@@ -28,6 +28,7 @@ from typing import TypeGuard, Any, Callable, Iterable, Mapping, Optional, Sequen
 from beamo_wipe.discover import run_lsblk
 from beamo_wipe.evidence import _verified_evidence_bytes
 from beamo_wipe.models import Disk, DiscoveryResult
+from beamo_wipe.nwipe_runner import NWIPE_COMPLETION_LOG_BYTES, NWIPE_PROGRESS_LOG_BYTES
 from beamo_wipe.safety import CLEAN_SUBPROCESS_ENV, SafetyError
 
 
@@ -814,6 +815,8 @@ def _refuse_duplicate_wwns(roots: Sequence[Mapping[str, Any]]) -> None:
 
 
 def _root_disks(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    if not isinstance(payload, Mapping):
+        raise SafetyError(DISCOVERY_MALFORMED)
     devices = payload.get("blockdevices")
     if not isinstance(devices, list) or any(not isinstance(node, dict) for node in devices):
         raise SafetyError(DISCOVERY_MALFORMED)
@@ -933,24 +936,44 @@ def select_export_volume(
 
 def prepare_terminal_evidence(path: Path, target_path: str) -> VerifiedEvidence:
     data = _verified_evidence_bytes(Path(path))
+    from beamo_wipe.evidence import SUPPORTED_SCHEMA_VERSIONS, _unique_evidence_fields
+
     try:
-        payload = json.loads(data.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        payload = json.loads(
+            data.decode("utf-8"), object_pairs_hook=_unique_evidence_fields
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, SafetyError, RecursionError) as exc:
         raise SafetyError(EVIDENCE_MALFORMED) from exc
-    from beamo_wipe.evidence import SUPPORTED_SCHEMA_VERSIONS
 
     if (
         not isinstance(payload, dict)
-        or payload.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS
+        or type(payload.get("schema_version")) is not int
+        or payload["schema_version"] not in SUPPORTED_SCHEMA_VERSIONS
     ):
         raise SafetyError(EVIDENCE_SCHEMA)
     outcome = payload.get("outcome")
-    if outcome not in TERMINAL_OUTCOMES:
+    if not isinstance(outcome, str) or outcome not in TERMINAL_OUTCOMES:
         raise SafetyError(EVIDENCE_NOT_FINISHED)
+    if outcome in {"verified", "completed"}:
+        # A checksum authenticates bytes, not the claim they make. The result
+        # JSON and the owner-facing report must agree before either is copied.
+        from beamo_wipe.outcomes import present_evidence
+
+        expected_code = "verified" if outcome == "verified" else "unverified"
+        if present_evidence(payload).code != expected_code:
+            raise SafetyError(EVIDENCE_MALFORMED)
     device = payload.get("device")
-    if not isinstance(device, dict) or not isinstance(device.get("path"), str):
+    if (
+        not isinstance(device, dict)
+        or not isinstance(device.get("path"), str)
+        or not ROOT_PATH_RE.fullmatch(device["path"])
+    ):
         raise SafetyError(EVIDENCE_NO_IDENTITY)
-    if os.path.realpath(device["path"]) != os.path.realpath(target_path):
+    try:
+        matches_target = os.path.realpath(device["path"]) == os.path.realpath(target_path)
+    except (OSError, ValueError) as exc:
+        raise SafetyError(EVIDENCE_NO_IDENTITY) from exc
+    if not matches_target:
         raise SafetyError(EVIDENCE_WRONG_DISK)
     provenance = payload.get("provenance")
     if not isinstance(provenance, dict) or provenance.get("evidence_file") != str(path):
@@ -973,6 +996,29 @@ def prepare_terminal_evidence(path: Path, target_path: str) -> VerifiedEvidence:
         or bool(log_sha256) != bool(log_size_bytes)
     ):
         raise SafetyError(EVIDENCE_LOG_META)
+    from beamo_wipe.outcomes import present_evidence
+
+    claim = present_evidence(payload).code
+    if claim in {"occupied", "open_failed", "geometry_unusable"}:
+        # These views tell the owner that nothing was erased. Unlike other
+        # failures, their original negative marker must still be available.
+        from beamo_wipe.nwipe_runner import completion_for_method
+
+        snapshot, status = read_export_log(
+            logfile,
+            expected_sha256=log_sha256,
+            expected_size_bytes=log_size_bytes,
+        )
+        if status not in {"complete", "tail"}:
+            raise SafetyError(EVIDENCE_LOG_META)
+        ok, _detail, reason = completion_for_method(
+            payload["exit_evidence"]["exit_code"],
+            snapshot.decode("utf-8"),
+            device["path"],
+            payload["method"]["id"],
+        )
+        if ok or reason != claim:
+            raise SafetyError(EVIDENCE_LOG_META)
     return VerifiedEvidence(
         data=data,
         sha256=hashlib.sha256(data).hexdigest(),
@@ -1032,6 +1078,13 @@ def read_export_log(
         # Evidence hashes the UTF-8 text that the runner used for completion
         # parsing. Recreate that normalization, then authenticate the exact
         # suffix and export no mutable bytes on any mismatch.
+        for capture_bytes in (NWIPE_COMPLETION_LOG_BYTES, NWIPE_PROGRESS_LOG_BYTES):
+            capture_tail = raw_data[-capture_bytes:]
+            capture_data = capture_tail.decode("utf-8", errors="replace").encode("utf-8")
+            if (len(capture_data) == expected_size_bytes
+                    and hashlib.sha256(capture_data).hexdigest() == expected_sha256):
+                complete = not truncated and before.st_size <= capture_bytes
+                return capture_data, "complete" if complete else "tail"
         normalized = raw_data.decode("utf-8", errors="replace").encode("utf-8")
         if expected_size_bytes > len(normalized):
             return b"", "unavailable"
@@ -1045,7 +1098,11 @@ def read_export_log(
         # it just like a failed open, without blocking the evidence export.
         return b"", "unavailable"
     finally:
-        os.close(fd)
+        try:
+            os.close(fd)
+        except OSError:
+            # A failed close also makes the optional log read untrustworthy.
+            return b"", "unavailable"
 
 
 def _block_rdev(path: str) -> int:
@@ -1284,6 +1341,24 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
         expected_sha256=evidence.log_sha256,
         expected_size_bytes=evidence.log_size_bytes,
     )
+    if evidence.outcome == "failed":
+        claim = json.loads(evidence.data)
+        from beamo_wipe.outcomes import present_evidence
+
+        code = present_evidence(claim).code
+        if code in {"occupied", "open_failed", "geometry_unusable"}:
+            if log_status not in {"complete", "tail"}:
+                raise SafetyError(EVIDENCE_LOG_META)
+            from beamo_wipe.nwipe_runner import completion_for_method
+
+            ok, _detail, reason = completion_for_method(
+                claim["exit_evidence"]["exit_code"],
+                log_data.decode("utf-8"),
+                claim["device"]["path"],
+                claim["method"]["id"],
+            )
+            if ok or reason != code:
+                raise SafetyError(EVIDENCE_LOG_META)
     request = json.dumps(
         _request_dict(
             evidence,
@@ -1328,7 +1403,9 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
     if proc.returncode != 0 or len(proc.stdout or "") > 8192:
         raise SafetyError(HELPER_FAILED)
     try:
-        raw = json.loads((proc.stdout or "").strip())
+        raw = json.loads(
+            (proc.stdout or "").strip(), object_pairs_hook=_unique_request_fields
+        )
         if (
             not isinstance(raw, dict)
             or set(raw) != RECEIPT_KEYS
@@ -1566,6 +1643,21 @@ def _bundle_files(
     return files
 
 
+def _close_directory_fds(*fds: int) -> None:
+    """Close every owned directory even if an earlier close reports an error."""
+    first_error: BaseException | None = None
+    for fd in fds:
+        if fd < 0:
+            continue
+        try:
+            os.close(fd)
+        except BaseException as exc:
+            if first_error is None:
+                first_error = exc
+    if first_error is not None:
+        raise first_error
+
+
 def write_report_bundle(
     mountpoint: Path,
     evidence: bytes,
@@ -1629,11 +1721,7 @@ def write_report_bundle(
         os.fsync(mount_fd)
         return chosen, files
     finally:
-        if session_fd >= 0:
-            os.close(session_fd)
-        if reports_fd >= 0:
-            os.close(reports_fd)
-        os.close(mount_fd)
+        _close_directory_fds(session_fd, reports_fd, mount_fd)
 
 
 def verify_report_bundle(mountpoint: Path, session_name: str, files: Mapping[str, bytes]) -> None:
@@ -1651,11 +1739,7 @@ def verify_report_bundle(mountpoint: Path, session_name: str, files: Mapping[str
             if _read_at(directory_fd, name, limit=len(expected)) != expected:
                 raise SafetyError(REPORT_READBACK_FAILED)
     finally:
-        if directory_fd >= 0:
-            os.close(directory_fd)
-        if reports_fd >= 0:
-            os.close(reports_fd)
-        os.close(mount_fd)
+        _close_directory_fds(directory_fd, reports_fd, mount_fd)
 
 
 def _mount_record(mountpoint: Path) -> Optional[tuple[str, str, str, frozenset[str]]]:
@@ -1734,6 +1818,15 @@ def _ordinary_unmount(mountpoint: Path, volume: ExportVolume) -> bool:
     return proc.returncode == 0 and _mount_record(mountpoint) is None
 
 
+def _unique_request_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate report request field")
+        result[key] = value
+    return result
+
+
 def _decode_worker_request(
     raw: bytes,
 ) -> tuple[
@@ -1748,7 +1841,9 @@ def _decode_worker_request(
     if not raw or len(raw) > MAX_REQUEST_BYTES:
         raise SafetyError(REQUEST_SIZE_INVALID)
     try:
-        payload = json.loads(raw.decode("utf-8"))
+        payload = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_request_fields
+        )
         if not isinstance(payload, dict) or set(payload) != {
             "evidence",
             "evidence_sha256",
@@ -1761,6 +1856,11 @@ def _decode_worker_request(
         }:
             raise TypeError("unexpected request fields")
         evidence_data = base64.b64decode(payload["evidence"], validate=True)
+        evidence_payload = json.loads(
+            evidence_data, object_pairs_hook=_unique_request_fields
+        )
+        if not isinstance(evidence_payload, dict):
+            raise TypeError("report evidence must be an object")
         log_data = base64.b64decode(payload["log"], validate=True)
         volume_raw = dict(payload["volume"])
         parent = DeviceFingerprint(**volume_raw.pop("parent"))
@@ -1790,16 +1890,17 @@ def _decode_worker_request(
     evidence_hash = hashlib.sha256(evidence_data).hexdigest()
     if payload.get("evidence_sha256") != evidence_hash:
         raise SafetyError(REQUEST_CHECKSUM)
-    try:
-        is_diagnostic = json.loads(evidence_data).get("report_type") == "startup_diagnostic"
-    except (ValueError, AttributeError):
-        is_diagnostic = False
+    is_diagnostic = evidence_payload.get("report_type") == "startup_diagnostic"
     if is_diagnostic:
         from beamo_wipe.diagnostic_report import validate_report
         validate_report(evidence_data)
         if log_data or log_status != "unavailable":
             raise SafetyError(DIAG_NO_RAW_LOGS)
-    if log_status not in {"complete", "tail", "unavailable"}:
+    if not isinstance(log_status, str) or log_status not in {
+        "complete",
+        "tail",
+        "unavailable",
+    }:
         raise SafetyError(LOG_STATUS_MALFORMED)
     if (log_status == "unavailable") != (not log_data):
         raise SafetyError(LOG_PAYLOAD_MALFORMED)

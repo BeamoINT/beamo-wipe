@@ -21,9 +21,37 @@ for output in "$OUT" "$OUT.sha256" "$OUT.json"; do
     echo 'Unused image and sidecar output paths are required.' >&2; exit 2;
   }
 done
-PYTHONPATH="$ROOT/src" python3 -c 'import pathlib,sys; from beamo_wipe.release_manifest import verify_build_manifest; verify_build_manifest(pathlib.Path(sys.argv[1]))' "$ROOT/dist/beamo-wipe-${VERSION}-amd64.manifest.json"
+PYTHONPATH="$ROOT/src" python3 -c 'import os,pathlib,sys; from beamo_wipe.release_manifest import verify_build_manifest; verify_build_manifest(pathlib.Path(sys.argv[1]), allow_dirty=os.environ.get("ALLOW_DIRTY") == "1")' "$ROOT/dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 TMP_IMAGE="$(mktemp -d /tmp/beamo-wipe-usb.XXXXXX)"
-trap 'rm -rf -- "$TMP_IMAGE"' EXIT
+# Keep the final image on the output filesystem so publication can use
+# no-overwrite hard links. A failed assembly or readback must leave no final
+# image that would block a safe retry.
+OUTPUT_STAGE=""
+published_image=0
+published_sha=0
+published_json=0
+remove_owned_link() {
+  local staged="$1" published="$2"
+  # A concurrent writer may replace a published path before a later link
+  # fails. The staged inode is our ownership receipt; never unlink a changed
+  # path or a symlink solely because this process published the old name.
+  if [[ -f "$staged" && ! -L "$published" && "$staged" -ef "$published" ]]; then
+    rm -f -- "$published"
+  fi
+}
+cleanup() {
+  rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    [[ "$published_json" -eq 0 ]] || remove_owned_link "$STAGED_OUT.json" "$OUT.json"
+    [[ "$published_sha" -eq 0 ]] || remove_owned_link "$STAGED_OUT.sha256" "$OUT.sha256"
+    [[ "$published_image" -eq 0 ]] || remove_owned_link "$STAGED_OUT" "$OUT"
+  fi
+  rm -rf -- "$TMP_IMAGE"
+  [[ -z "$OUTPUT_STAGE" ]] || rm -rf -- "$OUTPUT_STAGE"
+}
+trap cleanup EXIT
+OUTPUT_STAGE="$(mktemp -d "$ROOT/dist/.usb-build.XXXXXX")"
+STAGED_OUT="$OUTPUT_STAGE/$(basename "$OUT")"
 TREE="$TMP_IMAGE/tree"
 FAT="$TMP_IMAGE/volume.fat"
 xorriso -osirrox on -indev "$ISO" -extract / "$TREE" >"$TMP_IMAGE/extract.log" 2>&1
@@ -50,7 +78,7 @@ done
 # successfully but boots to "No configuration file found" on BIOS; the
 # filesystem-root path is required (verified with the same FAT image in QEMU).
 syslinux --install --directory /isolinux "$FAT"
-python3 - "$FAT" "$OUT" "$ISO" <<'PY'
+python3 - "$FAT" "$STAGED_OUT" "$ISO" <<'PY'
 import pathlib,secrets,shutil,struct,sys
 fat,out,iso=map(pathlib.Path,sys.argv[1:])
 mbr=bytearray(512)
@@ -65,7 +93,7 @@ with out.open('xb') as dest,fat.open('rb') as source:
 PY
 # Read the packaged files through the final MBR image, including its partition
 # offset. Verify before writing success sidecars; a failed image is not a bundle.
-python3 - "$TREE" "$OUT" "$ISO" <<'PYVERIFY'
+python3 - "$TREE" "$STAGED_OUT" "$ISO" <<'PYVERIFY'
 import hashlib,json,pathlib,struct,subprocess,sys
 root,out,iso=map(pathlib.Path,sys.argv[1:])
 source_manifest=(root/'desktop-build.json').read_bytes()
@@ -101,4 +129,24 @@ sha=digest(out)
 out.with_suffix('.img.sha256').write_text(f'{sha}  {out.name}\n')
 out.with_suffix('.img.json').write_text(json.dumps({'schema_version':1,'image':out.name,'sha256':sha,'iso':iso.name,'iso_sha256':digest(iso),'layout':'MBR, one active FAT32 partition at sector 2048','size':out.stat().st_size},sort_keys=True,indent=2)+'\n')
 PYVERIFY
+# os.link refuses an existing destination of any type. Plain `ln source dest`
+# treats a directory created at dest during publication as a target directory.
+publish_link() {
+  python3 -c 'import os,sys; os.link(sys.argv[1],sys.argv[2],follow_symlinks=False)' "$1" "$2"
+}
+publish_link "$STAGED_OUT" "$OUT"
+published_image=1
+publish_link "$STAGED_OUT.sha256" "$OUT.sha256"
+published_sha=1
+publish_link "$STAGED_OUT.json" "$OUT.json"
+published_json=1
+# A writer can replace an earlier output while later sidecars are published.
+# Refuse success unless every final pathname still names our staged inode.
+for suffix in '' .sha256 .json; do
+  if [[ ! -f "$STAGED_OUT$suffix" || -L "$OUT$suffix" ||
+        ! "$STAGED_OUT$suffix" -ef "$OUT$suffix" ]]; then
+    echo 'Published USB image bundle changed before finalization.' >&2
+    exit 2
+  fi
+done
 printf 'Built Windows-readable USB image: %s\n' "$OUT"

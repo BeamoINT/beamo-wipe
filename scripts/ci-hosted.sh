@@ -148,19 +148,21 @@ run_desktop() {
 
 run_negative() {
   log "negative test: broken boot-media safety must be rejected"
-  safety_backup="$(mktemp /tmp/beamo-wipe-safety.XXXXXX)"
-  cp src/beamo_wipe/safety.py "$safety_backup"
-  restore_safety() {
-    cp "$safety_backup" src/beamo_wipe/safety.py
-    rm -f -- "$safety_backup"
-  }
-  trap restore_safety EXIT HUP INT TERM
+  # Run the mutant from a private import root. A hosted or shared-checkout
+  # negative gate must never expose a fail-open safety.py to other processes.
+  negative_dir="$(mktemp -d "${TMPDIR:-/tmp}/beamo-wipe-negative.XXXXXX")"
+  trap 'rm -rf -- "$negative_dir"' EXIT HUP INT TERM
+  cp -R src/beamo_wipe "$negative_dir/beamo_wipe"
+  # pyproject.toml adds src to the front of pytest's import path. Override
+  # that setting here so the private mutant, not the pristine tree, is tested.
+  printf '[pytest]\n' > "$negative_dir/pytest.ini"
   # NOTE: heredoc body stays at column 0 — Python rejects indented
   # top-level statements (IndentationError), which would fail the gate
   # before the patch is even applied.
-  python3 - <<'PY'
+  python3 - "$negative_dir/beamo_wipe/safety.py" <<'PY'
 import pathlib
-p = pathlib.Path("src/beamo_wipe/safety.py")
+import sys
+p = pathlib.Path(sys.argv[1])
 t = p.read_text()
 orig = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if not discovery.boot_identified or discovery.boot is None:\n        raise SafetyError(_copy.IDENTIFY_ERROR)'
 broken = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if False:  # BROKEN for negative test\n        raise SafetyError(_copy.IDENTIFY_ERROR)'
@@ -169,19 +171,25 @@ if orig not in t:
 p.write_text(t.replace(orig, broken))
 print("patched safety.py: assert_boot_excluded now fail-open")
 PY
-  # This e2e test expects SafetyError when boot is uncertain, so it must
-  # FAIL while broken. Capture the exit without a pipe (a pipe would
-  # report tee/head's status and mask a passing-while-broken gate).
+  # This fake inventory has a boot object and a selectable target but marks
+  # boot identity uncertain. With the guard removed, every later check passes.
+  # Require the specific missing-exception failure so an import error or crash
+  # cannot impersonate successful mutation coverage.
   negative_code=0
-  BEAMO_WIPE_DRY_RUN=1 python3 -m pytest tests/test_boot_exclusion_fails_closed.py::test_e2e_no_nwipe_process_created_on_uncertainty -q || negative_code=$?
-  restore_safety
+  negative_output="$(BEAMO_WIPE_DRY_RUN=1 PYTHONPATH="$negative_dir:$PYTHONPATH" python3 -m pytest -c "$negative_dir/pytest.ini" tests/test_boot_exclusion_fails_closed.py::test_boot_guard_rejects_false_identity_with_otherwise_selectable_target -q 2>&1)" || negative_code=$?
+  printf '%s\n' "$negative_output"
+  rm -rf -- "$negative_dir"
   trap - EXIT HUP INT TERM
-  if [ "$negative_code" -eq 0 ]; then
-    printf 'NEGATIVE TEST FAILED: broken safety was NOT caught\n' >&2
+  if [ "$negative_code" -ne 1 ]; then
+    printf 'NEGATIVE TEST FAILED: broken safety did not produce the expected test failure (exit %s)\n' "$negative_code" >&2
     exit 1
   fi
-  log "broken safety correctly rejected; verifying clean tree passes"
-  BEAMO_WIPE_DRY_RUN=1 python3 -m pytest tests/test_boot_exclusion_fails_closed.py::test_e2e_no_nwipe_process_created_on_uncertainty -q
+  case "$negative_output" in
+    *"DID NOT RAISE"*) ;;
+    *) printf 'NEGATIVE TEST FAILED: expected missing SafetyError proof\n' >&2; exit 1 ;;
+  esac
+  log "broken private safety copy correctly rejected; verifying source passes"
+  BEAMO_WIPE_DRY_RUN=1 python3 -m pytest tests/test_boot_exclusion_fails_closed.py::test_boot_guard_rejects_false_identity_with_otherwise_selectable_target -q
   log "negative test PASS: safety gate blocks bypass"
 }
 

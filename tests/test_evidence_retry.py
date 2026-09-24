@@ -288,6 +288,7 @@ def test_stale_retry_rejected_without_writing(tmp_path, monkeypatch, change):
 def test_recovery_save_failure_has_no_tick_retry(tmp_path, monkeypatch):
     from beamo_wipe.session_recovery import SessionStore
     from test_session_recovery import BOOT, BUILD, armed
+    monkeypatch.setattr('beamo_wipe.nwipe_runner.pinned_nwipe_already_running', lambda: False)
     directory = tmp_path / 'recovery'
     first = SessionStore(directory, boot=BOOT, build=BUILD).open()
     discovery, _ = armed(first)

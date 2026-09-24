@@ -60,7 +60,7 @@ The gate fails unless all of these pass:
    RESULT.txt wording, the completion manifest, and checksums. Missing/error
    markers, unchanged target bytes, or early exit fail. The receipt records
    ISO/nwipe hashes, source commit, build identity, and executed repetitions.
-8. OVMF reaches the shipped Tk `WHAT` marker. Missing OVMF, an early exit, or a
+8. OVMF reaches the shipped Tk `OWNER` marker. Missing OVMF, an early exit, or a
    timeout is a failure, never `SKIP` or a tolerated timeout.
 
 ```sh

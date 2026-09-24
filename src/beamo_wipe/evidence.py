@@ -34,6 +34,7 @@ SUPPORTED_SCHEMA_VERSIONS = frozenset({1, 2})
 EVIDENCE_PREFIX = "result-"
 EVIDENCE_SUFFIX = ".json"
 CHECKSUM_SUFFIX = ".sha256"
+MAX_EVIDENCE_FILE_BYTES = 16 * 1024 * 1024  # parser memory cap; export has a separate total request cap
 WALL_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 WALL_PROVENANCE = frozenset({"os_utc", "injected", "unavailable"})
 
@@ -77,7 +78,11 @@ def wall_timestamps(
     provenance: object,
 ) -> dict[str, Any]:
     """Record wall stamps without treating ISO format as trust."""
-    source = provenance if provenance in WALL_PROVENANCE else "unavailable"
+    source = (
+        provenance
+        if isinstance(provenance, str) and provenance in WALL_PROVENANCE
+        else "unavailable"
+    )
     started = valid_wall(started_at_wall)
     ended = valid_wall(ended_at_wall)
     if not started and not ended:
@@ -459,7 +464,10 @@ def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     directory = path.parent
     directory.mkdir(parents=True, exist_ok=True)
     blob = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False) + "\n"
-    _atomic_write_bytes(path, blob.encode("utf-8"))
+    encoded = blob.encode("utf-8")
+    if len(encoded) > MAX_EVIDENCE_FILE_BYTES:
+        raise SafetyError("Evidence file is too large")
+    _atomic_write_bytes(path, encoded)
 
 
 def write_evidence_atomic(
@@ -515,17 +523,29 @@ def load_evidence(path: Path, *, private: bool = False) -> dict[str, Any]:
     )
 
 
-def recover_result(path: Path):
+def recover_result(path: Path, *, expected_sha256: str | None = None):
     """Recover a report explanation; never resume erasure or infer success.
 
     Authenticate the saved JSON and, for a successful record, independently
-    recheck its exact log snapshot. Missing/replaced evidence stays indeterminate.
+    recheck its exact log snapshot. A caller recovering journal-bound evidence
+    can require the journal's digest. Missing/replaced evidence stays indeterminate.
     """
     from beamo_wipe.outcomes import present_evidence
     try:
-        evidence = json.loads(_verified_evidence_bytes(Path(path)))
+        data = _verified_evidence_bytes(
+            Path(path), private=expected_sha256 is not None
+        )
+        if (
+            expected_sha256 is not None
+            and hashlib.sha256(data).hexdigest() != expected_sha256
+        ):
+            return present_evidence(None)
+        evidence = json.loads(
+            data,
+            object_pairs_hook=_unique_evidence_fields,
+        )
         view = present_evidence(evidence)
-        if view.success:
+        if view.success or view.code in {"occupied", "open_failed", "geometry_unusable"}:
             from beamo_wipe.support_export import read_export_log
 
             snapshot, status = read_export_log(
@@ -543,10 +563,12 @@ def recover_result(path: Path):
                 evidence["device"]["path"],
                 evidence["method"]["id"],
             )
-            if not ok or reason != "completed":
+            if view.success and (not ok or reason != "completed"):
+                return present_evidence(None)
+            if not view.success and (ok or reason != view.code):
                 return present_evidence(None)
         return view
-    except (OSError, SafetyError, ValueError, KeyError, TypeError, AttributeError):
+    except (OSError, SafetyError, ValueError, KeyError, TypeError, AttributeError, RecursionError):
         return present_evidence(None)
 
 
@@ -561,14 +583,39 @@ def _read_regular_nofollow(path: Path, *, private: bool = False) -> bytes:
             raise SafetyError("Evidence path is not a regular file")
         if opened.st_uid != os.getuid():
             raise SafetyError("Evidence file has the wrong owner")
+        if opened.st_size > MAX_EVIDENCE_FILE_BYTES:
+            raise SafetyError("Evidence file is too large")
         if private and (stat.S_IMODE(opened.st_mode) != 0o600 or opened.st_nlink != 1):
             raise PermissionError(errno.EPERM, "Unsafe evidence permissions")
         chunks: list[bytes] = []
+        total = 0
         while True:
             chunk = os.read(fd, 65536)
             if not chunk:
                 break
             chunks.append(chunk)
+            total += len(chunk)
+            if total > MAX_EVIDENCE_FILE_BYTES:
+                raise SafetyError("Evidence file is too large")
+        after = os.fstat(fd)
+        if (
+            opened.st_dev,
+            opened.st_ino,
+            opened.st_size,
+            opened.st_mode,
+            opened.st_nlink,
+            opened.st_mtime_ns,
+            opened.st_ctime_ns,
+        ) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mode,
+            after.st_nlink,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ) or total != opened.st_size:
+            raise SafetyError("Evidence changed while reading")
         return b"".join(chunks)
     finally:
         os.close(fd)
@@ -578,11 +625,23 @@ class EvidenceFinalizationError(OSError):
     """Publication occurred but its final filesystem synchronization failed."""
 
 
-def _atomic_write_bytes(path: Path, data: bytes) -> None:
+def _atomic_write_bytes(path: Path, data: bytes) -> tuple[int, int]:
     directory = path.parent
     dir_fd = os.open(str(directory), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     tmp_name = f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}"
     fd = -1
+    temp_identity: tuple[int, int] | None = None
+
+    def remove_owned_temp() -> None:
+        if temp_identity is None:
+            return
+        try:
+            current = os.stat(tmp_name, dir_fd=dir_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        if (current.st_dev, current.st_ino) == temp_identity:
+            os.unlink(tmp_name, dir_fd=dir_fd)
+
     try:
         fd = os.open(
             tmp_name,
@@ -590,6 +649,8 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
             0o600,
             dir_fd=dir_fd,
         )
+        opened = os.fstat(fd)
+        temp_identity = (opened.st_dev, opened.st_ino)
         view = memoryview(data)
         while view:
             written = os.write(fd, view)
@@ -597,6 +658,7 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
                 raise OSError("short evidence write")
             view = view[written:]
         os.fsync(fd)
+        published_identity = temp_identity
         closing_fd = fd
         fd = -1
         # A failed close has platform-dependent ownership; never retry its
@@ -615,15 +677,20 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
             follow_symlinks=False,
         )
         try:
-            os.unlink(tmp_name, dir_fd=dir_fd)
+            current = os.stat(path.name, dir_fd=dir_fd, follow_symlinks=False)
+            if (current.st_dev, current.st_ino) != published_identity:
+                raise SafetyError("Evidence publication changed")
+            remove_owned_temp()
             os.fsync(dir_fd)
         except BaseException as exc:
             # linkat() already made the destination visible. If durability
-            # cannot be proved, remove the entry created by this call so a
-            # retry is not permanently blocked by an orphan without its
-            # checksum partner.
+            # cannot be proved, remove only the entry created by this call
+            # so a retry is not blocked by an orphan without its checksum.
+            # Another writer may have replaced the path during finalization.
             try:
-                os.unlink(path.name, dir_fd=dir_fd)
+                current = os.stat(path.name, dir_fd=dir_fd, follow_symlinks=False)
+                if (current.st_dev, current.st_ino) == published_identity:
+                    os.unlink(path.name, dir_fd=dir_fd)
             except OSError:
                 pass
             try:
@@ -633,15 +700,14 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
             if isinstance(exc, Exception):
                 raise EvidenceFinalizationError("Evidence finalization failed") from exc
             raise
+        return published_identity
     finally:
         try:
             if fd >= 0:
                 os.close(fd)
         finally:
             try:
-                os.unlink(tmp_name, dir_fd=dir_fd)
-            except FileNotFoundError:
-                pass
+                remove_owned_temp()
             finally:
                 os.close(dir_fd)
 
@@ -663,12 +729,12 @@ def verify_evidence_checksum(path: Path) -> bool:
         return False
 
 
-def _verified_evidence_bytes(path: Path) -> bytes:
+def _verified_evidence_bytes(path: Path, *, private: bool = False) -> bytes:
     """Return the exact bytes authenticated by the adjacent sidecar."""
-    data = _read_regular_nofollow(path)
+    data = _read_regular_nofollow(path, private=private)
     sidecar = Path(str(path) + CHECKSUM_SUFFIX)
     try:
-        text = _read_regular_nofollow(sidecar).decode("ascii")
+        text = _read_regular_nofollow(sidecar, private=private).decode("ascii")
     except Exception as exc:
         raise SafetyError("Evidence checksum is missing or invalid") from exc
     expected = f"{hashlib.sha256(data).hexdigest()}  {path.name}\n"
@@ -717,20 +783,21 @@ def export_evidence(
     # Compatibility API for pre-mounted destinations. The kiosk does not call
     # this path; _atomic_write_bytes still publishes without replacement.
     dest_sc = Path(str(dest_file) + CHECKSUM_SUFFIX)
-    wrote_data = False
+    published_identity = None
     try:
-        _atomic_write_bytes(dest_file, data)
-        wrote_data = True
+        published_identity = _atomic_write_bytes(dest_file, data)
         _atomic_write_bytes(
             dest_sc,
             f"{hashlib.sha256(data).hexdigest()}  {dest_file.name}\n".encode("ascii"),
         )
     except Exception:
-        # The preflight proved both paths absent, so only remove the partial
-        # data file created by this call. A retry can then recover in place.
-        if wrote_data:
+        # A different writer may replace the published path while the sidecar
+        # is being written. Only remove the inode created by this attempt.
+        if published_identity is not None:
             try:
-                dest_file.unlink()
+                current = os.stat(dest_file, follow_symlinks=False)
+                if (current.st_dev, current.st_ino) == published_identity:
+                    dest_file.unlink()
             except OSError:
                 pass
         raise

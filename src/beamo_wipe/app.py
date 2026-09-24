@@ -280,6 +280,13 @@ def _shutdown() -> bool:
     return False
 
 
+def _shutdown_if_still_safe(wizard: Wizard) -> bool:
+    if not wizard.shutdown_still_safe():
+        print(POWER_REQUEST_BLOCKED, file=sys.stderr)
+        return False
+    return _shutdown()
+
+
 def _blocked_wizard(exc: Exception) -> Wizard:
     # Startup remains fail-closed, but support stays reachable.
     from beamo_wipe.diagnostic_report import exception_code
@@ -459,7 +466,7 @@ def _run_session(args, *, session_store, use_console, want_accessible,
         keyboard_layout = code.keyboard_layout
         use_console = code.diagnostic_ui == "console"
         want_accessible = code.diagnostic_ui == "accessible"
-        code = None
+        del code
         if session_store is not None:
             session_store.begin_new_session()
 
@@ -518,9 +525,20 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
             if wizard.wants_new_session:
                 return wizard
             if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
-                _shutdown()
+                _shutdown_if_still_safe(wizard)
+            if not wizard.wants_shutdown and not wizard.wants_new_session:
+                # Tk/GTK can return without a window action (for example if
+                # their event loop is quit externally). Keep the same owner
+                # boundary as the console before releasing SessionStore.
+                wizard.settle_failed_interface()
             return code
-        except Exception:  # noqa: BLE001 — fall back to console
+        except BaseException as exc:  # noqa: BLE001 — settle owned engine first
+            if not isinstance(exc, Exception):
+                # A control interruption bypasses the normal graphical
+                # fallback. Keep the same ownership boundary as the console
+                # before SessionStore's outer finally can release it.
+                wizard.settle_failed_interface()
+                raise
             print(GRAPHICAL_UNAVAILABLE, file=sys.stderr)
             if getattr(wizard, "_wipe_request", None) is None and not getattr(wizard, "startup_error_code", ""):
                 wizard.startup_error_code = "graphical_unavailable"
@@ -528,40 +546,50 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
                 # Under startx, running the console here leaves X owning tty1
                 # and hides the fallback. Exit so the kiosk supervisor can
                 # tear X down and launch the visible console on tty1.
-                if wizard.screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+                try:
+                    wizard.settle_failed_interface()
+                except Exception as cancel_exc:
                     try:
-                        wizard.interface_failed()
-                    except Exception as cancel_exc:
-                        try:
-                            from beamo_wipe.diagnostics import log_diag
+                        from beamo_wipe.diagnostics import log_diag
 
-                            log_diag(
-                                "app",
-                                "graphical_failure_cancel_failed",
-                                type(cancel_exc).__name__,
-                            )
-                        except Exception:
-                            pass
+                        log_diag(
+                            "app",
+                            "graphical_failure_cancel_failed",
+                            type(cancel_exc).__name__,
+                        )
+                    except Exception:
+                        pass
                 return 3
             use_console = True
 
     wizard.diagnostic_ui = "console"
     from beamo_wipe.ui.console_wizard import run_console
 
-    if args.plain_console:
-        from beamo_wipe.ui.console_wizard import _plain_loop
-        code = _plain_loop(wizard)
-    else:
-        code = run_console(wizard)
+    try:
+        if args.plain_console:
+            from beamo_wipe.ui.console_wizard import _plain_loop
+            code = _plain_loop(wizard)
+        else:
+            code = run_console(wizard)
+    except BaseException:
+        # The console may fail outside its own handlers. Settle any active
+        # engine before SessionStore's outer finally releases UI ownership.
+        wizard.settle_failed_interface()
+        raise
+    if not wizard.wants_shutdown and not wizard.wants_new_session:
+        # A console exit without an accepted end-of-session action is also
+        # interface loss, even if the renderer returned a status code.
+        wizard.settle_failed_interface()
     if wizard.wants_new_session:
         return wizard
     if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
-        _shutdown()
+        _shutdown_if_still_safe(wizard)
     return code
 
 
 FAKE_REQUIRED = "A fake lsblk JSON file is required for refresh."
 SHUTDOWN_FAILED = "Shutdown failed: could not power off. Hold the power button."
+POWER_REQUEST_BLOCKED = "Power request blocked: an erase or report action may still be active."
 STARTUP_BLOCKED = "Startup was blocked. Save a diagnostic report for support."
 STARTUP_BLOCKED_LOG = "Startup blocked ({code})."
 GRAPHICAL_UNAVAILABLE = "Graphical UI unavailable. Using keyboard screens."

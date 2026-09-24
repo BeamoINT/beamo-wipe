@@ -233,7 +233,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
         started_mono=0.0,
         ended_mono=60.0,
         argv=["nwipe", "--autonuke"],
-        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
+            log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
     )
     assert ev["outcome"] == OUTCOME_FAILED
     assert ev["failure_reason"] is not None
@@ -268,7 +268,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
         started_mono=0.0,
         ended_mono=60.0,
         argv=[],
-        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
+        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\n",
     )
     assert ev3["outcome"] == OUTCOME_COMPLETED
     assert ev3["verification"]["verified"] is False
@@ -737,16 +737,17 @@ def test_malformed_log_output_and_signals_do_not_overstate(tmp_path, monkeypatch
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     # Each malformed case must be FAILED
     cases = [
-        ("", 0, False),
-        ("Nwipe successfully completed\n", 0, False),
-        ("/dev/sda is reported as IN USE\nNwipe successfully completed\n", 0, False),
-        ("Unable to open device '/dev/sda'.\n", 0, False),
-        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 3\nNwipe successfully completed\n", 0, False),
-        ("      sda | Erased |  120MB/s\n", 0, True),
-        ("/dev/sda: 100.00%, round 1 of 1\n", 0, False),
-        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n", 0, True),
+        ("", 0, False, False),
+        ("Nwipe successfully completed\n", 0, False, False),
+        ("/dev/sda is reported as IN USE\nNwipe successfully completed\n", 0, False, False),
+        ("Unable to open device '/dev/sda'.\n", 0, False, False),
+        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 3\nNwipe successfully completed\n", 0, False, False),
+        ("      sda | Erased |  120MB/s\n", 0, True, True),
+        ("/dev/sda: 100.00%, round 1 of 1\n", 0, False, False),
+        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n", 0, False, False),
+        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [verifying]\n", 0, True, True),
     ]
-    for log, code, should_ok in cases:
+    for log, code, should_ok, evidence_ok in cases:
         ok, reason = evaluate_nwipe_completion(code, log, "/dev/sda")
         assert ok == should_ok, f"log {log[:30]!r} code {code} expected ok={should_ok}"
         base = make_demo_wizard()
@@ -765,7 +766,7 @@ def test_malformed_log_output_and_signals_do_not_overstate(tmp_path, monkeypatch
             argv=[],
             log_text=log,
         )
-        if not should_ok:
+        if not evidence_ok:
             assert ev["outcome"] == OUTCOME_FAILED
         else:
             assert ev["outcome"] in (OUTCOME_COMPLETED, OUTCOME_VERIFIED)

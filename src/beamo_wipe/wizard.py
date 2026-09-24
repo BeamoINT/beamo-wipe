@@ -9,7 +9,6 @@ import json
 import math
 import os
 import stat
-import subprocess
 import threading
 import time
 from dataclasses import dataclass
@@ -247,6 +246,45 @@ def format_progress_percent(pct: float) -> str:
 _StartClaim = tuple[Disk, DiscoveryResult, bool, str, MethodId, bool]
 
 
+def _start_guarded_thread(
+    action: Callable[[], object],
+    *,
+    name: str,
+    register: Callable[[threading.Thread], None] | None = None,
+) -> tuple[bool, threading.Thread | None]:
+    """Permit work only after a thread launch is definitely accepted.
+
+    Thread.start() can be interrupted after the OS thread is spawned but
+    before ``ident`` becomes visible. A rejected launch must therefore tell
+    even that late-arriving worker to exit before it can touch a runner or
+    external storage.
+    """
+    release = threading.Event()
+    allowed = threading.Event()
+    aborted = threading.Event()
+
+    def guarded() -> None:
+        release.wait()
+        if allowed.is_set() and not aborted.is_set():
+            action()
+
+    worker = None
+    started = False
+    try:
+        worker = threading.Thread(target=guarded, name=name, daemon=True)
+        if register is not None:
+            register(worker)
+        worker.start()
+        allowed.set()
+        started = True
+    except BaseException:
+        aborted.set()
+        started = False
+    finally:
+        release.set()
+    return started, worker
+
+
 class Wizard:
     def __init__(
         self,
@@ -274,7 +312,7 @@ class Wizard:
         self.sound_output = ""
         self.sounds_enabled = False
         self.sound_message = ""
-        self._sound_played_for: Optional[str] = None
+        self._sound_played_for: Optional[tuple[str, str]] = None
         self._intent_store = None
         self.report_recovery_warning = ""
         self._shutdown_from: Optional[Screen] = None
@@ -364,10 +402,21 @@ class Wizard:
         self._recovered = False
 
     def enable_session_recovery(self, store) -> None:
-        """Restore evidence only. No request, confirmation, PID or runner state."""
+        """Restore evidence or rotate a proven unstarted preflight journal.
+
+        Never restore an erase request, confirmation, PID, or runner state.
+        """
         self._session_store = store
         if not store.previous and not store.invalid:
             return
+        if store.previous and not store.invalid and not self._startup_blocked:
+            try:
+                if store.resume_previous_preflight():
+                    return
+            except Exception:
+                # An uncertain lock, process probe, or journal write must
+                # retain the normal blocked recovery path.
+                pass
         from beamo_wipe.session_recovery import NOTICE
         self._recovered = True
         self._startup_blocked = True
@@ -388,7 +437,7 @@ class Wizard:
         if not self._recovered or store is None or self.wipe_result is not None:
             return
         try:
-            if not store.is_quiescent():
+            if self._recovery_busy():
                 self.error = RECOVERY_MAY_RUNNING
                 self.error += RECOVERY_NO_RESTART
                 return
@@ -444,8 +493,26 @@ class Wizard:
         if not self._recovered or self._session_store is None:
             return False
         try:
-            return not self._session_store.is_quiescent()
-        except (OSError, SafetyError):
+            if not self._session_store.is_quiescent():
+                return True
+            # A legacy/manual pinned process may run without owning this
+            # journal's lock. A free lock alone cannot authorize shutdown or
+            # recovery while an erase may still be active.
+            from beamo_wipe.nwipe_runner import pinned_nwipe_already_running
+
+            return pinned_nwipe_already_running() is not False
+        except Exception:
+            return True
+
+    def _live_pinned_engine_busy(self) -> bool:
+        """Refuse poweroff when any pinned engine may run outside this runner."""
+        if self.dry_run or self.preview or not isinstance(self.runner, NwipeRunner):
+            return False
+        try:
+            from beamo_wipe.nwipe_runner import pinned_nwipe_already_running
+
+            return pinned_nwipe_already_running() is not False
+        except Exception:
             return True
 
     @property
@@ -602,7 +669,14 @@ class Wizard:
 
     @property
     def erase_enabled(self) -> bool:
-        return self.screen == Screen.LAST_CHANCE and self.countdown_left <= 0.0
+        store = self._session_store
+        return (
+            self.screen == Screen.LAST_CHANCE and self.countdown_left <= 0.0
+            and (store is None or (
+                not store.invalid and store.record is not None
+                and store.record["phase"] == "preflight"
+            ))
+        )
 
     @property
     def progress(self) -> Optional[float]:
@@ -910,9 +984,10 @@ class Wizard:
                 Screen.REFRESHING,
             }:
                 return False
-            applier = self._apply_keyboard
-        result = applier(layout_id)
-        with self._lock:
+            # Applying the OS layout and invalidating authorization are one
+            # transition. Otherwise an erase can claim the old confirmation
+            # while the command runs, then this method moves WORKING to OWNER.
+            result = self._apply_keyboard(layout_id)
             if not result.ok:
                 self.error = result.message or _keyboard.APPLY_FAILED
                 self.keyboard_message = self.error
@@ -1009,6 +1084,8 @@ class Wizard:
             and not self._evidence_saving and not self._diagnostic_busy
             and not self._finishing
             and not self._new_session_store_blocked()
+            and not self._live_pinned_engine_busy()
+            and not self._recovery_busy()
             and self.result_view.code != "stop_unconfirmed"
         )
 
@@ -1098,6 +1175,11 @@ class Wizard:
         runner = self.runner
         if getattr(runner, "_proc", None) is not None:
             return True
+        # Popen can be interrupted after creating a child but before returning
+        # its handle. The retained wipe lock is then the only local sign that
+        # launch may have happened; never offer poweroff or a second Erase.
+        if getattr(runner, "_lock_fd", None) is not None:
+            return True
         return getattr(runner, "_started", None) is not None
 
     def _observation_for_stage(self, observation):
@@ -1152,6 +1234,8 @@ class Wizard:
         with self._lock:
             if self._runner_is_active():
                 return
+            if self._live_pinned_engine_busy():
+                return
             if self._recovery_busy():
                 return
             if self.wants_shutdown or self.wants_new_session or self.screen in {
@@ -1159,7 +1243,7 @@ class Wizard:
                 Screen.REFRESHING, Screen.CHECKING, Screen.STOPPING,
             }:
                 return
-            if self._diagnostic_busy or self._evidence_saving:
+            if self._diagnostic_busy or self._evidence_saving or self._finishing:
                 return
             if self._report_exporting:
                 self._set_report_state_locked(
@@ -1175,6 +1259,22 @@ class Wizard:
                 self._done_keyboard_armed = False
                 return
             self.wants_shutdown = True
+
+    def shutdown_still_safe(self) -> bool:
+        """Recheck live ownership just before the app requests poweroff."""
+        with self._lock:
+            return bool(
+                self.wants_shutdown
+                and not self.wants_new_session
+                and not self._runner_is_active()
+                and not self._live_pinned_engine_busy()
+                and not self._recovery_busy()
+                and not self._new_session_store_blocked()
+                and not self._finishing
+                and not self._evidence_saving
+                and not self._report_exporting
+                and not self._diagnostic_busy
+            )
 
     def _has_verified_export_locked(self) -> bool:
         # Only the constrained exporter can publish these receipts. Button
@@ -1210,6 +1310,10 @@ class Wizard:
         with self._lock:
             if self._runner_is_active():
                 return
+            if self._live_pinned_engine_busy():
+                return
+            if self._recovery_busy():
+                return
             if (
                 self.screen != Screen.SHUTDOWN_CONFIRM
                 or self._shutdown_from is None
@@ -1218,6 +1322,8 @@ class Wizard:
                 or self.wants_new_session
                 or self._report_exporting
                 or self._diagnostic_busy
+                or self._evidence_saving
+                or self._finishing
             ):
                 return
             if self._new_session_pending:
@@ -1375,9 +1481,18 @@ class Wizard:
             assert_boot_excluded(fresh)
             if not fresh.boot_identified or fresh.boot is None or fresh.error:
                 raise SafetyError(BOOT_UNIDENTIFIED)
-        except Exception as exc:
-            from beamo_wipe.diagnostics import log_diag
-            log_diag("discover", "refresh_failed", type(exc).__name__)
+        except BaseException as exc:
+            # refresh_disks() deliberately captures interruptions as scan
+            # outcomes. Resolve the claimed REFRESHING state even when an
+            # interrupted scan raised outside Exception's hierarchy.
+            try:
+                from beamo_wipe.diagnostics import log_diag
+
+                log_diag("discover", "refresh_failed", type(exc).__name__)
+            except Exception:
+                # Diagnostic logging must never keep a failed scan in the
+                # claimed REFRESHING state when /tmp is full or unavailable.
+                pass
             fresh = DiscoveryResult(error=C.REDISCOVER_ERROR, boot_identified=False, error_code="refresh_failed")
         with self._lock:
             # Validation runs outside the lock. A duplicate completion may
@@ -1614,25 +1729,28 @@ class Wizard:
         return self._launch_operation(lambda: self._perform_start(claim), Screen.CHECKING)
 
     def _launch_operation(self, action: Callable[[], None], screen: Screen) -> bool:
-        try:
-            worker = threading.Thread(target=action, name="beamo-erase-transition", daemon=True)
-            self._operation_thread = worker
-            worker.start()
+        started, worker = _start_guarded_thread(
+            action,
+            name="beamo-erase-transition",
+            register=lambda running: setattr(self, "_operation_thread", running),
+        )
+        if started:
             return True
-        except Exception:
-            with self._lock:
-                if self.screen == screen:
-                    if screen == Screen.CHECKING:
-                        self._erase_until = self.now + COUNTDOWN_S
-                        self.screen = Screen.LAST_CHANCE
-                    else:
-                        self.screen = Screen.WORKING
-                    self._start_claim = None
-                    self._cancel_requested = False
-                    from beamo_wipe.outcomes import VIEWS
-                    self.error = (CHECKING_NO_START if screen == Screen.CHECKING
-                                  else VIEWS["stop_unconfirmed"].announcement)
-            return False
+        with self._lock:
+            if self._operation_thread is worker:
+                self._operation_thread = None
+            if self.screen == screen:
+                if screen == Screen.CHECKING:
+                    self._erase_until = self.now + COUNTDOWN_S
+                    self.screen = Screen.LAST_CHANCE
+                else:
+                    self.screen = Screen.WORKING
+                self._start_claim = None
+                self._cancel_requested = False
+                from beamo_wipe.outcomes import VIEWS
+                self.error = (CHECKING_NO_START if screen == Screen.CHECKING
+                              else VIEWS["stop_unconfirmed"].announcement)
+        return False
 
     def interface_failed(self) -> None:
         """Retire UI actions without a worker ever calling a destroyed toolkit.
@@ -1643,20 +1761,96 @@ class Wizard:
         self._start_abort.set()
         self.begin_cancel(origin="system")
 
+    def settle_failed_interface(self) -> None:
+        """Keep ownership until an interface failure has a terminal outcome.
+
+        A failed stop thread or transient cancel error must not return control
+        to the kiosk while this session may still own a running engine.
+        """
+        self._start_abort.set()
+        try:
+            self.cancel_wipe(origin="system")
+        except Exception:
+            # The first stop/setup attempt is subject to the same ownership
+            # rule as later retries: never abandon an active engine.
+            pass
+        while True:
+            with self._lock:
+                busy = (
+                    (self.screen == Screen.CHECKING and self._start_claim is not None)
+                    or (
+                        self.screen in {Screen.WORKING, Screen.STOPPING}
+                        and self._wipe_request is not None and self.wipe_result is None
+                    )
+                    or self._runner_is_active() or self._finishing or self._evidence_saving
+                    or self._report_exporting or self._diagnostic_busy
+                )
+                screen = self.screen
+                worker = self._operation_thread
+                handleless_launch = (
+                    isinstance(self.runner, NwipeRunner)
+                    and getattr(self.runner, "_proc", None) is None
+                    and getattr(self.runner, "_lock_fd", None) is not None
+                    and self._start_claim is None
+                    and (worker is None or not worker.is_alive())
+                    and not self._finishing
+                    and not self._evidence_saving
+                    and not self._report_exporting
+                    and not self._diagnostic_busy
+                )
+            if not busy:
+                return
+            if handleless_launch:
+                # Popen may fork, then fail in its parent before handing us a
+                # process handle. We cannot safely signal an unknown PID.
+                # End this failed interface so the kiosk recovery menu can
+                # inspect pinned nwipe. The child inherited the wipe flock;
+                # the armed journal also prevents a fresh in-process erase.
+                return
+            if screen == Screen.STOPPING and (worker is None or not worker.is_alive()):
+                # An unexpectedly dead stop worker cannot be allowed to
+                # strand the state machine in STOPPING forever.
+                with self._lock:
+                    if self.screen == Screen.STOPPING:
+                        self.screen = Screen.WORKING
+                        self._cancel_requested = False
+            else:
+                if screen == Screen.WORKING:
+                    # Poll for natural completion, but keep the stop path
+                    # usable even when tick itself is what broke the UI.
+                    try:
+                        self.tick()
+                    except Exception:
+                        pass
+                    if self.screen == Screen.WORKING:
+                        try:
+                            self.cancel_wipe(origin="system")
+                        except Exception:
+                            pass
+                elif screen != Screen.STOPPING:
+                    try:
+                        self.tick()
+                    except Exception:
+                        pass
+            if worker is not None and worker.is_alive() and worker is not threading.current_thread():
+                worker.join(timeout=0.2)
+            else:
+                time.sleep(0.2)
+
     def _perform_start(self, claim: _StartClaim) -> None:
         disk, discovery, owner, token, method, countdown_complete = claim
+        confirmed_boot = discovery.boot
         request = None
+        armed = False
         try:
             if not self.dry_run and not self.preview:
                 try:
                     discovery = (self._rediscover or discover)()
                     if not isinstance(discovery, DiscoveryResult):
                         raise TypeError("Invalid discovery result")
-                except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError, AttributeError):
-                    self.error = REREAD_FAILED
-                    self.startup_error_code = "rediscovery_failed"
-                    return
-                except Exception:  # noqa: BLE001 — fail closed on any rediscover error
+                except BaseException:
+                    # A worker interrupted during the final read must not
+                    # leave the old countdown live with no visible error.
                     self.error = REREAD_FAILED
                     self.startup_error_code = "rediscovery_failed"
                     return
@@ -1666,6 +1860,12 @@ class Wizard:
                     return
                 try:
                     assert_boot_excluded(discovery)
+                    fresh_boot = discovery.boot
+                    if (
+                        confirmed_boot is None or fresh_boot is None
+                        or disk_identity(fresh_boot) != disk_identity(confirmed_boot)
+                    ):
+                        raise SafetyError("Boot device identity changed. Refusing to erase.")
                     assert_disk_identity(disk, discovery)
                 except SafetyError:
                     self.error = IDENTITY_UNCONFIRMED_MSG
@@ -1697,25 +1897,32 @@ class Wizard:
                 self._saved_report_claim = None
                 if self._session_store is not None:
                     self._session_store.arm(discovery, request)
+                    armed = True
                 if self._start_abort.is_set():
+                    self._disarm_unstarted(armed, start_not_called=True)
                     self.error = CLOSED_DURING_CHECK
                     return
                 self.runner.start(request)
                 self._arm_running_wipe(request)
             except SafetyError as exc:
-                self.error = (_safety.TOKEN_MISMATCH if str(exc) == _safety.TOKEN_MISMATCH else
-                              PREFLIGHT_BLOCKED)
+                retry_safe = self._disarm_unstarted(armed)
+                self.error = (
+                    (_safety.TOKEN_MISMATCH if str(exc) == _safety.TOKEN_MISMATCH else PREFLIGHT_BLOCKED)
+                    if retry_safe else STARTUP_UNCONFIRMED
+                )
                 self.startup_error_code = "preflight_rejected"
                 return
             except OSError as exc:
                 from beamo_wipe.outcomes import VIEWS
                 from beamo_wipe.diagnostics import log_diag
 
-                self.error = VIEWS["start_failed"].announcement
+                retry_safe = self._disarm_unstarted(armed)
+                self.error = VIEWS["start_failed"].announcement if retry_safe else STARTUP_UNCONFIRMED
                 self.startup_error_code = "engine_start_failed"
                 log_diag("nwipe", "start_failed", f"{type(exc).__name__}; errno={exc.errno}")
                 return
             except Exception:
+                self._disarm_unstarted(armed)
                 self.error = STARTUP_UNCONFIRMED
                 self.startup_error_code = "unexpected_startup_failure"
                 return
@@ -1724,9 +1931,18 @@ class Wizard:
             self._write_evidence(result=None, cancelled=False, interrupted=False)
             if self._start_abort.is_set():
                 self.cancel_wipe(origin="system")
-        except Exception:
+        except BaseException as exc:
             # Malformed discovery metadata must not kill a background worker
-            # silently or leave the operator with an apparently idle success.
+            # silently or leave an interrupted preflight countdown armed.
+            # Once the engine has started, however, the caller must see a
+            # control interruption. The finally block below first publishes
+            # WORKING, then the console can open Stop confirmation.
+            if (
+                not isinstance(exc, Exception)
+                and request is not None
+                and self._runner_is_active()
+            ):
+                raise
             with self._lock:
                 self.error = STARTUP_UNCONFIRMED
                 self.startup_error_code = "unexpected_startup_failure"
@@ -1762,6 +1978,23 @@ class Wizard:
                         self.cancel_wipe(origin="system")
                     except Exception:
                         pass
+
+    def _disarm_unstarted(self, armed: bool, *, start_not_called: bool = False) -> bool:
+        """Allow another explicit attempt only after a proven pre-spawn failure."""
+        if self._session_store is None:
+            return True
+        if self._session_store.invalid:
+            return False
+        if not armed:
+            return True
+        probe = getattr(self.runner, "start_not_spawned", None)
+        if not start_not_called and (not callable(probe) or not probe()):
+            return False
+        try:
+            self._session_store.disarm_unstarted()
+            return True
+        except (OSError, SafetyError):
+            return False
 
     def _finish(self, result: WipeResult, *, cancelled: bool = False, interrupted: bool = False, from_stop: bool = False) -> None:
         # Guard against double-finish from concurrent tick/cancel
@@ -1859,12 +2092,12 @@ class Wizard:
                 # cancel() still requires confirmed exit and successful cleanup.
                 pass
             self.runner.cancel()
-        except Exception as exc:
+        except BaseException as exc:
             try:
                 from beamo_wipe.diagnostics import log_diag
 
                 log_diag("wizard", "cancel_runner_failed", type(exc).__name__)
-            except Exception:
+            except BaseException:
                 pass
             # Fail closed: the engine may still hold the disk. Stay on
             # WORKING so tick() can still deliver the real outcome (or the
@@ -1964,7 +2197,9 @@ class Wizard:
                                 fh.seek(0, 2)
                                 size = fh.tell()
                                 fh.seek(max(0, size - NWIPE_COMPLETION_LOG_BYTES))
-                                log_text = fh.read().decode("utf-8", errors="replace")
+                                log_text = fh.read(NWIPE_COMPLETION_LOG_BYTES).decode(
+                                    "utf-8", errors="replace"
+                                )
                         finally:
                             if fd >= 0:
                                 os.close(fd)
@@ -2033,13 +2268,13 @@ class Wizard:
                     return
                 self._pending_evidence = (inputs, self._evidence_context(), result, key)
             self._persist_evidence(write_seq)
-        except Exception as exc:
+        except BaseException as exc:
             self._evidence_failed(exc, "data", write_seq)
 
     def _evidence_context(self):
         return copy.deepcopy((self.selected, self.discovery, self.method, self._wipe_request))
 
-    def _evidence_failed(self, exc: Exception, stage: str, seq: int) -> None:
+    def _evidence_failed(self, exc: BaseException, stage: str, seq: int) -> None:
         # Exceptions can contain disk identifiers, paths and customer data.
         # Only fixed descriptions and errno categories may reach any UI/log.
         from beamo_wipe.evidence import EvidenceFinalizationError
@@ -2143,7 +2378,7 @@ class Wizard:
                 self._evidence_written_for = key
                 self._touch_report_locked()
             return True
-        except Exception as exc:
+        except BaseException as exc:
             self._evidence_failed(exc, stage, seq)
             return False
 
@@ -2155,6 +2390,7 @@ class Wizard:
             and self._evidence_retries < EVIDENCE_RETRIES and pending is not None
             and pending[1] == self._evidence_context()
             and pending[2] == self.wipe_result
+            and (self._session_store is None or not getattr(self._session_store, "invalid", False))
             and not self.wants_shutdown and not self.wants_new_session and not self._report_exporting
             and not self._diagnostic_busy and not self._recovery_busy()
         )
@@ -2183,10 +2419,11 @@ class Wizard:
         seq = self._claim_evidence_retry()
         if seq is None:
             return False
-        try:
-            threading.Thread(target=self._persist_evidence, args=(seq,), daemon=True).start()
-        except Exception as exc:
-            self._evidence_failed(exc, "io", seq)
+        started, _ = _start_guarded_thread(
+            lambda: self._persist_evidence(seq), name="beamo-evidence-retry"
+        )
+        if not started:
+            self._evidence_failed(RuntimeError("worker launch failed"), "io", seq)
             return False
         return True
 
@@ -2316,7 +2553,7 @@ class Wizard:
                 exporting=self._report_exporting,
                 can_save=self._can_save_report_locked(),
                 evidence_error=self.evidence_error,
-                saving_evidence=self._evidence_saving,
+                saving_evidence=self._evidence_saving or self._finishing,
                 can_retry_evidence=self._can_retry_evidence_locked(),
                 retries_remaining=max(0, EVIDENCE_RETRIES - self._evidence_retries),
                 evidence_status=self.evidence_status,
@@ -2518,15 +2755,10 @@ class Wizard:
         claim = self._claim_report_export()
         if claim is None:
             return False
-        try:
-            thread = threading.Thread(
-                target=self._perform_report_export,
-                args=(claim,),
-                name="beamo-report-export",
-                daemon=True,
-            )
-            thread.start()
-        except Exception as exc:
+        started, _ = _start_guarded_thread(
+            lambda: self._perform_report_export(claim), name="beamo-report-export"
+        )
+        if not started:
             with self._lock:
                 self._active_report_claim = None
                 self._set_report_state_locked(
@@ -2537,7 +2769,7 @@ class Wizard:
             try:
                 from beamo_wipe.diagnostics import log_diag
 
-                log_diag("wizard", "report_thread_failed", type(exc).__name__)
+                log_diag("wizard", "report_thread_failed", "ThreadStartError")
             except Exception:
                 pass
             return False
@@ -2639,9 +2871,10 @@ class Wizard:
                     self._diagnostic_busy = False
                     self._report_revision += 1
         if background:
-            try:
-                threading.Thread(target=perform, name="beamo-diagnostic-export", daemon=True).start()
-            except Exception:
+            started, _ = _start_guarded_thread(
+                perform, name="beamo-diagnostic-export"
+            )
+            if not started:
                 with self._lock:
                     self._diagnostic_busy = False
                     self.diagnostic_message = DIAG_NO_START
@@ -2742,13 +2975,15 @@ class Wizard:
                 or self.preview
                 or self.wipe_result is None
                 or not self.sounds_enabled
+                or self._finishing
+                or self._evidence_saving
             ):
                 return None
-            key = self._result_evidence_key(self.wipe_result)
+            code = self.result_view.code
+            key = (self._result_evidence_key(self.wipe_result), code)
             if key == self._sound_played_for:
                 return None
             self._sound_played_for = key
-            code = self.result_view.code
         return _sound.play_outcome(_sound.kind_for_code(code))
 
     def hear_outcome_sound(self):
@@ -2759,7 +2994,12 @@ class Wizard:
         from beamo_wipe import sound as _sound
 
         with self._lock:
-            if self.screen != Screen.DONE or self.wipe_result is None:
+            if (
+                self.screen != Screen.DONE
+                or self.wipe_result is None
+                or self._finishing
+                or self._evidence_saving
+            ):
                 return None
             code = self.result_view.code
         result = _sound.play_test(_sound.kind_for_code(code))

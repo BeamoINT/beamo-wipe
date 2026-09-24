@@ -2,6 +2,7 @@
 """Terminal loss during fake erasure must reach interruption recovery."""
 
 import io
+import threading
 
 import pytest
 
@@ -96,6 +97,7 @@ def test_interrupted_select_retries_without_cancelling(monkeypatch, tmp_path):
 def test_terminal_loss_does_not_claim_unconfirmed_stop(monkeypatch, tmp_path):
     wizard = _working(monkeypatch, tmp_path)
     calls = 0
+    allow_stop = threading.Event()
 
     def failed_select(*args):
         nonlocal calls
@@ -104,12 +106,21 @@ def test_terminal_loss_does_not_claim_unconfirmed_stop(monkeypatch, tmp_path):
         raise OSError(9, "bad descriptor")
 
     def failed_cancel():
-        raise PermissionError("cannot stop fake process")
+        if not allow_stop.is_set():
+            raise PermissionError("cannot stop fake process")
+        return real_cancel()
 
+    real_cancel = wizard.runner.cancel
     monkeypatch.setattr(console.select, "select", failed_select)
     monkeypatch.setattr(wizard.runner, "cancel", failed_cancel)
-    assert console._plain_loop(wizard) == 3
-    assert wizard.screen == Screen.WORKING
-    assert wizard.wipe_result is None
-    assert wizard.error
-    assert not wizard.wants_shutdown
+    result = []
+    worker = threading.Thread(target=lambda: result.append(console._plain_loop(wizard)), daemon=True)
+    worker.start()
+    worker.join(0.5)
+    assert worker.is_alive() and wizard.wipe_result is None
+    assert wizard.screen == Screen.WORKING and wizard.error
+    allow_stop.set()
+    worker.join(3)
+    assert not worker.is_alive()
+    assert result == [0]
+    assert wizard.screen == Screen.DONE and wizard.wipe_result is not None

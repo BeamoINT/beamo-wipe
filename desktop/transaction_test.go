@@ -21,16 +21,16 @@ func (f *fakeFirmware) read(name string) ([]byte, error) {
 	}
 	return append([]byte(nil), b...), nil
 }
-func (f *fakeFirmware) write(name string, b []byte) error {
+func (f *fakeFirmware) write(name string, b []byte) (bool, error) {
 	f.writes++
 	f.values[name] = append([]byte(nil), b...)
 	if f.changed {
 		f.values[name] = []byte{9, 0}
 	}
 	if f.writeError {
-		return errors.New("write failed after writing")
+		return true, errors.New("write failed after writing")
 	}
-	return nil
+	return true, nil
 }
 func (f *fakeFirmware) remove(name string) error {
 	f.removes++

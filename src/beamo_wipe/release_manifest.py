@@ -550,9 +550,9 @@ def write_manifest(manifest: Dict[str, Any], dest: Path) -> Path:
     return dest
 
 
-def verify_manifest(path: Path, allow_dirty: bool = False) -> None:
-    """Consumer/release verification: all measured gates must have passed."""
-    _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=True)
+def verify_manifest(path: Path, allow_dirty: bool = False) -> bytes:
+    """Verify measured gates and return the exact accepted manifest bytes."""
+    return _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=True)
 
 
 def verify_build_manifest(path: Path, allow_dirty: bool = False) -> None:
@@ -560,12 +560,21 @@ def verify_build_manifest(path: Path, allow_dirty: bool = False) -> None:
     _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=False)
 
 
-def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -> None:
+def _unique_manifest_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise RuntimeError("duplicate JSON field in manifest")
+        fields[key] = value
+    return fields
+
+
+def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -> bytes:
     path = Path(path)
     fd = _open_regular_nofollow(path)
     with os.fdopen(fd, "r", encoding="utf-8") as stream:
         raw_manifest = stream.read()
-    data = json.loads(raw_manifest)
+    data = json.loads(raw_manifest, object_pairs_hook=_unique_manifest_fields)
     # Recompute checksum (exclude sidecar)
     expected = data.pop("_manifest_sha256", None)
     if expected is None:
@@ -646,6 +655,7 @@ def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -
         hashlib.sha256(raw_manifest.encode("utf-8")).hexdigest(),
         path.name,
     )
+    return raw_manifest.encode("utf-8")
 
 
 def _verify_sidecar(path: Path, sha: str, name: str) -> None:

@@ -60,15 +60,16 @@ func planView(p Plan, preview bool) view {
 	if !p.Direct {
 		v.Title = "Use the computer's boot menu"
 		v.Detail = map[string]string{
-			"legacy":     "This computer does not offer the supported automatic restart path. Keep the USB connected and follow the boot instructions below.",
-			"timeout":    "The compatibility check took too long. Wait a moment, then choose Check again, or use the boot instructions below.",
-			"media":      "Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.",
-			"unattended": "Automated installation files were found on this USB. Beamo Wipe will not request a guided restart. Review those files, then use the boot menu.",
-			"pending":    "Another application has already requested a special next startup. Beamo will not replace it. Complete that startup before trying again.",
-			"entry":      "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
-			"firmware":   "The computer's boot settings could not be read. You can still use the boot menu. Administrator permission may be required for a guided restart.",
-			"platform":   "This launcher supports Intel/AMD 64-bit Windows and Linux PCs. This USB does not support Apple Silicon or Chromebooks.",
-			"live":       "You are already in the Beamo USB environment. Use the Beamo Wipe window to choose and confirm a disk.",
+			"legacy":         "This computer does not offer the supported automatic restart path. Keep the USB connected and follow the boot instructions below.",
+			"timeout":        "The compatibility check took too long. Wait a moment, then choose Check again, or use the boot instructions below.",
+			"media":          "Open this application from the original Beamo USB. A copied application or an unidentified USB cannot request a direct restart.",
+			"unattended":     "Automated installation files were found on this USB. Beamo Wipe will not request a guided restart. Review those files, then use the boot menu.",
+			"pending":        "Another application has already requested a special next startup. Beamo will not replace it. Complete that startup before trying again.",
+			"entry":          "The computer has not provided one exact boot entry for this USB. You can still choose the USB from its boot menu.",
+			"firmware":       "The computer's boot settings could not be read. You can still use the boot menu. Administrator permission may be required for a guided restart.",
+			"platform":       "This launcher supports Intel/AMD 64-bit Windows and Linux PCs. This USB does not support Apple Silicon or Chromebooks.",
+			"live":           "You are already in the Beamo USB environment. Use the Beamo Wipe window to choose and confirm a disk.",
+			"windows-manual": "Windows can cancel a restart after accepting it, so this launcher will not set a one-time boot request. Save your work, keep the Beamo USB connected, then use the computer's normal Restart command and choose the USB from its boot menu.",
 		}[p.Problem]
 		if v.Detail == "" {
 			v.Detail = "Automatic startup could not be checked. Nothing has been changed. Follow the boot instructions below."
@@ -93,7 +94,7 @@ func inspectPlan(ctx context.Context, probe func(context.Context) Snapshot) Plan
 	if ctx.Err() != nil {
 		return Plan{Problem: "cancelled"}
 	}
-	return makePlan(s)
+	return makePlanForHost(s, runtime.GOOS)
 }
 
 type app struct {

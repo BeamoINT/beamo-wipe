@@ -523,6 +523,11 @@ def run_console(wizard: Wizard) -> int:
         return curses.wrapper(lambda stdscr: _loop(stdscr, wizard))
     except (curses.error, KeyboardInterrupt):
         return _plain_loop(wizard)
+    except BaseException:
+        # A render or terminal exception must not release the interface while
+        # this session may still own a running engine.
+        wizard.settle_failed_interface()
+        raise
 
 
 class _InventoryRefreshed(Exception):
@@ -603,8 +608,7 @@ def _plain_loop(wizard: Wizard) -> int:
         except _InventoryRefreshed:
             continue
         except EOFError:
-            if wizard.screen == Screen.WORKING:
-                wizard.cancel_wipe(origin="system")
+            wizard.settle_failed_interface()
             wizard.shutdown()
             if not wizard.wants_shutdown:
                 if wizard.screen == Screen.SHUTDOWN_CONFIRM:
@@ -632,6 +636,9 @@ def _plain_loop(wizard: Wizard) -> int:
                 wizard.shutdown()
             if wizard.wants_shutdown or wizard.wants_new_session:
                 return 0
+        except BaseException:
+            wizard.settle_failed_interface()
+            raise
 
 
 def _plain_loop_body(wizard: Wizard) -> int:

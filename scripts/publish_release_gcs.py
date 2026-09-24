@@ -31,6 +31,15 @@ class PublishError(RuntimeError):
     """A release precondition or authenticated upload failed."""
 
 
+def _unique_json_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise PublishError(f"duplicate JSON field in release input: {key}")
+        fields[key] = value
+    return fields
+
+
 def _response_bytes(response: http.client.HTTPResponse) -> bytes:
     try:
         data = response.read(MAX_RESPONSE_BYTES + 1)
@@ -271,7 +280,7 @@ def _verify_sha256sums(dist: Path, version: str) -> None:
             raise PublishError(f"SHA256SUMS mismatch for {name}")
 
 
-def _verify_usb_image(dist: Path, version: str) -> None:
+def _verify_usb_image(dist: Path, version: str) -> tuple[str, str]:
     """Bind the desktop-readable image to the verified ISO before uploading."""
     image = dist / f"beamo-wipe-{version}-amd64.img"
     iso = dist / f"beamo-wipe-{version}-amd64.iso"
@@ -280,7 +289,7 @@ def _verify_usb_image(dist: Path, version: str) -> None:
             raw = stream.read(4097)
         if len(raw) > 4096:
             raise PublishError("USB image metadata exceeded the safety limit")
-        metadata = json.loads(raw)
+        metadata = json.loads(raw, object_pairs_hook=_unique_json_fields)
         with _open_owned_file(Path(f"{image}.sha256")) as stream:
             sidecar = stream.read(4097).decode("ascii")
         with _open_owned_file(image) as stream:
@@ -306,6 +315,24 @@ def _verify_usb_image(dist: Path, version: str) -> None:
         or sidecar != f"{image_sha}  {image.name}\n"
     ):
         raise PublishError("USB image does not match its ISO, metadata, or checksum")
+    return image_sha, hashlib.sha256(raw).hexdigest()
+
+
+def _qemu_tested_usb_sha(root: Path) -> str:
+    """Read the image digest retained in the signed QEMU gate log."""
+    log_path = root / "dist" / "evidence" / "qemu.log"
+    prefix = b"[qemu-verify] usb_image_sha256="
+    found = []
+    with _open_owned_file(log_path) as stream:
+        for line in stream:
+            if line.startswith(prefix):
+                value = line[len(prefix):].strip()
+                if not re.fullmatch(rb"[0-9a-f]{64}", value):
+                    raise PublishError("invalid QEMU-tested USB image digest")
+                found.append(value.decode("ascii"))
+    if len(found) != 1:
+        raise PublishError("missing or ambiguous QEMU-tested USB image digest")
+    return found[0]
 
 
 def _release_inputs(version: str) -> list[Path]:
@@ -416,7 +443,9 @@ def _read_signing_key() -> bytes:
     return raw
 
 
-def _sign_release_manifest(dist: Path, version: str) -> Path:
+def _sign_release_manifest(
+    dist: Path, version: str, *, manifest_bytes: bytes | None = None
+) -> tuple[Path, str]:
     """Sign the verified manifest and verify the sidecar before upload."""
     sys.path.insert(0, str(ROOT / "src"))
     from beamo_wipe.release_signing import (
@@ -426,8 +455,9 @@ def _sign_release_manifest(dist: Path, version: str) -> Path:
     )
 
     manifest = dist / f"beamo-wipe-{version}-amd64.manifest.json"
-    with _open_owned_file(manifest) as stream:
-        manifest_bytes = stream.read(16 * 1024 * 1024 + 1)
+    if manifest_bytes is None:
+        with _open_owned_file(manifest) as stream:
+            manifest_bytes = stream.read(16 * 1024 * 1024 + 1)
     if len(manifest_bytes) > 16 * 1024 * 1024:
         raise PublishError("manifest exceeded the safety limit")
     sidecar = sign_manifest_bytes(manifest_bytes, _read_signing_key())
@@ -436,7 +466,8 @@ def _sign_release_manifest(dist: Path, version: str) -> Path:
             json.loads(
                 (ROOT / "packaging" / "release-keys" / "keys.json").read_text(
                     encoding="utf-8"
-                )
+                ),
+                object_pairs_hook=_unique_json_fields,
             )
         )
     except (OSError, ValueError) as exc:
@@ -460,7 +491,7 @@ def _sign_release_manifest(dist: Path, version: str) -> Path:
     except OSError as exc:
         raise PublishError("signature sidecar cannot be written") from exc
     print(f"Signed manifest with publisher key {result['key_id']}")
-    return sig_path
+    return sig_path, hashlib.sha256(payload).hexdigest()
 
 
 def publish() -> str | None:
@@ -490,18 +521,50 @@ def publish() -> str | None:
     from beamo_wipe.ci_evidence import load_receipts
 
     manifest_path = ROOT / "dist" / f"beamo-wipe-{version}-amd64.manifest.json"
-    verify_manifest(manifest_path)
-    manifest_data = json.loads(manifest_path.read_text())
+    validated_manifest = verify_manifest(manifest_path)
+    validated_sha = hashlib.sha256(validated_manifest).hexdigest()
+    manifest_data = json.loads(
+        validated_manifest, object_pairs_hook=_unique_json_fields
+    )
     if (manifest_data["source"]["commit"] != commit
             or manifest_data["build"]["release_build_id"] != build_id):
         raise PublishError("manifest does not match the release source and build")
     receipts = {r["gate"]: r for r in load_receipts(ROOT / "dist" / "evidence")}
     if receipts != manifest_data["test_evidence"]["gates"]:
         raise PublishError("execution receipts do not match the verified manifest")
-    _sign_release_manifest(ROOT / "dist", version)
-    _regular_owned_file(ROOT / "dist" / sig_name)
+    expected_log_sha = {
+        ROOT / "dist" / "evidence" / f"{gate}.log": receipt["log_sha256"]
+        for gate, receipt in receipts.items()
+        if receipt["status"] != "skip"
+    }
+    if _sha256(manifest_path) != validated_sha:
+        raise PublishError("manifest changed after verification")
     _verify_sha256sums(ROOT / "dist", version)
-    _verify_usb_image(ROOT / "dist", version)
+    tested_usb_sha = _qemu_tested_usb_sha(ROOT)
+    verified_usb_sha, metadata_sha = _verify_usb_image(ROOT / "dist", version)
+    if verified_usb_sha != tested_usb_sha:
+        raise PublishError("USB image differs from QEMU-tested USB image")
+
+    iso_name = f"beamo-wipe-{version}-amd64.iso"
+    image_name = f"beamo-wipe-{version}-amd64.img"
+    manifest_name = manifest_path.name
+    iso_sha = manifest_data["artifact"]["iso_sha256"]
+    expected_sidecars = {
+        ROOT / "dist" / f"{iso_name}.sha256": f"{iso_sha}  {iso_name}\n".encode("ascii"),
+        ROOT / "dist" / f"{image_name}.sha256": f"{tested_usb_sha}  {image_name}\n".encode("ascii"),
+        ROOT / "dist" / f"{manifest_name}.sha256": f"{validated_sha}  {manifest_name}\n".encode("ascii"),
+        ROOT / "dist" / "SHA256SUMS": (
+            f"{iso_sha}  {iso_name}\n{validated_sha}  {manifest_name}\n"
+        ).encode("ascii"),
+    }
+    # Finish all artifact checks before creating the one-use signature file.
+    # A failed preflight can then be repaired and retried without stale output.
+    signature_path, signature_sha = _sign_release_manifest(
+        ROOT / "dist", version, manifest_bytes=validated_manifest
+    )
+    if signature_path != ROOT / "dist" / sig_name:
+        raise PublishError("signature sidecar path changed during signing")
+    _regular_owned_file(signature_path)
 
     receipt_lines = [
         "release_complete=true",
@@ -512,6 +575,23 @@ def publish() -> str | None:
     for path in inputs:
         object_name = _object_name(build_id, path.name)
         local_sha = _sha256(path)
+        if path == manifest_path and local_sha != validated_sha:
+            raise PublishError("manifest changed after verification")
+        if (
+            path.name == f"beamo-wipe-{version}-amd64.iso"
+            and local_sha != manifest_data["artifact"]["iso_sha256"]
+        ):
+            raise PublishError("ISO differs from the verified manifest")
+        if path.name == f"beamo-wipe-{version}-amd64.img" and local_sha != tested_usb_sha:
+            raise PublishError("USB image differs from QEMU-tested USB image")
+        if path in expected_log_sha and local_sha != expected_log_sha[path]:
+            raise PublishError("execution log changed after verification")
+        if path in expected_sidecars and local_sha != hashlib.sha256(expected_sidecars[path]).hexdigest():
+            raise PublishError("checksum sidecar changed after verification")
+        if path == ROOT / "dist" / f"{image_name}.json" and local_sha != metadata_sha:
+            raise PublishError("USB image metadata changed after verification")
+        if path == signature_path and local_sha != signature_sha:
+            raise PublishError("signature changed after signing")
         _upload_file(path, object_name)
         if _remote_sha256(object_name) != local_sha:
             raise PublishError(f"uploaded byte verification failed for {path.name}")
