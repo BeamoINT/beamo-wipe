@@ -31,7 +31,7 @@ func option(guid byte) []byte {
 
 func TestExactBootOption(t *testing.T) {
 	id, err := parseBootOption(option(1))
-	if err != nil || id != "gpt:00000001-0000-0000-0000-000000000000" {
+	if err != nil || id != "gpt:00000001-0000-0000-0000-000000000000:1:2048:4096" {
 		t.Fatalf("%q %v", id, err)
 	}
 }
@@ -48,7 +48,7 @@ func TestBootOptionRefusesMalformedHardwarePrefix(t *testing.T) {
 	if _, err := parseBootOption(bad); err == nil {
 		t.Fatal("accepted malformed PCI node")
 	}
-	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: bad}}
+	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: bad}}
 	if p := makePlan(s); p.Direct {
 		t.Fatalf("malformed firmware path offered direct restart: %+v", p)
 	}
@@ -68,7 +68,7 @@ func TestBootOptionPreservesValidHardwarePrefix(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			entry := optionWithPrefix(prefix)
 			id, err := parseBootOption(entry)
-			if err != nil || id != "gpt:00000001-0000-0000-0000-000000000000" {
+			if err != nil || id != "gpt:00000001-0000-0000-0000-000000000000:1:2048:4096" {
 				t.Fatalf("valid %s hardware path rejected: %q %v", name, id, err)
 			}
 			s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{id}, Entries: map[uint16][]byte{4: entry}}
@@ -102,7 +102,7 @@ func TestMalformedOptionsRefused(t *testing.T) {
 }
 
 func TestPlanningRequiresOneExactUSBEntry(t *testing.T) {
-	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: option(1)}}
 	p := makePlan(s)
 	if !p.Direct || p.Entry != 4 || len(p.Fingerprint) != 64 {
 		t.Fatalf("%+v", p)
@@ -128,7 +128,7 @@ func TestPlanningRequiresOneExactUSBEntry(t *testing.T) {
 }
 
 func TestWindowsManualRestartPolicy(t *testing.T) {
-	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: option(1)}}
 	if p := makePlanForHost(s, "linux"); !p.Direct {
 		t.Fatalf("Linux guided restart was lost: %+v", p)
 	}

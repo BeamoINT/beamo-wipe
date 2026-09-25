@@ -378,7 +378,10 @@ args = sys.argv[1:]
 with Path(os.environ["FAKE_GCLOUD_CALLS"]).open("a", encoding="utf-8") as out:
     out.write(json.dumps(args) + "\\n")
 if args[:3] == ["builds", "triggers", "describe"]:
-    raise SystemExit(0 if os.environ["FAKE_TRIGGER_EXISTS"] == "true" else 1)
+    if os.environ["FAKE_TRIGGER_EXISTS"] == "true":
+        raise SystemExit(0)
+    print("NOT_FOUND: trigger does not exist", file=sys.stderr)
+    raise SystemExit(1)
 """,
         encoding="utf-8",
     )

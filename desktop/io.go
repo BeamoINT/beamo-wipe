@@ -16,7 +16,7 @@ func validGUID(s string) bool {
 	return guidPattern.MatchString(s) && s != "00000000-0000-0000-0000-000000000000"
 }
 func readSmall(path string, max int64) ([]byte, error) {
-	f, err := os.Open(path)
+	f, err := openRegularInput(path)
 	if err != nil {
 		return nil, err
 	}

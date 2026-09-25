@@ -235,8 +235,10 @@ def test_duplicate_lsblk_nodes_refuse_identity():
             "serial": "Z9A",
         }
 
+    boot_node = _node("sdb")
+    boot_node["serial"] = "BOOT-Z9A"
     result = parse_lsblk_json(
-        _payload([_node("sda"), _node("sda"), _node("sdb")]), boot_path="/dev/sdb"
+        _payload([_node("sda"), _node("sda"), boot_node]), boot_path="/dev/sdb"
     )
     assert result.boot_identified
     dup = [d for d in result.selectable if d.path == "/dev/sda"]

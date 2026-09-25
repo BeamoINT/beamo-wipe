@@ -91,7 +91,7 @@ func TestRestartTransaction(t *testing.T) {
 }
 
 func TestFingerprintChangesWithIdentity(t *testing.T) {
-	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: option(1)}}
 	a := makePlan(s)
 	s.MediaID = "usb:456"
 	b := makePlan(s)

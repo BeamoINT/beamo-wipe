@@ -339,6 +339,7 @@ class Wizard:
         self.wipe_result: Optional[WipeResult] = None
         self._splash_until = self._clock() + SPLASH_S
         self._erase_until: Optional[float] = None
+        self._review_overlay_depth = 0
         self._authorized_operation: Optional[tuple[Any, ...]] = None
         self._wipe_request: Optional[WipeRequest] = None
         # Set when cancel_wipe starts (under _lock, before runner.cancel())
@@ -388,6 +389,7 @@ class Wizard:
         self._refresh_seq = 0
         self._start_claim: Optional[_StartClaim] = None
         self._start_abort = threading.Event()
+        self._interface_failed = False
         self._operation_thread: Optional[threading.Thread] = None
         self.startup_error_code = discovery.error_code
         self.diagnostic_ui = "graphical"
@@ -667,11 +669,42 @@ class Wizard:
             return 0
         return max(1, math.ceil(self.countdown_left))
 
+    def _return_to_screen_locked(self, dest: Screen) -> None:
+        """Give Last Chance a fresh visible review period after a detour."""
+        self.screen = dest
+        if dest == Screen.LAST_CHANCE:
+            self._erase_until = self.now + COUNTDOWN_S
+
+    def restart_review_countdown(self) -> None:
+        """Restart the final review after a renderer makes it visible."""
+        with self._lock:
+            if self.screen == Screen.LAST_CHANCE:
+                self._erase_until = self.now + COUNTDOWN_S
+
+    def begin_review_overlay(self) -> bool:
+        """Suspend final authorization while an accessible modal covers review."""
+        with self._lock:
+            if self.screen != Screen.LAST_CHANCE:
+                return False
+            self._review_overlay_depth += 1
+            return True
+
+    def end_review_overlay(self) -> None:
+        """Resume final review with a fresh visible countdown."""
+        with self._lock:
+            if self._review_overlay_depth <= 0:
+                return
+            self._review_overlay_depth -= 1
+            if self._review_overlay_depth == 0 and self.screen == Screen.LAST_CHANCE:
+                self._erase_until = self.now + COUNTDOWN_S
+
     @property
     def erase_enabled(self) -> bool:
         store = self._session_store
         return (
             self.screen == Screen.LAST_CHANCE and self.countdown_left <= 0.0
+            and not self._interface_failed
+            and self._review_overlay_depth == 0
             and (store is None or (
                 not store.invalid and store.record is not None
                 and store.record["phase"] == "preflight"
@@ -901,7 +934,7 @@ class Wizard:
                 dest = Screen.OWNER
             self._keyboard_from = None
             self.typing_check = ""
-            self.screen = dest
+            self._return_to_screen_locked(dest)
 
     @property
     def can_open_keyboard(self) -> bool:
@@ -955,7 +988,7 @@ class Wizard:
         with self._lock:
             if not ui_lang.is_supported(code):
                 return False
-            if code == self.language:
+            if code == self.language and ui_lang.current() == code:
                 return True
             try:
                 ui_lang.set_language(code)
@@ -1301,7 +1334,7 @@ class Wizard:
         with self._lock:
             if self.screen != Screen.SHUTDOWN_CONFIRM or self.wants_shutdown:
                 return
-            self.screen = self._shutdown_from or Screen.OWNER
+            self._return_to_screen_locked(self._shutdown_from or Screen.OWNER)
             self._shutdown_from = None
             self._new_session_pending = False
             self._done_keyboard_armed = False
@@ -1372,7 +1405,7 @@ class Wizard:
         with self._lock:
             if self.screen not in {Screen.WHAT, Screen.OWNER}:
                 return
-            self.owner_ok = bool(checked)
+            self.owner_ok = checked is True
 
     def continue_owner(self) -> None:
         with self._lock:
@@ -1387,17 +1420,25 @@ class Wizard:
         self._done_keyboard_armed = False
         if not self.discovery.boot_identified or self.discovery.error:
             self.screen = Screen.PICK_BLOCKED
-            # Surface diagnostic for maintainers while keeping UI generic and actionable
+            # Keep UI generic and log only a closed classification. Discovery
+            # exception messages may contain device paths or serials.
             diag = getattr(self.discovery, "diagnostic", None)
             if diag:
-                # Discovery diagnostics can contain command/OS details. Keep
-                # the owner-facing kiosk message generic and write only the
-                # bounded sanitized diagnostic to the protected support log.
                 self.error = self.discovery.error
                 try:
                     from beamo_wipe.diagnostics import log_diag
+                    from beamo_wipe.diagnostic_report import CODES
 
-                    log_diag("wizard", "pick_blocked", diag)
+                    code = self.discovery.error_code
+                    safe_code = code if isinstance(code, str) and code in CODES else "unclassified"
+                    kind = diag.partition(":")[0] if isinstance(diag, str) else ""
+                    if kind not in {
+                        "TimeoutExpired", "CalledProcessError", "ValueError",
+                        "TypeError", "AttributeError", "OSError", "PermissionError",
+                        "FileNotFoundError", "SafetyError",
+                    }:
+                        kind = "unclassified"
+                    log_diag("wizard", "pick_blocked", f"{safe_code} {kind}")
                 except Exception:
                     pass
             else:
@@ -1548,7 +1589,7 @@ class Wizard:
                 return
             dest = self._refresh_confirm_from or Screen.OWNER
             self._refresh_confirm_from = None
-            self.screen = dest
+            self._return_to_screen_locked(dest)
 
     def _operation_key(self) -> Optional[tuple[Any, ...]]:
         disk = self.selected
@@ -1564,7 +1605,10 @@ class Wizard:
             spec.verify,
             spec.noblank,
             os.path.realpath(boot.path) if boot is not None else "",
-            tuple(sorted(os.path.realpath(item.path) for item in self.selectable)),
+            # A peer can be hot-swapped while keeping its /dev path. The
+            # owner chose the target from this entire displayed inventory,
+            # so bind consent to every listed disk's observed identity.
+            tuple(sorted(disk_identity(item) for item in self.listed_disks)),
             bool(self.discovery.boot_identified),
             self.discovery.error or "",
         )
@@ -1683,7 +1727,7 @@ class Wizard:
 
     def _claim_start(self) -> Optional[_StartClaim]:
         with self._lock:
-            if self._recovered or self._startup_blocked:
+            if self._interface_failed or self._recovered or self._startup_blocked:
                 return None
             # Double-start guard first: a second caller blocked on _lock
             # arrives after the first moved to WORKING. Refuse it with a
@@ -1696,8 +1740,6 @@ class Wizard:
                 return None
             if not self.erase_enabled or self.selected is None:
                 return None
-            if self._authorized_operation is None:
-                self._authorized_operation = self._operation_key()
             if not self._authorization_matches():
                 self._clear_authorization_locked()
                 self.error = C.AUTHORIZATION_STALE
@@ -1758,7 +1800,9 @@ class Wizard:
         If launch is already in progress, its owner stops it after start returns.
         Otherwise this prevents launch at the final worker boundary.
         """
-        self._start_abort.set()
+        with self._lock:
+            self._interface_failed = True
+            self._start_abort.set()
         self.begin_cancel(origin="system")
 
     def settle_failed_interface(self) -> None:
@@ -1767,7 +1811,9 @@ class Wizard:
         A failed stop thread or transient cancel error must not return control
         to the kiosk while this session may still own a running engine.
         """
-        self._start_abort.set()
+        with self._lock:
+            self._interface_failed = True
+            self._start_abort.set()
         try:
             self.cancel_wipe(origin="system")
         except Exception:
@@ -1882,7 +1928,16 @@ class Wizard:
                     self.error = NOT_IN_SAFE_LIST
                     self.startup_error_code = "identity_rejected"
                     return
-                self.selected = disk
+                with self._lock:
+                    self.selected = disk
+                    # The owner authorized the whole displayed selection
+                    # context. A hotplug can change its peer set while the
+                    # selected disk and its token remain identical.
+                    if not self._authorization_matches():
+                        self._clear_authorization_locked()
+                        self.error = C.AUTHORIZATION_STALE
+                        self.screen = Screen.CONFIRM
+                        return
             try:
                 request = assert_ready_to_wipe(
                     owner_ok=owner,
@@ -2222,6 +2277,16 @@ class Wizard:
                     pass
                 log_text = ""
 
+            # The exported log remains an exact suffix with its own hash.
+            # For terminal reports, NwipeRunner separately projected all
+            # relevant lines from an oversized log. Use that bounded view
+            # for outcome and media checks so an early warning cannot be
+            # hidden by a later successful-looking tail.
+            assessment_log_text = log_text
+            if result is not None and getattr(self.runner, "_assessment_ready", False):
+                assessed = getattr(self.runner, "_assessment_log_text", None)
+                assessment_log_text = assessed if isinstance(assessed, str) else ""
+
             if result is not None:
                 end_wall = self._evidence_end_wall
             else:
@@ -2260,6 +2325,7 @@ class Wizard:
                 started_at_wall=start_wall, ended_at_wall=end_wall if result is not None else "",
                 started_mono=start_mono, ended_mono=end_mono, argv=copy.deepcopy(argv),
                 log_text=log_text or "", interrupted=interrupted, cancelled=cancelled,
+                assessment_log_text=assessment_log_text,
                 wall_provenance=self._evidence_wall_provenance,
                 language=self.language, keyboard_layout=self.keyboard_layout,
             )
@@ -2803,7 +2869,7 @@ class Wizard:
     def close_diagnostic(self) -> None:
         with self._lock:
             if self.screen == Screen.DIAGNOSTIC and not self._diagnostic_busy:
-                self.screen = self._diagnostic_from
+                self._return_to_screen_locked(self._diagnostic_from)
                 self._diagnostic_baseline = ()
 
     def diagnostic_action(self, *, background: bool = False) -> bool:
@@ -3073,7 +3139,7 @@ class Wizard:
         with self._lock:
             if self.screen != Screen.ADVANCED:
                 return
-            self.screen = self._advanced_from or Screen.METHOD
+            self._return_to_screen_locked(self._advanced_from or Screen.METHOD)
 
     def back(self) -> None:
         # The start claim moves to CHECKING under this same lock. Back either
@@ -3104,7 +3170,7 @@ class Wizard:
                     Screen.STOPPING,
                     Screen.REFRESHING,
                 }:
-                    self.screen = dest
+                    self._return_to_screen_locked(dest)
                 return
             mapping = {
                 Screen.WHAT: Screen.KEYBOARD,
@@ -3120,7 +3186,7 @@ class Wizard:
                 Screen.LIMITS: Screen.METHOD,
             }
             if self.screen in mapping:
-                self.screen = mapping[self.screen]
+                self._return_to_screen_locked(mapping[self.screen])
                 if self.screen != Screen.LAST_CHANCE:
                     self._erase_until = None
                 self.error = None

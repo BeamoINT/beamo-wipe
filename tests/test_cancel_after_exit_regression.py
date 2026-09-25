@@ -4,6 +4,11 @@
 from beamo_wipe.models import MethodId, WipeRequest
 from beamo_wipe.nwipe_runner import NwipeRunner
 
+COMPLETE_LOG = (
+    "********************************* Drive Status *********************************\n"
+    "      vda | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+)
+
 
 class _AlreadyExited:
     returncode = 0
@@ -75,7 +80,7 @@ def _runner(tmp_path, log_text):
 
 
 def test_cancel_after_proven_completion_keeps_completed_result(tmp_path):
-    runner = _runner(tmp_path, "vda | Erased |\n")
+    runner = _runner(tmp_path, COMPLETE_LOG)
     runner.cancel()
     assert runner.result is not None
     assert runner.result.ok is True
@@ -93,7 +98,7 @@ def test_cancel_after_exit_without_completion_keeps_missing_evidence(tmp_path):
 
 
 def test_natural_exit_racing_stop_keeps_proven_completion(tmp_path):
-    runner = _runner(tmp_path, "vda | Erased |\n")
+    runner = _runner(tmp_path, COMPLETE_LOG)
     runner._proc = _ExitsDuringStop()
     runner.cancel()
     assert runner.result is not None

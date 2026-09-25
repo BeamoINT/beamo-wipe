@@ -15,12 +15,12 @@ from beamo_wipe.support_export import (
     prepare_terminal_evidence,
     select_export_volume,
 )
-from test_result_presentations import case_evidence
+from test_result_presentations import ERASED, STATUS, case_evidence
 
 
 def test_export_refuses_success_evidence_with_contradictory_verification(tmp_path):
     _, valid, _ = case_evidence(
-        ("verified", MethodId.EVERYDAY, 0, "{name} | Erased |", False, False)
+        ("verified", MethodId.EVERYDAY, 0, STATUS + ERASED, False, False)
     )
     target = valid["device"]["path"]
     valid_path = write_evidence_atomic(valid, log_dir=tmp_path, device_path=target)

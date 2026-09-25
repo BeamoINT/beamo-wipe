@@ -97,7 +97,26 @@ func validBootPrefix(node []byte) bool {
 		case 15: // USB class
 			return length == 11
 		case 16: // USB WWID with a nonempty UTF-16 serial, at most 64 code units
-			return length >= 12 && length <= 138 && length%2 == 0
+			if length < 12 || length > 138 || length%2 != 0 {
+				return false
+			}
+			for i := 10; i < length; i += 2 {
+				unit := binary.LittleEndian.Uint16(node[i:])
+				if unit == 0 || (unit >= 0xdc00 && unit <= 0xdfff) {
+					return false
+				}
+				if unit >= 0xd800 && unit <= 0xdbff {
+					if i+2 >= length {
+						return false
+					}
+					low := binary.LittleEndian.Uint16(node[i+2:])
+					if low < 0xdc00 || low > 0xdfff {
+						return false
+					}
+					i += 2
+				}
+			}
+			return true
 		case 18: // SATA
 			return length == 10 && binary.LittleEndian.Uint16(node[4:]) != 0xffff
 		case 22: // SAS Ex
@@ -125,7 +144,9 @@ func parseBootOption(data []byte) (string, error) {
 		return "", bad
 	}
 	attrs := binary.LittleEndian.Uint32(data)
-	if attrs&1 == 0 || attrs&0x1f00 != 0 {
+	// UEFI 2.10 defines only ACTIVE, FORCE_RECONNECT, and HIDDEN for a
+	// category-boot option. Reserved bits cannot establish an exact route.
+	if attrs&1 == 0 || attrs & ^uint32(0x0b) != 0 {
 		return "", bad
 	}
 	n := int(binary.LittleEndian.Uint16(data[4:]))
@@ -160,7 +181,7 @@ func parseBootOption(data []byte) (string, error) {
 				return "", bad
 			}
 			if node[40] == 2 && node[41] == 2 && !bytes.Equal(node[24:40], make([]byte, 16)) {
-				id = "gpt:" + guidString(node[24:40])
+				id = fmt.Sprintf("gpt:%s:%d:%d:%d", guidString(node[24:40]), part, start, size)
 			} else if node[40] == 1 && node[41] == 1 && binary.LittleEndian.Uint32(node[24:]) != 0 && bytes.Equal(node[28:40], make([]byte, 12)) {
 				id = fmt.Sprintf("mbr:%08x:%d:%d:%d", binary.LittleEndian.Uint32(node[24:]), part, start, size)
 			} else {

@@ -8,6 +8,8 @@ from beamo_wipe.nwipe_runner import evaluate_nwipe_outcome
 
 TARGET = "/dev/sdabcdef"  # exactly eight basename characters
 FOREIGN = "/dev/sdxsdabcdef"  # valid whole-disk name with the same last eight
+STATUS = "********************************* Drive Status *********************************\n"
+ERASED_ROW = "  sdabcdef | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
 
 
 def _checks(text):
@@ -15,7 +17,7 @@ def _checks(text):
 
 
 def test_foreign_erased_row_does_not_complete_eight_character_target():
-    text = f"{FOREIGN}: selected\n sdabcdef | Erased |\n"
+    text = f"{FOREIGN}: selected\n" + STATUS + ERASED_ROW
     assert evaluate_nwipe_outcome(0, text, TARGET)[0] is False
 
 
@@ -37,6 +39,6 @@ def test_explicit_target_failure_remains_a_failure_with_shared_column():
 
 
 def test_unshared_eight_character_target_still_accepts_own_rows():
-    assert evaluate_nwipe_outcome(0, " sdabcdef | Erased |\n", TARGET)[0] is True
+    assert evaluate_nwipe_outcome(0, STATUS + ERASED_ROW, TARGET)[0] is True
     text = "Error Summary\n sdabcdef | 0 | 0 | 0\n***\n"
     assert _checks(text)["io_media"].status == "pass"

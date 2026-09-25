@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import fcntl
 import errno
+import math
 import os
 import re
 import signal
@@ -65,13 +66,36 @@ NWIPE_WRITE_SUFFIX_RE = re.compile(
 NWIPE_BUSY_RE = re.compile(
     r"(?:is reported as IN USE|is IN USE but --force is not set, not wiping it)"
 )
+NWIPE_BUSY_TARGET_RE = re.compile(
+    r"^(/dev/[A-Za-z0-9._+-]+) is "
+    r"(?:reported as IN USE\b|IN USE but --force is not set, not wiping it\b)"
+)
 NWIPE_ABORT_RE = re.compile(r"Nwipe was aborted by the user")
+NWIPE_ABORT_LINE_RE = re.compile(r"^Nwipe was aborted by the user\b")
 # Wipe-time open (nwipe.c). device.c also logs
 # "Unable to open device %s to obtain serial number" and continues.
 NWIPE_OPEN_FAIL_RE = re.compile(r"Unable to open device '[^']+'\.")
+NWIPE_OPEN_TARGET_RE = re.compile(
+    r"^Unable to open device '(/dev/[A-Za-z0-9._+-]+)'\."
+)
 # Drive Status column is exactly 8 chars between pipes (logging.c).
 NWIPE_FAILURE_RE = re.compile(
     r"(?:>>> FAILURE! <<<|\|-FAILED-\||\|UABORTED\||\|INSANITY\|)"
+)
+NWIPE_LOG_PREFIX_RE = re.compile(
+    r"^\s*(?:\[[^\]\r\n]*\]\s*)?"
+    r"(?:(?:debug|info|notice|warning|error|fatal|sanity):\s*)?",
+    re.I,
+)
+NWIPE_DIRECT_FAILURE_RE = re.compile(
+    r"^(/dev/[A-Za-z0-9._+-]+):\s*>>> FAILURE! <<<"
+)
+NWIPE_PIPE_FAILURE_RE = re.compile(
+    r"^\|(/dev/[A-Za-z0-9._+-]+)\|[^|]*\|\s*"
+    r"(?:-FAILED-|UABORTED|INSANITY)\s*\|"
+)
+NWIPE_VERIFY_MISMATCH_RE = re.compile(
+    r"^Verification mismatch on ['\"]?(/dev/[A-Za-z0-9._+-]+)"
 )
 NWIPE_POSSIBLE_ERASURE_STATUS_RE = re.compile(
     r"(?:\|\s*Erased\s*\||\|-FAILED-\||\|UABORTED\|)"
@@ -79,21 +103,39 @@ NWIPE_POSSIBLE_ERASURE_STATUS_RE = re.compile(
 NWIPE_ERROR_ROW_RE = re.compile(
     r"^\s*!?\s*([A-Za-z0-9._+-]+)\s*\|\s*(\d{1,20})\s*\|\s*(\d{1,20})\s*\|\s*(\d{1,20})\s*$"
 )
+NWIPE_ERROR_SUMMARY_HEADER_RE = re.compile(
+    r"^(?:\*+\s*)?Error Summary(?:\s*\*+)?$"
+)
+# Exact nwipe 0.42 logging.c banner: device models cannot supply this line
+# (ATA IDENTIFY is 40 bytes, status-table model is truncated to 17 bytes).
+NWIPE_DRIVE_STATUS_HEADER = (
+    "********************************* Drive Status "
+    "*********************************"
+)
 NWIPE_GEOMETRY_RE = re.compile(r"No sane device geometry")
+NWIPE_GEOMETRY_TARGET_RE = re.compile(
+    r"^(?:No sane device geometry for ['\"]?(/dev/[A-Za-z0-9._+-]+)"
+    r"|(/dev/[A-Za-z0-9._+-]+): No sane device geometry)"
+)
 # Logged by nwipe_options_log() after pthread_sigmask(SIGUSR1) and the
 # signal-handler thread exist. Until then SIGUSR1 uses the default action
 # (terminate). The PRNG auto-bench (8 generators × 1.0s) runs before that.
-NWIPE_SIGUSR1_READY_MARKERS = (
-    "Program options are set as follows",
-    " do not show GUI interface",
-    "Using direct I/O",
-    "Using cached I/O",
+NWIPE_SIGUSR1_READY_RE = re.compile(
+    r"^(?:(?:\[\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\]\s*)?"
+    r"(?:debug|info|notice|sanity):\s*)?"
+    r"(?:Program options are set as follows\b|do not show GUI interface\b|"
+    r"Using direct I/O\b|Using cached I/O\b)"
 )
 NWIPE_VERSION_TIMEOUT_S = 5
 # Drive Status is written before create_system_multi_disc_pdf()/smartctl.
 # 64KiB from EOF can be only that tail, hiding | Erased |.
 NWIPE_COMPLETION_LOG_BYTES = 1024 * 1024
 NWIPE_PROGRESS_LOG_BYTES = 8000
+# Completion can be larger than the displayed/exported tail. Stream it and
+# retain only parser-relevant lines; an oversized individual line or too much
+# relevant evidence is indeterminate rather than a partial success.
+NWIPE_COMPLETION_SCAN_LINE_BYTES = 64 * 1024
+NWIPE_COMPLETION_EVIDENCE_BYTES = 1024 * 1024
 NWIPE_CLEAN_ENV = dict(CLEAN_SUBPROCESS_ENV)
 # nwipe 0.42 `nwipe -V` prints this line (src/nwipe.c). Substring "0.42"
 # would also match 0.420 / 10.42 / a binary that mentions the pin in help.
@@ -241,6 +283,17 @@ def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
     except OSError as exc:
         _try_log_diag("nwipe", "proc_list_failed", type(exc).__name__)
         return True
+    try:
+        pinned_stat = os.stat(NWIPE_PINNED_PATH)
+    except FileNotFoundError:
+        # An old engine may still be executing through a hard link after the
+        # installed path was removed. Its inode cannot be compared with the
+        # missing pathname; absence of a concurrent erase is unprovable.
+        _try_log_diag("nwipe", "already_running_pinned_missing")
+        return True
+    except OSError as exc:
+        _try_log_diag("nwipe", "already_running_stat_failed", type(exc).__name__)
+        return True
     unreadable = 0
     for name in names:
         if not name.isdigit():
@@ -270,6 +323,19 @@ def pinned_nwipe_already_running(*, exclude_pid: Optional[int] = None) -> bool:
             _try_log_diag("nwipe", code, f"pid={pid}")
             return True
         if exe == pinned:
+            return True
+        try:
+            # /proc/PID/exe refers to the executing inode even when its
+            # launch path was a hard link that has since been removed.
+            running_stat = os.stat(f"/proc/{name}/exe")
+        except OSError as exc:
+            if exc.errno in {errno.ENOENT, errno.ESRCH}:
+                continue
+            _try_log_diag("nwipe", "proc_exe_stat_failed", f"pid={pid}")
+            return True
+        if (running_stat.st_dev, running_stat.st_ino) == (
+            pinned_stat.st_dev, pinned_stat.st_ino
+        ):
             return True
     if unreadable:
         _try_log_diag("nwipe", "proc_exe_unreadable", f"count={unreadable}")
@@ -459,37 +525,50 @@ def _line_mentions_device(line: str, device: str) -> bool:
 
 def target_skipped_busy(log_text: str, device: str) -> bool:
     """True if nwipe logged that *this* target is in use and was not wiped."""
-    text = log_text or ""
-    for line in text.splitlines():
-        if not NWIPE_BUSY_RE.search(line):
-            continue
-        if _line_mentions_device(line, device):
+    return _target_has_record(log_text, device, NWIPE_BUSY_TARGET_RE)
+
+
+def _engine_log_body(line: str) -> str:
+    return NWIPE_LOG_PREFIX_RE.sub("", line, count=1)
+
+
+def _target_has_record(log_text: str, device: str, pattern: re.Pattern[str]) -> bool:
+    target = os.path.realpath(device)
+    for line in (log_text or "").split("\n"):
+        match = pattern.match(_engine_log_body(line))
+        if match is not None and any(
+            part is not None and os.path.realpath(part) == target
+            for part in match.groups()
+        ):
             return True
     return False
+
+
+def _nwipe_aborted(log_text: str) -> bool:
+    return any(
+        NWIPE_ABORT_LINE_RE.match(_engine_log_body(line))
+        for line in (log_text or "").split("\n")
+    )
 
 
 def nwipe_accepts_sigusr1(log_text: str) -> bool:
     """True once the log shows nwipe 0.42 has installed its SIGUSR1 handler."""
     text = log_text or ""
-    return any(marker in text for marker in NWIPE_SIGUSR1_READY_MARKERS)
+    # Model and serial fields are supplied by the disk. They may contain a
+    # readiness phrase, but cannot make that phrase the start of an nwipe
+    # option/I/O record. An unprefixed record supports synthetic test logs.
+    return any(
+        NWIPE_SIGUSR1_READY_RE.match(line.strip(" \t\r"))
+        for line in text.split("\n")[:-1]
+    )
 
 
 def _target_open_failed(log_text: str, device: str) -> bool:
-    for line in (log_text or "").splitlines():
-        if not NWIPE_OPEN_FAIL_RE.search(line):
-            continue
-        if _line_mentions_device(line, device):
-            return True
-    return False
+    return _target_has_record(log_text, device, NWIPE_OPEN_TARGET_RE)
 
 
 def _target_geometry_failed(log_text: str, device: str) -> bool:
-    for line in (log_text or "").splitlines():
-        if not NWIPE_GEOMETRY_RE.search(line):
-            continue
-        if _line_mentions_device(line, device):
-            return True
-    return False
+    return _target_has_record(log_text, device, NWIPE_GEOMETRY_TARGET_RE)
 
 
 # nwipe 0.42 nwipe_strip_path(): right-align the basename in 8 columns and
@@ -529,28 +608,50 @@ def _status_device_names(device: str) -> List[str]:
 
 
 def _status_column_has_name(line: str, name: str) -> bool:
-    return re.search(rf"(?:^|\s)!?\s*{re.escape(name)}\s*\|", line) is not None
+    return re.match(rf"^\s*!?\s*{re.escape(name)}\s*\|", line) is not None
+
+
+def _is_error_summary_header(line: str) -> bool:
+    return NWIPE_ERROR_SUMMARY_HEADER_RE.fullmatch(
+        _engine_log_body(line).strip()
+    ) is not None
+
+
+def _status_failure_has_name(line: str, name: str) -> bool:
+    """Match the Drive Status cell, never device-controlled model text."""
+    return re.match(
+        rf"^\s*!?\s*{re.escape(name)}\s*\|\s*"
+        r"(?:-FAILED-|UABORTED|INSANITY)\s*\|",
+        line,
+    ) is not None
+
+
+def _line_reports_target_failure(line: str, device: str, *, shared: bool) -> bool:
+    body = _engine_log_body(line)
+    direct = NWIPE_DIRECT_FAILURE_RE.match(body)
+    if direct is not None:
+        return os.path.realpath(direct.group(1)) == os.path.realpath(device)
+    pipe = NWIPE_PIPE_FAILURE_RE.match(body)
+    if pipe is not None:
+        return os.path.realpath(pipe.group(1)) == os.path.realpath(device)
+    if shared:
+        return False
+    return any(
+        _status_failure_has_name(line, name)
+        for name in _status_device_names(device)
+    )
+
+
+def _line_reports_target_verification_mismatch(line: str, device: str) -> bool:
+    body = _engine_log_body(line)
+    match = NWIPE_VERIFY_MISMATCH_RE.match(body)
+    return match is not None and os.path.realpath(match.group(1)) == os.path.realpath(device)
 
 
 def _target_reported_failure(log_text: str, device: str) -> bool:
-    names = _status_device_names(device)
     shared = _status_column_is_shared(log_text, device)
-    for line in (log_text or "").splitlines():
-        if not NWIPE_FAILURE_RE.search(line):
-            continue
-        if shared:
-            # The eight-character Drive Status cell cannot distinguish two
-            # logged paths with this suffix, even when the target basename
-            # itself is exactly eight characters.
-            if re.search(
-                r"(?:^|[^\w/])" + re.escape(os.path.realpath(device)) + r"(?:[^\w]|$)",
-                line,
-            ):
-                return True
-            continue
-        if _line_mentions_device(line, device):
-            return True
-        if any(_status_column_has_name(line, name) for name in names):
+    for line in (log_text or "").split("\n"):
+        if _line_reports_target_failure(line, device, shared=shared):
             return True
     return False
 
@@ -561,8 +662,8 @@ def _shared_status_reports_failure(log_text: str, device: str) -> bool:
         return False
     column = nwipe_status_device_field(device).strip()
     return any(
-        NWIPE_FAILURE_RE.search(line) and _status_column_has_name(line, column)
-        for line in (log_text or "").splitlines()
+        _status_failure_has_name(line, column)
+        for line in (log_text or "").split("\n")
     )
 
 
@@ -571,8 +672,8 @@ def _target_error_summary_conflict(log_text: str, device: str) -> str:
     names = _status_device_names(device)
     shared = _status_column_is_shared(log_text, device)
     in_table = False
-    for line in (log_text or "").splitlines():
-        if "Error Summary" in line:
+    for line in (log_text or "").split("\n"):
+        if _is_error_summary_header(line):
             in_table = True
             continue
         if in_table and line.lstrip().startswith("***"):
@@ -600,10 +701,18 @@ def _target_has_erase_activity(log_text: str, device: str) -> bool:
     """Evidence that contradicts a claim the target was never touched."""
     if any(True for _match, _value in _iter_target_progress(log_text, device)):
         return True
-    if NWIPE_ABORT_RE.search(log_text or ""):
+    if _nwipe_aborted(log_text):
+        return True
+    if _target_error_summary_conflict(log_text, device):
+        return True
+    if any(
+        _line_reports_target_failure(line, device, shared=False)
+        or _line_reports_target_verification_mismatch(line, device)
+        for line in (log_text or "").split("\n")
+    ):
         return True
     names = _status_device_names(device)
-    for line in (log_text or "").splitlines():
+    for line in (log_text or "").split("\n"):
         if not any(_status_column_has_name(line, name) for name in names):
             continue
         if NWIPE_POSSIBLE_ERASURE_STATUS_RE.search(line):
@@ -613,7 +722,7 @@ def _target_has_erase_activity(log_text: str, device: str) -> bool:
 
 def _iter_target_progress(log_text: str, device: str):
     """Yield SIGUSR1 progress matches for this device, in log order."""
-    for line in (log_text or "").splitlines():
+    for line in (log_text or "").split("\n"):
         match = NWIPE_PROGRESS_RE.match(line)
         if match is None:
             continue
@@ -658,6 +767,10 @@ def _target_job_percent(log_text: str, device: str) -> Optional[float]:
     for match, value in _iter_target_progress(log_text, device):
         last = _job_percent_from_match(match, value)
     return last
+
+
+def _log_signature(st: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
 
 
 def _progress_is_final_pass(match: re.Match) -> bool:
@@ -744,7 +857,10 @@ def _target_reached_last_pass(log_text: str, device: str) -> bool:
     return bool(last)
 
 
-_LOG_DEVICE_RE = re.compile(r"/dev/[A-Za-z0-9]+")
+# Paths used by nwipe include names such as dm-0 and md_raid. Truncating the
+# match at punctuation can hide another device that shares an eight-character
+# Drive Status cell, causing its Erased row to be credited to the target.
+_LOG_DEVICE_RE = re.compile(r"/dev/[A-Za-z0-9._+-]+")
 
 
 def _status_column_is_shared(log_text: str, device: str) -> bool:
@@ -774,15 +890,29 @@ def _target_reported_success(log_text: str, device: str) -> bool:
     and before pthread_create. That line is not a completed wipe.
     The status table uses an 8-column basename, so a longer name is truncated.
     A column shared with another path in the same log is not this disk.
+    Require the whole table row under nwipe's exact banner: libparted leaves
+    internal LF in an ATA model, which nwipe logs without escaping. Such a
+    model can forge a bare Erased cell, including inside another status row.
     """
     shared = _status_column_is_shared(log_text, device)
     if shared:
         return False
-    for name in _status_device_names(device):
-        row = re.compile(rf"^\s*!?\s*{re.escape(name)}\s*\|\s*Erased\s*\|")
-        for line in (log_text or "").splitlines():
-            if row.match(line):
-                return True
+    rows = [
+        re.compile(
+            rf"^\s*!?\s*{re.escape(name)}\s*\|\s*Erased\s*\|"
+            r"\s*[^|\r\n]+/s\s*\|\s*\d{2,}:\d{2}:\d{2}\s*\|"
+        )
+        for name in _status_device_names(device)
+    ]
+    in_status = False
+    for line in (log_text or "").split("\n"):
+        if line == NWIPE_DRIVE_STATUS_HEADER:
+            in_status = True
+            continue
+        if in_status and line.startswith("***"):
+            in_status = False
+        if in_status and any(row.match(line) for row in rows):
+            return True
     return False
 
 
@@ -817,15 +947,15 @@ def evaluate_nwipe_outcome(
         )
     if busy:
         return False, "nwipe skipped the disk because it is in use", "occupied"
-    if NWIPE_ABORT_RE.search(log_text or ""):
+    if _nwipe_aborted(log_text):
         return False, "nwipe was aborted", "interrupted"
     if open_failed:
         return False, "nwipe could not open the disk", "open_failed"
     if geometry_failed:
         return False, "nwipe could not use the disk", "geometry_unusable"
     if any(
-        "Verification mismatch on" in line and _line_mentions_device(line, device)
-        for line in (log_text or "").splitlines()
+        _line_reports_target_verification_mismatch(line, device)
+        for line in (log_text or "").split("\n")
     ):
         return False, "nwipe read-back verification failed", "verification_failed"
     if _target_reported_failure(log_text, device):
@@ -837,6 +967,19 @@ def evaluate_nwipe_outcome(
         if summary_conflict == "engine_failed":
             return False, "nwipe reported disk errors", "engine_failed"
         return False, "nwipe completion could not be confirmed", "indeterminate"
+    # nwipe 0.42 writes newline-terminated records. A final record cut short
+    # by failed or interrupted log I/O can already contain an Erased row or
+    # a plausible final 100% sample; neither is complete terminal evidence.
+    # Keep an earlier explicit failure reason rather than hiding it here.
+    if (
+        log_text
+        and not log_text.endswith("\n")
+        and (
+            _target_reported_success(log_text, device)
+            or _target_reached_last_pass(log_text, device)
+        )
+    ):
+        return False, "nwipe completion log ended mid-record", "indeterminate"
     if _target_reported_success(log_text, device):
         return True, "finished", "completed"
     if _target_reached_last_pass(log_text, device):
@@ -875,6 +1018,13 @@ class NwipeRunner:
         self._active_request: Optional[WipeRequest] = None
         self._sleep_inhibit = SleepInhibit()
         self._spawned_this_attempt = False
+        # A bounded projection of the whole terminal log for outcome and
+        # report checks. _log_tail remains the exact suffix used for export.
+        self._assessment_log_text: Optional[str] = None
+        self._assessment_ready = False
+        # Completion reads are bounded. Keep truncation on the reading thread
+        # so a concurrent progress read cannot change a completion decision.
+        self._log_read_state = threading.local()
 
     def start_not_spawned(self) -> bool:
         """Confirm a failed launch left no registered process or wipe lock."""
@@ -893,6 +1043,17 @@ class NwipeRunner:
                 raise SafetyError("Runner cleanup could not be confirmed.")
             if self._proc is not None:
                 raise SafetyError("A wipe is already running.")
+            # A new launch attempt owns the runner state even if an early
+            # preflight check refuses it. A later poll must not return the
+            # previous session's terminal verdict as this attempt's result.
+            self.result = None
+            self.progress = None
+            self.progress_observation = None
+            self.finalizing = False
+            self._log_tail = ""
+            self._assessment_log_text = None
+            self._assessment_ready = False
+            self._last_logfile = ""
             self._spawned_this_attempt = False
             self._active_request = None
         resolved = resolve_nwipe_binary(self.binary)
@@ -957,6 +1118,8 @@ class NwipeRunner:
             self.progress_observation = None
             self.finalizing = False
             self._log_tail = ""
+            self._assessment_log_text = None
+            self._assessment_ready = False
             self._last_sigusr1 = 0.0
             self._sigusr1_armed = False
             self._last_logfile = request.logfile
@@ -1019,9 +1182,14 @@ class NwipeRunner:
             return
         try:
             v = float(percent)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return
-        # Clamp and filter NaN/inf
+        # A nonfinite reading cannot be interpreted as a percentage. Python's
+        # min/max would otherwise turn NaN or +inf into 100%.
+        if not math.isfinite(v):
+            _try_log_diag("nwipe", "progress_nonfinite")
+            return
+        # Clamp finite out-of-range values.
         if not (0.0 <= v <= 100.0):
             # Clamp instead of ignoring, but log anomaly for diagnostics
             _try_log_diag("nwipe", "progress_clamped", f"raw={percent!r}")
@@ -1046,6 +1214,11 @@ class NwipeRunner:
             if expected_proc is not None and proc is not expected_proc:
                 return self.result
             if proc is not None:
+                # The verdict is bound to the disk, method, and log selected
+                # at launch. A stale caller must not classify this process
+                # using another request's terminal evidence.
+                if self._active_request is not None and request != self._active_request:
+                    raise SafetyError("Poll request does not match the active erase.")
                 if self._status_polling is proc:
                     return None
                 self._status_polling = proc
@@ -1068,6 +1241,7 @@ class NwipeRunner:
             ready_text = ""
             if not getattr(self, "_sigusr1_armed", False):
                 ready_text = self._read_log_tail(request.logfile, 65536)
+                ready_text = self._complete_log_records(ready_text)
             now = time.monotonic()
             with self._lock:
                 if self._proc is not proc:
@@ -1085,20 +1259,37 @@ class NwipeRunner:
             if self._proc is not proc:
                 return self.result
             self.finalizing = True
+        self._log_read_state.truncated = False
         log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
+        completion_truncated = self._log_read_state.truncated
+        completion_text: Optional[str] = log_text
+        if completion_truncated:
+            completion_text = self._scan_completion_log(
+                request.logfile, request.device, self._log_read_state.identity
+            )
         with self._lock:
             if self._proc is not proc:
                 return self.result
+            self._assessment_log_text = completion_text
+            self._assessment_ready = True
             if log_text:
                 self._log_tail = log_text
-                percent = _target_job_percent(log_text, request.device)
+                percent = (
+                    _target_job_percent(self._complete_log_records(log_text), request.device)
+                    if log_text.endswith("\n") else None
+                )
                 if percent is not None:
                     self._update_progress(percent)
         if not log_text.strip():
             _try_log_diag("nwipe", "completion_log_empty", f"exit={code}")
-        ok, summary, reason = completion_for_method(
-            code, log_text, request.device, request.method
-        )
+        if completion_text is None:
+            ok, summary, reason = (
+                False, "nwipe completion log was incomplete", "indeterminate"
+            )
+        else:
+            ok, summary, reason = completion_for_method(
+                code, completion_text, request.device, request.method
+            )
         _try_log_diag("nwipe", reason, f"exit={code}; {summary}")
         if not ok and code == 0 and log_text:
             # Verification ambiguity: nwipe exit 0 without explicit success must
@@ -1106,7 +1297,7 @@ class NwipeRunner:
             _try_log_diag(
                 "nwipe",
                 "verification_ambiguous",
-                f"device={request.device[:32]} summary={summary[:80]}",
+                f"exit={code} summary={summary[:80]}",
             )
         with self._lock:
             if self._proc is not proc:
@@ -1131,6 +1322,9 @@ class NwipeRunner:
             return self.result
 
     def _read_log_tail(self, logfile: str, nbytes: int) -> str:
+        self._log_read_state.truncated = False
+        self._log_read_state.identity = None
+        self._log_read_state.head_fragment = False
         try:
             fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         except OSError as exc:
@@ -1142,7 +1336,7 @@ class NwipeRunner:
                 _try_log_diag(
                     "nwipe",
                     "log_open_failed",
-                    f"{type(exc).__name__} log={logfile[:64]}",
+                    f"{type(exc).__name__} errno={exc.errno}",
                 )
             return ""
         try:
@@ -1151,18 +1345,32 @@ class NwipeRunner:
                 _try_log_diag(
                     "nwipe",
                     "log_not_regular",
-                    f"mode={oct(st.st_mode)} log={logfile[:48]}",
+                    f"mode={oct(st.st_mode)}",
                 )
                 return ""
             with os.fdopen(fd, "rb") as fh:
                 fd = -1
                 fh.seek(0, os.SEEK_END)
                 size = fh.tell()
-                fh.seek(max(0, size - nbytes))
-                return fh.read().decode("utf-8", errors="replace")
+                self._log_read_state.truncated = size > nbytes
+                self._log_read_state.identity = _log_signature(os.fstat(fh.fileno()))
+                start = max(0, size - nbytes)
+                if start:
+                    # The returned bytes remain exact for display/export, but
+                    # parsers must ignore an initial record cut by this seek.
+                    fh.seek(start - 1)
+                    self._log_read_state.head_fragment = fh.read(1) != b"\n"
+                fh.seek(start)
+                # nwipe can append after tell(). Keep this read bounded even
+                # when the file grows before or during the read.
+                tail = fh.read(nbytes).decode("utf-8", errors="replace")
+                if _log_signature(os.fstat(fh.fileno())) != self._log_read_state.identity:
+                    self._log_read_state.identity = None
+                    self._log_read_state.truncated = True
+                return tail
         except OSError as exc:
             _try_log_diag(
-                "nwipe", "log_read_failed", f"{type(exc).__name__} log={logfile[:64]}"
+                "nwipe", "log_read_failed", f"{type(exc).__name__} errno={exc.errno}"
             )
             return ""
         finally:
@@ -1171,6 +1379,109 @@ class NwipeRunner:
                     os.close(fd)
                 except OSError as exc:
                     _try_log_diag("nwipe", "log_close_failed", type(exc).__name__)
+
+    def _complete_log_records(self, text: str) -> str:
+        """Discard a cut first record before interpreting bounded log bytes."""
+        if getattr(self._log_read_state, "head_fragment", False):
+            return text.partition("\n")[2]
+        return text
+
+    def _scan_completion_log(
+        self, logfile: str, device: str, expected_identity
+    ) -> Optional[str]:
+        """Project a complete large log into bounded completion and media evidence.
+
+        The regular tail remains available for display/export. The verdict
+        and report checks consider early lines outside that tail.
+        Returning None means the entire file could not be validated.
+        """
+        if expected_identity is None:
+            return None
+        try:
+            fd = os.open(logfile, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        except OSError as exc:
+            _try_log_diag("nwipe", "completion_scan_open_failed", type(exc).__name__)
+            return None
+        try:
+            with os.fdopen(fd, "rb") as fh:
+                fd = -1
+                st = os.fstat(fh.fileno())
+                if (
+                    not stat.S_ISREG(st.st_mode)
+                    or st.st_uid != os.getuid()
+                    or _log_signature(st) != expected_identity
+                ):
+                    return None
+                names = _status_device_names(device)
+                target_real = os.path.realpath(device)
+                target_name = os.path.basename(target_real)
+                target_column = nwipe_status_device_field(device).strip()
+                retained: list[str] = []
+                retained_bytes = 0
+                last_progress = ""
+                shared_path = ""
+                in_error_summary = False
+                remaining = st.st_size
+                while remaining:
+                    raw = fh.readline(
+                        min(NWIPE_COMPLETION_SCAN_LINE_BYTES + 1, remaining)
+                    )
+                    if not raw:
+                        return None
+                    remaining -= len(raw)
+                    if len(raw) > NWIPE_COMPLETION_SCAN_LINE_BYTES:
+                        return None
+                    if not raw.endswith(b"\n"):
+                        return None
+                    line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                    for match in _LOG_DEVICE_RE.finditer(line):
+                        other = os.path.basename(os.path.realpath(match.group(0)))
+                        if (other != target_name
+                                and nwipe_status_device_field(match.group(0)).strip()
+                                == target_column):
+                            shared_path = match.group(0)
+                    if next(_iter_target_progress(line, device), None) is not None:
+                        last_progress = line
+                    if _is_error_summary_header(line):
+                        in_error_summary = True
+                    elif in_error_summary and line.lstrip().startswith("***"):
+                        in_error_summary = False
+                    relevant = (
+                        in_error_summary
+                        or _is_error_summary_header(line)
+                        or "Erasure Summary" in line
+                        or "HIDDEN SECTORS" in line
+                        or "No hidden sectors on" in line
+                        or "hpa_dco" in line
+                        or "hdparm" in line
+                        or "SG_IO bad/missing sense data" in line
+                        or line.lstrip().startswith("***")
+                        or "Verification mismatch on" in line
+                        or any(regex.search(line) for regex in (
+                            NWIPE_BUSY_RE, NWIPE_ABORT_RE, NWIPE_OPEN_FAIL_RE,
+                            NWIPE_FAILURE_RE, NWIPE_POSSIBLE_ERASURE_STATUS_RE,
+                            NWIPE_GEOMETRY_RE,
+                        ))
+                        or any(_status_column_has_name(line, name) for name in names)
+                    )
+                    if relevant:
+                        retained_bytes += len(raw)
+                        if retained_bytes > NWIPE_COMPLETION_EVIDENCE_BYTES:
+                            return None
+                        retained.append(line)
+                if _log_signature(os.fstat(fh.fileno())) != expected_identity:
+                    return None
+                if last_progress:
+                    retained.append(last_progress)
+                if shared_path:
+                    retained.append(f"observed {shared_path}")
+                return "\n".join(retained) + "\n"
+        except (OSError, ValueError) as exc:
+            _try_log_diag("nwipe", "completion_scan_failed", type(exc).__name__)
+            return None
+        finally:
+            if fd >= 0:
+                os.close(fd)
 
     def _refresh_progress(
         self,
@@ -1182,8 +1493,11 @@ class NwipeRunner:
         text = self._read_log_tail(logfile, NWIPE_PROGRESS_LOG_BYTES)
         from beamo_wipe.progress import observe
 
-        observation = observe(text, device)
-        percent = _target_job_percent(text, device)
+        observation = observe(self._complete_log_records(text), device)
+        # An in-flight append can end after a plausible percentage but before
+        # nwipe has finished the record. Use the complete-line observation for
+        # both the stage and the number shown to the owner.
+        percent = observation.percent if observation is not None else None
         with self._lock:
             if expected_proc is not None and self._proc is not expected_proc:
                 return
@@ -1330,12 +1644,28 @@ class NwipeRunner:
         if no_signal and request is not None:
             self.poll(request, expected_proc=proc)
             return
-        if request is not None and proc.returncode == 0:
+        if request is not None:
+            # Capture the same bounded whole-log assessment for cancellation.
+            # A partial erase can still leave warning evidence that must not
+            # disappear merely because the owner stopped the process.
+            self._log_read_state.truncated = False
+            log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
+            completion_text: Optional[str] = log_text
+            if self._log_read_state.truncated:
+                completion_text = self._scan_completion_log(
+                    request.logfile, request.device, self._log_read_state.identity
+                )
+            with self._lock:
+                if self._proc is proc:
+                    self._assessment_log_text = completion_text
+                    self._assessment_ready = True
+                    if log_text:
+                        self._log_tail = log_text
             # The process can finish naturally between the Stop snapshot and
             # terminate(). If its exact method has complete terminal proof,
             # retain that result. Aborts and ambiguous tails stay cancelled.
-            log_text = self._read_log_tail(request.logfile, NWIPE_COMPLETION_LOG_BYTES)
-            if completion_for_method(0, log_text, request.device, request.method)[0]:
+            if (proc.returncode == 0 and completion_text is not None
+                    and completion_for_method(0, completion_text, request.device, request.method)[0]):
                 self.poll(request, expected_proc=proc)
                 return
         with self._lock:
@@ -1439,6 +1769,8 @@ class DryRunRunner:
             self._started = None
             return self.result
         elapsed = self._clock() - self._started
+        if not math.isfinite(elapsed) or elapsed < 0:
+            elapsed = 0.0
         frac = min(1.0, elapsed / max(0.1, self.duration_s))
         if frac < 1.0:
             # Monotonic, clamped, never 100 while working

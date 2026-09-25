@@ -3,10 +3,66 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestRunningIdentityUsesExecutableLocationInsteadOfArgvZero(t *testing.T) {
+	oldArgs, oldCommit := os.Args, sourceCommit
+	t.Cleanup(func() { os.Args, sourceCommit = oldArgs, oldCommit })
+	sourceCommit = strings.Repeat("a", 40)
+	root := mediaFixture(t)
+	payload, err := json.Marshal(injectedIdentity{
+		SourceCommit: sourceCommit,
+		SourceSHA256: strings.Repeat("b", 64),
+		BuildID:      "12345678-1234-1234-1234-123456789abc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtureFile(t, root, "build-identity.json", string(payload))
+	// A PATH launch may receive only a bare program name in argv[0], while
+	// os.Executable still identifies the running launcher on the USB.
+	os.Args = []string{"Start Beamo Wipe Linux", "--version"}
+	identity := runningUSBIdentity(func() (string, error) {
+		return filepath.Join(root, "Start Beamo Wipe Linux"), nil
+	})
+	if !identity.Manufactured || identity.Status != "production" {
+		t.Fatalf("valid running USB was mislabeled when argv[0] was relative: %+v", identity)
+	}
+}
+
+func TestLinkedLauncherCannotClaimManufacturedIdentity(t *testing.T) {
+	oldCommit := sourceCommit
+	t.Cleanup(func() { sourceCommit = oldCommit })
+	sourceCommit = strings.Repeat("a", 40)
+	root := mediaFixture(t)
+	payload, err := json.Marshal(injectedIdentity{
+		SourceCommit: sourceCommit,
+		SourceSHA256: strings.Repeat("b", 64),
+		BuildID:      "12345678-1234-1234-1234-123456789abc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtureFile(t, root, "build-identity.json", string(payload))
+	launcher := filepath.Join(root, "app")
+	outside := filepath.Join(t.TempDir(), "other-launcher")
+	if err := os.WriteFile(outside, []byte("not the USB launcher"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(launcher); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, launcher); err != nil {
+		t.Skip("host does not allow test symlinks")
+	}
+	if got := loadUSBIdentity(launcher); got.Manufactured || got.Status != "unavailable" {
+		t.Fatalf("linked executable claimed manufactured USB identity: %+v", got)
+	}
+}
 
 func TestMissingBuildIdentityDoesNotRefuseMedia(t *testing.T) {
 	root := mediaFixture(t)

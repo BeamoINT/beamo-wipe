@@ -76,6 +76,14 @@ fi
 # live-build run leaves absolute hook links into Linux's /usr/share/live/build;
 # those links are dangling on macOS and crash source packaging. Remove only
 # untracked generated links to that exact hook tree. lb config recreates them.
+for hook_parent in packaging packaging/live packaging/live/config \
+                   packaging/live/config/hooks packaging/live/config/hooks/live \
+                   packaging/live/config/hooks/normal; do
+  if [ -L "$hook_parent" ]; then
+    printf 'hook directory contains a symlink: %s\n' "$hook_parent" >&2
+    exit 2
+  fi
+done
 for hook in packaging/live/config/hooks/live/*.hook.chroot \
             packaging/live/config/hooks/normal/*.hook.chroot; do
   [ -L "$hook" ] || continue
@@ -85,14 +93,55 @@ for hook in packaging/live/config/hooks/live/*.hook.chroot \
     *) continue ;;
   esac
   [ -e "$hook" ] && continue
-  [ -z "$(git ls-files -- "$hook")" ] || continue
-  rm -- "$hook"
+  if ! tracked_hook="$(git ls-files -- "$hook")"; then
+    printf 'cannot check whether generated hook is tracked: %s\n' "$hook" >&2
+    exit 2
+  fi
+  [ -z "$tracked_hook" ] || continue
+  # Another local process can replace the link during the Git query. Open
+  # every parent without following links and recheck the exact dangling hook
+  # before unlinking it; never delete a newly written regular file instead.
+  python3 - "$hook" "$link_target" <<'PY'
+import os
+from pathlib import Path
+import stat
+import sys
+
+path = Path(sys.argv[1]).absolute()
+expected = sys.argv[2]
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+fd = os.open("/", flags)
+try:
+    for component in path.parts[1:-1]:
+        next_fd = os.open(component, flags, dir_fd=fd)
+        os.close(fd)
+        fd = next_fd
+    name = path.name
+    current = os.stat(name, dir_fd=fd, follow_symlinks=False)
+    if not stat.S_ISLNK(current.st_mode) or current.st_uid != os.getuid():
+        raise SystemExit("generated hook changed during cleanup")
+    if os.readlink(name, dir_fd=fd) != expected:
+        raise SystemExit("generated hook changed during cleanup")
+    try:
+        os.stat(name, dir_fd=fd)
+    except FileNotFoundError:
+        pass
+    else:
+        raise SystemExit("generated hook is no longer dangling")
+    os.unlink(name, dir_fd=fd)
+finally:
+    os.close(fd)
+PY
 done
 
 # A checkout gate must run before the audited edits are committed. Mark that
 # build as dirty for provenance, while keeping publication commit-only. Cloud
 # Build defaults _ALLOW_DIRTY to 0 for clean submissions and GitHub triggers.
-if [ -n "$(git status --porcelain)" ]; then
+if ! source_status="$(git status --porcelain)"; then
+  printf 'cannot determine source checkout state\n' >&2
+  exit 2
+fi
+if [ -n "$source_status" ]; then
   if [ "$publish_release" = true ]; then
     printf 'release publication requires committed source; uncommitted source is present\n' >&2
     exit 2

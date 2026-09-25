@@ -39,7 +39,7 @@ reconcile() {
     fi
   done
 
-  if gcloud builds triggers describe "$name" --project="$project" >/dev/null 2>&1; then
+  if describe_output="$(gcloud builds triggers describe "$name" --project="$project" 2>&1)"; then
     printf 'reconciling: %s (service account: %s)\n' "$name" "$service_account"
     gcloud builds triggers update github "$name" \
       --project="$project" \
@@ -59,6 +59,15 @@ reconcile() {
     fi
     return
   fi
+
+  case "$describe_output" in
+    *NOT_FOUND:*|*"status=[404]"*) ;;
+    *)
+      printf 'cannot determine whether Cloud Build trigger %s exists: %s\n' \
+        "$name" "$describe_output" >&2
+      return 1
+      ;;
+  esac
 
   printf 'creating: %s (service account: %s)\n' "$name" "$service_account"
   gcloud builds triggers create github \

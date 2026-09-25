@@ -9,6 +9,9 @@ cd "$ROOT"
 }
 [[ $# == 0 ]] || { echo 'This builder accepts no device or path arguments.' >&2; exit 2; }
 VERSION="$(PYTHONPATH="$ROOT/src" python3 -c 'import beamo_wipe; print(beamo_wipe.__version__)')"
+[[ -d "$ROOT/dist" && ! -L "$ROOT/dist" ]] || {
+  echo 'A regular output directory is required.' >&2; exit 2;
+}
 ISO="$ROOT/dist/beamo-wipe-${VERSION}-amd64.iso"
 OUT="$ROOT/dist/beamo-wipe-${VERSION}-amd64.img"
 [[ -f "$ISO" && ! -L "$ISO" ]] || {
@@ -35,7 +38,7 @@ remove_owned_link() {
   # A concurrent writer may replace a published path before a later link
   # fails. The staged inode is our ownership receipt; never unlink a changed
   # path or a symlink solely because this process published the old name.
-  if [[ -f "$staged" && ! -L "$published" && "$staged" -ef "$published" ]]; then
+  if [[ -f "$staged" && ! -L "$staged" && ! -L "$published" && "$staged" -ef "$published" ]]; then
     rm -f -- "$published"
   fi
 }
@@ -54,18 +57,65 @@ OUTPUT_STAGE="$(mktemp -d "$ROOT/dist/.usb-build.XXXXXX")"
 STAGED_OUT="$OUTPUT_STAGE/$(basename "$OUT")"
 TREE="$TMP_IMAGE/tree"
 FAT="$TMP_IMAGE/volume.fat"
-xorriso -osirrox on -indev "$ISO" -extract / "$TREE" >"$TMP_IMAGE/extract.log" 2>&1
+REFERENCE_FAT="$TMP_IMAGE/syslinux-reference.fat"
+# Extract a private byte-for-byte ISO snapshot. A source that changes only
+# during xorriso and is restored before the final manifest check must not be
+# allowed to contribute different boot files to an otherwise verified image.
+SOURCE_ISO="$TMP_IMAGE/source.iso"
+SNAPSHOT_SHA="$(python3 - "$ISO" "$SOURCE_ISO" <<'PYSNAPSHOT'
+import hashlib,os,stat,sys
+source,destination=sys.argv[1:]
+fd=os.open(source,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+with os.fdopen(fd,'rb') as original:
+    info=os.fstat(original.fileno())
+    if not stat.S_ISREG(info.st_mode) or info.st_size<=0:
+        raise SystemExit('ISO source is not a regular file')
+    digest=hashlib.sha256()
+    with open(destination,'xb') as snapshot:
+        for chunk in iter(lambda: original.read(1024**2),b''):
+            snapshot.write(chunk)
+            digest.update(chunk)
+    if os.stat(destination).st_size!=info.st_size:
+        raise SystemExit('ISO changed while making the extraction snapshot')
+    print(digest.hexdigest())
+PYSNAPSHOT
+)"
+xorriso -osirrox on -indev "$SOURCE_ISO" -extract / "$TREE" >"$TMP_IMAGE/extract.log" 2>&1
 [[ -f "$TREE/EFI/boot/bootx64.efi" && -f "$TREE/EFI/boot/grubx64.efi" && -f "$TREE/isolinux/isolinux.cfg" ]] || {
   echo 'Required signed EFI and BIOS boot assets are missing.' >&2; exit 2;
 }
-cp "$TREE/isolinux/isolinux.cfg" "$TREE/isolinux/syslinux.cfg"
-# The live image is below FAT32's individual-file limit. Refuse future growth.
+# Validate before creating syslinux.cfg: a linked isolinux ancestor or output
+# can otherwise make a normal cp write outside the extracted tree. Keep the
+# source and destination on the checked directory descriptor during the copy.
 python3 - "$TREE" "$FAT" <<'PY'
-import pathlib,sys
+import os,pathlib,shutil,stat,sys
 root=pathlib.Path(sys.argv[1])
-files=[p for p in root.rglob('*') if p.is_file()]
-if any(p.stat().st_size >= 2**32 for p in files) or sum(p.stat().st_size for p in files)>1800*1024**2:
+if not stat.S_ISDIR(root.lstat().st_mode):
+    raise SystemExit('ISO extraction root is not a directory')
+files=[]
+for p in root.rglob('*'):
+    mode=p.lstat().st_mode
+    if stat.S_ISREG(mode):
+        files.append(p)
+    elif not stat.S_ISDIR(mode):
+        raise SystemExit(f'Unsupported linked or special ISO entry: {p.relative_to(root)}')
+# The generated Syslinux configuration duplicates the source bytes, so count
+# both names before allocating the FAT image.
+config=root/'isolinux/isolinux.cfg'
+config_size=config.lstat().st_size
+if any(p.lstat().st_size >= 2**32 for p in files) or sum(p.lstat().st_size for p in files)+config_size>1800*1024**2:
     raise SystemExit('Live payload exceeds the bounded 2 GiB USB image capacity')
+directory=os.open(root/'isolinux',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+try:
+    source_fd=os.open('isolinux.cfg',os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=directory)
+    with os.fdopen(source_fd,'rb') as source:
+        if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+            raise SystemExit('Invalid Syslinux configuration source')
+        output_fd=os.open('syslinux.cfg',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o644,dir_fd=directory)
+        with os.fdopen(output_fd,'wb') as output:
+            shutil.copyfileobj(source,output,1024**2)
+finally:
+    os.close(directory)
 with open(sys.argv[2],'xb') as stream: stream.truncate(2*1024**3-1024**2)
 PY
 mkfs.vfat -F 32 -n BEAMO_WIPE -h 2048 "$FAT"
@@ -78,6 +128,17 @@ done
 # successfully but boots to "No configuration file found" on BIOS; the
 # filesystem-root path is required (verified with the same FAT image in QEMU).
 syslinux --install --directory /isolinux "$FAT"
+# The installer overwrites the ISO's ldlinux.c32 with its embedded loader.
+# Build a separate, small regular-file FAT volume to establish the bytes this
+# same installer writes, independently of the source ISO and final image.
+python3 - "$REFERENCE_FAT" <<'PYREFERENCE'
+import pathlib,sys
+with pathlib.Path(sys.argv[1]).open('xb') as stream:
+    stream.truncate(64*1024**2)
+PYREFERENCE
+mkfs.vfat -F 32 -n BEAMO_REF -h 2048 "$REFERENCE_FAT"
+mmd -i "$REFERENCE_FAT" ::/isolinux
+syslinux --install --directory /isolinux "$REFERENCE_FAT"
 python3 - "$FAT" "$STAGED_OUT" "$ISO" <<'PY'
 import pathlib,secrets,shutil,struct,sys
 fat,out,iso=map(pathlib.Path,sys.argv[1:])
@@ -93,9 +154,9 @@ with out.open('xb') as dest,fat.open('rb') as source:
 PY
 # Read the packaged files through the final MBR image, including its partition
 # offset. Verify before writing success sidecars; a failed image is not a bundle.
-python3 - "$TREE" "$STAGED_OUT" "$ISO" <<'PYVERIFY'
+python3 - "$TREE" "$STAGED_OUT" "$ISO" "$REFERENCE_FAT" <<'PYVERIFY'
 import hashlib,json,pathlib,struct,subprocess,sys
-root,out,iso=map(pathlib.Path,sys.argv[1:])
+root,out,iso,reference=map(pathlib.Path,sys.argv[1:])
 source_manifest=(root/'desktop-build.json').read_bytes()
 manifest=json.loads(source_manifest)
 names={'Start Beamo Wipe Linux','Start Beamo Wipe.exe'}
@@ -112,23 +173,72 @@ start,sectors=struct.unpack_from('<II',mbr,454)
 offset=start*512
 if start!=2048 or sectors==0 or offset+sectors*512!=out.stat().st_size:
     raise SystemExit('USB partition extent readback mismatch')
-def readback(name):
-    return subprocess.check_output(['mtype','-i',str(out)+'@@'+str(offset),'::/'+name])
-if readback('desktop-build.json')!=source_manifest:
-    raise SystemExit('USB desktop manifest readback mismatch')
-for name in sorted(names):
-    actual=readback(name)
-    if not actual or hashlib.sha256(actual).hexdigest()!=manifest['files'][name]:
-        raise SystemExit('USB launcher readback mismatch')
 def digest(path):
     h=hashlib.sha256()
     with path.open('rb') as stream:
         while chunk:=stream.read(1024**2): h.update(chunk)
     return h.hexdigest()
+def readback_digest(name, image=out, partition_offset=offset):
+    # Stream through the final partition instead of trusting mcopy's exit code.
+    # The live filesystem and boot files matter as much as the launchers, and
+    # the squashfs can be too large to buffer in a Python process.
+    volume=str(image)+(f'@@{partition_offset}' if partition_offset else '')
+    process=subprocess.Popen(['mtype','-i',volume,'::/'+name],
+                             stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+    h=hashlib.sha256()
+    length=0
+    with process.stdout as stream:
+        while chunk:=stream.read(1024**2):
+            h.update(chunk)
+            length+=len(chunk)
+    if process.wait()!=0:
+        raise SystemExit(f'USB file readback failed: {name}')
+    return h.hexdigest(),length
+readback_hashes={}
+for source in sorted(root.rglob('*')):
+    if not source.is_file():
+        continue
+    name=source.relative_to(root).as_posix()
+    actual,size=readback_digest(name)
+    readback_hashes[name]=actual
+    if name=='isolinux/ldlinux.c32':
+        # The installer owns this file. Compare the installed bytes in the
+        # final image with a second install, not with the displaced ISO file.
+        reference_hash,reference_size=readback_digest(name,reference,0)
+        if size<512 or (actual,size)!=(reference_hash,reference_size):
+            raise SystemExit('USB Syslinux module readback mismatch')
+    elif actual!=digest(source):
+        raise SystemExit(f'USB file readback mismatch: {name}')
+for name in sorted(names):
+    actual=readback_hashes.get(name) or readback_digest(name)[0]
+    if actual!=manifest['files'][name]:
+        raise SystemExit(f'USB launcher readback mismatch: {name}')
+# The Syslinux installer writes ldlinux.sys after the ISO tree is copied, so
+# source-file readback alone cannot prove that BIOS loader reached the image.
+_,loader_size=readback_digest('isolinux/ldlinux.sys')
+if loader_size<512:
+    raise SystemExit('USB Syslinux loader readback is empty or too short')
 sha=digest(out)
 out.with_suffix('.img.sha256').write_text(f'{sha}  {out.name}\n')
 out.with_suffix('.img.json').write_text(json.dumps({'schema_version':1,'image':out.name,'sha256':sha,'iso':iso.name,'iso_sha256':digest(iso),'layout':'MBR, one active FAT32 partition at sector 2048','size':out.stat().st_size},sort_keys=True,indent=2)+'\n')
 PYVERIFY
+# Verify the live ISO still matches the manifest and both source paths match
+# the snapshot digest. This also catches a source changed only while copied,
+# and a snapshot changed while xorriso read it.
+PYTHONPATH="$ROOT/src" python3 - "$ROOT/dist/beamo-wipe-${VERSION}-amd64.manifest.json" "$ISO" "$SOURCE_ISO" "$SNAPSHOT_SHA" "$STAGED_OUT.json" <<'PYFINAL'
+import hashlib,json,os,pathlib,sys
+from beamo_wipe.release_manifest import verify_build_manifest
+manifest,iso,snapshot,expected,receipt_path=sys.argv[1:]
+verify_build_manifest(pathlib.Path(manifest),allow_dirty=os.environ.get('ALLOW_DIRTY')=='1')
+def digest(path):
+    h=hashlib.sha256()
+    with open(path,'rb') as stream:
+        for chunk in iter(lambda: stream.read(1024**2),b''): h.update(chunk)
+    return h.hexdigest()
+receipt=json.loads(pathlib.Path(receipt_path).read_bytes())
+if digest(iso)!=expected or digest(snapshot)!=expected or receipt.get('iso_sha256')!=expected:
+    raise SystemExit('ISO source changed during USB image assembly')
+PYFINAL
 # os.link refuses an existing destination of any type. Plain `ln source dest`
 # treats a directory created at dest during publication as a target directory.
 publish_link() {

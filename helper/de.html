@@ -98,6 +98,11 @@
       margin: 0 0 18px;
       box-shadow: var(--shadow);
     }
+    .chooser { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0; list-style: none; }
+    .chooser a { display: block; min-height: 2.75em; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--ink); font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
+    .chooser a:hover, .chooser a:focus-visible, .panel:target { border-color: var(--primary); }
+    .chooser a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .panel { border-top: 1px solid var(--border); padding: 20px 0 4px; overflow-wrap: anywhere; }
     h2 { font-size: 24px; margin: 0 0 12px; letter-spacing: -.02em; font-weight: 700; }
     p { margin: 0 0 12px; }
     p:last-child { margin-bottom: 0; }
@@ -170,6 +175,20 @@
       margin: 0 0 14px;
     }
     .warn h2 { color: var(--danger); }
+    dl.build-ids {
+      display: grid;
+      grid-template-columns: 12rem 1fr;
+      gap: 8px 16px;
+      margin: 16px 0 0;
+      font-size: 16px;
+    }
+    dl.build-ids dt { color: var(--muted); font-weight: 700; }
+    dl.build-ids dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+    }
     .support {
       display: flex;
       gap: 16px;
@@ -192,6 +211,8 @@
       th, td { padding: 12px 8px; font-size: 16px; }
       table { display: block; overflow-x: auto; }
       .support { flex-wrap: wrap; }
+      .chooser { grid-template-columns: 1fr; }
+      dl.build-ids { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -211,6 +232,69 @@
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B3261E" stroke="#B3261E" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
       <span>Diese Seite löscht nichts. Starten Sie den Computer neu und drücken Sie die Taste für Ihren PC.</span>
     </p>
+    <div class="card" id="this-usb">
+      <h2>Dieser USB-Stick</h2>
+      <p id="usb-build-label"><!--BEAMO_BUILD_LABEL-->Diese Kopie ist kein hergestelltes USB-Abbild. Sie ist die Quell-Hilfeseite, aus der ein solches Abbild erstellt wird.<!--/BEAMO_BUILD_LABEL--></p>
+      <p>Beamo Wipe <!--BEAMO_VERSION-->0.2.9<!--/BEAMO_VERSION-->. Die folgenden Hinweise zum Start und zur Kompatibilität gelten für dieses Abbild, nicht für frühere Versionen.</p>
+      <dl class="build-ids">
+        <dt>Release-Build</dt>
+        <dd data-field="build-id"><!--BEAMO_BUILD_ID-->nicht paketiert<!--/BEAMO_BUILD_ID--></dd>
+        <dt>Quellcode</dt>
+        <dd data-field="source-commit"><!--BEAMO_SOURCE_COMMIT-->nicht paketiert<!--/BEAMO_SOURCE_COMMIT--></dd>
+        <dt>Build-Status</dt>
+        <dd data-field="build-status"><!--BEAMO_BUILD_STATUS-->kein hergestelltes Abbild<!--/BEAMO_BUILD_STATUS--></dd>
+      </dl>
+      <p>Für 64-Bit-Intel/AMD-PCs mit Windows oder Linux, die von diesem USB-Stick starten. <strong>Nicht für Apple-Silicon-Macs oder Chromebooks.</strong> Manche Intel-Macs zeigen diesen Stick an, viele nicht.</p>
+      <p>Dieser USB-Stick verwendet die signierten Startdateien von Debian. Ob er startet, hängt von den Vertrauenseinstellungen der Firmware und deren Sperrlisten-Updates ab. Beamo Wipe ändert Secure Boot nicht und umgeht keine Ablehnung.</p>
+      <p>Die Seiten auf diesem Stick beschreiben dieses Abbild. Ältere Sticks können andere Startdateien verwenden.</p>
+    </div>
+    <div class="card guide" id="guide">
+      <h2>Wenn etwas nicht funktioniert</h2>
+      <p>Wählen Sie das beobachtete Problem. Alle Schritte stehen ohne Internetverbindung auf diesem USB-Stick.</p>
+      <nav aria-label="Startprobleme"><ul class="chooser">
+        <li><a href="#trouble-usb">Der USB-Stick fehlt in der Liste</a></li>
+        <li><a href="#trouble-key">Die Bootmenütaste funktioniert nicht</a></li>
+        <li><a href="#trouble-firmware">Der Computer lehnt den USB-Stick ab</a></li>
+        <li><a href="#trouble-launcher">Der Starter öffnet sich nicht</a></li>
+      </ul></nav>
+      <article class="panel" id="trouble-usb" tabindex="-1" aria-labelledby="trouble-usb-title">
+        <h2 id="trouble-usb-title">Der USB-Stick fehlt in der Liste</h2>
+        <ol>
+          <li>Lassen Sie den Stick beim Neustart eingesteckt. Nutzen Sie einen USB-A- oder USB-C-Anschluss direkt am Computer und probieren Sie einen anderen Anschluss.</li>
+          <li>Suchen Sie den Stick im Bootmenü oder auf UEFI-PCs unter Gerät verwenden. Folgen Sie den Schritten für <a href="#windows-11">Windows 11</a> oder <a href="#windows-10">Windows 10</a>.</li>
+          <li>Wenn er weiter fehlt, prüfen Sie auf einem Computer, der die Dateien anzeigt, ob <strong>START-HERE.html</strong> auf dem Stick liegt. Ändern Sie die Firmware nicht automatisch.</li>
+        </ol>
+        <p><a href="#guide">Zurück zu den Problemen</a></p>
+      </article>
+      <article class="panel" id="trouble-key" tabindex="-1" aria-labelledby="trouble-key-title">
+        <h2 id="trouble-key-title">Die Bootmenütaste funktioniert nicht</h2>
+        <ol>
+          <li>Sehen Sie in der <a href="#keys">Tabelle mit typischen Tasten</a> nach. Drücken Sie die Taste ab dem Neustart, bevor Windows lädt.</li>
+          <li>Bei HP versuchen Sie zuerst Esc, dann F9. Die Taste kann je nach Modell anders sein; prüfen Sie die Herstelleranleitung.</li>
+          <li>Wenn der Computer zu schnell startet, nutzen Sie die Windows-Schritte unten statt einer Firmwareänderung.</li>
+        </ol>
+        <p><a href="#guide">Zurück zu den Problemen</a></p>
+      </article>
+      <article class="panel" id="trouble-firmware" tabindex="-1" aria-labelledby="trouble-firmware-title">
+        <h2 id="trouble-firmware-title">Der Computer lehnt den USB-Stick ab</h2>
+        <ol>
+          <li>Falls Sie dieses Windows vielleicht wieder nutzen, stellen Sie vor einer Firmwareänderung sicher, dass Sie den <a href="#bitlocker">BitLocker-Wiederherstellungsschlüssel</a> erreichen können. Wenn Sie ihn nicht finden, halten Sie an.</li>
+          <li>Notieren Sie die genaue Meldung. Das Bootmenü bedeutet nicht, dass ein Löschen begonnen hat.</li>
+          <li>Probieren Sie einen anderen direkten USB-Anschluss und die Startanleitung des Herstellers. Diese Seite ändert Secure Boot nicht und umgeht keine Ablehnung.</li>
+        </ol>
+        <p>Im Abschnitt <a href="#secure-boot">Secure Boot</a> steht, welche Startkomponenten sich auf diesem USB-Stick befinden.</p>
+        <p><a href="#guide">Zurück zu den Problemen</a></p>
+      </article>
+      <article class="panel" id="trouble-launcher" tabindex="-1" aria-labelledby="trouble-launcher-title">
+        <h2 id="trouble-launcher-title">Der Starter öffnet sich nicht</h2>
+        <ol>
+          <li>Das Einstecken startet nichts automatisch. Öffnen Sie unter Windows <strong>Start Beamo Wipe.exe</strong> oder auf einem unterstützten Linux-Desktop <strong>Start Beamo Wipe Linux</strong>.</li>
+          <li>Berechtigungsabfragen können erscheinen. Wenn sich die Anwendung nicht öffnet, verwenden Sie die <a href="#keys">Bootmenütasten</a> oder die Windows-Schritte unten.</li>
+          <li>Falls Beamo Wipe bereits vom Stick gestartet ist und sich dann wiederholt schließt, nutzen Sie den <a href="#kiosk-recovery">Wiederherstellungsbildschirm</a>. Der Starter selbst löscht nichts.</li>
+        </ol>
+        <p><a href="#guide">Zurück zu den Problemen</a></p>
+      </article>
+    </div>
     <div class="card">
       <h2>Nachdem dieser USB-Stick startet</h2>
       <p>Datenträger wählen → Identität bestätigen → Prüfen und löschen. Nichts wird gelöscht, bis Sie bestätigen.</p>
@@ -223,7 +307,7 @@
       <p>Der Starter löscht nichts. Gelöscht wird nach dem Neustart in diesen USB-Stick, wo Sie den Datenträger wählen und bestätigen. Sie können die Startanweisungen unten auch ohne Öffnen einer Anwendung verwenden.</p>
     </div>
 
-    <div class="card">
+    <div class="card" id="keys">
       <h2>Typische Tasten beim Start</h2>
       <p>Dies sind gängige Herstellertasten. Sie sind nicht auf jedem PC gleich. Prüfen Sie den Aufkleber, den Startbildschirm oder die Herstelleranweisungen, wenn eine Taste unten nichts bewirkt.</p>
       <table>
@@ -289,7 +373,7 @@
       <p>Betrachten Sie Firmware-, Bootreihenfolge- oder Secure-Boot-Änderungen nicht als nächsten automatischen Schritt. Wenn Sie vielleicht zu dieser Windows-Installation zurückkehren, bestätigen Sie zuerst den BitLocker-Wiederherstellungsschlüssel.</p>
     </div>
 
-    <div class="card">
+    <div class="card" id="secure-boot">
       <h2>Wenn der Computer meldet, dass Secure Boot diesen USB-Stick nicht startet</h2>
       <p>Dieser Build verwendet Debians signierte Startkomponenten. Ob Ihr Computer sie akzeptiert, hängt von seinen Firmware-Vertrauenseinstellungen und Sperrlisten-Updates ab.</p>
       <p>Wenn er den USB-Stick ablehnt, versuchen Sie einen anderen direkten USB-Anschluss und lesen Sie die Startanweisungen des Computerherstellers. Der Starter ändert keine Secure-Boot-Einstellungen und umgeht keine Ablehnung. Nehmen Sie nicht an, dass das Erreichen eines Startmenüs bedeutet, dass ein Löschen begonnen hat.</p>

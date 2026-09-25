@@ -82,8 +82,8 @@ def test_two_eligible_disks_use_plural_without_other_devices():
 def test_optical_boot_media_uses_disc_wording():
     wiz = _wizard([
         node("sda", tran="sata"),
-        node("sdb", tran="ata", mountpoints=["/run/live/medium"]),
-    ])
+        node("sr0", type="rom", tran="ata", mountpoints=["/run/live/medium"]),
+    ], boot_path="/dev/sr0")
     text = count_summary(wiz.discovery)
     assert "Beamo boot disc protected" in text
     assert "Beamo USB protected" not in text

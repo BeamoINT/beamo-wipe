@@ -23,7 +23,10 @@ UMask=0077
 NoNewPrivileges=yes
 ProtectSystem=full
 ProtectHome=yes
-PrivateTmp=yes
+# Use actual tmpfs instances: a private bind of host /tmp may be
+# the live overlay and fails the application's volatile-log safety check.
+TemporaryFileSystem=/tmp:mode=1777,nosuid,nodev,size=50%
+TemporaryFileSystem=/var/tmp:mode=1777,nosuid,nodev,size=10%
 PrivateMounts=yes
 PrivateNetwork=yes
 RestrictAddressFamilies=AF_UNIX

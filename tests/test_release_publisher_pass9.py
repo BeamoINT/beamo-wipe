@@ -189,6 +189,7 @@ def test_publication_rejects_manifest_replaced_after_validation(
     [
         "matching",
         "all_sidecars_matching",
+        "matching_complete_evidence",
         "image_replaced",
         "log_replaced",
         "iso_replaced",
@@ -196,6 +197,10 @@ def test_publication_rejects_manifest_replaced_after_validation(
         "metadata_replaced",
         "sha256sums_replaced",
         "signature_replaced",
+        "inventory_replaced",
+        "inventory_replaced_after_preflight",
+        "receipt_replaced",
+        "receipt_replaced_after_preflight",
     ],
 )
 def test_publication_binds_usb_image_to_qemu(tmp_path, monkeypatch, scenario):
@@ -212,11 +217,28 @@ def test_publication_binds_usb_image_to_qemu(tmp_path, monkeypatch, scenario):
     tested_sha = hashlib.sha256(b"tested USB image").hexdigest()
     qemu_log = evidence / "qemu.log"
     qemu_log.write_text(f"[qemu-verify] usb_image_sha256={tested_sha}\n")
+    package_inventory = {"measured": True, "source_commit": commit, "packages": []}
+    packages_path = evidence / "packages.json"
+    packages_path.write_text(
+        json.dumps(
+            {**package_inventory, "packages": ["unexpected"]}
+            if scenario == "inventory_replaced"
+            else package_inventory
+        )
+    )
     receipt = {
         "gate": "qemu",
         "status": "pass",
         "log_sha256": hashlib.sha256(qemu_log.read_bytes()).hexdigest(),
     }
+    receipt_path = evidence / "qemu.receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {**receipt, "status": "fail"}
+            if scenario == "receipt_replaced"
+            else receipt
+        )
+    )
     iso = dist / f"beamo-wipe-{version}-amd64.iso"
     image = dist / f"beamo-wipe-{version}-amd64.img"
     original_iso_sha = hashlib.sha256(b"fixture ISO").hexdigest()
@@ -251,6 +273,7 @@ def test_publication_binds_usb_image_to_qemu(tmp_path, monkeypatch, scenario):
             "build": {"release_build_id": build_id},
             "artifact": {"iso_sha256": original_iso_sha},
             "test_evidence": {"gates": {"qemu": receipt}},
+            "installed_packages": package_inventory,
         }
     ).encode()
     manifest.write_bytes(manifest_bytes)
@@ -272,6 +295,10 @@ def test_publication_binds_usb_image_to_qemu(tmp_path, monkeypatch, scenario):
         signature.write_bytes(b"fixture signature")
         if scenario == "signature_replaced":
             signature.write_bytes(b"corrupted signature")
+        if scenario == "inventory_replaced_after_preflight":
+            packages_path.write_text(json.dumps({**package_inventory, "packages": ["late"]}))
+        if scenario == "receipt_replaced_after_preflight":
+            receipt_path.write_text(json.dumps({**receipt, "status": "fail"}))
         return signature, hashlib.sha256(b"fixture signature").hexdigest()
 
     def upload_file(path, object_name):
@@ -290,6 +317,12 @@ def test_publication_binds_usb_image_to_qemu(tmp_path, monkeypatch, scenario):
         inputs.append(image.with_suffix(".img.json"))
     if scenario == "signature_replaced":
         inputs.append(Path(f"{manifest}.sig"))
+    if scenario in {"inventory_replaced", "inventory_replaced_after_preflight"}:
+        inputs.append(packages_path)
+    if scenario in {"receipt_replaced", "receipt_replaced_after_preflight"}:
+        inputs.append(receipt_path)
+    if scenario == "matching_complete_evidence":
+        inputs.extend([packages_path, receipt_path])
     monkeypatch.setattr(PUBLISHER, "_release_inputs", lambda _version: inputs)
     monkeypatch.setattr(PUBLISHER, "_verify_source", lambda _version: commit)
     monkeypatch.setattr(PUBLISHER, "_sign_release_manifest", sign_manifest)
@@ -336,10 +369,10 @@ def test_publication_binds_usb_image_to_qemu(tmp_path, monkeypatch, scenario):
     monkeypatch.setenv("SKIP_QEMU", "false")
     monkeypatch.setenv("BEAMO_WIPE_VERSION", version)
     monkeypatch.setenv("BUILD_ID", build_id)
-    if scenario not in {"matching", "all_sidecars_matching"}:
+    if scenario not in {"matching", "all_sidecars_matching", "matching_complete_evidence"}:
         with pytest.raises(
             PUBLISHER.PublishError,
-            match="QEMU-tested USB image|execution log|verified manifest|checksum sidecar|USB image metadata|signature changed",
+            match="QEMU-tested USB image|execution log|verified manifest|checksum sidecar|USB image metadata|signature changed|package inventory|gate receipt",
         ):
             PUBLISHER.publish()
         if scenario == "image_replaced":

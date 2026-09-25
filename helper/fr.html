@@ -98,6 +98,11 @@
       margin: 0 0 18px;
       box-shadow: var(--shadow);
     }
+    .chooser { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0; list-style: none; }
+    .chooser a { display: block; min-height: 2.75em; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--ink); font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
+    .chooser a:hover, .chooser a:focus-visible, .panel:target { border-color: var(--primary); }
+    .chooser a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .panel { border-top: 1px solid var(--border); padding: 20px 0 4px; overflow-wrap: anywhere; }
     h2 { font-size: 24px; margin: 0 0 12px; letter-spacing: -.02em; font-weight: 700; }
     p { margin: 0 0 12px; }
     p:last-child { margin-bottom: 0; }
@@ -170,6 +175,20 @@
       margin: 0 0 14px;
     }
     .warn h2 { color: var(--danger); }
+    dl.build-ids {
+      display: grid;
+      grid-template-columns: 12rem 1fr;
+      gap: 8px 16px;
+      margin: 16px 0 0;
+      font-size: 16px;
+    }
+    dl.build-ids dt { color: var(--muted); font-weight: 700; }
+    dl.build-ids dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+    }
     .support {
       display: flex;
       gap: 16px;
@@ -192,6 +211,8 @@
       th, td { padding: 12px 8px; font-size: 16px; }
       table { display: block; overflow-x: auto; }
       .support { flex-wrap: wrap; }
+      .chooser { grid-template-columns: 1fr; }
+      dl.build-ids { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -211,6 +232,69 @@
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M 14 2 L 26 25 L 2 25 Z" fill="#B3261E" stroke="#B3261E" stroke-width="5" stroke-linejoin="round"/><line x1="14" y1="10" x2="14" y2="17.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="14" cy="21" r="1.7" fill="#fff"/></svg>
       <span>Cette page n’efface rien. Redémarrez l’ordinateur et appuyez sur la touche de votre PC.</span>
     </p>
+    <div class="card" id="this-usb">
+      <h2>Cette clé USB</h2>
+      <p id="usb-build-label"><!--BEAMO_BUILD_LABEL-->Cette copie n’est pas une image USB fabriquée. C’est la page d’aide source utilisée pour en créer une.<!--/BEAMO_BUILD_LABEL--></p>
+      <p>Beamo Wipe <!--BEAMO_VERSION-->0.2.9<!--/BEAMO_VERSION-->. Les lignes ci-dessous décrivent le démarrage et la compatibilité de cette image, et non l’historique d’autres versions.</p>
+      <dl class="build-ids">
+        <dt>Version de livraison</dt>
+        <dd data-field="build-id"><!--BEAMO_BUILD_ID-->non empaquetée<!--/BEAMO_BUILD_ID--></dd>
+        <dt>Code source</dt>
+        <dd data-field="source-commit"><!--BEAMO_SOURCE_COMMIT-->non empaqueté<!--/BEAMO_SOURCE_COMMIT--></dd>
+        <dt>État de la version</dt>
+        <dd data-field="build-status"><!--BEAMO_BUILD_STATUS-->pas une image fabriquée<!--/BEAMO_BUILD_STATUS--></dd>
+      </dl>
+      <p>Pour les PC Windows ou Linux Intel/AMD 64 bits qui démarrent depuis cette clé USB. <strong>Pas pour les Mac Apple Silicon ni les Chromebooks.</strong> Certains Mac Intel peuvent afficher cette clé ; beaucoup ne le feront pas.</p>
+      <p>Cette clé USB utilise les fichiers de démarrage signés de Debian. Son démarrage dépend des paramètres de confiance du micrologiciel et des mises à jour de révocation de l’ordinateur. Beamo Wipe ne modifie pas Secure Boot et ne contourne pas un refus.</p>
+      <p>Les pages de cette clé décrivent cette image. Les anciennes clés peuvent utiliser d’autres fichiers de démarrage.</p>
+    </div>
+    <div class="card guide" id="guide">
+      <h2>Si quelque chose ne fonctionne pas</h2>
+      <p>Choisissez ce que vous voyez. Toutes les étapes sont disponibles sur cette clé USB, sans connexion Internet.</p>
+      <nav aria-label="Problèmes de démarrage"><ul class="chooser">
+        <li><a href="#trouble-usb">La clé USB est absente de la liste</a></li>
+        <li><a href="#trouble-key">La touche du menu de démarrage ne fonctionne pas</a></li>
+        <li><a href="#trouble-firmware">L’ordinateur refuse la clé USB</a></li>
+        <li><a href="#trouble-launcher">Le lanceur ne démarre pas</a></li>
+      </ul></nav>
+      <article class="panel" id="trouble-usb" tabindex="-1" aria-labelledby="trouble-usb-title">
+        <h2 id="trouble-usb-title">La clé USB est absente de la liste</h2>
+        <ol>
+          <li>Laissez la clé branchée pendant le redémarrage. Utilisez un port USB-A ou USB-C directement sur l’ordinateur, puis essayez un autre port.</li>
+          <li>Recherchez la clé dans le menu de démarrage ou, sur un PC UEFI, dans Utiliser un périphérique. Suivez les étapes pour <a href="#windows-11">Windows 11</a> ou <a href="#windows-10">Windows 10</a>.</li>
+          <li>Si elle reste absente, vérifiez sur un ordinateur qui affiche les fichiers que <strong>START-HERE.html</strong> se trouve bien sur la clé. Ne modifiez pas le micrologiciel comme étape automatique.</li>
+        </ol>
+        <p><a href="#guide">Revenir aux problèmes</a></p>
+      </article>
+      <article class="panel" id="trouble-key" tabindex="-1" aria-labelledby="trouble-key-title">
+        <h2 id="trouble-key-title">La touche du menu de démarrage ne fonctionne pas</h2>
+        <ol>
+          <li>Consultez le <a href="#keys">tableau des touches habituelles</a>. Commencez à appuyer dès le redémarrage, avant le chargement de Windows.</li>
+          <li>Sur un PC HP, essayez d’abord Esc, puis F9. La touche peut varier selon le modèle ; vérifiez les instructions du constructeur.</li>
+          <li>Si l’ordinateur démarre trop vite, utilisez les étapes Windows ci-dessous plutôt que de modifier le micrologiciel.</li>
+        </ol>
+        <p><a href="#guide">Revenir aux problèmes</a></p>
+      </article>
+      <article class="panel" id="trouble-firmware" tabindex="-1" aria-labelledby="trouble-firmware-title">
+        <h2 id="trouble-firmware-title">L’ordinateur refuse la clé USB</h2>
+        <ol>
+          <li>Si vous pensez réutiliser cette installation Windows, vérifiez que vous avez la <a href="#bitlocker">clé de récupération BitLocker</a> avant toute modification du micrologiciel. Si vous ne la trouvez pas, arrêtez-vous.</li>
+          <li>Notez le message exact affiché. Le menu de démarrage ne signifie pas qu’un effacement a commencé.</li>
+          <li>Essayez un autre port USB direct et consultez les instructions de démarrage du constructeur. Cette page ne modifie pas Secure Boot et ne contourne pas un refus.</li>
+        </ol>
+        <p>Consultez la section <a href="#secure-boot">Secure Boot</a> pour savoir quels composants de démarrage se trouvent sur cette clé USB.</p>
+        <p><a href="#guide">Revenir aux problèmes</a></p>
+      </article>
+      <article class="panel" id="trouble-launcher" tabindex="-1" aria-labelledby="trouble-launcher-title">
+        <h2 id="trouble-launcher-title">Le lanceur ne démarre pas</h2>
+        <ol>
+          <li>Insérer la clé ne lance rien automatiquement. Sous Windows, ouvrez <strong>Start Beamo Wipe.exe</strong> ; sur un bureau Linux pris en charge, ouvrez <strong>Start Beamo Wipe Linux</strong>.</li>
+          <li>Des demandes d’autorisation peuvent apparaître. Si l’application ne s’ouvre pas, utilisez les <a href="#keys">touches du menu de démarrage</a> ou les étapes Windows ci-dessous.</li>
+          <li>Si Beamo Wipe a démarré depuis cette clé puis se ferme sans arrêt, utilisez <a href="#kiosk-recovery">l’écran de récupération</a>. Le lanceur lui-même n’efface rien.</li>
+        </ol>
+        <p><a href="#guide">Revenir aux problèmes</a></p>
+      </article>
+    </div>
     <div class="card">
       <h2>Après le démarrage de cette clé USB</h2>
       <p>Choisissez un disque → Confirmez son identité → Vérifiez et effacez. Rien n’est effacé avant votre confirmation.</p>
@@ -223,7 +307,7 @@
       <p>Le lanceur n’efface rien. L’effacement a lieu après redémarrage sur cette clé USB, où vous choisissez et confirmez le disque. Vous pouvez aussi utiliser les instructions de démarrage ci-dessous sans ouvrir d’application.</p>
     </div>
 
-    <div class="card">
+    <div class="card" id="keys">
       <h2>Touches habituelles au démarrage</h2>
       <p>Ce sont des touches constructeur courantes. Elles diffèrent selon les PC. Vérifiez l’autocollant, l’écran de démarrage ou les instructions du constructeur si une touche ci-dessous ne fait rien.</p>
       <table>
@@ -289,7 +373,7 @@
       <p>Ne considérez pas les changements de micrologiciel, d’ordre de démarrage ou de Secure Boot comme l’étape automatique suivante. Si vous reviendrez peut-être à cette installation Windows, confirmez d’abord la clé de récupération BitLocker.</p>
     </div>
 
-    <div class="card">
+    <div class="card" id="secure-boot">
       <h2>Si l’ordinateur dit que Secure Boot ne démarrera pas cette clé USB</h2>
       <p>Cette version utilise les composants de démarrage signés de Debian. Leur acceptation par votre ordinateur dépend de ses réglages de confiance du micrologiciel et des mises à jour de révocation.</p>
       <p>En cas de refus de la clé USB, essayez un autre port USB direct et consultez les instructions de démarrage du constructeur. Le lanceur ne modifie pas les réglages Secure Boot et ne contourne pas un refus. Ne supposez pas qu’atteindre un menu de démarrage signifie qu’un effacement a commencé.</p>

@@ -246,6 +246,11 @@ def validate_report(data: bytes) -> dict:
             or type(d["boot_identified"]) is not bool
             or d["status"]
             not in {"failed", "boot_unidentified", "no_eligible_disks", "ready"}
+            or (
+                d["status"] in {"ready", "no_eligible_disks"}
+                and not d["boot_identified"]
+            )
+            or (d["status"] == "boot_unidentified" and d["boot_identified"])
         ):
             raise ValueError()
         e = p["environment"]
@@ -292,6 +297,8 @@ def validate_report(data: bytes) -> dict:
             set(event) != {"code"} or event["code"] not in CODES
             for event in p["events"]
         ):
+            raise ValueError()
+        if p["events"][-1]["code"] != p["error_code"]:
             raise ValueError()
         return p
     except (ValueError, TypeError, KeyError, AttributeError) as exc:

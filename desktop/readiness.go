@@ -91,10 +91,18 @@ func explainReadiness(s Snapshot, p Plan) ([]readinessCheck, string) {
 		}
 		return v
 	}
-	technical := fmt.Sprintf("Check result: %s\nUSB identity: %s\nUSB partitions: %s\nSecure Boot: %s", value(p.Problem), value(s.MediaID), value(strings.Join(s.Partitions, ", ")), value(s.SecureBoot))
+	identity := "not established"
+	if s.MediaID != "" {
+		identity = "present"
+	}
+	partitions := "none"
+	if len(s.Partitions) > 0 {
+		partitions = fmt.Sprintf("%d found", len(s.Partitions))
+	}
+	technical := fmt.Sprintf("Check result: %s\nUSB identity: %s\nUSB partitions: %s\nSecure Boot: %s", value(p.Problem), identity, partitions, value(s.SecureBoot))
 	if p.Direct {
 		technical = strings.Replace(technical, "Check result: not established", "Check result: ready", 1)
-		technical = fmt.Sprintf("Matched startup entry: Boot%04X\n", p.Entry) + technical
+		technical = "Matched startup entry: one exact USB entry\n" + technical
 	}
 	return checks, technical
 }

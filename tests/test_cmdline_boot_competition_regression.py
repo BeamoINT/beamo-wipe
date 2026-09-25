@@ -172,7 +172,7 @@ def test_peer_zero_wwn_does_not_claim_a_real_serial_token():
             kind=DiskKind.HDD, bus="SATA", label="", wwn=wwn,
         )
         for path, serial, wwn in (
-            ("/dev/sda", "0000", ""),
+            ("/dev/sda", "A0000", ""),
             ("/dev/sdc", "BBBB", "0x0000000000000000"),
         )
     ]

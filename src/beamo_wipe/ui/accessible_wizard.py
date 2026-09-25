@@ -35,6 +35,7 @@ from beamo_wipe.methods import METHODS  # noqa: E402
 from beamo_wipe.models import Screen  # noqa: E402
 from beamo_wipe.diagnostics import emit_serial_marker  # noqa: E402
 from beamo_wipe.safety import same_size_conflict  # noqa: E402
+from beamo_wipe.ui import StartupDisplayUnavailable  # noqa: E402
 from beamo_wipe.wizard import Wizard, error_needs_support  # noqa: E402
 
 
@@ -79,6 +80,7 @@ class AccessibleWizard:
         self.window.connect("key-press-event", self._key_press)
         self.window.connect("key-release-event", self._key_release)
         self.held: set[int] = set()
+        self._release_times: dict[int, int] = {}
         self.generation = 0
         self.timer = 0
         self.primary = None
@@ -248,6 +250,9 @@ class AccessibleWizard:
         return view
 
     def render(self):
+        first_review_frame = (
+            self.w.screen == Screen.LAST_CHANCE and self.shown != Screen.LAST_CHANCE
+        )
         self.generation += 1
         self._apply_type_css()
         self.actions = {}
@@ -789,6 +794,10 @@ class AccessibleWizard:
             self.window.get_window().focus(Gdk.CURRENT_TIME)
         self.arrival = arrival
         arrival.grab_focus()
+        if first_review_frame:
+            # Building and showing the first review may consume its original
+            # timer. Give Orca users the full five seconds after arrival.
+            self.w.restart_review_countdown()
         self.update_status()
         # Stage is ATK description, not a prefix on the heading name.
         # Result/busy tests match the canonical announcement exactly;
@@ -985,8 +994,15 @@ class AccessibleWizard:
         dialog.add_button(C.SOUND_CLOSE, Gtk.ResponseType.CLOSE)
         dialog.connect("response", lambda *args: dialog.destroy())
         dialog.connect("close", lambda *args: dialog.destroy())
-        dialog.show_all()
-        status.grab_focus()
+        review_overlay = self.w.begin_review_overlay()
+        if review_overlay:
+            dialog.connect("destroy", lambda *args: self.w.end_review_overlay())
+        try:
+            dialog.show_all()
+            status.grab_focus()
+        except BaseException:
+            dialog.destroy()
+            raise
 
     def _select(self, path):
         self.w.select_disk(path)
@@ -1099,13 +1115,27 @@ class AccessibleWizard:
 
     def _key_press(self, _window, event):
         key = event.keyval
-        if key in self.held and key in {
+        guarded = key in {
             Gdk.KEY_Return,
             Gdk.KEY_KP_Enter,
             Gdk.KEY_space,
             Gdk.KEY_F5,
-        }:
+            Gdk.KEY_Escape,
+        }
+        event_time = getattr(event, "time", None)
+        repeat_pair = (
+            guarded
+            and type(event_time) is int
+            and event_time > 0
+            and self._release_times.get(key) == event_time
+        )
+        # X11 auto-repeat can deliver a KeyRelease/KeyPress pair with the
+        # same server timestamp. A held Enter must not become a new Erase
+        # action just because the review countdown completed between them.
+        if guarded and (key in self.held or repeat_pair):
+            self.held.add(key)
             return True
+        self._release_times.pop(key, None)
         self.held.add(key)
         if key in (Gdk.KEY_l, Gdk.KEY_L) and self.w.screen == Screen.METHOD:
             self.w.open_limits()
@@ -1113,14 +1143,13 @@ class AccessibleWizard:
             return True
         if key in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and self.w.screen == Screen.LAST_CHANCE:
             # Enter must not activate a default Erase button while focus is
-            # on the warning label. Match Tk: only the focused enabled control.
+            # on the warning label. Match Tk: only a current, focused enabled
+            # control, including the keyboard and refresh utilities.
             focused = self.window.get_focus()
-            erase = self.actions.get(C.BTN_ERASE)
-            back = self.actions.get(C.BTN_BACK)
-            if erase is not None and focused is erase and erase.get_sensitive():
-                erase.clicked()
-            elif back is not None and focused is back and back.get_sensitive():
-                back.clicked()
+            if (focused is not None
+                    and any(control is focused for control in self.actions.values())
+                    and focused.get_sensitive()):
+                focused.clicked()
             return True
         if key == Gdk.KEY_F5 and self.w.can_refresh:
             if self.w.screen == Screen.REFRESH_CONFIRM:
@@ -1143,7 +1172,17 @@ class AccessibleWizard:
         return False
 
     def _key_release(self, _window, event):
-        self.held.discard(event.keyval)
+        key = event.keyval
+        self.held.discard(key)
+        event_time = getattr(event, "time", None)
+        if (
+            key in {Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_space, Gdk.KEY_F5, Gdk.KEY_Escape}
+            and type(event_time) is int
+            and event_time > 0
+        ):
+            self._release_times[key] = event_time
+        else:
+            self._release_times.pop(key, None)
         return False
 
     def _close(self, *_args):
@@ -1244,13 +1283,25 @@ def start_live_reader():
 def stop_live_reader(reader) -> None:
     if reader is None:
         return
-    if reader.poll() is None:
-        reader.terminate()
+    try:
+        if reader.poll() is not None:
+            return
+        try:
+            reader.terminate()
+        except ProcessLookupError:
+            # Orca may exit between poll and terminate; still reap it.
+            pass
         try:
             reader.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            reader.kill()
+            try:
+                reader.kill()
+            except ProcessLookupError:
+                pass
             reader.wait(timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        # Reader cleanup is best effort and must not replace the UI outcome.
+        pass
 
 
 def run_accessible(wizard: Wizard, fullscreen: bool = False, reader=None) -> int:
@@ -1262,7 +1313,7 @@ def run_accessible(wizard: Wizard, fullscreen: bool = False, reader=None) -> int
 
 
 def _ensure_gtk_display() -> None:
-    """Raise RuntimeError when no display is reachable for the splash.
+    """Raise StartupDisplayUnavailable when no display is reachable.
 
     Same fail-safe idea as the Tk probe: a child process attempts the
     display connection, so a headless host becomes a catchable error and
@@ -1284,9 +1335,9 @@ def _ensure_gtk_display() -> None:
             env=session_exec_env(),
         )
     except (OSError, subprocess.SubprocessError):
-        raise RuntimeError("no accessible display for startup stages")
+        raise StartupDisplayUnavailable("no accessible display for startup stages")
     if probe.returncode != 0:
-        raise RuntimeError("no accessible display for startup stages")
+        raise StartupDisplayUnavailable("no accessible display for startup stages")
 
 
 def run_accessible_startup(build, *, fullscreen: bool = False,
@@ -1297,7 +1348,7 @@ def run_accessible_startup(build, *, fullscreen: bool = False,
     ("wizard", wizard), ("failed", exc), or ("abandoned", None) on window
     close or Escape. Stage rows are plain labels; the status line takes
     keyboard focus and is selectable so a screen reader announces it.
-    Raises RuntimeError (never aborts) when no display is reachable.
+    Raises StartupDisplayUnavailable (never aborts) when no display is reachable.
     """
     _ensure_gtk_display()
     from beamo_wipe.startup_stages import STALL_AFTER_S, StartupRun
@@ -1310,7 +1361,7 @@ def run_accessible_startup(build, *, fullscreen: bool = False,
     try:
         window = Gtk.Window(title=C.STARTING_TITLE)
     except Exception as exc:
-        raise RuntimeError(f"no accessible display for startup stages: {exc}")
+        raise StartupDisplayUnavailable(f"no accessible display for startup stages: {exc}") from exc
     window.set_name("beamo-accessible")
     window.set_default_size(640, 420)
     if fullscreen:
@@ -1384,7 +1435,13 @@ def run_accessible_startup(build, *, fullscreen: bool = False,
     window.show_all()
     status_line.grab_focus()
     render()
-    run.start()
+    try:
+        run.start()
+    except Exception as exc:
+        # A failed worker launch cannot produce a poll result. Release the
+        # startup window before the caller opens its blocked support view.
+        window.destroy()
+        return ("failed", exc)
     GLib.timeout_add(100, poll)
     Gtk.main()
     if outcome:

@@ -14,6 +14,13 @@ if [ "$(printf '%s' "$VERSION" | awk -F. '{print NF}')" -ne 3 ]; then
   exit 2
 fi
 OUT_DIR="$ROOT/dist"
+require_output_directory() {
+  if [ -L "$OUT_DIR" ] || { [ -e "$OUT_DIR" ] && [ ! -d "$OUT_DIR" ]; }; then
+    echo 'A regular output directory is required.' >&2
+    exit 2
+  fi
+}
+require_output_directory
 ISO_NAME="beamo-wipe-${VERSION}-amd64.iso"
 LIVE="$ROOT/packaging/live"
 
@@ -55,11 +62,155 @@ PYINODE
 }
 require_prior_bundle_paths() {
   for name in $BUNDLE_FILES; do
-    if [ -e "$OUT_DIR/$name" ] && [ ! -f "$OUT_DIR/$name" ] && [ ! -L "$OUT_DIR/$name" ]; then
+    # An old link is not an owned build output. Moving it to the backup and
+    # later discarding that backup would silently remove the user's link.
+    if [ -L "$OUT_DIR/$name" ] || { [ -e "$OUT_DIR/$name" ] && [ ! -f "$OUT_DIR/$name" ]; }; then
       echo "Unsafe prior ISO bundle path: $OUT_DIR/$name" >&2
       return 1
     fi
   done
+}
+verify_prior_bundle() {
+  # A regular file at an output name is not proof that this builder owns it.
+  # Check the complete prior bundle before replacing it, and check the moved
+  # backup again so a same-user replacement during the long build is retained.
+  python3 - "$1" "$VERSION" "${2:-$1}" <<'PYPRIOR'
+import hashlib
+import json
+import os
+import pathlib
+import re
+import stat
+import sys
+
+directory = pathlib.Path(sys.argv[1])
+version = sys.argv[2]
+reference_directory = pathlib.Path(sys.argv[3])
+iso = f"beamo-wipe-{version}-amd64.iso"
+manifest = f"beamo-wipe-{version}-amd64.manifest.json"
+names = (iso, manifest, manifest + ".sha256", iso + ".sha256", "SHA256SUMS")
+
+
+def read_regular(name, limit=None, base=directory):
+    path = base / name
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        if not stat.S_ISREG(opened.st_mode):
+            raise ValueError("non-regular bundle entry")
+        if limit is None:
+            digest = hashlib.sha256()
+            size = 0
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+                size += len(chunk)
+            result = (digest.hexdigest(), size)
+        else:
+            result = stream.read(limit + 1)
+            if len(result) > limit:
+                raise ValueError("oversized bundle entry")
+    current = os.lstat(path)
+    if not stat.S_ISREG(current.st_mode) or (
+        opened.st_dev, opened.st_ino, opened.st_size
+    ) != (current.st_dev, current.st_ino, current.st_size):
+        raise ValueError("bundle entry changed while checking")
+    return result
+
+
+def unique_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate manifest key")
+        result[key] = value
+    return result
+
+
+try:
+    present = [name for name in names if (directory / name).exists() or (directory / name).is_symlink()]
+    if not present:
+        raise SystemExit(0)
+    if present == ["SHA256SUMS"]:
+        # SHA256SUMS is shared across versions. A newer build may replace a
+        # verified checksum list for an older complete bundle; its own two
+        # sidecars continue to preserve both old checksums. This also works
+        # after the list moves to backup while old artifacts stay in dist.
+        lines = read_regular("SHA256SUMS", 1024).decode("ascii").splitlines(keepends=True)
+        if len(lines) != 2:
+            raise ValueError("invalid previous-version checksum list")
+        first = re.fullmatch(
+            r"([0-9a-f]{64})  (beamo-wipe-([0-9]+\.[0-9]+\.[0-9]+)-amd64\.iso)\n",
+            lines[0],
+        )
+        if first is None or tuple(map(int, first[3].split("."))) >= tuple(map(int, version.split("."))):
+            raise ValueError("invalid previous-version ISO entry")
+        old_iso, old_version, old_iso_sha = first[2], first[3], first[1]
+        old_manifest = f"beamo-wipe-{old_version}-amd64.manifest.json"
+        second = re.fullmatch(r"([0-9a-f]{64})  " + re.escape(old_manifest) + r"\n", lines[1])
+        if second is None:
+            raise ValueError("invalid previous-version manifest entry")
+        old_manifest_sha = second[1]
+        actual_iso_sha, old_size = read_regular(old_iso, base=reference_directory)
+        old_raw = read_regular(old_manifest, 16 * 1024 * 1024, base=reference_directory)
+        old_data = json.loads(old_raw.decode("utf-8"), object_pairs_hook=unique_fields)
+        if not isinstance(old_data, dict):
+            raise ValueError("invalid previous-version manifest")
+        old_internal_sha = old_data.pop("_manifest_sha256", None)
+        old_canonical = json.dumps(old_data, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        if old_internal_sha != hashlib.sha256(old_canonical.encode("utf-8")).hexdigest():
+            raise ValueError("previous-version manifest digest mismatch")
+        old_artifact = old_data.get("artifact")
+        if (
+            not isinstance(old_artifact, dict)
+            or old_data.get("beamo_wipe_version") != old_version
+            or old_artifact.get("iso_name") != old_iso
+            or old_artifact.get("iso_sha256") != old_iso_sha
+            or type(old_artifact.get("iso_size_bytes")) is not int
+            or old_artifact["iso_size_bytes"] != old_size
+            or old_size <= 0
+            or actual_iso_sha != old_iso_sha
+            or hashlib.sha256(old_raw).hexdigest() != old_manifest_sha
+        ):
+            raise ValueError("previous-version bundle checksum mismatch")
+        if read_regular(old_iso + ".sha256", 512, base=reference_directory) != lines[0].encode("ascii"):
+            raise ValueError("previous-version ISO sidecar mismatch")
+        if read_regular(old_manifest + ".sha256", 512, base=reference_directory) != lines[1].encode("ascii"):
+            raise ValueError("previous-version manifest sidecar mismatch")
+        raise SystemExit(0)
+    if len(present) != len(names):
+        raise ValueError("incomplete prior bundle")
+    iso_sha, iso_size = read_regular(iso)
+    if iso_size <= 0:
+        raise ValueError("empty prior ISO")
+    raw = read_regular(manifest, 16 * 1024 * 1024)
+
+    data = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_fields)
+    if not isinstance(data, dict):
+        raise ValueError("invalid prior manifest")
+    recorded = data.pop("_manifest_sha256", None)
+    canonical = json.dumps(data, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    if recorded != hashlib.sha256(canonical.encode("utf-8")).hexdigest():
+        raise ValueError("prior manifest digest mismatch")
+    artifact = data.get("artifact")
+    if data.get("schema_version") != 2 or data.get("beamo_wipe_version") != version or not isinstance(artifact, dict):
+        raise ValueError("prior manifest identity mismatch")
+    if (artifact.get("iso_name") != iso or artifact.get("iso_path") != iso or
+        artifact.get("iso_sha256_sidecar") != iso + ".sha256" or
+        artifact.get("iso_sha256") != iso_sha or
+        type(artifact.get("iso_size_bytes")) is not int or
+        artifact["iso_size_bytes"] != iso_size):
+        raise ValueError("prior ISO identity mismatch")
+    manifest_sha = hashlib.sha256(raw).hexdigest()
+    if read_regular(iso + ".sha256", 512) != f"{iso_sha}  {iso}\n".encode("ascii"):
+        raise ValueError("prior ISO checksum mismatch")
+    if read_regular(manifest + ".sha256", 512) != f"{manifest_sha}  {manifest}\n".encode("ascii"):
+        raise ValueError("prior manifest checksum mismatch")
+    expected_sums = f"{iso_sha}  {iso}\n{manifest_sha}  {manifest}\n".encode("ascii")
+    if read_regular("SHA256SUMS", 1024) != expected_sums:
+        raise ValueError("prior checksum list mismatch")
+except (OSError, ValueError, UnicodeError, TypeError, KeyError) as exc:
+    raise SystemExit(f"Unverified prior ISO bundle in {directory}; move it aside before rebuilding ({exc})")
+PYPRIOR
 }
 cleanup() {
   rc=$?
@@ -106,6 +257,8 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
+require_prior_bundle_paths
+verify_prior_bundle "$OUT_DIR"
 if ! docker info >"$DOCKER_INFO" 2>&1; then
   echo "Docker is installed but not running, or this user cannot talk to the daemon." >&2
   echo "--- docker info output ---" >&2
@@ -140,7 +293,23 @@ except RuntimeError as exc:
     raise SystemExit(str(exc)) from exc
 PYDESKTOP
 PYTHONPATH="$ROOT/src" python3 "$ROOT/scripts/stage_live_assets.py" "$ROOT" "$LIVE"
+# Bind the private container copy to the inputs that passed staging. The
+# checkout can change while Docker's rsync reads it, then return to the
+# original bytes before the later release-manifest check.
+LIVE_INPUTS_SHA="$(PYTHONPATH="$ROOT/src" python3 - <<'PYLIVEINPUTS'
+import hashlib
+import json
+from beamo_wipe.release_manifest import live_build_inputs
 
+inventory = live_build_inputs()
+raw = json.dumps(inventory, sort_keys=True, separators=(',', ':')).encode('ascii')
+print(hashlib.sha256(raw).hexdigest())
+PYLIVEINPUTS
+)"
+
+# Docker builds can run for a long time. Recheck before allocating or moving
+# output in case the checkout's dist directory changed while it was running.
+require_output_directory
 mkdir -p "$OUT_DIR"
 BUILD_OUT="$(mktemp -d "$OUT_DIR/.build-output.XXXXXX")"
 
@@ -155,6 +324,7 @@ BUILD_IMAGE="debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7
 docker run --rm --privileged --platform linux/amd64 \
   -e BEAMO_WIPE_VERSION="$VERSION" \
   -e BEAMO_WIPE_ISO_NAME="$ISO_NAME" \
+  -e BEAMO_WIPE_LIVE_INPUTS_SHA="$LIVE_INPUTS_SHA" \
   -v "$ROOT":/src:ro \
   -v "$BUILD_OUT":/out \
   "$BUILD_IMAGE" \
@@ -166,6 +336,8 @@ if [ "$docker_status" -ne 0 ]; then
   exit 1
 fi
 
+require_output_directory
+
 if [ ! -f "$BUILD_OUT/$ISO_NAME" ] || [ -L "$BUILD_OUT/$ISO_NAME" ]; then
   echo "live-build finished but staged $ISO_NAME was not written." >&2
   exit 1
@@ -176,12 +348,13 @@ bundle_in_progress=1
 for name in $BUNDLE_FILES; do
   if [ -e "$OUT_DIR/$name" ] || [ -L "$OUT_DIR/$name" ]; then
     mv -- "$OUT_DIR/$name" "$BACKUP_DIR/$name"
-    if [ ! -f "$BACKUP_DIR/$name" ] && [ ! -L "$BACKUP_DIR/$name" ]; then
+    if [ -L "$BACKUP_DIR/$name" ] || [ ! -f "$BACKUP_DIR/$name" ]; then
       echo "Unsafe prior ISO bundle path changed during backup: $OUT_DIR/$name" >&2
       exit 1
     fi
   fi
 done
+verify_prior_bundle "$BACKUP_DIR" "$OUT_DIR"
 bundle_in_progress=2
 # os.link fails if the destination exists, including a directory or symlink.
 # `ln source destination` can instead create a file inside a directory that
@@ -198,8 +371,8 @@ echo "Generating release manifest..."
 BEAMO_BUILD_PROVENANCE_ONLY=1 BEAMO_WIPE_VERSION="$VERSION" ./scripts/generate-release-manifest.sh "dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 echo "Manifest: dist/beamo-wipe-${VERSION}-amd64.manifest.json"
 for _f in "dist/beamo-wipe-${VERSION}-amd64.manifest.json" "dist/beamo-wipe-${VERSION}-amd64.manifest.json.sha256" "dist/beamo-wipe-${VERSION}-amd64.iso.sha256" "dist/SHA256SUMS"; do
-  if [ ! -f "$_f" ]; then
-    echo "ERROR: missing provenance file $_f" >&2
+  if [ ! -f "$_f" ] || [ -L "$_f" ]; then
+    echo "ERROR: missing or linked provenance file $_f" >&2
     exit 1
   fi
 done

@@ -16,7 +16,11 @@ fi
 
 # Fail on uncommitted state unless explicitly allowed for local dev
 if [ "${ALLOW_DIRTY:-0}" != "1" ]; then
-  if [ -n "$(git status --porcelain)" ]; then
+  if ! source_status="$(git status --porcelain)"; then
+    echo "ERROR: could not determine source checkout state" >&2
+    exit 2
+  fi
+  if [ -n "$source_status" ]; then
     echo "ERROR: uncommitted source state (git status --porcelain not empty)" >&2
     echo "Commit the audited paths, or set ALLOW_DIRTY=1 for a local non-release build" >&2
     exit 2
@@ -29,17 +33,23 @@ fi
 BEAMO_WIPE_MANIFEST_VERSION="$VERSION" BEAMO_WIPE_MANIFEST_DEST="$DEST" python3 - <<'PY'
 import json, os, pathlib, sys
 sys.path.insert(0, "src")
-from beamo_wipe.release_manifest import generate_manifest, write_manifest
+from beamo_wipe.release_manifest import generate_manifest, write_manifest, require_verified_prior_checksum_list, _open_regular_nofollow
+from beamo_wipe.ci_evidence import load_receipts
 strict = os.environ.get("ALLOW_DIRTY") != "1"
 build_only = os.environ.get("BEAMO_BUILD_PROVENANCE_ONLY") == "1"
 inputs = {}
 if not build_only:
     evidence = pathlib.Path("dist/evidence")
-    inputs["gate_receipts"] = [json.loads(p.read_text()) for p in sorted(evidence.glob("*.receipt.json"))]
-    inputs["package_inventory"] = json.loads((evidence / "packages.json").read_text())
+    inputs["gate_receipts"] = load_receipts(evidence)
+    with os.fdopen(_open_regular_nofollow(evidence / "packages.json"), "rb") as stream:
+        raw_inventory = stream.read(32 * 1024 * 1024 + 1)
+    if len(raw_inventory) > 32 * 1024 * 1024:
+        raise RuntimeError("package inventory exceeds the safety limit")
+    inputs["package_inventory"] = json.loads(raw_inventory)
 manifest = generate_manifest(version=os.environ["BEAMO_WIPE_MANIFEST_VERSION"], strict=strict,
                              build_only=build_only, **inputs)
 dest = pathlib.Path(os.environ["BEAMO_WIPE_MANIFEST_DEST"])
+require_verified_prior_checksum_list(dest.parent)
 out = write_manifest(manifest, dest)
 # Always verify: with ALLOW_DIRTY only the dirty-state check is skipped, every
 # other structural check (checksum, placeholders, nwipe pin, ISO checksum)
@@ -66,13 +76,64 @@ ls -lh "$DEST" "${DEST}.sha256"
 ISO="dist/beamo-wipe-${VERSION}-amd64.iso"
 if [ -f "$ISO" ]; then
   if [ ! -f "${ISO}.sha256" ]; then
-    sha256sum "$ISO" > "${ISO}.sha256"
+    ISO_SUM_TMP="$(mktemp "$ROOT/dist/.iso-sha.XXXXXX")"
+    trap 'rm -f -- "$ISO_SUM_TMP"' EXIT
+    trap 'exit 130' HUP INT TERM
+    ( cd "$(dirname "$ISO")" && sha256sum "$(basename "$ISO")" > "$ISO_SUM_TMP" )
+    python3 -c '
+import os, stat, sys
+source, destination = sys.argv[1:]
+directory_fd = os.open(os.path.dirname(destination), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    source_name = os.path.basename(source)
+    staged = os.stat(source_name, dir_fd=directory_fd, follow_symlinks=False)
+    if not stat.S_ISREG(staged.st_mode) or staged.st_uid != os.getuid():
+        raise SystemExit("unsafe staged ISO checksum")
+    try:
+        os.link(source_name, os.path.basename(destination),
+                src_dir_fd=directory_fd, dst_dir_fd=directory_fd, follow_symlinks=False)
+    except FileExistsError as exc:
+        raise SystemExit("unsafe existing ISO checksum sidecar") from exc
+    os.fsync(directory_fd)
+finally:
+    os.close(directory_fd)
+' "$ISO_SUM_TMP" "$ROOT/${ISO}.sha256"
+    rm -f -- "$ISO_SUM_TMP"
+    trap - EXIT HUP INT TERM
   fi
   ( cd "$(dirname "$ISO")" && sha256sum -c "$(basename "${ISO}.sha256")" )
-  # Update SHA256SUMS for consumer (no masking: a generation failure must
-  # fail the script under set -eu, not hide behind head/true and corrupt
-  # SHA256SUMS with stderr; the next line verifies it).
-  ( cd dist && sha256sum "beamo-wipe-${VERSION}-amd64.iso" "beamo-wipe-${VERSION}-amd64.manifest.json" > SHA256SUMS )
+  # Publish checksum output by replacement, never by shell redirection to the
+  # final name. A stale SHA256SUMS link must not redirect bytes into user data.
+  SUMS_TMP="$(mktemp "$ROOT/dist/.SHA256SUMS.XXXXXX")"
+  trap 'rm -f -- "$SUMS_TMP"' EXIT
+  trap 'exit 130' HUP INT TERM
+  ( cd dist && sha256sum "beamo-wipe-${VERSION}-amd64.iso" "beamo-wipe-${VERSION}-amd64.manifest.json" > "$SUMS_TMP" )
+  python3 -c '
+import os, stat, sys
+source, destination = sys.argv[1:]
+directory = os.path.dirname(destination)
+directory_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    source_name = os.path.basename(source)
+    dest_name = os.path.basename(destination)
+    staged = os.stat(source_name, dir_fd=directory_fd, follow_symlinks=False)
+    if not stat.S_ISREG(staged.st_mode) or staged.st_uid != os.getuid():
+        raise SystemExit("unsafe staged checksum output")
+    try:
+        existing = os.stat(dest_name, dir_fd=directory_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        pass
+    else:
+        if not stat.S_ISREG(existing.st_mode) or existing.st_uid != os.getuid():
+            raise SystemExit("unsafe existing checksum output")
+    # os.replace does not follow a destination link if it appeared after the
+    # check; it replaces that directory entry, leaving its target untouched.
+    os.replace(source_name, dest_name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+    os.fsync(directory_fd)
+finally:
+    os.close(directory_fd)
+' "$SUMS_TMP" "$ROOT/dist/SHA256SUMS"
+  trap - EXIT HUP INT TERM
   ( cd dist && sha256sum -c SHA256SUMS )
   echo "Consumer: sha256sum -c beamo-wipe-${VERSION}-amd64.iso.sha256 (from dist/)"
   echo "Consumer: sha256sum -c SHA256SUMS (from dist/)"

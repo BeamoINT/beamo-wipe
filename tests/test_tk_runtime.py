@@ -2232,6 +2232,8 @@ def test_stop_confirmation_is_deliberate_and_fits(ui, monkeypatch, tmp_path, siz
     assert _off_window_problems(app) == []
     assert app.root.focus_get().itemcget(app.root.focus_get()._label, "text") == C.STOP_KEEP
     stale = app._primary._command
+    # A second physical Escape requires the first key to be released.
+    app._on_escape_release()
     app._on_escape()
     stale()
     assert not w.runner.cancelled and w.stop_confirmation is None

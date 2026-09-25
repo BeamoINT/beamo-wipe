@@ -22,7 +22,8 @@ apt-get install -y \
   rsync \
   file \
   xz-utils \
-  bzip2
+  bzip2 \
+  python3
 
 mkdir -p /build
 # Do not copy previous failed chroots or git objects; we need config + sources.
@@ -33,12 +34,37 @@ rsync -a \
   --exclude 'packaging/live/cache/' \
   --exclude 'packaging/live/.build/' \
   --exclude 'packaging/live/.stage/' \
+  --exclude '/packaging/live/auto' \
   --exclude 'packaging/live/binary/' \
   --exclude 'packaging/live/tmp/' \
+  --exclude '*.iso' \
   --exclude '__pycache__/' \
   --exclude '*.pyc' \
   --exclude '*.pyo' \
   /src/ /build/
+
+# BEGIN LIVE INPUT COPY CHECK
+# Use the implementation mounted from the host, not the just-copied source:
+# a changed wrapper module in /build must not be able to bless itself.
+PYTHONPATH=/src/src python3 - "$BEAMO_WIPE_LIVE_INPUTS_SHA" /build <<'PYCHECK'
+import hashlib
+import json
+from pathlib import Path
+import re
+import sys
+
+from beamo_wipe import release_manifest
+
+expected, copied_root = sys.argv[1:]
+if not re.fullmatch(r'[0-9a-f]{64}', expected):
+    raise SystemExit('missing or invalid staged live-input digest')
+release_manifest.ROOT = Path(copied_root)
+inventory = release_manifest.live_build_inputs()
+raw = json.dumps(inventory, sort_keys=True, separators=(',', ':')).encode('ascii')
+if hashlib.sha256(raw).hexdigest() != expected:
+    raise SystemExit('copied live inputs differ from the staged checkout')
+PYCHECK
+# END LIVE INPUT COPY CHECK
 
 cd /build/packaging/live
 

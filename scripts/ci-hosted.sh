@@ -58,7 +58,7 @@ install_lint_deps() {
 install_preview_deps() {
   if [ "${BEAMO_GATE_CHILD:-0}" = "1" ]; then return; fi
   apt-get update -qq
-  apt-get install -y -qq --no-install-recommends python3 python3-tk python3-qrcode git
+  apt-get install -y -qq --no-install-recommends python3 python3-tk python3-qrcode python3-pytest nodejs git
 }
 
 install_desktop_meta() {
@@ -137,6 +137,13 @@ run_preview() {
   log "preview verification (fake disks, no browser)"
   BEAMO_WIPE_NO_OPEN=1 ./preview --web
   test -f web-preview/index.html
+  # The generated page embeds its JavaScript. Parse every supported language;
+  # HTML existence alone can pass even when the click-through cannot run.
+  command -v node >/dev/null || {
+    printf 'Node.js is required for preview JavaScript validation\n' >&2
+    return 1
+  }
+  python3 -m pytest -q tests/test_gallery_script_syntax_pass5.py
   BEAMO_WIPE_NO_OPEN=1 ./preview --console < /dev/null
   BEAMO_WIPE_NO_OPEN=1 ./preview --helper
 }
@@ -164,7 +171,7 @@ import pathlib
 import sys
 p = pathlib.Path(sys.argv[1])
 t = p.read_text()
-orig = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if not discovery.boot_identified or discovery.boot is None:\n        raise SafetyError(_copy.IDENTIFY_ERROR)'
+orig = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if discovery.boot_identified is not True or discovery.boot is None:\n        raise SafetyError(_copy.IDENTIFY_ERROR)'
 broken = 'def assert_boot_excluded(discovery: DiscoveryResult) -> None:\n    if False:  # BROKEN for negative test\n        raise SafetyError(_copy.IDENTIFY_ERROR)'
 if orig not in t:
     raise SystemExit("pattern not found for negative test")
@@ -231,10 +238,48 @@ run_iso() {
 }
 
 run_qemu() {
+  if [ -L "$ROOT/qemu-evidence" ]; then
+    echo "QEMU evidence directory is a symlink" >&2
+    return 1
+  fi
   install -d -m 0700 "$ROOT/qemu-evidence"
+  # A leftover regular file also contaminates the gate's hashed inventory.
+  # Require an empty, no-follow output directory before either run mode.
+  python3 - "$ROOT/qemu-evidence" <<'PY'
+import os
+import sys
+
+directory_fd = os.open(sys.argv[1], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    if os.listdir(directory_fd):
+        raise SystemExit("stale QEMU evidence; use a fresh build workspace")
+finally:
+    os.close(directory_fd)
+PY
   if [ "${SKIP_QEMU:-false}" = "true" ]; then
     log "QEMU step skipped via SKIP_QEMU=true"
-    echo "skipped via SKIP_QEMU=true" > "$ROOT/qemu-evidence/SKIPPED.txt"
+    # An older skip marker must not redirect this write through a symlink or
+    # impersonate a fresh gate result. Open a new file in the checked directory.
+    python3 - "$ROOT/qemu-evidence" <<'PY'
+import os
+import sys
+
+directory_fd = os.open(sys.argv[1], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    marker_fd = os.open(
+        "SKIPPED.txt", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600, dir_fd=directory_fd,
+    )
+    with os.fdopen(marker_fd, "w", encoding="ascii") as marker:
+        marker.write("skipped via SKIP_QEMU=true\n")
+        marker.flush()
+        os.fsync(marker.fileno())
+    if os.listdir(directory_fd) != ["SKIPPED.txt"]:
+        raise SystemExit("QEMU evidence output changed during skip")
+    os.fsync(directory_fd)
+finally:
+    os.close(directory_fd)
+PY
     return 0
   fi
   log "controlled QEMU verification (disposable qcow2, TCG where KVM absent)"
@@ -243,12 +288,116 @@ run_qemu() {
   BEAMO_WIPE_VERSION="${BEAMO_WIPE_VERSION:-0.2.9}" ./scripts/qemu-verify.sh || qemu_code=$?
   # Copy private temporary evidence into the ignored workspace directory for
   # the explicit post-QEMU publisher. Verification-only builds discard it.
-  evidence_source="$(cat "$ROOT/qemu-evidence/PATH" 2>/dev/null || true)"
+  if [ -L "$ROOT/qemu-evidence/PATH" ] || [ ! -f "$ROOT/qemu-evidence/PATH" ]; then
+    echo "QEMU evidence path is unsafe" >&2
+    return 1
+  fi
+  evidence_source="$(python3 - "$ROOT/qemu-evidence" <<'PY'
+import os
+import stat
+import sys
+
+directory_fd = os.open(sys.argv[1], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    receipt_fd = os.open(
+        "PATH", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+        dir_fd=directory_fd,
+    )
+    with os.fdopen(receipt_fd, "rb") as receipt:
+        metadata = os.fstat(receipt.fileno())
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
+            raise SystemExit("unsafe QEMU evidence path receipt")
+        raw = receipt.read(4097)
+    if len(raw) > 4096 or not raw.endswith(b"\n") or b"\n" in raw[:-1]:
+        raise SystemExit("invalid QEMU evidence path receipt")
+    path = os.fsdecode(raw[:-1])
+    if not os.path.isabs(path):
+        raise SystemExit("invalid QEMU evidence directory path")
+    print(path)
+finally:
+    os.close(directory_fd)
+PY
+)"
   if [ -z "$evidence_source" ] || [ ! -d "$evidence_source" ]; then
     echo "QEMU evidence directory was not reported" >&2
     exit 1
   fi
-  cp -r "$evidence_source/." "$ROOT/qemu-evidence/"
+  # GNU cp follows an existing destination file link, even with -r. Evidence
+  # is a flat set of private logs; copy each new regular file by directory fd
+  # so a planted output cannot redirect bytes outside qemu-evidence.
+  python3 - "$evidence_source" "$ROOT/qemu-evidence" <<'PY'
+import os
+import shutil
+import stat
+import sys
+
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+source_fd = os.open(sys.argv[1], flags)
+try:
+    output_fd = os.open(sys.argv[2], flags)
+    try:
+        def identity(metadata):
+            return (
+                metadata.st_dev, metadata.st_ino, metadata.st_size,
+                metadata.st_mtime_ns, metadata.st_ctime_ns,
+            )
+
+        source_names = sorted(os.listdir(source_fd))
+        source_states = {}
+        output_states = {}
+        for name in source_names:
+            source_file_fd = os.open(
+                name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                dir_fd=source_fd,
+            )
+            with os.fdopen(source_file_fd, "rb") as source_file:
+                before = os.fstat(source_file.fileno())
+                if not stat.S_ISREG(before.st_mode):
+                    raise RuntimeError(f"unsafe QEMU evidence source: {name}")
+                output_file_fd = os.open(
+                    name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o600, dir_fd=output_fd,
+                )
+                with os.fdopen(output_file_fd, "wb") as output_file:
+                    shutil.copyfileobj(source_file, output_file)
+                    output_file.flush()
+                    os.fsync(output_file.fileno())
+                    output_after = os.fstat(output_file.fileno())
+                after = os.fstat(source_file.fileno())
+                named_source = os.stat(name, dir_fd=source_fd, follow_symlinks=False)
+                if (identity(before) != identity(after)
+                        or identity(before) != identity(named_source)):
+                    raise RuntimeError(f"QEMU evidence changed during copy: {name}")
+                named_output = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
+                if (not stat.S_ISREG(named_output.st_mode)
+                        or identity(output_after) != identity(named_output)
+                        or output_after.st_size != before.st_size):
+                    raise RuntimeError(f"QEMU evidence changed during copy: {name}")
+                source_states[name] = identity(before)
+                output_states[name] = identity(output_after)
+        if sorted(os.listdir(source_fd)) != source_names:
+            raise RuntimeError("QEMU evidence changed during copy")
+        if sorted(os.listdir(output_fd)) != sorted(["PATH", *source_names]):
+            raise RuntimeError("QEMU evidence output changed during copy")
+        for name in source_names:
+            source_now = os.stat(name, dir_fd=source_fd, follow_symlinks=False)
+            output_now = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
+            if (identity(source_now) != source_states[name]
+                    or not stat.S_ISREG(source_now.st_mode)
+                    or identity(output_now) != output_states[name]
+                    or not stat.S_ISREG(output_now.st_mode)):
+                raise RuntimeError(f"QEMU evidence changed during copy: {name}")
+        for directory, fd in ((sys.argv[1], source_fd), (sys.argv[2], output_fd)):
+            opened = os.fstat(fd)
+            current = os.stat(directory, follow_symlinks=False)
+            if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+                raise RuntimeError("QEMU evidence directory changed during copy")
+        os.fsync(output_fd)
+    finally:
+        os.close(output_fd)
+finally:
+    os.close(source_fd)
+PY
   log "QEMU evidence copied to qemu-evidence/"
   return "$qemu_code"
 }

@@ -246,7 +246,7 @@ def test_blank_boot_stick_moved_to_an_empty_model_name_is_not_a_report_volume():
         _fp("/dev/sdb", 8_000_000_000, ""),
         _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
     ))
-    with pytest.raises(SafetyError, match="could not be verified"):
+    with pytest.raises(SafetyError, match="Leave the Beamo"):
         select_export_volume(payload, baseline)
 
 
@@ -270,7 +270,7 @@ def test_blank_baseline_replaced_by_a_named_disk_is_not_still_present():
         _fp("/dev/sdb", 8_000_000_000, ""),
         _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
     ))
-    with pytest.raises(SafetyError, match="could not be verified"):
+    with pytest.raises(SafetyError, match="Leave the Beamo"):
         select_export_volume(payload, baseline)
 
 

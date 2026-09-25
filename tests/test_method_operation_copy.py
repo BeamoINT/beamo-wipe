@@ -60,7 +60,11 @@ def test_command_evidence_and_report(method, engine, writes, verify, reads, stat
     assert f"--exclude={wiz.discovery.boot.path}" in argv
     assert "--force" not in argv
     assert (spec.overwrite_passes, spec.verification_passes) == (writes, reads)
-    log = f"{wiz.selected.name} | Erased |\n" if state != "ambiguous" else ""
+    log = (
+        "********************************* Drive Status *********************************\n"
+        f"{wiz.selected.name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+        if state != "ambiguous" else ""
+    )
     ev = build_evidence(
         disk=wiz.selected,
         discovery=wiz.discovery,

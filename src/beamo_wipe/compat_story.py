@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import html
-from typing import Any, Mapping
+from typing import Any, Mapping, TypedDict
 
 from beamo_wipe import __version__
 
@@ -83,6 +83,58 @@ STATUS_DISPLAY = {
     STATUS_DIRTY: "dirty",
     STATUS_MISMATCH: "source mismatch",
     STATUS_UNAVAILABLE: "unavailable",
+}
+
+class LocalizedHelperIdentity(TypedDict):
+    source_label: str
+    source_status: str
+    labels: dict[str, str]
+    statuses: dict[str, str]
+
+
+LOCALIZED_HELPER_IDENTITY: dict[str, LocalizedHelperIdentity] = {
+    "fr": {
+        "source_label": (
+            "Cette copie n’est pas une image USB fabriquée. "
+            "C’est l’aide source utilisée pour en créer une."
+        ),
+        "source_status": "pas une image fabriquée",
+        "labels": {
+            STATUS_PRODUCTION: "Cette clé USB est une image Beamo Wipe fabriquée.",
+            STATUS_DEVELOPMENT: "Cette clé USB est une image de développement, pas une version de production.",
+            STATUS_DIRTY: "Cette clé USB a été créée à partir d’un code source modifié. Ce n’est pas une version de production.",
+            STATUS_MISMATCH: "Ce lanceur ne correspond pas à l’identité de l’image USB.",
+            STATUS_UNAVAILABLE: "Cette session ne provient pas d’une image USB fabriquée.",
+        },
+        "statuses": {
+            STATUS_PRODUCTION: "production",
+            STATUS_DEVELOPMENT: "développement",
+            STATUS_DIRTY: "modifié",
+            STATUS_MISMATCH: "source différente",
+            STATUS_UNAVAILABLE: "indisponible",
+        },
+    },
+    "de": {
+        "source_label": (
+            "Diese Kopie ist kein hergestelltes USB-Abbild. "
+            "Dies ist die Quellhilfe für die Erstellung eines solchen Abbilds."
+        ),
+        "source_status": "kein hergestelltes Abbild",
+        "labels": {
+            STATUS_PRODUCTION: "Dieser USB-Stick enthält ein hergestelltes Beamo Wipe-Abbild.",
+            STATUS_DEVELOPMENT: "Dieser USB-Stick enthält ein Entwicklungsabbild, keine Produktionsversion.",
+            STATUS_DIRTY: "Dieser USB-Stick wurde aus geändertem Quellcode erstellt. Er ist keine Produktionsversion.",
+            STATUS_MISMATCH: "Dieser Starter passt nicht zur Identität des USB-Abbilds.",
+            STATUS_UNAVAILABLE: "Diese Sitzung stammt nicht von einem hergestellten USB-Abbild.",
+        },
+        "statuses": {
+            STATUS_PRODUCTION: "Produktion",
+            STATUS_DEVELOPMENT: "Entwicklung",
+            STATUS_DIRTY: "geändert",
+            STATUS_MISMATCH: "Quellcode stimmt nicht überein",
+            STATUS_UNAVAILABLE: "nicht verfügbar",
+        },
+    },
 }
 
 
@@ -166,17 +218,21 @@ def inject_helper_html(
     version: str,
     injected: Mapping[str, Any] | None,
     packaged: bool,
+    language: str = "en",
 ) -> str:
     """Fill helper identity markers. Story paragraphs stay in the source HTML."""
     from beamo_wipe.build_identity import BUILD_ID_RE, COMMIT_RE, classify_status
 
+    if language not in ("en", *LOCALIZED_HELPER_IDENTITY):
+        raise RuntimeError("unsupported helper language")
+    localized = LOCALIZED_HELPER_IDENTITY.get(language)
     if packaged and injected is None:
         raise RuntimeError("manufactured helper requires injected identity")
     if not packaged:
-        label = SOURCE_STUB
+        label = localized["source_label"] if localized else SOURCE_STUB
         build_id = NOT_PACKAGED
         commit = NOT_PACKAGED
-        status_text = STATUS_SOURCE
+        status_text = localized["source_status"] if localized else STATUS_SOURCE
     else:
         payload = dict(injected or {})
         status = classify_status(
@@ -185,14 +241,22 @@ def inject_helper_html(
             source_sha256=str(payload.get("source_sha256") or ""),
             runtime_sha256=str(payload.get("source_sha256") or "") or None,
         )
-        label = customer_label(status, packaged=True)
+        label = (
+            localized["labels"].get(status, localized["labels"][STATUS_UNAVAILABLE])
+            if localized
+            else customer_label(status, packaged=True)
+        )
         build_id = str(payload.get("build_id") or "")
         commit = str(payload.get("source_commit") or "")
         if not BUILD_ID_RE.fullmatch(build_id):
             raise RuntimeError("invalid build identity")
         if not COMMIT_RE.fullmatch(commit):
             raise RuntimeError("invalid build identity")
-        status_text = STATUS_DISPLAY.get(status, "unavailable")
+        status_text = (
+            localized["statuses"].get(status, localized["statuses"][STATUS_UNAVAILABLE])
+            if localized
+            else STATUS_DISPLAY.get(status, "unavailable")
+        )
     out = html_text
     for name, value in (
         ("BEAMO_BUILD_LABEL", label),

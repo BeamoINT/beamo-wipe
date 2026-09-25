@@ -33,6 +33,7 @@ from beamo_wipe.keyboard import LAYOUT_ORDER
 from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER
 from beamo_wipe.models import Disk, DiskKind, MethodId, Screen
 from beamo_wipe.safety import same_size_conflict
+from beamo_wipe.ui import StartupDisplayUnavailable
 from beamo_wipe.ui.layout import DEFAULT_SIZE, MIN_SIZE, layout_for, opening_size
 from beamo_wipe.recovery import (
     RecoverySections,
@@ -1063,6 +1064,13 @@ class _CheckRow(tk.Frame):
         return "break"
 
     def _activate(self, _event=None) -> str:
+        app = getattr(self.winfo_toplevel(), "_tk_wizard", None)
+        if app is not None:
+            key = getattr(_event, "keysym", "")
+            if key == "space" and not app._claim_space_press(_event):
+                return "break"
+            if key in ("Return", "KP_Enter") and not app._claim_return_press(_event):
+                return "break"
         self.invoke()
         return "break"
 
@@ -1199,6 +1207,9 @@ class TkWizard:
         self._space_release_time: Optional[int] = None
         self._space_action_active = False
         self._f5_held = False
+        self._f5_release_time: Optional[int] = None
+        self._escape_held = False
+        self._escape_release_time: Optional[int] = None
         self._fatal_ui = False
         self._accessible_requested = False
         # Optional extra detail (device path, bus) on existing screens.
@@ -1213,6 +1224,7 @@ class TkWizard:
         self._confirm_var.trace_add("write", self._confirm_var_written)
         self._typing_var.trace_add("write", self._typing_var_written)
         self.root.bind("<Escape>", self._on_escape)
+        self.root.bind("<KeyRelease-Escape>", self._on_escape_release)
         self.root.bind("<KP_Enter>", self._on_return)
         self.root.bind("<Return>", self._on_return)
         self.root.bind("<KeyRelease-Return>", self._on_return_release)
@@ -1623,6 +1635,7 @@ class TkWizard:
         self._match_pill = None
         self._power_label: Optional[tk.Label] = None
         screen = self.w.screen
+        first_review_draw = screen == Screen.LAST_CHANCE and getattr(self, "_shown", None) != Screen.LAST_CHANCE
         report_view = self.w.report_view if screen == Screen.DONE else None
         working_revision = self.w.report_view.revision if screen == Screen.WORKING else None
         diagnostic_view = self.w.diagnostic_view if screen == Screen.DIAGNOSTIC else None
@@ -1695,6 +1708,11 @@ class TkWizard:
             emit_serial_marker(f"BEAMO_WIPE_DISCOVERY_{code.upper()}")
         if report_view is not None:
             emit_serial_marker(f"BEAMO_WIPE_REPORT_{report_view.status.upper()}")
+        if first_review_draw:
+            # Building a large first review can consume the original timer.
+            # Start the visible five seconds after the screen is complete.
+            self.w.restart_review_countdown()
+            self._refresh_last_chance()
 
     # -- text / small components --------------------------------------------
 
@@ -2317,6 +2335,8 @@ class TkWizard:
         hero.focus_set()
 
     def _keyboard(self) -> None:
+        self._keyboard_layout_cards = {}
+        self._keyboard_language_cards = {}
         col = self._column(self._body, fill_height=True)
         self._title_block(col, C.TITLE_KEYBOARD, C.KEYBOARD_LEAD)
         zone = self._center_zone(col)
@@ -2360,13 +2380,21 @@ class TkWizard:
                 text_col, spec.note, font=self.font_s, fg=MUTED, bg=fill,
             ).pack(fill=tk.X, pady=(4, 0))
 
-            def _click(_e=None, lid=layout_id):
+            def _click(_e=None, lid=layout_id, keyboard=False):
                 self.w.set_keyboard_layout(lid)
                 self._draw()
+                if keyboard:
+                    self._keyboard_layout_cards[lid].focus_set()
                 return "break"
 
             self._bind_tree(card, _click)
-            card.configure(cursor="hand2")
+            card.configure(cursor="hand2", takefocus=1)
+            card.bind("<FocusIn>", partial(self._keyboard_option_focus, card=card, focused=True))
+            card.bind("<FocusOut>", partial(self._keyboard_option_focus, card=card, focused=False))
+            card.bind("<space>", partial(self._keyboard_option_key, activate=partial(_click, keyboard=True)))
+            card.bind("<Return>", partial(self._keyboard_option_key, activate=partial(_click, keyboard=True)))
+            card.bind("<KP_Enter>", partial(self._keyboard_option_key, activate=partial(_click, keyboard=True)))
+            self._keyboard_layout_cards[layout_id] = card
             inner.configure(cursor="hand2")
             if not selected:
                 self._bind_hover(
@@ -2383,9 +2411,11 @@ class TkWizard:
         for code in LANGUAGE_ORDER:
             selected = self.w.language == code
 
-            def _pick_language(_e=None, lang_code=code):
+            def _pick_language(_e=None, lang_code=code, keyboard=False):
                 self.w.set_language(lang_code)
                 self._draw()
+                if keyboard:
+                    self._keyboard_language_cards[lang_code].focus_set()
                 return "break"
 
             chip = _Box(
@@ -2400,7 +2430,13 @@ class TkWizard:
                 bg=PRIMARY_TINT if selected else SURFACE,
             ).pack()
             self._bind_tree(chip, _pick_language)
-            chip.configure(cursor="hand2")
+            chip.configure(cursor="hand2", takefocus=1)
+            chip.bind("<FocusIn>", partial(self._keyboard_option_focus, card=chip, focused=True))
+            chip.bind("<FocusOut>", partial(self._keyboard_option_focus, card=chip, focused=False))
+            chip.bind("<space>", partial(self._keyboard_option_key, activate=partial(_pick_language, keyboard=True)))
+            chip.bind("<Return>", partial(self._keyboard_option_key, activate=partial(_pick_language, keyboard=True)))
+            chip.bind("<KP_Enter>", partial(self._keyboard_option_key, activate=partial(_pick_language, keyboard=True)))
+            self._keyboard_language_cards[code] = chip
             chip.inner.configure(cursor="hand2")
         if self.w.error:
             sections = recovery_for_wizard_error(self.w.error)
@@ -2448,6 +2484,19 @@ class TkWizard:
         if self.w.screen != Screen.KEYBOARD:
             return
         self.w.set_typing_check(self._typing_var.get())
+
+    def _keyboard_option_focus(self, _event: object, *, card: _Box, focused: bool) -> None:
+        card.set_focused(focused)
+
+    def _keyboard_option_key(self, event: object, *, activate: Callable[[], object]) -> str:
+        """Activate one focused setup card once per physical key press."""
+        if getattr(event, "keysym", None) == "space":
+            claimed = self._claim_space_press(event)
+        else:
+            claimed = self._claim_return_press(event)
+        if claimed:
+            activate()
+        return "break"
 
     def _power_notice(self, parent, *, reminder=True, bg: str = BG, indent: int = 0) -> None:
         if reminder:
@@ -3970,6 +4019,15 @@ class TkWizard:
     # -- keyboard ------------------------------------------------------------
 
     def _on_escape(self, _event=None) -> str:
+        # A held Escape must not dismiss the Stop confirmation it opened.
+        # X11 may split one hold into same-timestamp release/press pairs.
+        repeat = (self._escape_release_time is not None
+                  and self._escape_release_time == self._key_event_time(_event))
+        if self._escape_held or repeat:
+            self._escape_held = True
+            return "break"
+        self._escape_held = True
+        self._escape_release_time = None
         if self.w.screen == Screen.SPLASH:
             self.w.skip_splash()
             self._draw()
@@ -3984,6 +4042,11 @@ class TkWizard:
         if self.w.screen != Screen.DONE:
             self.w.back()
             self._draw()
+        return "break"
+
+    def _on_escape_release(self, _event=None) -> str:
+        self._escape_held = False
+        self._escape_release_time = self._key_event_time(_event)
         return "break"
 
     @staticmethod
@@ -4069,9 +4132,8 @@ class TkWizard:
                 return
         self.w.shutdown()
 
-    def _on_return(self, _event=None) -> str:
-        # X11 auto-repeat is extra KeyPress events with no KeyRelease. The
-        # same physical Enter would skip Confirm → Method → Last chance.
+    def _claim_return_press(self, event=None) -> bool:
+        """Claim one physical Return press, including X11 release/press pairs."""
         if self._return_release_after is not None:
             try:
                 self.root.after_cancel(self._return_release_after)
@@ -4083,12 +4145,18 @@ class TkWizard:
         # then clears the hold too early. Retain that timestamp across idle
         # so the matching repeat can never advance another safety screen.
         repeat = (self._return_release_time is not None
-                  and self._return_release_time == self._key_event_time(_event))
+                  and self._return_release_time == self._key_event_time(event))
         if self._return_held or repeat:
             self._return_held = True
-            return "break"
+            return False
         self._return_held = True
         self._return_release_time = None
+        return True
+
+    def _on_return(self, _event=None) -> str:
+        # The same physical Enter must never advance several safety screens.
+        if not self._claim_return_press(_event):
+            return "break"
         screen = self.w.screen
         before = screen
         focused = self.root.focus_get()
@@ -4299,6 +4367,7 @@ class TkWizard:
 
     def _on_f5_release(self, _event=None) -> str:
         self._f5_held = False
+        self._f5_release_time = self._key_event_time(_event)
         return "break"
 
     def _on_key(self, event) -> Optional[str]:
@@ -4306,9 +4375,15 @@ class TkWizard:
             self._click_accessible()
             return "break"
         if event.keysym == "F5":
-            if self._f5_held:
+            # X11 can deliver a KeyRelease/KeyPress pair for one held F5.
+            # The second press must not confirm the refresh it just opened.
+            repeat = (self._f5_release_time is not None
+                      and self._f5_release_time == self._key_event_time(event))
+            if self._f5_held or repeat:
+                self._f5_held = True
                 return "break"
             self._f5_held = True
+            self._f5_release_time = None
             if self.w.can_refresh:
                 self._click_refresh()
             return "break"
@@ -4395,7 +4470,7 @@ def run_tk(wizard: Wizard, fullscreen: bool = False) -> int:
 
 
 def _ensure_tk_display() -> None:
-    """Raise RuntimeError when no graphical display is reachable.
+    """Raise StartupDisplayUnavailable when no display is reachable.
 
     Constructing a Tk root with no display aborts the whole interpreter
     (Tcl_Panic), which no caller can catch — so app.py could never fall
@@ -4418,9 +4493,9 @@ def _ensure_tk_display() -> None:
             env=session_exec_env(),
         )
     except (OSError, _subprocess.SubprocessError):
-        raise RuntimeError("no graphical display for startup stages")
+        raise StartupDisplayUnavailable("no graphical display for startup stages")
     if probe.returncode != 0:
-        raise RuntimeError("no graphical display for startup stages")
+        raise StartupDisplayUnavailable("no graphical display for startup stages")
 
 
 def run_tk_startup(build, *, fullscreen: bool = False,
@@ -4444,7 +4519,7 @@ def run_tk_startup(build, *, fullscreen: bool = False,
     try:
         root = tk.Tk()
     except tk.TclError as exc:
-        raise RuntimeError(f"no graphical display for startup stages: {exc}")
+        raise StartupDisplayUnavailable(f"no graphical display for startup stages: {exc}") from exc
     root.title("Beamo Wipe")
     if fullscreen:
         root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")

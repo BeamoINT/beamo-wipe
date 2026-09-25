@@ -11,6 +11,7 @@ import datetime
 import errno
 import hashlib
 import json
+import math
 import os
 import re
 import stat
@@ -66,7 +67,10 @@ def valid_wall(value: object) -> str:
     if not isinstance(value, str) or not WALL_RE.fullmatch(value):
         return ""
     try:
-        datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # Python 3.10 rejects some valid fractional widths such as `.5Z`.
+        # The anchored shape check covers fractional digits and UTC; parse
+        # the calendar/clock fields independently of their precision.
+        datetime.datetime.strptime(value[:19], "%Y-%m-%dT%H:%M:%S")
     except ValueError:
         return ""
     return value
@@ -105,6 +109,17 @@ def wall_timestamps(
         "wall_confidence": "unverified",
         "wall_provenance": source,
     }
+
+
+def _finite_monotonic(value: object) -> float | None:
+    """Keep only clock readings representable in a truthful JSON report."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _sanitize_argv(argv: Sequence[str]) -> List[str]:
@@ -255,6 +270,7 @@ def build_evidence(
     ended_mono: Optional[float],
     argv: Optional[Sequence[str]],
     log_text: str,
+    assessment_log_text: Optional[str] = None,
     interrupted: bool = False,
     cancelled: bool = False,
     wall_provenance: str = "unavailable",
@@ -267,13 +283,14 @@ def build_evidence(
         raise ValueError("unknown method")
 
     walls = wall_timestamps(started_at_wall, ended_at_wall, wall_provenance)
-    try:
-        duration_s = (
-            float(ended_mono - started_mono) if (started_mono is not None and ended_mono is not None) else None  # type: ignore[operator]
-        )
-        if duration_s is not None and (duration_s < 0 or duration_s != duration_s):  # NaN
-            duration_s = None
-    except Exception:
+    started_mono = _finite_monotonic(started_mono)
+    ended_mono = _finite_monotonic(ended_mono)
+    duration_s = (
+        ended_mono - started_mono
+        if started_mono is not None and ended_mono is not None
+        else None
+    )
+    if duration_s is not None and (duration_s < 0 or not math.isfinite(duration_s)):
         duration_s = None
 
     # Exit/signal
@@ -295,7 +312,11 @@ def build_evidence(
     device_path = disk.path if disk else (request.device if request else "")
     from beamo_wipe.engine_checks import alert_summaries, check_payloads
 
-    checks = check_payloads(log_text or "", device_path, disk)
+    # A terminal run can have a bounded projection from the entire engine
+    # log. Keep log_text as the exact suffix authenticated for export while
+    # evaluating outcome and advisory checks against that whole-log view.
+    assessed_log = log_text if assessment_log_text is None else assessment_log_text
+    checks = check_payloads(assessed_log or "", device_path, disk)
     for summary in alert_summaries(checks):
         if summary not in warnings:
             warnings.append(summary)
@@ -313,7 +334,7 @@ def build_evidence(
             from beamo_wipe.nwipe_runner import completion_for_method
 
             completion_ok, _summary, completion_reason = completion_for_method(
-                exit_code, log_text or "", device_path, method
+                exit_code, assessed_log or "", device_path, method
             )
         except Exception:
             completion_ok = False
@@ -321,7 +342,7 @@ def build_evidence(
         validated_ok = bool(result.ok and completion_ok)
     verification_requested, verified = _verification_state(
         method,
-        log_text or "",
+        assessed_log or "",
         (disk.path if disk else (request.device if request else "")),
         exit_code,
         validated_ok,
@@ -331,7 +352,7 @@ def build_evidence(
     outcome, failure_reason = _outcome_for(
         result=result,
         method=method,
-        log_text=log_text or "",
+        log_text=assessed_log or "",
         device=device_path,
         interrupted=interrupted,
         cancelled=cancelled,
@@ -436,9 +457,9 @@ def build_evidence(
         },
         "logfile": (result.logfile if result and result.logfile else (request.logfile if request else "")),
         "log_checksum_sha256": log_checksum,
-        # Authenticates the exact UTF-8 log suffix used to decide this
-        # outcome. The mutable logfile is exported only when this length and
-        # digest still match; otherwise the report omits it.
+        # Authenticates the exact UTF-8 log suffix retained for export. The
+        # mutable logfile is exported only when this length and digest still
+        # match; terminal checks may use the bounded whole-log projection.
         "log_snapshot_size_bytes": log_snapshot_size_bytes,
         "provenance": {
             "evidence_file": "",  # filled by writer
@@ -492,6 +513,11 @@ def write_evidence_atomic(
     path = Path(directory) / name
     # Off-target check (pass log_dir to ensure _is_under uses same root)
     assert_log_not_on_target(str(path), target_device or device_path, log_dir=Path(directory))
+    # A report can be written before a disk was selected, so the target path
+    # above may be empty. That must not waive the live image's memory-only
+    # evidence rule.
+    if not safety.is_preview_env() and not safety.log_location_is_tmpfs(path.resolve()):
+        raise SafetyError("Evidence directory must be on tmpfs.")
     # Add provenance before write
     evidence = dict(evidence)
     evidence["provenance"] = dict(evidence.get("provenance", {}))

@@ -15,6 +15,7 @@ from beamo_wipe.outcomes import VIEWS, present_evidence
 from beamo_wipe.result_summary import (
     UNAVAILABLE,
     WITHHELD,
+    build_result_report_html,
     build_result_summary,
     encode_summary,
     sanitize_value,
@@ -69,6 +70,31 @@ def test_missing_fields_are_explicitly_unavailable():
     _assert_golden("missing.txt", text)
 
 
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"build_status": []}, "Build status"),
+        (
+            {
+                "schema_version": 2,
+                "timestamps": {
+                    "wall_confidence": "unverified",
+                    "wall_provenance": [],
+                },
+            },
+            "Clock",
+        ),
+        ({"timestamps": {"duration_s": 10**500}}, "Elapsed"),
+    ],
+)
+def test_malformed_report_metadata_is_unavailable_without_crashing(payload, field):
+    """Damaged metadata must not prevent an owner from reading a result."""
+    summary = build_result_summary(payload)
+    page = build_result_report_html(payload)
+    assert f"{field}: {UNAVAILABLE}" in summary
+    assert f'<th scope="row">{field}</th><td>{UNAVAILABLE}</td>' in page
+
+
 def test_untrusted_clocks_are_not_presented_as_fact():
     _, ev, _ = case_evidence(CASES[0])
     ev = copy.deepcopy(ev)
@@ -100,6 +126,27 @@ def test_untrusted_clocks_are_not_presented_as_fact():
     assert f"Clock: {UNAVAILABLE}" in text
 
 
+@pytest.mark.parametrize(
+    "impossible_wall",
+    ["2026-02-30T12:00:00Z", "2026-13-09T25:00:00Z"],
+)
+def test_impossible_wall_time_is_not_printed_as_a_report_timestamp(impossible_wall):
+    _, ev, _ = case_evidence(CASES[0])
+    ev = copy.deepcopy(ev)
+    ev["timestamps"].update(
+        started_at_wall=impossible_wall,
+        wall_confidence="unverified",
+        wall_provenance="os_utc",
+    )
+    text = build_result_summary(ev)
+    page = build_result_report_html(ev)
+    assert f"Started (clock not verified): {UNAVAILABLE}" in text
+    assert (
+        f'<th scope="row">Started (clock not verified)</th><td>{UNAVAILABLE}</td>'
+        in page
+    )
+
+
 def test_long_unicode_is_stable_and_cannot_inject_headings():
     _, ev, _ = case_evidence(CASES[0])
     ev = copy.deepcopy(ev)
@@ -108,7 +155,10 @@ def test_long_unicode_is_stable_and_cannot_inject_headings():
     if isinstance(ev.get("device_presentation"), dict):
         ev["device_presentation"]["title"] = ev["device"]["model"]
         ev["device_presentation"]["id_value"] = ev["device"]["serial"]
-    ev["warnings"] = ["Result: injected\nLimitations: pwned", "ok\u2028Result: line-sep"]
+    ev["warnings"] = [
+        "Result: injected\nLimitations: pwned",
+        "ok\u2028Result: line-sep",
+    ]
     text = build_result_summary(ev, evidence_sha256="c" * 64)
     assert "삼성" in text
     assert "(truncated)" in text
@@ -141,9 +191,14 @@ def test_redacted_share_withholds_identifiers_and_keeps_owner_original():
     assert WITHHELD in share
     assert "Sharing copy" in share.splitlines()[0]
     assert "Beamo Wipe result" in owner.splitlines()[0]
-    bundle = _bundle_files(json.dumps(ev).encode(), b"", "unavailable", privacy_reduced=True)
+    bundle = _bundle_files(
+        json.dumps(ev).encode(), b"", "unavailable", privacy_reduced=True
+    )
     assert bundle["RESULT.txt"] == encode_summary(
-        build_result_summary(json.loads(bundle["result.json"]), evidence_sha256=hashlib.sha256(bundle["result.json"]).hexdigest())
+        build_result_summary(
+            json.loads(bundle["result.json"]),
+            evidence_sha256=hashlib.sha256(bundle["result.json"]).hexdigest(),
+        )
     )
     assert serial.encode() in bundle["RESULT.txt"]
     assert serial.encode() not in bundle["SHARE.txt"]
@@ -155,10 +210,23 @@ def test_redacted_share_withholds_identifiers_and_keeps_owner_original():
     assert complete["share_copy"] == "SHARE.json"
     assert complete["share_summary"] == "SHARE.txt"
     assert complete["privacy_policy_version"] == 1
-    assert complete["files"]["RESULT.txt"] == hashlib.sha256(bundle["RESULT.txt"]).hexdigest()
-    assert complete["files"]["SHARE.txt"] == hashlib.sha256(bundle["SHARE.txt"]).hexdigest()
-    assert complete["files"]["SHARE.json"] == hashlib.sha256(bundle["SHARE.json"]).hexdigest()
+    assert (
+        complete["files"]["RESULT.txt"]
+        == hashlib.sha256(bundle["RESULT.txt"]).hexdigest()
+    )
+    assert (
+        complete["files"]["SHARE.txt"]
+        == hashlib.sha256(bundle["SHARE.txt"]).hexdigest()
+    )
+    assert (
+        complete["files"]["SHARE.json"]
+        == hashlib.sha256(bundle["SHARE.json"]).hexdigest()
+    )
     share_text = bundle["SHARE.txt"].decode("utf-8").replace("\r\n", "\n").rstrip("\n")
+    assert (
+        f"Report checksum: {hashlib.sha256(bundle['SHARE.json']).hexdigest()}"
+        in share_text
+    )
     _assert_golden("share.txt", share_text)
 
 

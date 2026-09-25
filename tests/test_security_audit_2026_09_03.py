@@ -109,6 +109,7 @@ def _measured_inventory(commit: str = "a" * 40) -> dict:
 
 def _manifest_for(root: Path, iso_bytes: bytes = b"known image") -> Path:
     import beamo_wipe.release_manifest as rm
+    from beamo_wipe import NWIPE_PINNED_COMMIT
 
     dist = root / "dist"
     dist.mkdir()
@@ -123,7 +124,11 @@ def _manifest_for(root: Path, iso_bytes: bytes = b"known image") -> Path:
         "beamo_wipe_version": "1.2.3",
         "source": {"dirty": False, "commit": "a" * 40},
         "build": {"release_build_id": "local"},
-        "nwipe": {"version": "0.42", "commit": "a" * 40},
+        "nwipe": {
+            "version": "0.42",
+            "commit": NWIPE_PINNED_COMMIT,
+            "pinned_path": "/usr/lib/beamo-wipe/nwipe",
+        },
         "artifact": {
             "iso_name": iso.name,
             "iso_path": iso.name,

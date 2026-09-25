@@ -75,8 +75,14 @@ def _event(folder: Path) -> dict[str, str]:
     result: dict[str, str] = {}
     for line in data.decode('ascii').splitlines():
         key, sep, value = line.partition('=')
-        key = key.removeprefix('POWER_SUPPLY_')
-        if not sep or key in result:
+        if not sep:
+            raise ValueError('malformed power record')
+        # sysfs can include generic metadata such as DEVTYPE. Never let an
+        # unprefixed TYPE or ONLINE field masquerade as supply telemetry.
+        if not key.startswith('POWER_SUPPLY_'):
+            continue
+        key = key[len('POWER_SUPPLY_'):]
+        if not key or key in result:
             raise ValueError('malformed power record')
         result[key] = value
     return result

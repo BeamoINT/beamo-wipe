@@ -164,3 +164,46 @@ def test_only_regular_approved_live_hook_is_accepted(tmp_path):
     (hooks / "other.hook.chroot").write_bytes(b"#!/bin/sh\n")
     with pytest.raises(RuntimeError, match="unapproved live-build hook"):
         STAGER.require_approved_hook(live)
+
+
+def test_ignored_live_hook_cannot_enter_iso_build(tmp_path):
+    live = tmp_path / "packaging" / "live"
+    normal = live / "config/hooks/normal"
+    normal.mkdir(parents=True)
+    approved = normal / "0500-build-nwipe.hook.chroot"
+    approved.write_bytes(b"#!/bin/sh\n")
+    approved.chmod(0o755)
+    generated = live / "config/hooks/live"
+    generated.mkdir()
+    (generated / "0010-disable-kexec-tools.hook.chroot").symlink_to(
+        "/usr/share/live/build/hooks/0010-disable-kexec-tools.hook.chroot"
+    )
+    (generated / "0050-disable-sysvinit-tmpfs.hook.chroot").symlink_to(
+        "/usr/share/live/build/hooks/live/0050-disable-sysvinit-tmpfs.hook.chroot"
+    )
+    STAGER.require_approved_hook(live)
+
+    # The live directory is gitignored and live-build executes hooks in it.
+    injected = generated / "9999-unreviewed.hook.chroot"
+    injected.write_bytes(b"#!/bin/sh\nexit 0\n")
+    injected.chmod(0o755)
+    with pytest.raises(RuntimeError, match="unapproved live-build hook"):
+        STAGER.require_approved_hook(live)
+    injected.unlink()
+
+    injected.symlink_to(tmp_path / "off-tree-hook")
+    with pytest.raises(RuntimeError, match="unapproved live-build hook"):
+        STAGER.require_approved_hook(live)
+
+
+@pytest.mark.parametrize("name", ["9999-unreviewed.binary", "9999-unreviewed.chroot", "9999-unreviewed.container"])
+def test_other_normal_hook_phases_cannot_enter_iso_build(tmp_path, name):
+    live = tmp_path / "packaging" / "live"
+    normal = live / "config/hooks/normal"
+    normal.mkdir(parents=True)
+    approved = normal / "0500-build-nwipe.hook.chroot"
+    approved.write_bytes(b"#!/bin/sh\n")
+    approved.chmod(0o755)
+    (normal / name).write_bytes(b"#!/bin/sh\nexit 0\n")
+    with pytest.raises(RuntimeError, match="unapproved live-build hook"):
+        STAGER.require_approved_hook(live)

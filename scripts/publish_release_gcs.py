@@ -25,6 +25,7 @@ VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 BUILD_ID_RE = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}")
 CHUNK_SIZE = 8 * 1024 * 1024
 MAX_RESPONSE_BYTES = 1024 * 1024
+MAX_QEMU_LOG_LINE_BYTES = 1024 * 1024
 
 
 class PublishError(RuntimeError):
@@ -118,8 +119,21 @@ def _start_resumable_upload(object_name: str, size: int, token: str) -> str:
             raise PublishError("upload initialization transport failed") from exc
     finally:
         connection.close()
-    parsed = urlsplit(location)
-    if parsed.scheme != "https" or parsed.hostname != STORAGE_HOST or parsed.username or parsed.password:
+    try:
+        parsed = urlsplit(location)
+        valid_endpoint = (
+            parsed.scheme == "https"
+            and parsed.hostname == STORAGE_HOST
+            and parsed.port in (None, 443)
+            and not parsed.username
+            and not parsed.password
+            and not parsed.fragment
+        )
+    except ValueError as exc:
+        raise PublishError(
+            "upload initialization returned an invalid endpoint"
+        ) from exc
+    if not valid_endpoint:
         raise PublishError("upload initialization returned an invalid endpoint")
     return parsed.path + (f"?{parsed.query}" if parsed.query else "")
 
@@ -202,34 +216,56 @@ def _sha256(path: Path) -> str:
 
 
 def _regular_owned_file(path: Path) -> None:
-    try:
-        parent = path.parent.lstat()
-    except OSError as exc:
-        raise PublishError(f"missing release directory for {path.name}") from exc
-    if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid():
+    with _open_owned_file(path):
+        pass
+
+
+def _open_owned_parent(path: Path) -> int:
+    """Pin every release-input parent without following an ancestor link."""
+    parts = path.absolute().parts
+    if ".." in parts:
         raise PublishError(f"unsafe release directory for {path.name}")
+    fd = os.open(parts[0], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        metadata = path.lstat()
-    except OSError as exc:
-        raise PublishError(f"missing release input: {path.name}") from exc
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
-        raise PublishError(f"unsafe release input: {path.name}")
-
-
-def _open_owned_file(path: Path) -> BinaryIO:
-    _regular_owned_file(path)
-    try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    except OSError as exc:
-        raise PublishError(f"cannot securely open release input: {path.name}") from exc
-    try:
-        metadata = os.fstat(fd)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
-            raise PublishError(f"unsafe release input: {path.name}")
-        return os.fdopen(fd, "rb")
+        for component in parts[1:-1]:
+            next_fd = os.open(
+                component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                dir_fd=fd,
+            )
+            os.close(fd)
+            fd = next_fd
+        if os.fstat(fd).st_uid != os.getuid():
+            raise PublishError(f"unsafe release directory for {path.name}")
+        return fd
     except Exception:
         os.close(fd)
         raise
+
+
+def _open_owned_file(path: Path) -> BinaryIO:
+    try:
+        parent_fd = _open_owned_parent(path)
+    except OSError as exc:
+        raise PublishError(f"unsafe release directory for {path.name}") from exc
+    try:
+        try:
+            fd = os.open(
+                path.name,
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                dir_fd=parent_fd,
+            )
+        except OSError as exc:
+            raise PublishError(f"unsafe release input: {path.name}") from exc
+        try:
+            metadata = os.fstat(fd)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
+                raise PublishError(f"unsafe release input: {path.name}")
+            return os.fdopen(fd, "rb")
+        except Exception:
+            os.close(fd)
+            raise
+    finally:
+        os.close(parent_fd)
 
 
 def _git(*args: str) -> str:
@@ -324,7 +360,9 @@ def _qemu_tested_usb_sha(root: Path) -> str:
     prefix = b"[qemu-verify] usb_image_sha256="
     found = []
     with _open_owned_file(log_path) as stream:
-        for line in stream:
+        while line := stream.readline(MAX_QEMU_LOG_LINE_BYTES + 1):
+            if len(line) > MAX_QEMU_LOG_LINE_BYTES:
+                raise PublishError("QEMU execution log line exceeded the safety limit")
             if line.startswith(prefix):
                 value = line[len(prefix):].strip()
                 if not re.fullmatch(rb"[0-9a-f]{64}", value):
@@ -333,6 +371,84 @@ def _qemu_tested_usb_sha(root: Path) -> str:
     if len(found) != 1:
         raise PublishError("missing or ambiguous QEMU-tested USB image digest")
     return found[0]
+
+
+def _verified_json_input_sha(
+    path: Path, expected: object, *, limit: int, label: str
+) -> str:
+    """Bind a separate JSON evidence file to the signed manifest contents."""
+    with _open_owned_file(path) as stream:
+        raw = stream.read(limit + 1)
+    if len(raw) > limit:
+        raise PublishError(f"{label} exceeded the safety limit")
+    try:
+        actual = json.loads(raw, object_pairs_hook=_unique_json_fields)
+        canonical_actual = json.dumps(
+            actual, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        canonical_expected = json.dumps(
+            expected, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        if not isinstance(actual, dict) or canonical_actual != canonical_expected:
+            raise PublishError(f"{label} differs from verified manifest")
+    except (UnicodeError, ValueError, TypeError, RecursionError) as exc:
+        raise PublishError(f"{label} is unreadable") from exc
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _qemu_evidence_names() -> list[str]:
+    """Complete flat output inventory of scripts/qemu-verify.sh."""
+    names = [
+        "run.txt",
+        "untested-physical.txt",
+        "qemu-version.txt",
+        "source-commit.txt",
+        "checksums.txt",
+        "isoinfo.txt",
+        "nwipe-version.txt",
+        "fixed-vulnerabilities.txt",
+        "accessible-runtime.txt",
+        "report-image.txt",
+        "report-helper-crash.txt",
+        "fake-disk-e2e.txt",
+        "qemu-img.txt",
+        "nwipe-invalid-target.txt",
+        "summary.txt",
+    ]
+    for label in (
+        "uefi",
+        "bios-usb",
+        "uefi-usb",
+        "secureboot-usb",
+        "bios-speech-usb",
+        "uefi-speech-usb",
+    ):
+        names.extend(f"{label}-{suffix}.txt" for suffix in ("serial", "qemu", "cmdline"))
+    for method in ("everyday", "extra", "quick_zero"):
+        for case in (method, f"{method}-repeat"):
+            names.extend(
+                (
+                    f"host-{case}.log",
+                    f"host-{case}-nwipe.txt",
+                    f"bios-{case}-serial.txt",
+                    f"bios-{case}-qemu.txt",
+                    f"bios-{case}-cmdline.txt",
+                    f"guest-{case}-readback.txt",
+                    f"guest-{case}-bundle.txt",
+                    f"guest-{case}-fsck.txt",
+                    f"guest-{case}-mount.txt",
+                )
+            )
+    return names
+
+
+def _require_complete_qemu_inputs(hashes: dict[str, str], paths: list[Path]) -> None:
+    """Do not mark a release complete with omitted or extra QEMU evidence."""
+    names = [path.name for path in paths]
+    if len(names) != len(set(names)) or set(names) != set(hashes):
+        raise PublishError("QEMU evidence inventory differs from release inputs")
 
 
 def _release_inputs(version: str) -> list[Path]:
@@ -349,45 +465,7 @@ def _release_inputs(version: str) -> list[Path]:
         Path(f"{manifest}.sha256"),
         Path(f"{manifest}.sig"),
         ROOT / "dist" / "SHA256SUMS",
-        *[
-            ROOT / "qemu-evidence" / name
-            for name in (
-                "run.txt",
-                "qemu-version.txt",
-                "source-commit.txt",
-                "checksums.txt",
-                "isoinfo.txt",
-                "nwipe-version.txt",
-                "fixed-vulnerabilities.txt",
-                "fake-disk-e2e.txt",
-                "qemu-img.txt",
-                "nwipe-invalid-target.txt",
-                "uefi-serial.txt",
-                "uefi-qemu.txt",
-                "bios-usb-serial.txt",
-                "bios-usb-qemu.txt",
-                "uefi-usb-serial.txt",
-                "uefi-usb-qemu.txt",
-                "secureboot-usb-serial.txt",
-                "secureboot-usb-qemu.txt",
-                "bios-speech-usb-serial.txt",
-                "bios-speech-usb-qemu.txt",
-                "uefi-speech-usb-serial.txt",
-                "uefi-speech-usb-qemu.txt",
-                "summary.txt",
-            )
-        ],
-        *[
-            ROOT / "qemu-evidence" / name
-            for base_method in ("everyday", "extra", "quick_zero")
-            for method in (base_method, f"{base_method}-repeat")
-            for name in (
-                f"host-{method}.log", f"host-{method}-nwipe.txt",
-                f"bios-{method}-serial.txt", f"bios-{method}-qemu.txt",
-                f"bios-{method}-cmdline.txt", f"guest-{method}-readback.txt",
-                f"guest-{method}-bundle.txt", f"guest-{method}-fsck.txt",
-            )
-        ],
+        *[ROOT / "qemu-evidence" / name for name in _qemu_evidence_names()],
         *[
             ROOT / "dist" / "evidence" / name
             for gate in (
@@ -477,19 +555,41 @@ def _sign_release_manifest(
     except RuntimeError as exc:
         raise PublishError(f"fresh manifest signature rejected: {exc}") from exc
     sig_path = Path(f"{manifest}.sig")
+    payload = (json.dumps(sidecar, indent=2, sort_keys=True) + "\n").encode("utf-8")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
     try:
-        fd = os.open(sig_path, flags, 0o600)
-    except FileExistsError as exc:
-        raise PublishError("stale signature sidecar already exists") from exc
+        parent_fd = _open_owned_parent(sig_path)
     except OSError as exc:
-        raise PublishError("signature sidecar cannot be written") from exc
+        raise PublishError("signature sidecar directory is unsafe") from exc
     try:
-        payload = (json.dumps(sidecar, indent=2, sort_keys=True) + "\n").encode("utf-8")
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(payload)
-    except OSError as exc:
-        raise PublishError("signature sidecar cannot be written") from exc
+        try:
+            fd = os.open(sig_path.name, flags, 0o600, dir_fd=parent_fd)
+        except FileExistsError as exc:
+            raise PublishError("stale signature sidecar already exists") from exc
+        except OSError as exc:
+            raise PublishError("signature sidecar cannot be written") from exc
+        owned = os.fstat(fd)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                fd = -1
+                stream.write(payload)
+        except OSError as exc:
+            if fd >= 0:
+                os.close(fd)
+            try:
+                current = os.stat(
+                    sig_path.name, dir_fd=parent_fd, follow_symlinks=False
+                )
+            except OSError:
+                pass
+            else:
+                if stat.S_ISREG(current.st_mode) and (
+                    current.st_dev, current.st_ino
+                ) == (owned.st_dev, owned.st_ino):
+                    os.unlink(sig_path.name, dir_fd=parent_fd)
+            raise PublishError("signature sidecar cannot be written") from exc
+    finally:
+        os.close(parent_fd)
     print(f"Signed manifest with publisher key {result['key_id']}")
     return sig_path, hashlib.sha256(payload).hexdigest()
 
@@ -518,7 +618,9 @@ def publish() -> str | None:
 
     sys.path.insert(0, str(ROOT / "src"))
     from beamo_wipe.release_manifest import verify_manifest
-    from beamo_wipe.ci_evidence import load_receipts
+    from beamo_wipe.ci_evidence import (
+        load_receipts, qemu_evidence_digest, qemu_evidence_hashes,
+    )
 
     manifest_path = ROOT / "dist" / f"beamo-wipe-{version}-amd64.manifest.json"
     validated_manifest = verify_manifest(manifest_path)
@@ -532,6 +634,40 @@ def publish() -> str | None:
     receipts = {r["gate"]: r for r in load_receipts(ROOT / "dist" / "evidence")}
     if receipts != manifest_data["test_evidence"]["gates"]:
         raise PublishError("execution receipts do not match the verified manifest")
+    package_path = ROOT / "dist" / "evidence" / "packages.json"
+    package_sha = (
+        _verified_json_input_sha(
+            package_path, manifest_data.get("installed_packages"),
+            limit=32 * 1024 * 1024, label="package inventory",
+        )
+        if package_path in inputs else None
+    )
+    receipt_sha = {
+        ROOT / "dist" / "evidence" / f"{gate}.receipt.json":
+            _verified_json_input_sha(
+                ROOT / "dist" / "evidence" / f"{gate}.receipt.json",
+                receipt, limit=4 * 1024 * 1024, label="gate receipt",
+            )
+        for gate, receipt in receipts.items()
+        if ROOT / "dist" / "evidence" / f"{gate}.receipt.json" in inputs
+    }
+    qemu_paths = [path for path in inputs if path.parent == ROOT / "qemu-evidence"]
+    qemu_hashes = {}
+    if qemu_paths:
+        expected_qemu_digest = receipts.get("qemu", {}).get("environment", {}).get(
+            "qemu_evidence_sha256"
+        )
+        if not isinstance(expected_qemu_digest, str) or not re.fullmatch(
+            r"[0-9a-f]{64}", expected_qemu_digest
+        ):
+            raise PublishError("QEMU receipt does not bind its copied evidence")
+        try:
+            qemu_hashes = qemu_evidence_hashes(ROOT / "qemu-evidence")
+        except RuntimeError as exc:
+            raise PublishError("QEMU evidence changed after gate") from exc
+        if qemu_evidence_digest(qemu_hashes) != expected_qemu_digest:
+            raise PublishError("QEMU evidence changed after gate")
+        _require_complete_qemu_inputs(qemu_hashes, qemu_paths)
     expected_log_sha = {
         ROOT / "dist" / "evidence" / f"{gate}.log": receipt["log_sha256"]
         for gate, receipt in receipts.items()
@@ -586,6 +722,12 @@ def publish() -> str | None:
             raise PublishError("USB image differs from QEMU-tested USB image")
         if path in expected_log_sha and local_sha != expected_log_sha[path]:
             raise PublishError("execution log changed after verification")
+        if path in qemu_paths and local_sha != qemu_hashes[path.name]:
+            raise PublishError("QEMU evidence changed after gate")
+        if path == package_path and local_sha != package_sha:
+            raise PublishError("package inventory changed after verification")
+        if path in receipt_sha and local_sha != receipt_sha[path]:
+            raise PublishError("gate receipt changed after verification")
         if path in expected_sidecars and local_sha != hashlib.sha256(expected_sidecars[path]).hexdigest():
             raise PublishError("checksum sidecar changed after verification")
         if path == ROOT / "dist" / f"{image_name}.json" and local_sha != metadata_sha:

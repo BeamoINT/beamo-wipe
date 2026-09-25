@@ -21,6 +21,7 @@ from beamo_wipe.evidence import (
     OUTCOME_STARTED,
     OUTCOME_VERIFIED,
     build_evidence,
+    valid_wall,
     verify_evidence_checksum,
     write_evidence_atomic,
 )
@@ -86,7 +87,10 @@ def test_evidence_log_fallback_uses_the_completion_window(tmp_path, monkeypatch)
     request = wiz._wipe_request
     assert request is not None
     name = os.path.basename(request.device)
-    marker = f"  {name} | Erased |\n"
+    marker = (
+        "********************************* Drive Status *********************************\n"
+        f"  {name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+    )
     padding = "note: trailing controller output\n" * 400
     text = marker + padding
     assert len(text.encode()) > 8192
@@ -670,6 +674,11 @@ def test_clock_anomalies_handled(tmp_path, monkeypatch):
     assert ev2["timestamps"]["duration_s"] == 0.0  # type: ignore[index]
 
 
+def test_wall_validator_accepts_valid_fractional_seconds_and_rejects_impossible_dates():
+    assert valid_wall("2026-09-09T12:01:00.5Z") == "2026-09-09T12:01:00.5Z"
+    assert valid_wall("2026-02-30T12:01:00.5Z") == ""
+
+
 def test_duplicate_events_idempotent(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
@@ -742,7 +751,11 @@ def test_malformed_log_output_and_signals_do_not_overstate(tmp_path, monkeypatch
         ("/dev/sda is reported as IN USE\nNwipe successfully completed\n", 0, False, False),
         ("Unable to open device '/dev/sda'.\n", 0, False, False),
         ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 3\nNwipe successfully completed\n", 0, False, False),
-        ("      sda | Erased |  120MB/s\n", 0, True, True),
+        (
+            "********************************* Drive Status *********************************\n"
+            "      sda | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n",
+            0, True, True,
+        ),
         ("/dev/sda: 100.00%, round 1 of 1\n", 0, False, False),
         ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n", 0, False, False),
         ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [verifying]\n", 0, True, True),

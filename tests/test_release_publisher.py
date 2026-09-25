@@ -91,6 +91,23 @@ def test_resumable_upload_rejects_existing_object_without_leaking_token(monkeypa
     assert token not in str(caught.value)
 
 
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://storage.googleapis.com:444/upload/storage/v1/b/b/o?upload_id=opaque",
+        "https://storage.googleapis.com:invalid/upload/storage/v1/b/b/o?upload_id=opaque",
+        "https://[invalid/upload/storage/v1/b/b/o?upload_id=opaque",
+    ],
+)
+def test_resumable_upload_rejects_endpoint_it_cannot_honor(monkeypatch, location):
+    class MismatchedConnection(InitConnection):
+        response = FakeResponse(200, location=location)
+
+    monkeypatch.setattr(PUBLISHER.http.client, "HTTPSConnection", MismatchedConnection)
+    with pytest.raises(PUBLISHER.PublishError, match="invalid endpoint"):
+        PUBLISHER._start_resumable_upload("releases/id/image.iso", 123, "token")
+
+
 def test_release_input_must_be_owned_regular_file(tmp_path):
     regular = tmp_path / "regular"
     regular.write_bytes(b"safe")

@@ -66,6 +66,10 @@ def _transaction_script(
         'BACKUP_DIR="$(mktemp -d "$OUT_DIR/.bundle-backup.XXXXXX")"'
         + publication.split('\necho "Wrote ', 1)[0]
     )
+    # These older synthetic rollback cases start with deliberately incomplete
+    # bundles. The current builder verifies ownership separately; bypass that
+    # one verification in this extracted transaction to keep testing rollback.
+    publication = publication.replace('verify_prior_bundle "$BACKUP_DIR" "$OUT_DIR"\n', "")
     return f"""#!/bin/sh
 set -eu
 OUT_DIR={out}

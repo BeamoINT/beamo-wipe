@@ -14,6 +14,8 @@ from beamo_wipe.wizard import Wizard
 from test_session_recovery import BOOT, BUILD
 from test_usb_report_workflow import _success_receipt
 
+STATUS = "********************************* Drive Status *********************************\n"
+
 
 @pytest.mark.parametrize("outcome", ["success", "cancelled"])
 def test_fake_owner_can_retry_recover_export_and_shutdown(
@@ -62,7 +64,10 @@ def test_fake_owner_can_retry_recover_export_and_shutdown(
         if outcome == "cancelled":
             wizard.cancel_wipe()
         else:
-            log = f"{Path(request.device).name} | Erased |\n"
+            log = (
+                STATUS
+                + f"{Path(request.device).name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+            )
             Path(request.logfile).write_text(log)
             Path(request.logfile).chmod(0o600)
             wizard.runner._log_tail = log

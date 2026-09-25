@@ -561,7 +561,10 @@ def test_evidence_verification_outcomes_truthful(tmp_path):
         started_mono=0.0,
         ended_mono=1.0,
         argv=[],
-        log_text=" sda | Erased | 1 MB/s | 00:01 | model/serial",
+        log_text=(
+            "********************************* Drive Status *********************************\n"
+            "      sda | Erased |  1MB/s | 00:01:00 | TEST/DISK\n"
+        ),
     )
     assert ev_off["outcome"] == OUTCOME_COMPLETED
     assert ev_off["verification"]["verified"] is False
@@ -578,7 +581,10 @@ def test_evidence_verification_outcomes_truthful(tmp_path):
         started_mono=0.0,
         ended_mono=1.0,
         argv=[],
-        log_text=" sda | Erased | 1 MB/s | 00:01 | model/serial",
+        log_text=(
+            "********************************* Drive Status *********************************\n"
+            "      sda | Erased |  1MB/s | 00:01:00 | TEST/DISK\n"
+        ),
     )
     assert ev_last["outcome"] == OUTCOME_VERIFIED
     assert ev_last["verification"]["verified"] is True

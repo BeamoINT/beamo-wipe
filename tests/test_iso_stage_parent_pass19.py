@@ -55,7 +55,7 @@ def test_iso_stage_cleanup_refuses_linked_parent(tmp_path):
     assert sentinel.read_text() == "outside live-build staging"
 
 
-def test_iso_stage_preparation_clears_only_generated_directories(tmp_path):
+def test_iso_stage_preparation_preserves_unidentified_directory_content(tmp_path):
     live = tmp_path / "packaging" / "live"
     staged = live / "config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe"
     nested = staged / "old" / "nested"
@@ -77,11 +77,10 @@ def test_iso_stage_preparation_clears_only_generated_directories(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0, result.stderr
-    assert list(staged.iterdir()) == []
+    assert result.returncode != 0
+    assert (nested / "stale.py").read_text() == "stale"
+    assert (staged / "link").is_symlink()
     assert (foreign / "keep.txt").read_text() == "safe"
-    assert (live / "config/includes.chroot/usr/share/beamo-wipe/helper").is_dir()
-    assert (live / "config/includes.binary").is_dir()
 
 
 def test_iso_stage_preparation_rejects_linked_binary_output(tmp_path):

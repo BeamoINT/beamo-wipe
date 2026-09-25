@@ -51,8 +51,9 @@ func TestWindowsInventoryPowerShellRuntime(t *testing.T) {
 		name, extra, want string
 		duplicate         bool
 	}{
-		{"gpt", "", "gpt:11111111-2222-3333-4444-555555555555", false},
-		{"unicode", "$disk.SerialNumber='TESTONLY-é-磁盘';$disk.UniqueId='TESTONLY-é-磁盘';", "gpt:11111111-2222-3333-4444-555555555555", false},
+		{"gpt", "", "gpt:11111111-2222-3333-4444-555555555555:1:2048:2097152", false},
+		{"gpt-4k", "$disk.LogicalSectorSize=4096;", "gpt:11111111-2222-3333-4444-555555555555:1:256:262144", false},
+		{"unicode", "$disk.SerialNumber='TESTONLY-é-磁盘';$disk.UniqueId='TESTONLY-é-磁盘';", "gpt:11111111-2222-3333-4444-555555555555:1:2048:2097152", false},
 		{"mbr-4k", "$disk.PartitionStyle='MBR';$disk.Signature=0x1234abcd;$disk.LogicalSectorSize=4096;", "mbr:1234abcd:1:256:262144", false},
 		{"duplicate-gpt", "", "", true},
 		{"mbr", "$disk.PartitionStyle='MBR';$disk.Signature=0x1234abcd;", "mbr:1234abcd:1:2048:2097152", false},
@@ -60,6 +61,13 @@ func TestWindowsInventoryPowerShellRuntime(t *testing.T) {
 		{"running-system", "$disk.IsSystem=$true;", "", false},
 		{"non-usb", "$disk.BusType='SATA';", "", false},
 		{"unidentified", "$disk.SerialNumber='';$disk.UniqueId='';", "", false},
+		{"zero-identifiers", "$disk.SerialNumber='00000000';$disk.UniqueId='0x00000000';", "", false},
+		{"separator-zero-identifiers", "$disk.SerialNumber='00:00-00';$disk.UniqueId='{00000000-0000-0000}';", "", false},
+		{"placeholder-identifiers", "$disk.SerialNumber='UNKNOWN';$disk.UniqueId='N/A';", "", false},
+		{"none-identifiers", "$disk.SerialNumber='NONE';$disk.UniqueId='not available';", "", false},
+		{"real-unique-id-after-placeholder", "$disk.SerialNumber='UNKNOWN';$disk.UniqueId='USB-1234';", "gpt:11111111-2222-3333-4444-555555555555:1:2048:2097152", false},
+		{"real-unique-id", "$disk.SerialNumber='00000000';$disk.UniqueId='USB-1234';", "gpt:11111111-2222-3333-4444-555555555555:1:2048:2097152", false},
+		{"real-serial", "$disk.SerialNumber='USB-1234';$disk.UniqueId='0x00000000';", "gpt:11111111-2222-3333-4444-555555555555:1:2048:2097152", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -86,7 +94,8 @@ func TestWindowsInventoryPowerShellRuntime(t *testing.T) {
 			if tc.name == "unicode" && !strings.Contains(string(out), "TESTONLY-é-磁盘") {
 				t.Fatalf("inventory identity lost Unicode: %s", out)
 			}
-			if json.Unmarshal(out, &got) != nil || len(got.Partitions) != 1 || got.Partitions[0] != tc.want || !strings.Contains(got.Media, "TESTONLY") {
+			var mediaFields []string
+			if json.Unmarshal(out, &got) != nil || json.Unmarshal([]byte(got.Media), &mediaFields) != nil || len(mediaFields) != 4 || mediaFields[0] != "5" || mediaFields[3] != "2147483648" || len(got.Partitions) != 1 || got.Partitions[0] != tc.want {
 				t.Fatalf("invalid fixture result: %s", out)
 			}
 		})

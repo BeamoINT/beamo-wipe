@@ -66,7 +66,26 @@ REPORT_RAW="$RUN_ROOT/report-usb.raw"
 REPORT_MOUNT="$RUN_ROOT/report-usb"
 mkdir -m 0700 "$EVIDENCE_DIR" "$ISO_MOUNT" "$SQUASH_MOUNT" "$REPORT_MOUNT"
 mkdir -p "$ROOT/qemu-evidence"
-printf '%s\n' "$EVIDENCE_DIR" >"$ROOT/qemu-evidence/PATH"
+# Direct invocations need the same output boundary as the hosted wrapper.
+# Exclusive no-follow creation rejects an older or planted PATH receipt.
+python3 - "$ROOT/qemu-evidence" "$EVIDENCE_DIR" <<'PY'
+import os
+import sys
+
+directory_fd = os.open(sys.argv[1], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    path_fd = os.open(
+        "PATH", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600, dir_fd=directory_fd,
+    )
+    with os.fdopen(path_fd, "w", encoding="ascii") as receipt:
+        receipt.write(sys.argv[2] + "\n")
+        receipt.flush()
+        os.fsync(receipt.fileno())
+    os.fsync(directory_fd)
+finally:
+    os.close(directory_fd)
+PY
 
 LOOP=""
 BOOT_LOOP=""
@@ -549,40 +568,59 @@ run_host_method_boundary() {
     echo "nwipe $case did not confirm anonymized logging" >&2
     return 1
   }
-  if ! python3 - "$logf" "$nwipe_method" "$verify" <<'PY'
+  if ! python3 - "$logf" "$nwipe_method" "$verify" "$LOOP" <<'PY'
 import pathlib
 import re
 import sys
 
-log = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-method, verify = sys.argv[2], sys.argv[3]
+raw_log = pathlib.Path(sys.argv[1]).read_bytes()
+method, verify, target = sys.argv[2:5]
+if not raw_log.endswith(b"\n"):
+    raise SystemExit("nwipe host log ended mid-record")
+log = raw_log.decode("utf-8", "replace")
 labels = {"zero": "Fill With Zeros", "prng": "PRNG Stream", "dodshort": "DoD Short"}
-method_at = re.search(rf"method\s*=\s*{re.escape(labels[method])}\s*$", log, re.M)
-verify_at = re.search(rf"verify\s*=\s*{0 if verify == 'off' else 1}\s*\({'off' if verify == 'off' else 'last pass'}\)", log)
-rounds_at = re.search(r"rounds\s*=\s*1(?:\s|$)", log)
-success_at = re.search(r"\|\s*Erased\s*\|", log)
-if not (method_at and verify_at and rounds_at and success_at):
-    raise SystemExit("nwipe log is missing configured method, verify, rounds, or success")
+def unique_option(name, expected):
+    pattern = (rf"(?m)^(?:\[[^\]\r\n]*\][ \t]*)?"
+               rf"(?:(?:debug|info|notice|warning):[ \t]*)?[ \t]*"
+               rf"{re.escape(name)}[ \t]*=[ \t]*([^\r\n]*)$")
+    matches = list(re.finditer(pattern, log))
+    if len(matches) != 1 or matches[0][1].strip() != expected:
+        raise SystemExit(f"nwipe log has missing or conflicting {name} setting")
+    return matches[0]
+
+method_at = unique_option("method", labels[method])
+verify_at = unique_option("verify", f"{0 if verify == 'off' else 1} ({'off' if verify == 'off' else 'last pass'})")
+rounds_at = unique_option("rounds", "1")
+target_name = target.rsplit("/", 1)[-1]
+status_row = rf"^[ \t]*!?[ \t]*(?:{re.escape(target_name)}|{re.escape(target)})[ \t]*\|[ \t]*([^|]+)\|"
+statuses = list(re.finditer(status_row, log, re.M))
+success_at = statuses[-1] if statuses and statuses[-1][1].strip() == "Erased" else None
+if any(row[1].strip() in {"-FAILED-", "UABORTED", "INSANITY"} for row in statuses):
+    raise SystemExit("nwipe reported a target failure")
+if not success_at:
+    raise SystemExit("nwipe log is missing target success")
 if not all(m.start() < success_at.start() for m in (method_at, verify_at, rounds_at)):
     raise SystemExit("nwipe success marker appeared before method/verify/rounds configuration")
 passes = 3 if method == "dodshort" else 1
-cursor = 0
+cursor = max(m.end() for m in (method_at, verify_at, rounds_at))
+def phase_at(marker, cursor):
+    # Pinned nwipe emits one timestamped notice per completed phase. Match a
+    # complete line so /dev/loop0p1 cannot prove work on /dev/loop0.
+    pattern = (r"(?m)^(?:\[[^\]\r\n]+\][ \t]*)?"
+               r"(?:(?:debug|info|notice|warning):[ \t]*)?[ \t]*"
+               + re.escape(marker) + r"[ \t]*$")
+    found = re.search(pattern, log[cursor:success_at.start()])
+    if not found:
+        raise SystemExit("nwipe overwrite phase missing or out of order")
+    return cursor + found.end()
+
 for number in range(1, passes + 1):
-    for phase in ("Starting", "Finished"):
-        marker = f"{phase} pass {number}/{passes}, round 1/1, on "
-        index = log.find(marker, cursor)
-        if index < 0 or index > success_at.start():
-            raise SystemExit("nwipe overwrite phase missing or out of order")
-        cursor = index + len(marker)
-verification = list(re.finditer(r"Verifying pass \d+ of \d+, round \d+ of \d+, on ", log))
-if verify == "last":
-    start = log.find(f"Verifying pass {passes} of {passes}, round 1 of 1, on ")
-    finish = log.find(f"Verified pass {passes} of {passes}, round 1 of 1, on ", start)
-    write_start = log.find(f"Starting pass {passes}/{passes}, round 1/1, on ")
-    write_finish = log.find(f"Finished pass {passes}/{passes}, round 1/1, on ")
-    if len(verification) != 1 or not (write_start < start < finish < write_finish < success_at.start()):
-        raise SystemExit("nwipe last-pass verification missing or out of order")
-elif verification:
+    cursor = phase_at(f"Starting pass {number}/{passes}, round 1/1, on {target}", cursor)
+    if number == passes and verify == "last":
+        cursor = phase_at(f"Verifying pass {number} of {passes}, round 1 of 1, on {target}", cursor)
+        cursor = phase_at(f"Verified pass {number} of {passes}, round 1 of 1, on '{target}'.", cursor)
+    cursor = phase_at(f"Finished pass {number}/{passes}, round 1/1, on {target}", cursor)
+if verify == "off" and "Verifying pass" in log:
     raise SystemExit("nwipe unexpectedly verified an unverified method")
 
 PY
@@ -597,15 +635,28 @@ PY
       return 1
     }
   else
-    if ! python3 - "$raw" <<'PY'
+    if ! python3 - "$raw" "$HOST_METHOD_BYTES" <<'PY'
 import pathlib
 import sys
-blob = pathlib.Path(sys.argv[1]).read_bytes()[:1048576]
-if blob == b"\xa5" * len(blob):
-    raise SystemExit(1)
+
+path, expected_size = pathlib.Path(sys.argv[1]), int(sys.argv[2])
+if path.stat().st_size != expected_size:
+    raise SystemExit("host target readback size mismatch")
+with path.open("rb") as stream:
+    while chunk := stream.read(1024 * 1024):
+        # A one-byte write per sector removes every whole A5 run without
+        # actually overwriting the disposable target. A genuine PRNG pass
+        # averages two A5 bytes per sector. Reject >32 A5 bytes or any
+        # contiguous run of 16, both far beyond ordinary PRNG variation.
+        for offset in range(0, len(chunk), 512):
+            sector = chunk[offset : offset + 512]
+            if sector.count(0xA5) > 32 or b"\xa5" * 16 in sector:
+                raise SystemExit("host target retained prefill in a sector")
+            if sector.count(sector[0]) == len(sector):
+                raise SystemExit("host random final pass left a constant sector")
 PY
     then
-      echo "nwipe $case left the 0xa5 prefill unchanged" >&2
+      echo "nwipe $case left an untouched prefill sector or changed the target size" >&2
       return 1
     fi
   fi
@@ -678,8 +729,13 @@ with path.open("rb") as stream:
         if method == "zero":
             if chunk != bytes(len(chunk)):
                 raise SystemExit("guest target was not completely zeroed")
-        elif b"\xa5" * 512 in chunk:
-            raise SystemExit("guest target retained an untouched prefill sector")
+        else:
+            for offset in range(0, len(chunk), 512):
+                sector = chunk[offset : offset + 512]
+                if sector.count(0xA5) > 32 or b"\xa5" * 16 in sector:
+                    raise SystemExit("guest target retained prefill in a sector")
+                if sector.count(sector[0]) == len(sector):
+                    raise SystemExit("guest random final pass left a constant sector")
         digest.update(chunk)
 print(f"verified_bytes={expected_size}")
 print(f"readback_sha256={digest.hexdigest()}")
@@ -800,11 +856,38 @@ record_qemu_cmdline() {
       echo "ABORT: QEMU command mentions a host block device" >&2
       return 1
     fi
-    if [[ "$previous" == -nic && "$arg" == none ]]; then network_disabled=1; fi
+    if [[ "$previous" == -nic ]]; then
+      if [[ "$arg" != none || "$network_disabled" == 1 ]]; then
+        echo "ABORT: QEMU command enables or repeats guest networking" >&2
+        return 1
+      fi
+      network_disabled=1
+    fi
+    if [[ "$previous" == -device ]]; then
+      # Only the storage and USB controllers used by this gate are expected.
+      # An added NIC can otherwise appear even beside `-nic none`.
+      case "$arg" in
+        qemu-xhci,id=beamo-xhci|usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,bootindex=1|virtio-blk-pci,drive=beamo-target,serial=*) ;;
+        *) echo "ABORT: QEMU command has an unexpected guest device" >&2; return 1 ;;
+      esac
+    fi
+    case "$arg" in
+      -nic)
+        if [[ "$network_disabled" == 1 ]]; then
+          echo "ABORT: QEMU command repeats -nic" >&2
+          return 1
+        fi
+        ;;
+      -nic=*|-net*|-readconfig*|-device=*)
+        # A config file can add a NIC after the explicit `-nic none`.
+        echo "ABORT: QEMU command has another network option or config file" >&2
+        return 1
+        ;;
+    esac
     previous="$arg"
   done
-  [[ "$network_disabled" == 1 ]] || {
-    echo "ABORT: QEMU command is missing -nic none" >&2
+  [[ "$network_disabled" == 1 && "$previous" != -device ]] || {
+    echo "ABORT: QEMU command is missing -nic none or a device argument" >&2
     return 1
   }
 }
@@ -829,6 +912,8 @@ report_marker_summary() {
     BEAMO_WIPE_STAGE_DONE \
     BEAMO_WIPE_STAGE_FAILED \
     BEAMO_WIPE_STAGE_STALLED \
+    BEAMO_WIPE_RECOVERY_TMP_NOT_VOLATILE \
+    BEAMO_WIPE_RECOVERY_UNAVAILABLE \
     BEAMO_WIPE_UI_MODE=accessible \
     BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD \
     BEAMO_WIPE_SCREEN_SPLASH \
@@ -1366,6 +1451,22 @@ result_digest = hashlib.sha256(actual["result.json"]).hexdigest()
 if actual["result.json.sha256"] != f"{result_digest}  result.json\n".encode("ascii"):
     raise SystemExit("result.json sidecar mismatch")
 result = json.loads(actual["result.json"].decode("utf-8"), object_pairs_hook=unique_report_fields)
+if (
+    complete["log_status"] != "complete"
+    or "nwipe.log" not in actual
+    or "nwipe-tail.log" in actual
+    or not actual["nwipe.log"].endswith(b"\n")
+):
+    raise SystemExit("verified guest report needs a complete nwipe log")
+log_digest = hashlib.sha256(actual["nwipe.log"]).hexdigest()
+if actual.get("nwipe.log.sha256") != f"{log_digest}  nwipe.log\n".encode("ascii"):
+    raise SystemExit("guest nwipe log sidecar mismatch")
+if (
+    result.get("log_checksum_sha256") != log_digest
+    or type(result.get("log_snapshot_size_bytes")) is not int
+    or result["log_snapshot_size_bytes"] != len(actual["nwipe.log"])
+):
+    raise SystemExit("guest nwipe log snapshot differs from result metadata")
 if result.get("source_commit") != expected_source or result.get("build_id") != expected_build_id:
     raise SystemExit("guest report is for another source or build")
 if result.get("outcome") != expected_outcome:
@@ -1409,16 +1510,83 @@ if method.get("verify") != expected_verify or method.get("verification_passes") 
     raise SystemExit("guest verification fields do not match the production method")
 nwipe = result.get("nwipe") if isinstance(result.get("nwipe"), dict) else {}
 argv = nwipe.get("argv_redacted") if isinstance(nwipe.get("argv_redacted"), list) else []
-for flag in (
-    f"--method={expected_nwipe}",
-    f"--verify={expected_verify}",
-    "--rounds=1",
-    "--noblank",
-    "--quiet",
-    "--autonuke",
+device = result.get("device") if isinstance(result.get("device"), dict) else {}
+target, boot, logfile = device.get("path"), result.get("boot_device"), result.get("logfile")
+if (
+    not isinstance(target, str) or not re.fullmatch(r"/dev/[A-Za-z0-9][A-Za-z0-9._-]*", target)
+    or not isinstance(boot, str) or not re.fullmatch(r"/dev/[A-Za-z0-9][A-Za-z0-9._-]*", boot)
+    or target == boot
+    or not isinstance(logfile, str)
+    or not re.fullmatch(r"/tmp/beamo-wipe/[A-Za-z0-9._-]+\.log", logfile)
 ):
-    if flag not in argv:
-        raise SystemExit(f"guest argv missing {flag}")
+    raise SystemExit("guest argv target, boot exclusion, or log path is invalid")
+expected_argv = [
+    "nwipe", "--autonuke", "--nogui", "--nowait", "--quiet",
+    f"--method={expected_nwipe}", f"--verify={expected_verify}",
+    "--rounds=1", f"--logfile={logfile}", "--PDFreportpath=noPDF",
+    f"--exclude={boot}", "--noblank", target,
+]
+if argv != expected_argv:
+    raise SystemExit("guest argv differs from the single-target production command")
+expected_serial = {"everyday": "0001", "extra": "0002", "quick_zero": "0003"}[expected_method]
+if (
+    target != "/dev/vda"
+    or device.get("realpath") != "/dev/vda"
+    or device.get("name") != "vda"
+    or device.get("serial") != expected_serial
+    or type(device.get("size_bytes")) is not int
+    or device["size_bytes"] != 67108864
+):
+    raise SystemExit("guest target identity differs from the disposable QEMU disk")
+target_name = target.rsplit("/", 1)[-1]
+log_text = actual["nwipe.log"].decode("utf-8", "replace")
+status_row = rf"^\s*!?\s*(?:{re.escape(target_name)}|{re.escape(target)})\s*\|\s*([^|]+)\|"
+statuses = list(re.finditer(status_row, log_text, re.M))
+if (
+    not statuses
+    or statuses[-1][1].strip() != "Erased"
+    or any(row[1].strip() in {"-FAILED-", "UABORTED", "INSANITY"} for row in statuses)
+):
+    raise SystemExit("guest nwipe log has no unambiguous target status row")
+success_at = statuses[-1].start()
+labels = {"zero": "Fill With Zeros", "prng": "PRNG Stream", "dodshort": "DoD Short"}
+def unique_option(name, expected):
+    pattern = rf"(?m)^(?:\[[^\]\r\n]*\]\s*)?(?:(?:debug|info|notice|warning):\s*)?\s*{name}\s*=\s*([^\r\n]*)$"
+    matches = list(re.finditer(pattern, log_text))
+    if len(matches) != 1 or matches[0][1].strip() != expected:
+        raise SystemExit(f"guest engine method log has missing or conflicting {name} setting")
+    return matches[0]
+
+method_at = unique_option("method", labels[expected_nwipe])
+verify_at = unique_option(
+    "verify", f"{0 if expected_verify == 'off' else 1} ({'off' if expected_verify == 'off' else 'last pass'})"
+)
+rounds_at = unique_option("rounds", "1")
+if not all(match.start() < success_at for match in (method_at, verify_at, rounds_at)):
+    raise SystemExit("guest engine method log configuration follows success")
+cursor = max(match.end() for match in (method_at, verify_at, rounds_at))
+def phase_at(marker, cursor):
+    # Complete nwipe notice lines bind the operation to this exact block node.
+    pattern = (r"(?m)^(?:\[[^\]\r\n]+\][ \t]*)?"
+               r"(?:(?:debug|info|notice|warning):[ \t]*)?[ \t]*"
+               + re.escape(marker) + r"[ \t]*$")
+    found = re.search(pattern, log_text[cursor:success_at])
+    if not found:
+        raise SystemExit("guest engine method log has missing or out-of-order phases")
+    return cursor + found.end()
+
+for number in range(1, expected_overwrites + 1):
+    cursor = phase_at(f"Starting pass {number}/{expected_overwrites}, round 1/1, on {target}", cursor)
+    if number == expected_overwrites and expected_verify == "last":
+        cursor = phase_at(
+            f"Verifying pass {number} of {expected_overwrites}, round 1 of 1, on {target}", cursor
+        )
+        cursor = phase_at(
+            f"Verified pass {number} of {expected_overwrites}, round 1 of 1, on '{target}'.", cursor
+        )
+    cursor = phase_at(f"Finished pass {number}/{expected_overwrites}, round 1/1, on {target}", cursor)
+if expected_verify == "off" and "Verifying pass" in log_text:
+    raise SystemExit("guest engine method log unexpectedly verified an unverified method")
 summary = actual.get("RESULT.txt", b"").decode("utf-8", "replace")
 if expected_title not in summary:
     raise SystemExit(f"RESULT.txt missing method title {expected_title!r}")

@@ -195,7 +195,7 @@ def apply_layout(layout_id: str, *, graphical: Optional[bool] = None) -> ApplyRe
         x_ok = _run_allowlisted(spec.xkb_argv)
         if not x_ok:
             return ApplyResult(False, APPLY_FAILED, spec.id)
-    c_ok = True
+    c_ok = c_tool is not None
     if c_tool:
         c_ok = _run_allowlisted(spec.console_argv)
         if not graphical and not c_ok:

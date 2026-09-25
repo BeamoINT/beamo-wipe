@@ -57,6 +57,10 @@ def test_pinned_already_running_unreadable_exe_is_logged(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe import nwipe_runner as nr
 
+    pinned = tmp_path / "nwipe"
+    pinned.write_bytes(b"fake executable")
+    monkeypatch.setattr(nr, "NWIPE_PINNED_PATH", str(pinned))
+
     # realpath for pinned path succeeds, listdir returns one pid, readlink fails
     monkeypatch.setattr(
         nr.os.path,

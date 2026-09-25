@@ -27,7 +27,7 @@ def test_incomplete_manifest_cannot_become_success_bundle(tmp_path, files):
     image.write_bytes(b'not a filesystem')
     iso = tmp_path / 'source.iso'
     iso.write_bytes(b'fixture')
-    result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+    result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso), str(tmp_path / 'missing-reference')],
                             capture_output=True, text=True, check=False)
     assert result.returncode != 0
     assert 'exactly both desktop launchers' in result.stderr
@@ -35,7 +35,13 @@ def test_incomplete_manifest_cannot_become_success_bundle(tmp_path, files):
     assert not image.with_suffix('.img.json').exists()
 
 
-@pytest.mark.parametrize('damage', [None, 'launcher', 'manifest', 'offset',
+@pytest.mark.parametrize('damage', [None, 'launcher', 'manifest',
+                                  'boot-efi', 'boot-grub', 'boot-isolinux',
+                                  'boot-syslinux', 'boot-corrupt',
+                                  'syslinux-loader', 'installer-module',
+                                  'installer-module-missing',
+                                  'live-payload', 'metadata',
+                                  'offset',
                                   'mbr-offset', 'mbr-size', 'mbr-active',
                                   'mbr-type', 'mbr-magic', 'mbr-signature',
                                   'mbr-extra-partition', 'trailing-data'])
@@ -49,10 +55,67 @@ def test_regular_file_fat32_roundtrip(tmp_path, damage):
                 'Start Beamo Wipe Linux': b'\x7fELF\x00fixture-linux'}
     manifest = {'files': {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}}
     (tree / 'desktop-build.json').write_text(json.dumps(manifest))
+    boot_files = {
+        'EFI/boot/bootx64.efi': b'MZ\x00boot-fixture',
+        'EFI/boot/grubx64.efi': b'MZ\x00grub-fixture',
+        'isolinux/isolinux.cfg': b'live boot fixture\n',
+        'isolinux/syslinux.cfg': b'live boot fixture\n',
+        # The installer replaces this ISO module with its own FAT loader.
+        'isolinux/ldlinux.c32': b'ISO-extracted module',
+        'live/filesystem.squashfs': b'live filesystem fixture',
+        '.disk/info': b'Beamo Wipe fixture\n',
+    }
+    for name, data in boot_files.items():
+        source = tree / name
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(data)
     fat = tmp_path / 'volume.fat'
     with fat.open('xb') as stream:
         stream.truncate(64 * 1024**2)
     subprocess.run([commands[0], '-F', '32', str(fat)], check=True, capture_output=True)
+    for directory in ('EFI', 'EFI/boot', 'isolinux', 'live', '.disk'):
+        subprocess.run([shutil.which('mmd'), '-i', str(fat), '::/' + directory],
+                       check=True, capture_output=True)
+    skipped_boot_file = {
+        'boot-efi': 'EFI/boot/bootx64.efi',
+        'boot-grub': 'EFI/boot/grubx64.efi',
+        'boot-isolinux': 'isolinux/isolinux.cfg',
+        'boot-syslinux': 'isolinux/syslinux.cfg',
+        'live-payload': 'live/filesystem.squashfs',
+        'metadata': '.disk/info',
+    }.get(damage)
+    for name in boot_files:
+        if name == skipped_boot_file or name == 'isolinux/ldlinux.c32':
+            continue
+        copy = tree / name
+        if damage == 'boot-corrupt' and name == 'EFI/boot/bootx64.efi':
+            copy = tmp_path / 'corrupt-boot.efi'
+            copy.write_bytes(b'MZ\x00corrupted boot fixture')
+        subprocess.run([commands[1], '-i', str(fat), str(copy),
+                        '::/' + name], check=True, capture_output=True)
+    module = tmp_path / 'trusted-ldlinux.c32'
+    module.write_bytes(b'installer module fixture' * 128)
+    reference = tmp_path / 'syslinux-reference.fat'
+    with reference.open('xb') as stream:
+        stream.truncate(64 * 1024**2)
+    subprocess.run([commands[0], '-F', '32', str(reference)], check=True, capture_output=True)
+    subprocess.run([shutil.which('mmd'), '-i', str(reference), '::/isolinux'],
+                   check=True, capture_output=True)
+    subprocess.run([commands[1], '-i', str(reference), str(module),
+                    '::/isolinux/ldlinux.c32'], check=True, capture_output=True)
+    if damage != 'installer-module-missing':
+        installed = module
+        if damage == 'installer-module':
+            installed = tmp_path / 'changed-ldlinux.c32'
+            installed.write_bytes(b'changed installer module' * 128)
+        subprocess.run([commands[1], '-i', str(fat), str(installed),
+                        '::/isolinux/ldlinux.c32'], check=True, capture_output=True)
+    if damage != 'syslinux-loader':
+        # syslinux --install writes this file after copying the ISO tree.
+        loader = tmp_path / 'ldlinux.sys'
+        loader.write_bytes(b'syslinux fixture boot code' * 128)
+        subprocess.run([commands[1], '-i', str(fat), str(loader),
+                        '::/isolinux/ldlinux.sys'], check=True, capture_output=True)
     for name, data in {**payloads, 'desktop-build.json': (tree / 'desktop-build.json').read_bytes()}.items():
         copy = tmp_path / name
         if damage == 'launcher' and name.endswith('.exe'):
@@ -89,10 +152,14 @@ def test_regular_file_fat32_roundtrip(tmp_path, damage):
             dest.write(b'unaccounted data')
     iso = tmp_path / 'source.iso'
     iso.write_bytes(b'fixture ISO binding; no boot claim')
-    result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso)],
+    result = subprocess.run([sys.executable, '-c', verifier(), str(tree), str(image), str(iso), str(reference)],
                             capture_output=True, text=True, check=False, timeout=30)
     if damage:
         assert result.returncode != 0
+        if damage == 'installer-module':
+            assert 'USB Syslinux module readback mismatch' in result.stderr
+        elif damage == 'installer-module-missing':
+            assert 'USB file readback failed: isolinux/ldlinux.c32' in result.stderr
         assert not image.with_suffix('.img.json').exists()
         assert not image.with_suffix('.img.sha256').exists()
     else:

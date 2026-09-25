@@ -481,12 +481,18 @@ def test_preflight_and_engine_failures_offer_diagnostics_without_evidence(
     import beamo_wipe.wizard as module
 
     w = make_demo_wizard()
+    w.skip_intro()
+    w.set_owner(True)
+    w.continue_owner()
+    w.select_disk(w.selectable[0].path)
+    w.continue_pick()
+    w.set_confirm_input(w.confirm.token)
+    w.continue_confirm()
+    w.continue_method()
+    assert w.screen == Screen.LAST_CHANCE
+    assert w._authorized_operation is not None
     w.preview = False
-    w.screen = Screen.LAST_CHANCE
     w._erase_until = w.now - 1
-    w.selected = w.selectable[0]
-    w.owner_ok = True
-    w.confirm_input = w.confirm.token
 
     def fail(*a, **kw):
         raise exc

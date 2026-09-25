@@ -124,6 +124,38 @@ def test_estimate_requires_six_advances_twenty_seconds_and_engine_agreement():
     assert timing.view(sample(16, eta=1), True).remaining is None
 
 
+@pytest.mark.parametrize(
+    "first_phase,first_counters,next_phase,next_counters",
+    [
+        ("writing", "round 1 of 1, pass 1 of 2", "writing", "round 1 of 1, pass 2 of 2"),
+        ("writing", "round 1 of 1, pass 1 of 1", "verifying", "round 1 of 1, pass 1 of 1"),
+    ],
+)
+def test_new_operation_can_estimate_after_previous_operation_reached_high_percent(
+    first_phase, first_counters, next_phase, next_counters
+):
+    clock = Clock()
+    timing = ProgressTiming(clock, lambda: clock.wall)
+    timing.start(clock())
+    timing.view(
+        sample(99, eta=5, phase=first_phase, counters=first_counters),
+        False,
+    )
+    clock.advance(5)
+    for pct in range(10, 16):
+        view = timing.view(
+            sample(
+                pct,
+                eta=(100 - pct) * 5,
+                phase=next_phase,
+                counters=next_counters,
+            ),
+            True,
+        )
+        clock.advance(5)
+    assert view.remaining == pytest.approx(425)
+
+
 def test_duplicate_polls_and_duplicate_percent_do_not_renew_rate_or_freshness():
     clock, timing, view = stable()
     last = timing.last

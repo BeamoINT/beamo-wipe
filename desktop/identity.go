@@ -33,6 +33,14 @@ type injectedIdentity struct {
 
 var usbIdentity = stubIdentity()
 
+func runningUSBIdentity(executable func() (string, error)) identityInfo {
+	path, err := executable()
+	if err != nil {
+		return stubIdentity()
+	}
+	return loadUSBIdentity(path)
+}
+
 func stubIdentity() identityInfo {
 	return identityInfo{
 		Label:  "This launcher is not from a manufactured USB image.",

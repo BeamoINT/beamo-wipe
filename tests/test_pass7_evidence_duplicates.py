@@ -11,14 +11,14 @@ from beamo_wipe.models import MethodId, WipeResult
 from beamo_wipe.safety import SafetyError
 from beamo_wipe import support_export as export
 from beamo_wipe.support_export import EVIDENCE_LOG_META, prepare_terminal_evidence
-from test_result_presentations import case_evidence
+from test_result_presentations import ERASED, STATUS, case_evidence
 from test_usb_report_workflow import _discovery, _payload
 
 
 def test_recover_result_rejects_duplicate_claims_with_valid_log(tmp_path):
     logfile = tmp_path / "nwipe.log"
     _, record, log = case_evidence(
-        ("verified", MethodId.EVERYDAY, 0, "{name} | Erased |", False, False),
+        ("verified", MethodId.EVERYDAY, 0, STATUS + ERASED, False, False),
         str(logfile),
     )
     logfile.write_text(log)

@@ -33,8 +33,20 @@ func TestLinuxMediaRequiresMeaningfulHardwareIdentifier(t *testing.T) {
 		valid             bool
 	}{
 		{"blank serial", " ", "", false},
+		{"zero serial", "0000000000000000", "", false},
+		{"prefixed zero serial", "0x00000000", "", false},
+		{"separator-padded zero serial", "00:00:00:00", "", false},
 		{"zero WWN", "", "0x0000000000000000", false},
+		{"separator-padded zero WWN", "", "00:00:00:00", false},
 		{"bare zero WWN", "", "0000000000000000", false},
+		{"unknown serial", " UNKNOWN ", "", false},
+		{"not-applicable serial", "N/A", "", false},
+		{"none WWN", "", "NONE", false},
+		{"not available WWN", "", "not available", false},
+		{"placeholder pair", "UNKNOWN", "N/A", false},
+		{"placeholder serial with real WWN", "NONE", "0x5000c500aabbccdd", true},
+		{"zero serial with real WWN", "0000000000000000", "0x5000c500aabbccdd", true},
+		{"nonzero serial", "0000000000000001", "", true},
 		{"real WWN", "", "0x5000c500aabbccdd", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

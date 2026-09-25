@@ -18,7 +18,12 @@ if (!token) {
     if (tokenPattern.test(remembered)) token = remembered;
   } catch (_) { /* The initial fragment remains the fallback. */ }
 }
-if (tokenSaved && tokenPattern.test(fragment)) history.replaceState(null, "", "/");
+if (tokenSaved && tokenPattern.test(fragment)) {
+  try { history.replaceState(null, "", "/"); } catch (_) {
+    // Some restricted browsers deny history changes; the saved session and
+    // original fragment still keep this tab authorized after a reload.
+  }
+}
 if (!tokenSaved && token) {
   // A help link replaces the fragment. Keep the token in this tab's history
   // entry when sessionStorage is unavailable, including after hash navigation.
@@ -30,23 +35,27 @@ if (!tokenSaved && token) {
 }
 let busy = false;
 let ready = false;
+let reviewedRevision = 0;
 function clearChecks(message) {
   ready = false;
+  reviewedRevision = 0;
   $("saved").checked = false; $("restart").disabled = true; $("confirm").hidden = true;
   $("checks").replaceChildren();
   const item = document.createElement("li"); item.textContent = message; $("checks").append(item);
   $("technical").hidden = true; $("technical-detail").textContent = "";
 }
-async function api(action, confirm = false) {
+async function api(action, confirm = false, revision = 0) {
   let response;
   try {
-    response = await fetch(`/api/${action}`, {method:"POST", headers:{"Content-Type":"application/json","X-Beamo-Token":token}, body:JSON.stringify({confirm}), cache:"no-store", credentials:"omit", redirect:"error"});
+    response = await fetch(`/api/${action}`, {method:"POST", headers:{"Content-Type":"application/json","X-Beamo-Token":token}, body:JSON.stringify({confirm, revision}), cache:"no-store", credentials:"omit", redirect:"error"});
   } catch (_) { throw new Error("The launcher is no longer connected. Open Start Beamo Wipe from the USB again."); }
   if (!response.ok) throw new Error(response.status === 403 ? "This session has ended. Open Start Beamo Wipe from the USB again." : await response.text());
   return response.json();
 }
 function show(v) {
-  if (!v || typeof v.ready !== "boolean" || !Array.isArray(v.checks) || v.checks.length !== 3 ||
+  if (!v || typeof v.ready !== "boolean" || !Number.isSafeInteger(v.revision) || v.revision < 0 ||
+      (!v.preview && v.ready && v.revision === 0) ||
+      !Array.isArray(v.checks) || v.checks.length !== 3 ||
       v.checks.some((c, i) => !c || c.id !== ["usb", "settings", "route"][i] ||
         !["pass", "fail", "unverified", "unsupported", "blocked"].includes(c.state) ||
         [c.label, c.detail, c.next].some(text => typeof text !== "string" || !text)) ||
@@ -60,6 +69,7 @@ function show(v) {
     throw new Error("The readiness results were incomplete. Choose Check again or reopen the launcher from the USB.");
   }
   ready = v.ready;
+  reviewedRevision = v.ready ? v.revision : 0;
   $("checks").replaceChildren();
   for (const check of v.checks) {
     const item = document.createElement("li");
@@ -110,9 +120,10 @@ $("inspect").onclick=()=>action(async()=>{clearChecks("Checking the original USB
 $("saved").onchange=()=>{$("restart").disabled=busy||!ready||!$("saved").checked;};
 $("restart").onclick=()=>action(async()=>{
   if (!ready || !$("saved").checked) return;
+  const revision = reviewedRevision;
   clearChecks("Restart requested. Check readiness again before making another request.");
   $("status").textContent="Requesting permission to restart…";
-  const result=await api("restart",true);
+  const result=await api("restart",true,revision);
   $("status").textContent=result.message; $("confirm").hidden=true; $("inspect").hidden=false;
 }, "status");
 $("close").onclick=()=>action(async()=>{
@@ -125,4 +136,22 @@ $("close").onclick=()=>action(async()=>{
   main.tabIndex=-1; main.focus();
 });
 action(async()=>{const state=await api("state");show(state.preview?state:await api("check"));$("status").textContent="Readiness checks complete.";});
-setInterval(()=>{if(token&&!busy)api("state").catch(()=>{});},30000);
+function disarmStaleReadiness(message) {
+  clearChecks("Readiness is no longer current. Choose Check again before requesting a restart.");
+  $("status").className = "error";
+  $("status").textContent = message;
+  $("inspect").hidden = false;
+  $("help").open = true;
+}
+setInterval(async()=>{
+  if (!token || busy) return;
+  const polledRevision = reviewedRevision;
+  try {
+    const state = await api("state");
+    if (ready && reviewedRevision === polledRevision && (!state || state.ready !== true || !Number.isSafeInteger(state.revision) || state.revision !== reviewedRevision)) {
+      disarmStaleReadiness("Readiness changed in another window. Choose Check again before requesting a restart.");
+    }
+  } catch (_) {
+    if (ready && reviewedRevision === polledRevision) disarmStaleReadiness("The launcher is no longer connected. Open it again from the USB before requesting a restart.");
+  }
+},30000);

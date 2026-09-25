@@ -29,7 +29,13 @@ from beamo_wipe.discover import run_lsblk
 from beamo_wipe.evidence import _verified_evidence_bytes
 from beamo_wipe.models import Disk, DiscoveryResult
 from beamo_wipe.nwipe_runner import NWIPE_COMPLETION_LOG_BYTES, NWIPE_PROGRESS_LOG_BYTES
-from beamo_wipe.safety import CLEAN_SUBPROCESS_ENV, SafetyError
+from beamo_wipe.safety import (
+    CLEAN_SUBPROCESS_ENV,
+    SafetyError,
+    canonical_wwn,
+    meaningful_serial,
+    meaningful_wwn,
+)
 
 
 UNSHARE_BIN = "/usr/bin/unshare"
@@ -502,6 +508,12 @@ def _is_diagnostic_evidence(data: bytes) -> bool:
         return False
 
 
+def _has_display_line_break(value: str) -> bool:
+    # These Unicode separators split lines in terminals and text renderers,
+    # but are not covered by checks for ASCII CR and LF.
+    return any(ch == "\x85" or unicodedata.category(ch) in {"Zl", "Zp"} for ch in value)
+
+
 def destination_label_for(model: str, size_bytes: int) -> str:
     """Safe USB identity for owners. Never a mount, device, or relative path."""
     cleaned = (model or "").strip()
@@ -511,6 +523,7 @@ def destination_label_for(model: str, size_bytes: int) -> str:
         or "\\" in cleaned
         or cleaned.startswith(".")
         or cleaned.lower().startswith("dev/")
+        or _has_display_line_break(cleaned)
     )
     if unsafe:
         name = GENERIC_DESTINATION
@@ -545,6 +558,7 @@ def _destination_label_ok(label: str) -> bool:
         or "\\" in label
         or "\n" in label
         or "\r" in label
+        or _has_display_line_break(label)
         or label.startswith(".")
         or label.lower().startswith("dev/")
         or not SAFE_ID_RE.fullmatch(label)
@@ -653,10 +667,14 @@ def _strict_int(node: Mapping[str, Any], key: str) -> int:
     if isinstance(value, int):
         parsed = value
     elif isinstance(value, str) and value.isascii() and value.isdigit():
+        # Linux block sizes are unsigned 64-bit values. Reject impossible
+        # decimal strings before converting arbitrarily large lsblk input.
+        if len(value) > 20:
+            raise SafetyError(USB_SIZE_INVALID)
         parsed = int(value)
     else:
         raise SafetyError(USB_META_INCOMPLETE)
-    if parsed <= 0:
+    if not 0 < parsed <= (1 << 64) - 1:
         raise SafetyError(USB_SIZE_INVALID)
     return parsed
 
@@ -747,21 +765,31 @@ def baseline_fingerprints(
 
 
 def _same_device(left: DeviceFingerprint, right: DeviceFingerprint) -> bool:
+    left_wwn, right_wwn = canonical_wwn(left.wwn), canonical_wwn(right.wwn)
+    if left_wwn and right_wwn:
+        # Reused serials cannot make two distinct hardware IDs into one
+        # baseline disk. Linux can also reuse the same /dev path after a
+        # device swap. Otherwise a newly inserted USB can vanish from the
+        # exactly-one-report-volume check.
+        return left_wwn == right_wwn
+    left_serial = meaningful_serial(left.serial).casefold()
+    right_serial = meaningful_serial(right.serial).casefold()
+    if left_serial and right_serial and left_serial != right_serial:
+        # A kernel path can be reused after unplugging a baseline USB.
+        return False
     if left.path == right.path:
         return True
-    if left.wwn and right.wwn and left.wwn.casefold() == right.wwn.casefold():
-        return True
     return bool(
-        left.serial
-        and right.serial
-        and left.serial.casefold() == right.serial.casefold()
+        left_serial
+        and right_serial
+        and left_serial == right_serial
         and left.size_bytes == right.size_bytes
         and left.model.casefold() == right.model.casefold()
     )
 
 
 def _blank_identity(item: DeviceFingerprint) -> bool:
-    return not item.serial and not item.wwn
+    return not meaningful_serial(item.serial) and not meaningful_wwn(item.wwn)
 
 
 def _refuse_ambiguous_blank_disks(
@@ -806,12 +834,78 @@ def _refuse_duplicate_wwns(roots: Sequence[Mapping[str, Any]]) -> None:
     """Two disks with one WWN are not separable, even when the sizes differ."""
     seen: set[str] = set()
     for node in roots:
-        wwn = _fingerprint_node(node).wwn.casefold()
+        wwn = canonical_wwn(_fingerprint_node(node).wwn)
         if not wwn:
             continue
         if wwn in seen:
             raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
         seen.add(wwn)
+
+
+def _refuse_ambiguous_serials(roots: Sequence[Mapping[str, Any]]) -> None:
+    """A shared serial without two distinct WWNs cannot identify one USB."""
+    seen: dict[str, list[str]] = {}
+    for node in roots:
+        item = _fingerprint_node(node)
+        serial = meaningful_serial(item.serial).casefold()
+        if not serial:
+            continue
+        wwn = canonical_wwn(item.wwn)
+        if any(not wwn or not earlier or wwn == earlier for earlier in seen.get(serial, ())):
+            raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
+        seen.setdefault(serial, []).append(wwn)
+
+
+def _refuse_lost_optional_identity(
+    roots: Sequence[Mapping[str, Any]], baseline: Sequence[DeviceFingerprint]
+) -> None:
+    """A same-path optional disk with lost IDs cannot be called unchanged."""
+    current = {}
+    for node in roots:
+        item = _fingerprint_node(node)
+        current[item.path] = item
+    for old in baseline:
+        if old.required or old.path not in current:
+            continue
+        item = current[old.path]
+        if (
+            item.size_bytes != old.size_bytes
+            or item.model.casefold() != old.model.casefold()
+        ):
+            raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
+        old_wwn, item_wwn = canonical_wwn(old.wwn), canonical_wwn(item.wwn)
+        old_serial = meaningful_serial(old.serial)
+        item_serial = meaningful_serial(item.serial)
+        # A different ID at the same path is not evidence that this is a
+        # newly inserted stick. It may be an existing optional USB whose
+        # metadata changed between Prepare and Save. Only a matching WWN can
+        # make a changed or missing serial harmless.
+        if (
+            bool(old_wwn) != bool(item_wwn)
+            or (old_wwn and old_wwn != item_wwn)
+            or (
+                not old_wwn
+                and old_serial
+                and (not item_serial or old_serial.casefold() != item_serial.casefold())
+            )
+        ):
+            raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
+
+
+def _refuse_relocated_weak_identity(
+    roots: Sequence[Mapping[str, Any]], baseline: Sequence[DeviceFingerprint]
+) -> None:
+    """A serial alone cannot prove a moved USB is the old, optional device."""
+    current = [_fingerprint_node(node) for node in roots]
+    paths = {item.path for item in current}
+    for old in baseline:
+        if old.required or old.path in paths:
+            continue
+        for item in current:
+            if _same_device(item, old) and not (
+                canonical_wwn(item.wwn) and canonical_wwn(old.wwn)
+            ):
+                raise SafetyError(PROTECTED_IDENTITY_UNVERIFIED)
 
 
 def _root_disks(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -832,6 +926,21 @@ def _root_disks(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
         if path in seen_paths:
             raise SafetyError(DISCOVERY_DUPLICATES)
         seen_paths.add(path)
+        # An empty optical reader is exposed as a zero-size ROM by lsblk.
+        # It cannot be a report destination or contain the live medium, and
+        # including it makes every report export fail the positive-size check.
+        # Keep mounted, populated, or malformed readers in the checked set.
+        if (
+            node_type == "rom"
+            and re.fullmatch(r"/dev/sr[0-9]+", path)
+            and (
+                (type(node.get("size")) is int and node["size"] == 0)
+                or (type(node.get("size")) is str and node["size"] == "0")
+            )
+            and not _children(node)
+            and _unmounted(node)
+        ):
+            continue
         roots.append(node)
     return roots
 
@@ -848,9 +957,12 @@ def _require_baseline_present(
             for item in current
             if item.path == expected.path
             and item.size_bytes == expected.size_bytes
-            and (not expected.wwn or item.wwn.casefold() == expected.wwn.casefold())
-            and (not expected.serial or item.serial.casefold() == expected.serial.casefold())
-            and (not expected.model or item.model.casefold() == expected.model.casefold())
+            # A previously blank identity field becoming populated is still
+            # a changed required-disk identity. The boot stick and erased
+            # target must remain the exact devices in the baseline.
+            and canonical_wwn(item.wwn) == canonical_wwn(expected.wwn)
+            and item.serial == expected.serial
+            and item.model == expected.model
         ]
         if len(matches) != 1:
             raise SafetyError(
@@ -865,6 +977,9 @@ def select_export_volume(
     roots = _root_disks(payload)
     _require_baseline_present(roots, baseline)
     _refuse_duplicate_wwns(roots)
+    _refuse_ambiguous_serials(roots)
+    _refuse_lost_optional_identity(roots, baseline)
+    _refuse_relocated_weak_identity(roots, baseline)
     _refuse_ambiguous_blank_disks(roots, baseline)
     new_usb: list[Mapping[str, Any]] = []
     for node in roots:
@@ -915,6 +1030,8 @@ def select_export_volume(
     if _strict_bool(volume_node, "ro") or not _unmounted(volume_node):
         raise SafetyError(USB_VOLUME_WRITABLE)
     size_bytes = _strict_int(volume_node, "size")
+    if size_bytes > parent.size_bytes:
+        raise SafetyError(USB_LAYOUT_MALFORMED)
     if size_bytes < MIN_VOLUME_BYTES:
         raise SafetyError(USB_VOLUME_SMALL)
     fstype = _strict_text(volume_node, "fstype", required=True)
@@ -1178,9 +1295,7 @@ def _protected_rdevs(
 
 
 def _same_volume(left: ExportVolume, right: ExportVolume, *, include_rdev: bool) -> bool:
-    if include_rdev:
-        return left == right
-    return (
+    same_metadata = (
         left.path,
         left.size_bytes,
         left.fstype,
@@ -1190,7 +1305,7 @@ def _same_volume(left: ExportVolume, right: ExportVolume, *, include_rdev: bool)
         left.parent.size_bytes,
         left.parent.model,
         left.parent.serial,
-        left.parent.wwn,
+        canonical_wwn(left.parent.wwn),
     ) == (
         right.path,
         right.size_bytes,
@@ -1201,7 +1316,14 @@ def _same_volume(left: ExportVolume, right: ExportVolume, *, include_rdev: bool)
         right.parent.size_bytes,
         right.parent.model,
         right.parent.serial,
-        right.parent.wwn,
+        canonical_wwn(right.parent.wwn),
+    )
+    if not same_metadata or not include_rdev:
+        return same_metadata
+    return (
+        left.rdev == right.rdev
+        and left.parent.rdev == right.parent.rdev
+        and left.parent.required == right.parent.required
     )
 
 
@@ -1262,6 +1384,14 @@ def export_to_new_usb(
         baseline_without_rdev,
         target_rdev=target_rdev,
         boot_rdev=boot_rdev,
+        expected_required_rdevs={
+            os.path.realpath(path): rdev
+            for path, rdev in (
+                (target_path, target_rdev),
+                (discovery.boot.path if discovery.boot is not None else "", boot_rdev),
+            )
+            if path and rdev > 0
+        },
         privacy_reduced=privacy_reduced,
         scan=scan,
         run=run,
@@ -1272,21 +1402,34 @@ def capture_diagnostic_baseline(*, scan=run_lsblk) -> tuple[DeviceFingerprint, .
     """Protect all existing roots before insertion; re-establish boot identity."""
     try:
         first_payload = scan()
-        from beamo_wipe.discover import discover
+        from beamo_wipe.discover import discover, read_cmdline, read_mount_sources
         from beamo_wipe.safety import assert_boot_excluded
-        boot_scan = discover(lsblk_payload=first_payload)
+        # This payload came from a real scan, even though discover receives it
+        # through its injectable argument. Supply the live boot evidence and
+        # ignore preview-only environment overrides for this safety check.
+        boot_scan = discover(
+            lsblk_payload=first_payload,
+            mount_sources=read_mount_sources(),
+            cmdline=read_cmdline(),
+            env={},
+        )
         assert_boot_excluded(boot_scan)
         if not boot_scan.boot_identified or boot_scan.boot is None or boot_scan.error:
             raise SafetyError(BOOT_IDENTITY_UNAVAILABLE)
         roots = _root_disks(first_payload)
         if not roots or len(roots) > 256:
             raise SafetyError(NO_BASELINE)
-        first = _baseline_with_rdev(tuple(_fingerprint_node(node) for node in roots))
+        first = _baseline_with_rdev(tuple(sorted(
+            (_fingerprint_node(node) for node in roots), key=lambda item: item.path
+        )))
         if boot_scan.boot.path not in {item.path for item in first}:
             raise SafetyError(BOOT_ABSENT_BASELINE)
         _protected_rdevs(first_payload, first)
         second_payload = scan()
-        second = _baseline_with_rdev(tuple(_fingerprint_node(node) for node in _root_disks(second_payload)))
+        second = _baseline_with_rdev(tuple(sorted(
+            (_fingerprint_node(node) for node in _root_disks(second_payload)),
+            key=lambda item: item.path,
+        )))
         if first != second or _protected_rdevs(first_payload, first) != _protected_rdevs(second_payload, second):
             raise SafetyError(UNSTABLE_BASELINE)
         return first
@@ -1307,7 +1450,9 @@ def export_diagnostic_to_new_usb(*, data: bytes, baseline: Sequence[DeviceFinger
 
 
 def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence[DeviceFingerprint],
-                     *, target_rdev=0, boot_rdev=0, privacy_reduced=False, scan=run_lsblk, run=subprocess.run) -> ExportReceipt:
+                     *, target_rdev=0, boot_rdev=0,
+                     expected_required_rdevs: Mapping[str, int] | None = None,
+                     privacy_reduced=False, scan=run_lsblk, run=subprocess.run) -> ExportReceipt:
     first_payload = scan()
     _emit_export_marker("BEAMO_WIPE_EXPORT_SCAN_ONE")
     try:
@@ -1329,6 +1474,13 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
     baseline = _baseline_with_rdev(baseline_without_rdev)
     if any(old.rdev and old.rdev != new.rdev for old, new in zip(baseline_without_rdev, baseline)):
         raise SafetyError(DISK_IDENTITY_CHANGED)
+    # The result claim records the boot and erased target kernel devices at
+    # launch. A same-path replacement can duplicate lsblk's model/serial/WWN;
+    # do not discard the kernel identity when preparing a later report copy.
+    for item in baseline:
+        expected = (expected_required_rdevs or {}).get(os.path.realpath(item.path))
+        if expected is not None and item.rdev != expected:
+            raise SafetyError(DISK_IDENTITY_CHANGED)
     protected_rdevs = set(_protected_rdevs(second_payload, baseline_without_rdev))
     protected_rdevs.update(item.rdev for item in baseline if item.rdev > 0)
     protected_rdevs.update(value for value in (target_rdev, boot_rdev) if value > 0)
@@ -1341,6 +1493,26 @@ def _export_prepared(evidence: VerifiedEvidence, baseline_without_rdev: Sequence
         expected_sha256=evidence.log_sha256,
         expected_size_bytes=evidence.log_size_bytes,
     )
+    if evidence.outcome in {"verified", "completed"}:
+        # Recovery checks the saved snapshot before showing success. Export
+        # must apply the same rule: a sidecar proves bytes were copied intact,
+        # but cannot prove a completion claim when its log is gone or disagrees.
+        if log_status not in {"complete", "tail"}:
+            raise SafetyError(EVIDENCE_LOG_META)
+        try:
+            claim = json.loads(evidence.data)
+            from beamo_wipe.nwipe_runner import completion_for_method
+
+            ok, _detail, reason = completion_for_method(
+                claim["exit_evidence"]["exit_code"],
+                log_data.decode("utf-8"),
+                claim["device"]["path"],
+                claim["method"]["id"],
+            )
+        except (KeyError, TypeError, ValueError, UnicodeDecodeError) as exc:
+            raise SafetyError(EVIDENCE_LOG_META) from exc
+        if not ok or reason != "completed":
+            raise SafetyError(EVIDENCE_LOG_META)
     if evidence.outcome == "failed":
         claim = json.loads(evidence.data)
         from beamo_wipe.outcomes import present_evidence
@@ -1602,13 +1774,63 @@ def _bundle_files(
             f"{README_COMPLETE}\r\n"
             f"{README_SUPPORT}\r\n"
         ).encode("utf-8")
-    if isinstance(payload, dict):
-        for check in payload.get("checks") or ():
-            if not isinstance(check, dict):
-                continue
-            ident, status, summary = (check.get(key) for key in ("id", "status", "summary"))
-            if all(isinstance(value, str) for value in (ident, status, summary)):
-                readme += (README_CHECK.format(ident=ident, status=status, summary=summary) + "\r\n").encode("utf-8")
+    if isinstance(payload, dict) and isinstance(payload.get("checks"), list):
+        from beamo_wipe import engine_checks as checks
+
+        # The JSON is copied verbatim for the owner, but README is a short
+        # human-facing summary. Never interpolate arbitrary saved check text:
+        # it can contain disk IDs, line breaks, or a fabricated assurance.
+        approved = {
+            ("hidden_capacity", "unavailable"): checks.HIDDEN_UNAVAILABLE,
+            ("hidden_capacity", "warning"): checks.HIDDEN_MAYBE,
+            ("hidden_capacity", "pass"): checks.HIDDEN_NONE,
+            ("io_media", "unavailable"): checks.IO_UNAVAILABLE,
+            ("io_media", "fail"): checks.IO_ERRORS,
+            ("io_media", "pass"): checks.IO_CLEAN,
+            ("coverage", "warning"): checks.COVERAGE_SUMMARY,
+        }
+        # A saved JSON digest proves byte integrity, not that an advisory
+        # "pass" still agrees with the log copied beside it. A tail cannot
+        # rule out an earlier contradictory line, so only a complete log may
+        # corroborate pass claims in this short owner-facing README.
+        corroborated_passes: set[str] = set()
+        device = payload.get("device")
+        device_path = device.get("path") if isinstance(device, dict) else None
+        if log_status == "complete" and log_data and isinstance(device_path, str):
+            observed = checks.evaluate_engine_checks(
+                log_data.decode("utf-8", errors="replace"), device_path
+            )
+            corroborated_passes = {
+                item.id for item in observed if item.status == "pass"
+            }
+        safe_lines: list[str] = []
+        seen: set[str] = set()
+        saved_checks = payload["checks"]
+        if len(saved_checks) <= len(checks.CHECK_IDS):
+            for check in saved_checks:
+                if not isinstance(check, dict):
+                    safe_lines.clear()
+                    break
+                ident, status, summary = (
+                    check.get(key) for key in ("id", "status", "summary")
+                )
+                if (
+                    not isinstance(ident, str)
+                    or not isinstance(status, str)
+                    or not isinstance(summary, str)
+                    or ident in seen
+                    or approved.get((ident, status)) != summary
+                ):
+                    safe_lines.clear()
+                    break
+                seen.add(ident)
+                if status == "pass" and ident not in corroborated_passes:
+                    continue
+                safe_lines.append(
+                    README_CHECK.format(ident=ident, status=status, summary=summary)
+                )
+        for line in safe_lines:
+            readme += (line + "\r\n").encode("utf-8")
     if diagnostic:
         files = {"diagnostic.json": evidence,
                  "diagnostic.json.sha256": f"{evidence_hash}  diagnostic.json\n".encode("ascii")}
@@ -1757,7 +1979,10 @@ def _mount_record(mountpoint: Path) -> Optional[tuple[str, str, str, frozenset[s
         right_parts = right.split()
         if len(left_parts) < 6 or len(right_parts) < 3 or left_parts[4] != wanted:
             continue
-        options = frozenset(left_parts[5].split(",")) | frozenset(right_parts[2].split(","))
+        # mountinfo's pre-separator options describe this mount. The trailing
+        # superblock options can differ and cannot prove this mount is
+        # read-only or carries nodev/nosuid/noexec/nosymfollow.
+        options = frozenset(left_parts[5].split(","))
         matches.append((left_parts[2], right_parts[0], right_parts[1], options))
     if len(matches) > 1:
         raise SafetyError(MOUNTPOINT_AMBIGUOUS)
@@ -1948,22 +2173,57 @@ def _persist_and_verify_report(
 ) -> ExportReceipt:
     """Run the mounted-media state machine after block identity is pinned."""
     lock_fd = -1
+    root_fd = -1
     mountpoint: Optional[Path] = None
+    mount_name = ""
     mounted = False
     try:
-        MOUNT_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(MOUNT_ROOT, 0o700)
-        lock_fd = os.open(
-            str(MOUNT_ROOT / ".lock"),
-            os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW,
-            0o600,
-        )
+        try:
+            MOUNT_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+            root_fd = os.open(MOUNT_ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            if os.fstat(root_fd).st_uid != os.getuid():
+                raise SafetyError(MOUNT_UNVERIFIED)
+            os.fchmod(root_fd, 0o700)
+        except OSError as exc:
+            raise SafetyError(MOUNT_UNVERIFIED) from exc
+        try:
+            lock_fd = os.open(
+                ".lock",
+                os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
+                0o600,
+                dir_fd=root_fd,
+            )
+            lock_stat = os.fstat(lock_fd)
+            if (
+                not stat.S_ISREG(lock_stat.st_mode)
+                or lock_stat.st_uid != os.getuid()
+                or stat.S_IMODE(lock_stat.st_mode) != 0o600
+                or lock_stat.st_nlink != 1
+                or lock_stat.st_size != 0
+            ):
+                raise SafetyError(MOUNT_UNVERIFIED)
+        except OSError as exc:
+            raise SafetyError(MOUNT_UNVERIFIED) from exc
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             raise SafetyError(EXPORT_RUNNING) from exc
-        mountpoint = MOUNT_ROOT / f"mount-{secrets.token_hex(12)}"
-        mountpoint.mkdir(mode=0o700)
+        except OSError as exc:
+            raise SafetyError(MOUNT_UNVERIFIED) from exc
+        # Reject a lock name replaced between open and acquisition. The open
+        # descriptor alone would otherwise serialize a different file.
+        try:
+            named_lock = os.stat(".lock", dir_fd=root_fd, follow_symlinks=False)
+        except OSError as exc:
+            raise SafetyError(MOUNT_UNVERIFIED) from exc
+        if (named_lock.st_dev, named_lock.st_ino) != (
+            lock_stat.st_dev,
+            lock_stat.st_ino,
+        ):
+            raise SafetyError(MOUNT_UNVERIFIED)
+        mount_name = f"mount-{secrets.token_hex(12)}"
+        os.mkdir(mount_name, 0o700, dir_fd=root_fd)
+        mountpoint = MOUNT_ROOT / mount_name
         stable_source = f"/proc/self/fd/{volume_fd}"
         rw_options = "rw,nodev,nosuid,noexec,nosymfollow,umask=077"
         proc = _run_command(
@@ -2024,11 +2284,13 @@ def _persist_and_verify_report(
             _ordinary_unmount(mountpoint, volume)
         if lock_fd >= 0:
             os.close(lock_fd)
-        if mountpoint is not None:
+        if mount_name and root_fd >= 0:
             try:
-                mountpoint.rmdir()
+                os.rmdir(mount_name, dir_fd=root_fd)
             except OSError:
                 pass
+        if root_fd >= 0:
+            os.close(root_fd)
 
 
 def _worker() -> ExportReceipt:

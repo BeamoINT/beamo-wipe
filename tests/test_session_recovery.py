@@ -22,6 +22,7 @@ from test_usb_report_workflow import _payload, _discovery, _success_receipt
 
 BOOT = "00000000-0000-0000-0000-000000000001"
 BUILD = "a" * 64
+STATUS = "********************************* Drive Status *********************************\n"
 
 
 @pytest.fixture
@@ -63,7 +64,10 @@ def armed(store, method=MethodId.QUICK_ZERO):
 
 
 def finish(store, discovery, request):
-    log = f"{Path(request.device).name} | Erased |\n"
+    log = (
+        STATUS
+        + f"{Path(request.device).name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+    )
     Path(request.logfile).write_text(log)
     os.chmod(request.logfile, 0o600)
     ev = build_evidence(

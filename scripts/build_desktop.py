@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import stat
@@ -72,22 +73,69 @@ def _require_output_directory(output: Path, *, create: bool = False) -> int | No
         raise RuntimeError("unsafe desktop output directory") from exc
 
 
+def _read_regular_source(path: Path) -> bytes:
+    """Read one compiler input from a regular inode still named by its path."""
+    try:
+        before = path.lstat()
+        if not stat.S_ISREG(before.st_mode):
+            raise RuntimeError("desktop source input changed or unsafe")
+        flags = (
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        )
+        fd = os.open(path, flags)
+        with os.fdopen(fd, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            if not stat.S_ISREG(opened.st_mode) or (before.st_dev, before.st_ino) != (
+                opened.st_dev,
+                opened.st_ino,
+            ):
+                raise RuntimeError("desktop source input changed or unsafe")
+            data = stream.read()
+            after = os.fstat(stream.fileno())
+        named = path.lstat()
+    except OSError as exc:
+        raise RuntimeError("desktop source input changed or unsafe") from exc
+
+    def identity(info):
+        return (
+            info.st_dev,
+            info.st_ino,
+            info.st_size,
+            info.st_mtime_ns,
+            info.st_ctime_ns,
+        )
+
+    if (
+        not stat.S_ISREG(named.st_mode)
+        or not (
+            identity(before) == identity(opened) == identity(after) == identity(named)
+        )
+        or len(data) != opened.st_size
+    ):
+        raise RuntimeError("desktop source input changed or unsafe")
+    return data
+
+
 def desktop_source_digest(root: Path) -> str:
-    """Bind cached launcher bytes to every local Go and embedded-web input."""
+    """Bind cached launcher bytes to the Go inputs and their build recipe."""
     desktop = root / "desktop"
-    source_files = [
-        desktop / "go.mod",
-        *desktop.glob("*.go"),
-        *desktop.joinpath("web").rglob("*"),
-    ]
-    go_sum = desktop / "go.sum"
-    if go_sum.exists() or go_sum.is_symlink():
-        source_files.append(go_sum)
+    if desktop.is_symlink() or not desktop.is_dir():
+        raise RuntimeError("desktop source directory is missing or linked")
+    # Go can compile assembly and link .syso objects alongside .go files. It
+    # may also select files from a vendor tree, so an extension allowlist would
+    # let a cached launcher verify against changed compiler inputs.
+    source_files = list(desktop.rglob("*"))
+    regular_files = []
     for path in source_files:
-        if path.is_symlink():
+        mode = path.lstat().st_mode
+        if stat.S_ISLNK(mode):
             raise RuntimeError("desktop source input is a symlink")
+        if stat.S_ISREG(mode):
+            regular_files.append(path)
+        elif not stat.S_ISDIR(mode):
+            raise RuntimeError("desktop source input is not a regular file")
     paths = sorted(
-        (path for path in source_files if not path.is_dir()),
+        regular_files,
         key=lambda path: path.relative_to(root).as_posix(),
     )
     if not (desktop / "go.mod").is_file() or not any(
@@ -99,12 +147,43 @@ def desktop_source_digest(root: Path) -> str:
         if path.is_symlink() or not path.is_file():
             raise RuntimeError("desktop source input is not a regular file")
         relative = path.relative_to(root).as_posix().encode("utf-8")
-        data = path.read_bytes()
+        data = _read_regular_source(path)
         digest.update(len(relative).to_bytes(4, "big"))
         digest.update(relative)
         digest.update(len(data).to_bytes(8, "big"))
         digest.update(data)
+    recipe = Path(__file__)
+    if not stat.S_ISREG(recipe.lstat().st_mode):
+        raise RuntimeError("desktop build recipe is not a regular file")
+    recipe_data = _read_regular_source(recipe)
+    recipe_name = b"scripts/build_desktop.py"
+    digest.update(len(recipe_name).to_bytes(4, "big"))
+    digest.update(recipe_name)
+    digest.update(len(recipe_data).to_bytes(8, "big"))
+    digest.update(recipe_data)
     return digest.hexdigest()
+
+
+def _snapshot_desktop_source(root: Path, staged_root: Path, expected: str) -> Path:
+    """Give Go a private source copy whose digest matches the receipt."""
+    source = root / "desktop"
+    destination = staged_root / "desktop"
+    destination.mkdir(parents=True)
+    for path in sorted(source.rglob("*")):
+        relative = path.relative_to(source)
+        staged = destination / relative
+        mode = path.lstat().st_mode
+        if stat.S_ISDIR(mode):
+            staged.mkdir()
+        elif stat.S_ISREG(mode):
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            with staged.open("xb") as output:
+                output.write(_read_regular_source(path))
+        else:
+            raise RuntimeError("desktop source input changed or unsafe")
+    if desktop_source_digest(staged_root) != expected:
+        raise RuntimeError("desktop source inputs changed during staging")
+    return destination
 
 
 def _read_output_file(
@@ -183,6 +262,77 @@ def verify_desktop_bundle(
             os.close(output_fd)
 
 
+def _require_generated_prior_manifest(output: Path, output_fd: int | None) -> None:
+    """Preserve unfamiliar content at the receipt path during a rebuild."""
+    name = "desktop-build.json"
+    try:
+        if output_fd is None:
+            metadata = (output / name).lstat()
+        else:
+            metadata = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        # Without a receipt, even a correctly named launcher is unidentified.
+        # A failed earlier build may have left partial output; preserve it for
+        # deliberate inspection instead of replacing it on the next retry.
+        for launcher in LAUNCHERS:
+            try:
+                if output_fd is None:
+                    (output / launcher).lstat()
+                else:
+                    os.stat(launcher, dir_fd=output_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            raise RuntimeError(
+                "unrecognized desktop launcher without a manifest; preserve existing output"
+            )
+        return
+    if not stat.S_ISREG(metadata.st_mode):
+        raise RuntimeError("unrecognized desktop manifest; preserve existing output")
+    try:
+        manifest = json.loads(
+            _read_output_file(output, output_fd, name, 16 * 1024),
+            object_pairs_hook=_unique_manifest_fields,
+        )
+    except (OSError, ValueError, RuntimeError, RecursionError) as exc:
+        raise RuntimeError(
+            "unrecognized desktop manifest; preserve existing output"
+        ) from exc
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest)
+        != {"version", "source_commit", "source_sha256", "source_dirty", "go", "files"}
+        or not isinstance(manifest["version"], str)
+        or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", manifest["version"])
+        or not isinstance(manifest["source_commit"], str)
+        or not re.fullmatch(r"[0-9a-f]{40}", manifest["source_commit"])
+        or not isinstance(manifest["source_sha256"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", manifest["source_sha256"])
+        or type(manifest["source_dirty"]) is not bool
+        or not isinstance(manifest["go"], str)
+        or not isinstance(manifest["files"], dict)
+        or set(manifest["files"]) != set(LAUNCHERS)
+        or any(
+            not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)
+            for value in manifest["files"].values()
+        )
+    ):
+        raise RuntimeError("unrecognized desktop manifest; preserve existing output")
+    # A well-shaped JSON receipt alone does not establish ownership of the
+    # launcher paths. If either file was replaced (or the earlier bundle was
+    # incomplete), preserve the contents instead of overwriting them.
+    for launcher in LAUNCHERS:
+        try:
+            existing = _read_output_file(output, output_fd, launcher, 64 * 1024 * 1024)
+        except OSError as exc:
+            raise RuntimeError(
+                "unrecognized desktop manifest; preserve existing output"
+            ) from exc
+        if hashlib.sha256(existing).hexdigest() != manifest["files"][launcher]:
+            raise RuntimeError(
+                "unrecognized desktop manifest; preserve existing output"
+            )
+
+
 def _publish_launcher(
     output: Path, output_fd: int | None, source: Path, name: str
 ) -> None:
@@ -246,7 +396,21 @@ def _publish_launcher(
 def build(output=None):
     go = os.environ.get("BEAMO_GO_BIN", "go")
     env = os.environ.copy()
-    env.update(CGO_ENABLED="0", GOTOOLCHAIN="local")
+    # Let the selected Go binary locate its own standard library and tools.
+    env.pop("GOROOT", None)
+    # These Go settings can replace source files, select a separate workspace,
+    # or emit binaries that require newer x86 CPUs. None is covered by the
+    # desktop source digest, so pin them for both portable launchers.
+    env.update(
+        CGO_ENABLED="0",
+        GOTOOLCHAIN="local",
+        GOFLAGS="",
+        GOWORK="off",
+        GOAMD64="v1",
+        GOEXPERIMENT="",
+        GOENV="off",
+        GO111MODULE="on",
+    )
     version_line = subprocess.check_output([go, "version"], text=True, env=env).split()
     if len(version_line) < 3 or version_line[2] != GO_VERSION:
         raise RuntimeError(
@@ -265,6 +429,15 @@ def build(output=None):
     )
     output = Path(output) if output is not None else ROOT / "dist" / "desktop"
     output_fd = _require_output_directory(output, create=True)
+    output_identity = None
+    if output_fd is None:
+        # Windows has no dir_fd support for the publication calls below.
+        # Keep the checked directory's file ID to detect a moved directory
+        # with a hard-linked lock before any path-based publication.
+        metadata = output.stat(follow_symlinks=False)
+        if not stat.S_ISDIR(metadata.st_mode) or not metadata.st_ino:
+            raise RuntimeError("unsafe desktop output directory identity")
+        output_identity = (metadata.st_dev, metadata.st_ino)
     lock = output / ".build.lock"
     try:
         if output_fd is None:
@@ -310,8 +483,21 @@ def build(output=None):
             current_output_fd = _require_output_directory(output)
         except (OSError, RuntimeError):
             return False
-        if output_fd is None or current_output_fd is None:
-            return True
+        if output_fd is None:
+            try:
+                current = output.stat(follow_symlinks=False)
+            except OSError:
+                return False
+            return (
+                stat.S_ISDIR(current.st_mode)
+                and (
+                    current.st_dev,
+                    current.st_ino,
+                )
+                == output_identity
+            )
+        if current_output_fd is None:
+            return False
         try:
             current = os.fstat(current_output_fd)
             original = os.fstat(output_fd)
@@ -325,6 +511,9 @@ def build(output=None):
     try:
         manifest = output / "desktop-build.json"
         # A failed rebuild must not leave an earlier success receipt beside partial outputs.
+        if not owns_lock():
+            raise RuntimeError("desktop build lock changed before publication")
+        _require_generated_prior_manifest(output, output_fd)
         if output_fd is None:
             manifest.unlink(missing_ok=True)
         else:
@@ -337,6 +526,9 @@ def build(output=None):
         files = {}
         with tempfile.TemporaryDirectory(prefix="beamo-desktop-build-") as staged_dir:
             staged = Path(staged_dir)
+            source_copy = _snapshot_desktop_source(
+                ROOT, staged / "source", source_digest
+            )
             for host, name in (
                 ("linux", "Start Beamo Wipe Linux"),
                 ("windows", "Start Beamo Wipe.exe"),
@@ -358,7 +550,7 @@ def build(output=None):
                         str(target),
                         ".",
                     ],
-                    cwd=ROOT / "desktop",
+                    cwd=source_copy,
                     env={**env, "GOOS": host, "GOARCH": "amd64"},
                 )
                 if not owns_lock():
@@ -379,7 +571,15 @@ def build(output=None):
                     "desktop build lock changed before manifest publication"
                 )
             for name in LAUNCHERS:
+                if not owns_lock():
+                    raise RuntimeError(
+                        "desktop build lock changed during launcher publication"
+                    )
                 _publish_launcher(output, output_fd, staged / name, name)
+                if not owns_lock():
+                    raise RuntimeError(
+                        "desktop build lock changed during launcher publication"
+                    )
             for name in LAUNCHERS:
                 try:
                     published_sha = hashlib.sha256(
@@ -451,7 +651,7 @@ def build(output=None):
         )
     finally:
         try:
-            if owns_lock_inode():
+            if owns_lock_inode() and (output_fd is not None or owns_lock()):
                 if output_fd is None:
                     lock.unlink()
                 else:

@@ -184,6 +184,72 @@ def preview_view(ok: bool) -> ResultView:
     )
 
 
+def _method_copy_for_locale(spec: Any, language: str) -> dict[str, str]:
+    """Rebuild stored method text without changing the UI's global language."""
+    from beamo_wipe import lang, methods
+
+    if language not in lang.LANGUAGE_ORDER:
+        raise ValueError("Unsupported method language")
+
+    def word(key: str) -> str:
+        if language == lang.current():
+            return getattr(methods, key)
+        if language == "en":
+            return lang.english("methods", key)
+        return lang.translated(language, "methods", key)
+
+    family = spec.nwipe_method.upper()
+    count = spec.overwrite_passes
+    title = word(f"TITLE_{family}")
+    overwrite = word("OVERWRITE_ONE" if count == 1 else "OVERWRITE_MANY").format(
+        count=count, pattern=word(f"PATTERN_{family}")
+    )
+    if spec.verify == "off":
+        verification = word("NO_VERIFY")
+    elif spec.verification_passes == 1:
+        verification = word("VERIFY_LAST")
+    else:
+        verification = word("VERIFY_N").format(n=spec.verification_passes)
+    description = f"{overwrite} {verification}"
+    overwrites = (
+        word("OPERATION_ONE") if count == 1 else
+        word("OPERATION_THREE") if count == 3 else
+        word("OPERATION_N").format(count=count)
+    )
+    operation = word(
+        "OPERATION_VERIFIED" if spec.verification_passes else "OPERATION_UNVERIFIED"
+    ).format(overwrites=overwrites)
+    return {
+        "title": title,
+        "description": description,
+        "docs_name": description,
+        "operation_summary": operation,
+    }
+
+
+def _method_copy_field_matches(actual: object, expected: str, *, sharing: bool) -> bool:
+    if actual == expected:
+        return True
+    if not sharing or not isinstance(actual, str):
+        return False
+    from beamo_wipe import lang, privacy
+
+    placeholders = {
+        privacy.WITHHELD,
+        lang.english("privacy", "WITHHELD"),
+        *(lang.translated(code, "privacy", "WITHHELD") for code in ("fr", "de")),
+    }
+    for placeholder in placeholders:
+        if placeholder not in actual:
+            continue
+        # Sharing may replace any secret substring of canonical copy with a
+        # placeholder. Retained words must still be in their original order.
+        pattern = ".+".join(re.escape(piece) for piece in actual.split(placeholder))
+        if re.fullmatch(pattern, expected, flags=re.DOTALL):
+            return True
+    return False
+
+
 def present_evidence(evidence: object) -> ResultView:
     """Interpret a generated/validated record; malformed combinations fail closed.
 
@@ -205,24 +271,25 @@ def present_evidence(evidence: object) -> ResultView:
             or evidence["schema_version"] not in SUPPORTED_SCHEMA_VERSIONS
         ):
             return unknown
-        if is_sharing_copy(evidence):
-            presentation = evidence.get("presentation")
-            if (
-                isinstance(presentation, dict)
-                and presentation.get("code") in VIEWS
-                and VIEWS[presentation["code"]].message == presentation.get("message")
-            ):
-                return VIEWS[presentation["code"]]
-            return unknown
+        sharing_copy = is_sharing_copy(evidence)
         device = evidence["device"]
-        if (
-            not isinstance(device, dict)
-            or not isinstance(device.get("path"), str)
+        if not isinstance(device, dict):
+            return unknown
+        if sharing_copy and "path" in device:
+            return unknown
+        if not sharing_copy and (
+            not isinstance(device.get("path"), str)
             or not device["path"].startswith("/dev/")
         ):
             return unknown
         exit_evidence = evidence["exit_evidence"]
         if type(exit_evidence["exit_code"]) is not int:
+            return unknown
+        exit_code = exit_evidence["exit_code"]
+        signal = exit_evidence["signal"]
+        if signal != (-exit_code if exit_code < 0 else None) or (
+            signal is not None and type(signal) is not int
+        ):
             return unknown
         method = evidence["method"]
         if type(method["rounds"]) is not int or type(method["noblank"]) is not bool:
@@ -231,6 +298,22 @@ def present_evidence(evidence: object) -> ResultView:
         if any(
             method.get(k) != getattr(spec, k)
             for k in ("nwipe_method", "rounds", "verify", "noblank")
+        ):
+            return unknown
+        # The report prints these stored counts beside the result. They must
+        # describe the pinned method that produced the completion verdict.
+        if any(
+            type(method.get(k)) is not int or method[k] != getattr(spec, k)
+            for k in ("overwrite_passes", "verification_passes")
+        ):
+            return unknown
+        locale = evidence.get("locale")
+        if not isinstance(locale, dict) or not isinstance(locale.get("language"), str):
+            return unknown
+        expected_copy = _method_copy_for_locale(spec, locale["language"])
+        if any(
+            not _method_copy_field_matches(method.get(key), value, sharing=sharing_copy)
+            for key, value in expected_copy.items()
         ):
             return unknown
         interruption = evidence["interruption"]
@@ -250,6 +333,7 @@ def present_evidence(evidence: object) -> ResultView:
             return unknown
         if completion.get("validated") is not True:
             return unknown
+        view = unknown
         if outcome == "interrupted":
             if not interruption["interrupted"] or verification["verified"]:
                 return unknown
@@ -258,14 +342,17 @@ def present_evidence(evidence: object) -> ResultView:
                 and interruption["cancelled"]
                 and interruption.get("origin") == "user"
             ):
-                return VIEWS["cancelled"]
-            if reason == "interrupted" and not interruption["cancelled"]:
-                return VIEWS["interrupted"]
+                view = VIEWS["cancelled"]
+            elif reason == "interrupted" and not interruption["cancelled"]:
+                view = VIEWS["interrupted"]
+        elif interruption["interrupted"] or interruption["cancelled"]:
             return unknown
-        if interruption["interrupted"] or interruption["cancelled"]:
-            return unknown
-        if outcome == "failed":
+        elif outcome == "failed":
             if reason == "verification_failed" and spec.verify == "off":
+                return unknown
+            if (reason == "process_failed" and exit_code == 0) or (
+                reason == "completion_missing" and exit_code != 0
+            ):
                 return unknown
             if verification["verified"] or reason not in {
                 "occupied",
@@ -278,31 +365,35 @@ def present_evidence(evidence: object) -> ResultView:
                 "engine_failed",
             }:
                 return unknown
-            return VIEWS[reason]
-        exit_evidence = evidence["exit_evidence"]
-        if (
-            type(exit_evidence["exit_code"]) is not int
-            or exit_evidence["exit_code"] != 0
-            or exit_evidence["signal"] is not None
-        ):
-            return unknown
-        if reason != "completed" or not re.fullmatch(
-            r"[0-9a-f]{64}", evidence["log_checksum_sha256"]
-        ):
-            return unknown
-        if (
-            type(evidence["log_snapshot_size_bytes"]) is not int
-            or not 0 < evidence["log_snapshot_size_bytes"] <= 1024 * 1024
-        ):
-            return unknown
-        if outcome == "verified" and spec.verify == "last" and verification["verified"]:
-            return VIEWS["verified"]
-        if (
-            outcome == "completed"
-            and spec.verify == "off"
-            and not verification["verified"]
-        ):
-            return VIEWS["unverified"]
+            view = VIEWS[reason]
+        else:
+            if (
+                exit_evidence["exit_code"] != 0
+                or exit_evidence["signal"] is not None
+                or reason != "completed"
+            ):
+                return unknown
+            if not sharing_copy and (
+                not re.fullmatch(r"[0-9a-f]{64}", evidence["log_checksum_sha256"])
+                or type(evidence["log_snapshot_size_bytes"]) is not int
+                or not 0 < evidence["log_snapshot_size_bytes"] <= 1024 * 1024
+            ):
+                return unknown
+            if outcome == "verified" and spec.verify == "last" and verification["verified"]:
+                view = VIEWS["verified"]
+            elif (
+                outcome == "completed"
+                and spec.verify == "off"
+                and not verification["verified"]
+            ):
+                view = VIEWS["unverified"]
+        if sharing_copy:
+            presentation = evidence.get("presentation")
+            if not isinstance(presentation, dict) or any(
+                presentation.get(key) != value for key, value in asdict(view).items()
+            ):
+                return unknown
+        return view
     except (KeyError, TypeError, ValueError, AttributeError):
         pass
     return unknown

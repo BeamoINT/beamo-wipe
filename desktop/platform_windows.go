@@ -32,21 +32,34 @@ const windowsInventory = `$ErrorActionPreference='Stop'
 $p=$env:BEAMO_LAUNCHER_FILE
 $root=[IO.Path]::GetPathRoot($p)
 if ($root -notmatch '^[A-Za-z]:\\$' -or [IO.Path]::GetDirectoryName($p) -ne $root) { throw 'media' }
+function Has-MeaningfulHardwareId([string]$value) {
+ $body=([string]$value).Trim()
+ if ($body.StartsWith('0x',[StringComparison]::OrdinalIgnoreCase)) { $body=$body.Substring(2) }
+ $normalized=($body -replace '[^\p{L}\p{N}]','').ToLowerInvariant()
+ if ($normalized -in @('unknown','none','na','notavailable','notapplicable','noserial','null','unspecified','notspecified')) { return $false }
+ foreach ($char in $body.ToCharArray()) {
+  if ([char]::IsLetterOrDigit($char) -and $char -ne '0') { return $true }
+ }
+ return $false
+}
 $parts=@(Get-Partition -DriveLetter $root.Substring(0,1) -ErrorAction Stop)
 if ($parts.Count -ne 1) { throw 'media' }
 $disk=Get-Disk -Number $parts[0].DiskNumber -ErrorAction Stop
-if ([string]$disk.BusType -ne 'USB' -or $disk.IsBoot -or $disk.IsSystem -or ([string]::IsNullOrWhiteSpace($disk.SerialNumber) -and [string]::IsNullOrWhiteSpace($disk.UniqueId))) { throw 'media' }
+if ([string]$disk.BusType -ne 'USB' -or $disk.IsBoot -or $disk.IsSystem -or (-not (Has-MeaningfulHardwareId $disk.SerialNumber) -and -not (Has-MeaningfulHardwareId $disk.UniqueId))) { throw 'media' }
 $ids=@()
 $allDisks=@(Get-Disk -ErrorAction Stop)
 $allParts=@(Get-Partition -ErrorAction Stop)
-foreach ($part in @(Get-Partition -DiskNumber $disk.Number -ErrorAction Stop)) {
+foreach ($part in $parts) {
  if ([string]$disk.PartitionStyle -eq 'GPT') {
   if (@($allParts | Where-Object { $_.Guid -eq $part.Guid }).Count -ne 1) { throw 'ambiguous partition' }
-  $ids+= 'gpt:' + ([string]$part.Guid).Trim('{}').ToLowerInvariant()
+  $sector=[long]$disk.LogicalSectorSize
+  if (($sector -eq 512 -or $sector -eq 4096) -and $part.PartitionNumber -gt 0 -and $part.Offset -gt 0 -and $part.Size -gt 0 -and $part.Offset -le $disk.Size -and $part.Size -le ($disk.Size - $part.Offset) -and $part.Offset % $sector -eq 0 -and $part.Size % $sector -eq 0) {
+   $ids+= 'gpt:{0}:{1}:{2}:{3}' -f ([string]$part.Guid).Trim('{}').ToLowerInvariant(),$part.PartitionNumber,([long]$part.Offset/$sector),([long]$part.Size/$sector)
+  }
  } elseif ([string]$disk.PartitionStyle -eq 'MBR' -and $disk.Signature -ne 0) {
   if (@($allDisks | Where-Object { $_.Signature -eq $disk.Signature }).Count -ne 1) { throw 'ambiguous disk' }
   $sector=[long]$disk.LogicalSectorSize
-  if (($sector -eq 512 -or $sector -eq 4096) -and $part.Offset % $sector -eq 0 -and $part.Size % $sector -eq 0) {
+  if (($sector -eq 512 -or $sector -eq 4096) -and $part.PartitionNumber -gt 0 -and $part.Offset -gt 0 -and $part.Size -gt 0 -and $part.Offset -le $disk.Size -and $part.Size -le ($disk.Size - $part.Offset) -and $part.Offset % $sector -eq 0 -and $part.Size % $sector -eq 0) {
    $ids+= 'mbr:{0:x8}:{1}:{2}:{3}' -f [uint32]$disk.Signature,$part.PartitionNumber,([long]$part.Offset/$sector),([long]$part.Size/$sector)
   }
  }
@@ -76,8 +89,6 @@ func platformProbe(ctx context.Context) Snapshot {
 		s.Problem = "media"
 		return s
 	}
-	mediaInfo := inspectMedia(exe)
-	s.Layout = mediaInfo.Fingerprint
 	if !nativeX64() {
 		s.Problem = "platform"
 		return s
@@ -89,6 +100,8 @@ func platformProbe(ctx context.Context) Snapshot {
 		return s
 	}
 	s.UEFI = true
+	mediaInfo := inspectMediaContext(ctx, exe)
+	s.Layout = mediaInfo.Fingerprint
 	var err error
 	if mediaInfo.Problem != "" {
 		s.Problem = mediaInfo.Problem

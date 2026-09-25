@@ -31,6 +31,7 @@ type view struct {
 	Checks        []readinessCheck `json:"checks"`
 	Technical     string           `json:"technical"`
 	Ready         bool             `json:"ready"`
+	Revision      uint64           `json:"revision"`
 	Preview       bool             `json:"preview"`
 	Title         string           `json:"title"`
 	Detail        string           `json:"detail"`
@@ -85,16 +86,46 @@ func planView(p Plan, preview bool) view {
 	return withUSBIdentity(v, preview)
 }
 
-// A deadline is inconclusive evidence, not evidence of the wrong USB.
-func inspectPlan(ctx context.Context, probe func(context.Context) Snapshot) Plan {
-	s := probe(ctx)
+// Limit an uninterruptible media or firmware read to one outstanding probe.
+// A canceled request can return promptly without spawning a new blocked read
+// each time the user chooses Check again.
+var compatibilityProbeSlot = make(chan struct{}, 1)
+
+func incompletePlan(ctx context.Context) Plan {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return Plan{Problem: "timeout"}
 	}
+	return Plan{Problem: "cancelled"}
+}
+
+// A deadline is inconclusive evidence, not evidence of the wrong USB.
+func inspectPlan(ctx context.Context, probe func(context.Context) Snapshot) Plan {
 	if ctx.Err() != nil {
-		return Plan{Problem: "cancelled"}
+		return incompletePlan(ctx)
 	}
-	return makePlanForHost(s, runtime.GOOS)
+	select {
+	case compatibilityProbeSlot <- struct{}{}:
+	case <-ctx.Done():
+		return incompletePlan(ctx)
+	}
+	if ctx.Err() != nil {
+		<-compatibilityProbeSlot
+		return incompletePlan(ctx)
+	}
+	result := make(chan Snapshot, 1)
+	go func() {
+		defer func() { <-compatibilityProbeSlot }()
+		result <- probe(ctx)
+	}()
+	select {
+	case s := <-result:
+		if ctx.Err() != nil {
+			return incompletePlan(ctx)
+		}
+		return makePlanForHost(s, runtime.GOOS)
+	case <-ctx.Done():
+		return incompletePlan(ctx)
+	}
 }
 
 type app struct {
@@ -103,6 +134,7 @@ type app struct {
 	preview     bool
 	busy        bool
 	p           Plan
+	revision    uint64
 	current     view
 	probe       func(context.Context) Snapshot
 	restart     func(context.Context, string) error
@@ -130,7 +162,8 @@ func (a *app) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var body struct {
-			Confirm bool `json:"confirm"`
+			Confirm  bool   `json:"confirm"`
+			Revision uint64 `json:"revision"`
 		}
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256))
 		dec.DisallowUnknownFields()
@@ -139,13 +172,13 @@ func (a *app) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.mu.Lock()
-		a.lastSeen = time.Now()
 		if r.URL.Path == "/api/state" {
 			v := a.current
 			a.mu.Unlock()
 			sendJSON(w, v)
 			return
 		}
+		a.lastSeen = time.Now()
 		if a.busy {
 			a.mu.Unlock()
 			http.Error(w, "Another action is in progress", 409)
@@ -163,19 +196,21 @@ func (a *app) serve(w http.ResponseWriter, r *http.Request) {
 		case "/api/check":
 			a.busy = true
 			a.mu.Unlock()
-			ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+			ctx, cancel := context.WithTimeout(r.Context(), mediaProbeTimeout)
 			defer cancel()
 			p := inspectPlan(ctx, a.probe)
 			a.mu.Lock()
+			a.revision++
 			a.p = p
 			a.current = planView(p, a.preview)
+			a.current.Revision = a.revision
 			a.busy = false
 			v := a.current
 			a.mu.Unlock()
 			sendJSON(w, v)
 			return
 		case "/api/restart":
-			if !body.Confirm || !a.p.Direct {
+			if !body.Confirm || !a.p.Direct || (a.revision != 0 && body.Revision != a.revision) {
 				a.mu.Unlock()
 				http.Error(w, "Check readiness and confirm first", 409)
 				return
@@ -188,6 +223,11 @@ func (a *app) serve(w http.ResponseWriter, r *http.Request) {
 			p := a.p
 			a.busy = true
 			a.p = Plan{}
+			// The verified plan is single-use. Publish that loss of readiness
+			// before the helper runs so other browser tabs cannot still show it.
+			a.revision++
+			a.current = planView(Plan{}, false)
+			a.current.Revision = a.revision
 			a.mu.Unlock()
 			// Ignore browser disconnect after permission is requested. The helper
 			// owns cleanup. A new request cannot race it or reuse the old plan.
@@ -196,7 +236,6 @@ func (a *app) serve(w http.ResponseWriter, r *http.Request) {
 			err := a.restart(ctx, p.Fingerprint)
 			a.mu.Lock()
 			a.busy = false
-			a.current = planView(Plan{}, false)
 			a.mu.Unlock()
 			if err != nil {
 				http.Error(w, "Restart was not confirmed. No erasure was requested. If permission was declined, check readiness and try again. If a firmware request could not be cleared, use the normal boot menu at your next startup.", 503)
@@ -241,7 +280,7 @@ func run() error {
 		preview = true
 	}
 	if !preview && !(len(os.Args) == 2 && strings.HasPrefix(os.Args[1], "--restart-helper=")) {
-		usbIdentity = loadUSBIdentity(os.Args[0])
+		usbIdentity = runningUSBIdentity(os.Executable)
 	}
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Println(version, sourceCommit, "dirty="+sourceDirty)
@@ -261,7 +300,7 @@ func run() error {
 		return platformRestart(want)
 	}
 	if len(os.Args) == 2 && os.Args[1] == "--check-json" {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), mediaProbeTimeout)
 		defer cancel()
 		return json.NewEncoder(os.Stdout).Encode(planView(inspectPlan(ctx, platformProbe), false))
 	}

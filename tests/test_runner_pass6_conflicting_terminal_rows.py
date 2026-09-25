@@ -3,6 +3,8 @@
 from beamo_wipe.methods import MethodId
 from beamo_wipe.nwipe_runner import completion_for_method, evaluate_nwipe_outcome
 
+STATUS = "********************************* Drive Status *********************************\n"
+
 
 def test_shared_failed_status_blocks_final_progress_success():
     target = "/dev/sdabcdef"
@@ -22,7 +24,7 @@ def test_nonzero_error_summary_blocks_erased_status_success():
         "Error Summary\n"
         "      sda | 1 | 0 | 0\n"
         "***\n"
-        "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
+        + STATUS + "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
     )
     assert evaluate_nwipe_outcome(0, log, target)[0] is False
 
@@ -47,7 +49,7 @@ def test_zero_error_summary_keeps_erased_status_success():
         "Error Summary\n"
         "      sda | 0 | 0 | 0\n"
         "***\n"
-        "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
+        + STATUS + "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
     )
     assert evaluate_nwipe_outcome(0, log, target) == (
         True,
@@ -61,7 +63,7 @@ def test_malformed_target_error_row_cannot_be_overruled_by_erased_status():
         "Error Summary\n"
         "      sda | unknown | 0 | 0\n"
         "***\n"
-        "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
+        + STATUS + "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
     )
     assert evaluate_nwipe_outcome(0, log, "/dev/sda")[2] == "indeterminate"
 
@@ -71,7 +73,7 @@ def test_foreign_error_row_does_not_override_target_erased_status():
         "Error Summary\n"
         "      sdb | 1 | 0 | 0\n"
         "***\n"
-        "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
+        + STATUS + "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
     )
     assert evaluate_nwipe_outcome(0, log, "/dev/sda")[0] is True
 
@@ -81,6 +83,6 @@ def test_oversized_error_count_is_indeterminate_instead_of_crashing():
         "Error Summary\n"
         f"      sda | {'9' * 5000} | 0 | 0\n"
         "***\n"
-        "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
+        + STATUS + "      sda | Erased |  120MB/s | 01:25:04 | TEST/DISK\n"
     )
     assert evaluate_nwipe_outcome(0, log, "/dev/sda")[2] == "indeterminate"

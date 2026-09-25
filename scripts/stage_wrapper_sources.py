@@ -13,7 +13,7 @@ import sys
 
 
 def _open_output_directory(output: Path) -> int:
-    """Walk the stage root without following a linked parent component."""
+    """Walk a source or stage directory without following linked components."""
     fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         for component in output.absolute().parts[1:]:
@@ -62,43 +62,161 @@ def _prepare_directory(path: Path) -> int:
         raise
 
 
-def _clear_contents(directory_fd: int) -> None:
+def _clear_contents(
+    directory_fd: int,
+    approved_files: set[tuple[str, ...]],
+    prefix: tuple[str, ...] = (),
+) -> None:
     """Empty only entries beneath the opened staging directory."""
     for name in os.listdir(directory_fd):
+        relative = (*prefix, name)
         metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-        if stat.S_ISDIR(metadata.st_mode):
+        if metadata.st_uid != os.getuid():
+            raise RuntimeError(f"unknown live staging content: {'/'.join(relative)}")
+        if relative in approved_files and stat.S_ISREG(metadata.st_mode):
+            os.unlink(name, dir_fd=directory_fd)
+        elif stat.S_ISDIR(metadata.st_mode) and any(
+            path[: len(relative)] == relative for path in approved_files
+        ):
             child_fd = os.open(
                 name,
                 os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
                 dir_fd=directory_fd,
             )
             try:
-                _clear_contents(child_fd)
+                _clear_contents(child_fd, approved_files, relative)
             finally:
                 os.close(child_fd)
             os.rmdir(name, dir_fd=directory_fd)
         else:
-            os.unlink(name, dir_fd=directory_fd)
+            raise RuntimeError(f"unknown live staging content: {'/'.join(relative)}")
+
+
+def _validate_generated_contents(
+    directory_fd: int,
+    approved_files: set[tuple[str, ...]],
+    prefix: tuple[str, ...] = (),
+) -> None:
+    """Refuse unfamiliar entries before resetting an ignored generated tree."""
+    approved_directories = {
+        path[:length] for path in approved_files for length in range(1, len(path))
+    }
+    for name in os.listdir(directory_fd):
+        relative = (*prefix, name)
+        metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        if metadata.st_uid != os.getuid():
+            raise RuntimeError(f"unknown live staging content: {'/'.join(relative)}")
+        if relative in approved_files and stat.S_ISREG(metadata.st_mode):
+            continue
+        if relative in approved_directories and stat.S_ISDIR(metadata.st_mode):
+            child_fd = os.open(
+                name,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                dir_fd=directory_fd,
+            )
+            try:
+                _validate_generated_contents(child_fd, approved_files, relative)
+            finally:
+                os.close(child_fd)
+            continue
+        raise RuntimeError(f"unknown live staging content: {'/'.join(relative)}")
+
+
+def _approved_wrapper_stage_files(live: Path) -> set[tuple[str, ...]]:
+    root = live.parent.parent
+    try:
+        names = subprocess.check_output(
+            ["git", "ls-files", "-z", "--", "src/beamo_wipe"], cwd=root
+        ).split(b"\0")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(
+            "cannot identify existing wrapper stage; preserve it"
+        ) from exc
+    approved = set()
+    for encoded in names:
+        if not encoded:
+            continue
+        parts = PurePosixPath(os.fsdecode(encoded)).parts
+        if len(parts) < 3 or parts[:2] != ("src", "beamo_wipe") or ".." in parts:
+            raise RuntimeError("invalid tracked wrapper source path")
+        if "__pycache__" not in parts and PurePosixPath(parts[-1]).suffix not in {
+            ".pyc",
+            ".pyo",
+        }:
+            approved.add(parts[2:])
+    return approved
 
 
 def prepare_live_stage(live: Path) -> None:
     """Reset generated includes without traversing a linked parent."""
-    clear = (
-        "config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe",
-        "config/includes.chroot/usr/share/beamo-wipe",
-        "config/includes.chroot/usr/share/doc/beamo-wipe",
-    )
+    clear = {
+        "config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe": None,
+        "config/includes.chroot/usr/share/beamo-wipe": {
+            ("build-identity.json",),
+            ("helper", "index.html"),
+            ("helper", "fr.html"),
+            ("helper", "de.html"),
+            ("sounds", "finished.wav"),
+            ("sounds", "attention.wav"),
+        },
+        "config/includes.chroot/usr/share/doc/beamo-wipe": {
+            ("NOTICE",),
+            ("LICENSE",),
+            ("THIRD_PARTY.md",),
+            ("SOURCE.txt",),
+        },
+    }
     ensure = (
         "config/includes.chroot/usr/share/beamo-wipe/helper",
         "config/includes.chroot/usr/share/beamo-wipe/sounds",
         "config/includes.binary",
         "config/includes.chroot/usr/local/bin",
     )
-    for relative in clear:
-        directory_fd = _prepare_directory(live / relative)
+    # `lb config` rewrites these ignored files inside the build container. An
+    # existing path might also contain untracked user work, so refuse it rather
+    # than silently deleting it or copying it into the new ISO.
+    generated_config = (
+        "config/binary",
+        "config/bootstrap",
+        "config/chroot",
+        "config/common",
+        "config/source",
+        "config/package-lists/live.list.chroot",
+    )
+    for relative in generated_config:
+        path = live / relative
         try:
-            _clear_contents(directory_fd)
+            parent_fd = _open_output_directory(path.parent)
+        except FileNotFoundError:
+            continue
+        try:
+            try:
+                os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            raise RuntimeError(
+                f"existing live-build config requires deliberate cleanup: {relative}"
+            )
         finally:
+            os.close(parent_fd)
+    # Validate every tree before removing a known generated file, so an
+    # unfamiliar ignored file cannot be lost by partial preparation.
+    clear_fds = []
+    try:
+        for relative, approved in clear.items():
+            directory_fd = _prepare_directory(live / relative)
+            try:
+                if approved is None:
+                    approved = _approved_wrapper_stage_files(live)
+            except Exception:
+                os.close(directory_fd)
+                raise
+            clear_fds.append((directory_fd, approved))
+            _validate_generated_contents(directory_fd, approved)
+        for directory_fd, approved in clear_fds:
+            _clear_contents(directory_fd, approved)
+    finally:
+        for directory_fd, _ in clear_fds:
             os.close(directory_fd)
     for relative in ensure:
         os.close(_prepare_directory(live / relative))
@@ -226,14 +344,15 @@ def require_executable(path: Path) -> None:
 
 
 def require_approved_hook(live: Path) -> None:
-    """Reject linked or unexpected live-build hooks before invoking Docker."""
+    """Reject unexpected hooks in both live-build hook directories."""
     hook_dir = live / "config/hooks/normal"
     approved = "0500-build-nwipe.hook.chroot"
     directory_fd = _open_output_directory(hook_dir)
     try:
-        hooks = [
-            name for name in os.listdir(directory_fd) if name.endswith(".hook.chroot")
-        ]
+        # live-build executes several hook suffixes here, including .binary
+        # and any .chroot. The source-controlled nwipe hook is the only
+        # approved entry in this directory.
+        hooks = os.listdir(directory_fd)
         if hooks != [approved]:
             raise RuntimeError("unapproved live-build hook")
         metadata = os.stat(approved, dir_fd=directory_fd, follow_symlinks=False)
@@ -242,6 +361,37 @@ def require_approved_hook(live: Path) -> None:
     finally:
         os.close(directory_fd)
     require_executable(hook_dir / approved)
+
+    # Git ignores config/hooks/live because lb config generates links to the
+    # installed Debian live-build hooks there. live-build also executes any
+    # regular .hook.chroot left in that directory, so a clean git status is
+    # not sufficient to approve its contents.
+    generated_dir = live / "config/hooks/live"
+    try:
+        generated_fd = _open_output_directory(generated_dir)
+    except FileNotFoundError:
+        return  # Fresh checkouts have no generated hooks yet.
+    try:
+        generated_names = frozenset(
+            {
+                "0010-disable-kexec-tools.hook.chroot",
+                "0050-disable-sysvinit-tmpfs.hook.chroot",
+            }
+        )
+        for name in os.listdir(generated_fd):
+            if name not in generated_names:
+                raise RuntimeError("unapproved live-build hook")
+            metadata = os.stat(name, dir_fd=generated_fd, follow_symlinks=False)
+            if not stat.S_ISLNK(metadata.st_mode):
+                raise RuntimeError("unapproved live-build hook")
+            target = os.readlink(name, dir_fd=generated_fd)
+            if target not in (
+                f"/usr/share/live/build/hooks/{name}",
+                f"/usr/share/live/build/hooks/live/{name}",
+            ):
+                raise RuntimeError("unapproved live-build hook")
+    finally:
+        os.close(generated_fd)
 
 
 def _stage_file(output_fd: int, parts: tuple[str, ...], source) -> None:
@@ -287,7 +437,7 @@ def stage(root: Path, output: Path) -> None:
                 raise RuntimeError("invalid tracked wrapper source path")
             if relative.suffix in {".pyc", ".pyo"} or "__pycache__" in parts:
                 continue
-            directory_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            directory_fd = _open_output_directory(root)
             try:
                 for component in parts[:-1]:
                     next_fd = os.open(

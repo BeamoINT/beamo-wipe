@@ -24,6 +24,7 @@ from beamo_wipe.verification_evidence import (
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_VERSION = 2
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 MANIFEST_NAME_TEMPLATE = "beamo-wipe-{version}-amd64.manifest.json"
 VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 EXPECTED_REMOTE = "https://github.com/BeamoINT/beamo-wipe"
@@ -53,7 +54,8 @@ def git_tag_for_commit(commit: str) -> Optional[str]:
     try:
         tags = _run(["git", "tag", "--points-at", commit]).splitlines()
         tags = [t.strip() for t in tags if t.strip()]
-        return tags[0] if tags else None
+        release_tag = f"v{__version__}"
+        return release_tag if release_tag in tags else (tags[0] if tags else None)
     except Exception:
         return None
 
@@ -93,7 +95,8 @@ def _validate_version(version: str) -> str:
 
 def _open_regular_nofollow(path: Path) -> int:
     try:
-        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW)
+        # A planted FIFO would block on open() before fstat can reject it.
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except OSError as exc:
         raise RuntimeError(f"cannot safely read {path.name}") from exc
     try:
@@ -106,12 +109,7 @@ def _open_regular_nofollow(path: Path) -> int:
 
 
 def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    fd = _open_regular_nofollow(Path(path))
-    with os.fdopen(fd, "rb") as fh:
-        for chunk in iter(lambda: fh.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    return sha256_file_with_stat(path)[0]
 
 
 def sha256_file_with_stat(path: Path) -> tuple[str, int]:
@@ -123,6 +121,7 @@ def sha256_file_with_stat(path: Path) -> tuple[str, int]:
         opened = os.fstat(fh.fileno())
         for chunk in iter(lambda: fh.read(8192), b""):
             h.update(chunk)
+        read_after = os.fstat(fh.fileno())
     try:
         current = os.lstat(path)
     except OSError as exc:
@@ -130,8 +129,22 @@ def sha256_file_with_stat(path: Path) -> tuple[str, int]:
     if (
         stat.S_ISLNK(current.st_mode)
         or not stat.S_ISREG(current.st_mode)
-        or (current.st_dev, current.st_ino, current.st_size)
-        != (opened.st_dev, opened.st_ino, opened.st_size)
+        or (
+            current.st_dev, current.st_ino, current.st_size,
+            current.st_mtime_ns, current.st_ctime_ns,
+        )
+        != (
+            opened.st_dev, opened.st_ino, opened.st_size,
+            opened.st_mtime_ns, opened.st_ctime_ns,
+        )
+        or (
+            read_after.st_dev, read_after.st_ino, read_after.st_size,
+            read_after.st_mtime_ns, read_after.st_ctime_ns,
+        )
+        != (
+            opened.st_dev, opened.st_ino, opened.st_size,
+            opened.st_mtime_ns, opened.st_ctime_ns,
+        )
     ):
         raise RuntimeError(f"{path.name} changed while it was being verified")
     return h.hexdigest(), int(opened.st_size)
@@ -146,8 +159,20 @@ def file_sha256_or_none(path: Path) -> Optional[str]:
     return None
 
 
+def _reject_symlinked_input(path: Path) -> None:
+    """Reject any linked component of a release input below the checkout."""
+    current = ROOT
+    for component in path.relative_to(ROOT).parts:
+        current = current / component
+        if current.is_symlink():
+            raise RuntimeError(f"release input contains a symlink: {path.relative_to(ROOT)}")
+
+
 def live_build_inputs() -> Dict[str, Any]:
     cfg = ROOT / "packaging" / "live" / "config"
+    for ancestor in (ROOT / "packaging", ROOT / "packaging" / "live", cfg):
+        if ancestor.is_symlink():
+            raise RuntimeError("live-build config contains a symlinked parent")
     inputs: Dict[str, Any] = {}
     for rel in [
         "bootstrap",
@@ -167,7 +192,11 @@ def live_build_inputs() -> Dict[str, Any]:
         "package-lists/live.list.chroot",
         "hooks/normal/0500-build-nwipe.hook.chroot",
     ]:
-        p = cfg / rel
+        p = cfg
+        for component in Path(rel).parts:
+            p = p / component
+            if p.is_symlink():
+                raise RuntimeError(f"live-build input is a symlink: {rel}")
         if p.is_file():
             inputs[rel] = file_sha256_or_none(p)
         elif p.is_dir():
@@ -189,14 +218,16 @@ def live_build_inputs() -> Dict[str, Any]:
                     h.update(b"F")
                     h.update(f"{len(digest)}:".encode() + digest)
             inputs[rel + "/"] = h.hexdigest()
-    # Also hash src/beamo_wipe
+    # Also hash src/beamo_wipe. rglob follows a linked starting directory,
+    # even though a later child may itself be a regular file.
+    _reject_symlinked_input(ROOT / "src" / "beamo_wipe")
     src_h = hashlib.sha256()
     source_files = []
     for sub in sorted((ROOT / "src" / "beamo_wipe").rglob("*")):
-        if not sub.is_file() or "__pycache__" in sub.parts or sub.suffix in {".pyc", ".pyo"}:
-            continue
         if sub.is_symlink():
             raise RuntimeError("source tree contains a symlink")
+        if not sub.is_file() or "__pycache__" in sub.parts or sub.suffix in {".pyc", ".pyo"}:
+            continue
         source_files.append(sub)
         rel_blob = str(sub.relative_to(ROOT)).encode()
         digest = sha256_file(sub).encode()
@@ -205,6 +236,7 @@ def live_build_inputs() -> Dict[str, Any]:
     if not source_files:
         raise RuntimeError("missing shipped wrapper source")
     inputs["src/beamo_wipe/"] = src_h.hexdigest()
+    _reject_symlinked_input(ROOT / "desktop")
     desktop_h = hashlib.sha256()
     for sub in sorted((ROOT / "desktop").rglob("*")):
         if sub.is_symlink():
@@ -225,6 +257,7 @@ def live_build_inputs() -> Dict[str, Any]:
         "packaging/live/inside-docker.sh",
     ):
         path = ROOT / rel
+        _reject_symlinked_input(path)
         if path.is_file():
             inputs[rel] = sha256_file(path)
     return inputs
@@ -517,6 +550,148 @@ def _sidecar_blob(sha: str, name: str) -> bytes:
     return f"{sha}  {name}\n".encode("ascii")
 
 
+def _prior_output_bytes(path: Path, limit: int) -> bytes | None:
+    """Read an existing output without treating a link or partial file as ours."""
+    try:
+        current = path.lstat()
+    except FileNotFoundError:
+        return None
+    if not stat.S_ISREG(current.st_mode) or current.st_uid != os.getuid():
+        raise RuntimeError("unverified prior manifest output")
+    try:
+        with os.fdopen(_open_regular_nofollow(path), "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            raw = stream.read(limit + 1)
+        after = path.lstat()
+    except OSError as exc:
+        raise RuntimeError("unverified prior manifest output") from exc
+    if (
+        len(raw) > limit
+        or not stat.S_ISREG(after.st_mode)
+        or (current.st_dev, current.st_ino, current.st_size)
+        != (opened.st_dev, opened.st_ino, opened.st_size)
+        or (after.st_dev, after.st_ino, after.st_size)
+        != (opened.st_dev, opened.st_ino, opened.st_size)
+    ):
+        raise RuntimeError("unverified prior manifest output")
+    return raw
+
+
+def _require_replaceable_manifest_outputs(
+    dest: Path, iso_path: Path, iso_name: str, iso_sha: str
+) -> None:
+    """Preserve unfamiliar files before publishing any release output."""
+    try:
+        prior = _prior_output_bytes(dest, MAX_MANIFEST_BYTES)
+        prior_sidecar = _prior_output_bytes(Path(str(dest) + ".sha256"), 512)
+        if (prior is None) != (prior_sidecar is None):
+            raise RuntimeError("incomplete prior manifest bundle")
+        if prior is not None:
+            data = json.loads(prior, object_pairs_hook=_unique_manifest_fields)
+            if not isinstance(data, dict):
+                raise RuntimeError("invalid prior manifest")
+            recorded = data.pop("_manifest_sha256", None)
+            canonical = json.dumps(
+                data, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+            )
+            artifact = data.get("artifact")
+            version = iso_name.removeprefix("beamo-wipe-").removesuffix("-amd64.iso")
+            if (
+                recorded != hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+                or data.get("schema_version") != SCHEMA_VERSION
+                or data.get("beamo_wipe_version") != version
+                or not isinstance(artifact, dict)
+                or artifact.get("iso_name") != iso_name
+                or artifact.get("iso_path") != iso_name
+                or artifact.get("iso_sha256") != iso_sha
+                or prior_sidecar
+                != _sidecar_blob(hashlib.sha256(prior).hexdigest(), dest.name)
+            ):
+                raise RuntimeError("prior manifest does not match this ISO")
+        iso_sidecar = _prior_output_bytes(Path(str(iso_path) + ".sha256"), 512)
+        if iso_sidecar is not None and iso_sidecar != _sidecar_blob(iso_sha, iso_name):
+            raise RuntimeError("prior ISO checksum does not match this ISO")
+    except (OSError, ValueError, TypeError, UnicodeError, RuntimeError) as exc:
+        raise RuntimeError("unverified prior manifest output") from exc
+
+
+def require_verified_prior_checksum_list(dist: Path, *, replace_link: bool = False) -> None:
+    """Preserve an unfamiliar SHA256SUMS before regenerating a release bundle."""
+    dist = Path(dist)
+    try:
+        # The finalizer publishes with os.replace, so a planted link can be
+        # replaced safely without reading or writing its destination.
+        if replace_link and (dist / "SHA256SUMS").is_symlink():
+            return
+        raw = _prior_output_bytes(dist / "SHA256SUMS", 1024)
+        if raw is None:
+            return
+        lines = raw.decode("ascii").splitlines(keepends=True)
+        if len(lines) != 2:
+            raise ValueError("unexpected checksum entries")
+        first = re.fullmatch(
+            r"([0-9a-f]{64})  (beamo-wipe-([0-9]+\.[0-9]+\.[0-9]+)-amd64\.iso)\n",
+            lines[0],
+        )
+        if first is None:
+            raise ValueError("invalid ISO checksum entry")
+        iso_sha, iso_name, version = first.groups()
+        manifest_name = MANIFEST_NAME_TEMPLATE.format(version=version)
+        second = re.fullmatch(
+            rf"([0-9a-f]{{64}})  {re.escape(manifest_name)}\n", lines[1]
+        )
+        if second is None:
+            raise ValueError("invalid manifest checksum entry")
+        manifest_sha = second.group(1)
+        actual_iso_sha, iso_size = sha256_file_with_stat(dist / iso_name)
+        manifest_raw = _prior_output_bytes(dist / manifest_name, MAX_MANIFEST_BYTES)
+        if manifest_raw is None:
+            raise ValueError("missing prior manifest")
+        data = json.loads(manifest_raw, object_pairs_hook=_unique_manifest_fields)
+        if not isinstance(data, dict):
+            raise ValueError("invalid prior manifest")
+        internal_sha = data.pop("_manifest_sha256", None)
+        canonical = json.dumps(
+            data, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        )
+        artifact = data.get("artifact")
+        schema = data.get("schema_version")
+        old_schema = (
+            type(schema) is int
+            and schema == 1
+            and tuple(map(int, version.split(".")))
+            < tuple(map(int, __version__.split(".")))
+        )
+        recorded_path = artifact.get("iso_path") if isinstance(artifact, dict) else None
+        path_matches = (
+            recorded_path == iso_name
+            if type(schema) is int and schema == SCHEMA_VERSION
+            else old_schema
+            and isinstance(recorded_path, str)
+            and recorded_path.rsplit("/", 1)[-1] == iso_name
+        )
+        if (
+            actual_iso_sha != iso_sha
+            or hashlib.sha256(manifest_raw).hexdigest() != manifest_sha
+            or internal_sha != hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+            or not ((type(schema) is int and schema == SCHEMA_VERSION) or old_schema)
+            or data.get("beamo_wipe_version") != version
+            or not isinstance(artifact, dict)
+            or artifact.get("iso_name") != iso_name
+            or not path_matches
+            or artifact.get("iso_sha256") != iso_sha
+            or type(artifact.get("iso_size_bytes")) is not int
+            or artifact["iso_size_bytes"] != iso_size
+            or _prior_output_bytes(dist / f"{iso_name}.sha256", 512)
+            != _sidecar_blob(iso_sha, iso_name)
+            or _prior_output_bytes(dist / f"{manifest_name}.sha256", 512)
+            != _sidecar_blob(manifest_sha, manifest_name)
+        ):
+            raise ValueError("prior bundle does not match its checksums")
+    except (OSError, ValueError, TypeError, UnicodeError, RuntimeError) as exc:
+        raise RuntimeError("unverified prior checksum list") from exc
+
+
 def write_manifest(manifest: Dict[str, Any], dest: Path) -> Path:
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -535,6 +710,7 @@ def write_manifest(manifest: Dict[str, Any], dest: Path) -> Path:
     recorded_iso_sha = str(artifact.get("iso_sha256", ""))
     if sha256_file(iso_path) != recorded_iso_sha:
         raise RuntimeError("ISO checksum mismatch")
+    _require_replaceable_manifest_outputs(dest, iso_path, iso_name, recorded_iso_sha)
     blob = (json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
     _atomic_write(dest, blob)
     # Sidecar
@@ -555,9 +731,9 @@ def verify_manifest(path: Path, allow_dirty: bool = False) -> bytes:
     return _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=True)
 
 
-def verify_build_manifest(path: Path, allow_dirty: bool = False) -> None:
-    """Pre-QEMU artifact integrity only; never sufficient for publication."""
-    _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=False)
+def verify_build_manifest(path: Path, allow_dirty: bool = False) -> bytes:
+    """Return exact verified pre-QEMU bytes; never sufficient for publication."""
+    return _verify_manifest(path, allow_dirty=allow_dirty, require_evidence=False)
 
 
 def _unique_manifest_fields(pairs):
@@ -572,9 +748,17 @@ def _unique_manifest_fields(pairs):
 def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -> bytes:
     path = Path(path)
     fd = _open_regular_nofollow(path)
-    with os.fdopen(fd, "r", encoding="utf-8") as stream:
-        raw_manifest = stream.read()
+    with os.fdopen(fd, "rb") as stream:
+        raw_bytes = stream.read(MAX_MANIFEST_BYTES + 1)
+    if len(raw_bytes) > MAX_MANIFEST_BYTES:
+        raise RuntimeError("release manifest exceeds size limit")
+    try:
+        raw_manifest = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("release manifest is not UTF-8") from exc
     data = json.loads(raw_manifest, object_pairs_hook=_unique_manifest_fields)
+    if not isinstance(data, dict):
+        raise RuntimeError("invalid release manifest root")
     # Recompute checksum (exclude sidecar)
     expected = data.pop("_manifest_sha256", None)
     if expected is None:
@@ -583,6 +767,18 @@ def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -
     got = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     if expected != got:
         raise RuntimeError(f"manifest checksum mismatch: expected {expected}, got {got}")
+    for field in ("source", "build", "nwipe", "artifact"):
+        if not isinstance(data.get(field), dict):
+            raise RuntimeError(f"invalid release manifest {field}")
+    source = data["source"]
+    nwipe = data["nwipe"]
+    artifact = data["artifact"]
+    if type(source.get("dirty")) is not bool or not isinstance(source.get("commit"), str):
+        raise RuntimeError("invalid release manifest source")
+    if not isinstance(nwipe.get("commit"), str):
+        raise RuntimeError("invalid release manifest nwipe")
+    if type(artifact.get("iso_size_bytes")) is not int or artifact["iso_size_bytes"] <= 0:
+        raise RuntimeError("invalid release manifest artifact")
     # Placeholder check
     blob = json.dumps(data)
     if PLACEHOLDER_RE.search(blob):
@@ -599,6 +795,11 @@ def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -
         raise RuntimeError(f"unexpected nwipe version {data['nwipe']['version']}")
     if not re.fullmatch(r"[0-9a-f]{40}", data.get("nwipe", {}).get("commit", "")):
         raise RuntimeError("placeholder nwipe commit")
+    if require_evidence and (
+        nwipe.get("commit") != NWIPE_PINNED_COMMIT
+        or nwipe.get("pinned_path") != "/usr/lib/beamo-wipe/nwipe"
+    ):
+        raise RuntimeError("release manifest nwipe pin differs from the shipped engine")
     if data.get("schema_version") != SCHEMA_VERSION:
         raise RuntimeError("unsupported release manifest schema")
     build_id = data.get("build", {}).get("release_build_id", "")
@@ -645,7 +846,7 @@ def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -
         actual_sha, actual_size = sha256_file_with_stat(iso_path)
         if actual_sha != recorded_iso_sha:
             raise RuntimeError("ISO checksum mismatch")
-        if actual_size != int(artifact.get("iso_size_bytes", -1)):
+        if actual_size != artifact["iso_size_bytes"]:
             raise RuntimeError("ISO size mismatch")
     except OSError as exc:
         raise RuntimeError("ISO referenced by manifest is missing") from exc
@@ -655,7 +856,7 @@ def _verify_manifest(path: Path, *, allow_dirty: bool, require_evidence: bool) -
         hashlib.sha256(raw_manifest.encode("utf-8")).hexdigest(),
         path.name,
     )
-    return raw_manifest.encode("utf-8")
+    return raw_bytes
 
 
 def _verify_sidecar(path: Path, sha: str, name: str) -> None:

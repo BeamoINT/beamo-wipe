@@ -196,6 +196,39 @@ def test_collect_secrets_includes_paths_and_identifiers():
     assert ARGV_DEV in secrets
 
 
+def test_sharing_copy_scrubs_case_variants_in_failure_text():
+    evidence = _planted_evidence()
+    evidence["failure_reason"] = f"Failed {SERIAL.lower()} on {PATH.upper()}"
+    sharing = make_sharing_copy(evidence)
+    raw = encode_sharing_copy(sharing).decode("utf-8").casefold()
+    assert SERIAL.casefold() not in raw
+    assert PATH.casefold() not in raw
+    assert "withheld" in sharing["failure_reason"]
+    bundle = _bundle_files(json.dumps(evidence).encode(), b"", "unavailable", privacy_reduced=True)
+    _assert_clean(bundle[SHARE_JSON])
+    _assert_clean(bundle[SHARE_SUMMARY])
+
+
+def test_sharing_copy_drops_unlisted_locale_fields():
+    evidence = _planted_evidence()
+    evidence["locale"]["private_locale_extra"] = "PLANT-SECOND-DISK-SERIAL"
+    sharing = make_sharing_copy(evidence)
+    assert set(sharing["locale"]) == {"language", "keyboard_layout"}
+    assert b"PLANT-SECOND-DISK-SERIAL" not in encode_sharing_copy(sharing)
+
+
+def test_sharing_copy_drops_malformed_nested_sections():
+    evidence = _planted_evidence()
+    evidence["locale"] = "PLANT-MALFORMED-LOCALE-SECRET"
+    evidence["method"] = ["PLANT-MALFORMED-METHOD-SECRET"]
+    sharing = make_sharing_copy(evidence)
+    encoded = encode_sharing_copy(sharing)
+    assert "locale" not in sharing
+    assert "method" not in sharing
+    assert b"PLANT-MALFORMED-LOCALE-SECRET" not in encoded
+    assert b"PLANT-MALFORMED-METHOD-SECRET" not in encoded
+
+
 def test_result_summary_from_sharing_copy_preserves_outcome():
     _, ev, _ = case_evidence(CASES[0])
     sharing = make_sharing_copy(ev)

@@ -136,7 +136,11 @@ REMOTE_BUS_TOKENS = frozenset(
 # SCSI names is not proof: iSCSI often still appears as /dev/sdX.
 PROVEN_LOCAL_BUS_TOKENS = frozenset({"sata", "nvme", "usb", "sas", "virtio"})
 SCSI_DISK_NAME_RE = re.compile(r"^(?:sd|hd|dasd)[a-z]+$")
-REMOTE_SYSFS_TOKENS = ("iscsi", "rport-", "nvme-fabrics", "/fc/", "/vhci_hcd")
+REMOTE_SYSFS_TOKENS = (
+    "iscsi", "rport-", "nvme-fabrics", "/fc/", "/vhci_hcd",
+    # A virtual SCSI host gives no evidence that its backing store is local.
+    "/sys/devices/virtual/",
+)
 # open-iscsi names its session device sessionN. The block device path is
 # .../hostN/sessionN/targetN:... and does not contain the word "iscsi".
 REMOTE_SYSFS_SESSION_RE = re.compile(r"/session\d+(?:/|$)")
@@ -193,8 +197,13 @@ def is_unproven_scsi_transport(disk: Disk) -> bool:
     real local (VM) bus and is not "other". Empty/"other" on sd/hd/dasd
     must not become a wipe target.
     """
-    name = (disk.name or "").casefold()
-    if not SCSI_DISK_NAME_RE.fullmatch(name):
+    # NAME is metadata from lsblk and may be empty even when PATH names an
+    # sd/hd/dasd node. Check both so missing NAME cannot waive this gate.
+    names = {
+        (disk.name or "").casefold(),
+        os.path.basename(os.path.realpath(disk.path or "")).casefold(),
+    }
+    if not any(SCSI_DISK_NAME_RE.fullmatch(name) for name in names):
         return False
     bus = (disk.bus or "").casefold()
     if bus in REMOTE_BUS_TOKENS or bus in PROVEN_LOCAL_BUS_TOKENS:
@@ -221,7 +230,7 @@ def is_live_environment(
     if not LIVE_BOOT_RE.search(cmdline or ""):
         return False
     if live_medium_mounted is not None:
-        return bool(live_medium_mounted)
+        return live_medium_mounted is True
     # Explicit paths_exist is the old "directory present" hook. Directories
     # are not mounts; treating them as live would re-open the mkdir bypass.
     if paths_exist is not None:
@@ -287,11 +296,18 @@ def is_wipeable_disk(disk: Disk) -> bool:
         normalize_whole_disk(disk.path)
     except SafetyError:
         return False
+    if not is_preview_env():
+        # lsblk TRAN can say "nvme" for an NVMe-over-Fabrics namespace. Do
+        # not offer it to the owner only to refuse it at the final exec gate.
+        try:
+            assert_local_device_transport(disk.path)
+        except SafetyError:
+            return False
     return True
 
 
 def selectable_disks(discovery: DiscoveryResult) -> Tuple[Disk, ...]:
-    if not discovery.boot_identified or discovery.error or discovery.boot is None:
+    if discovery.boot_identified is not True or discovery.error or discovery.boot is None:
         return tuple()
     return tuple(d for d in discovery.selectable if is_wipeable_disk(d))
 
@@ -340,6 +356,13 @@ def confirm_spec(disk: Disk, selectable: Sequence[Disk]) -> ConfirmSpec:
     peers.append(disk)
     same = [item for item in peers if item.size_gb_label == disk.size_gb_label]
     banned = _cross_disk_tokens(disk, peers)
+    # A serial can itself be "sda" (or another kernel name). Never ask the
+    # owner to type a device name, including our own or a different-size disk.
+    for item in peers:
+        for raw in (item.name, os.path.basename(os.path.realpath(item.path))):
+            name_token = _safe_token(raw or "")
+            if name_token:
+                banned.add(name_token.casefold())
     if len(same) == 1:
         token = _safe_token((disk.size_gb_label or "").strip())
         if token and token.casefold() not in banned:
@@ -364,7 +387,7 @@ def _cross_disk_tokens(disk: Disk, peers: Sequence[Disk]) -> set[str]:
         size = _safe_token((other.size_gb_label or "").strip())
         if size:
             banned.add(size.casefold())
-        for raw in (other.serial, meaningful_wwn(other.wwn)):
+        for raw in (meaningful_serial(other.serial), meaningful_wwn(other.wwn)):
             value = (raw or "").strip()
             token = _safe_token(value)
             if token:
@@ -392,7 +415,7 @@ def _stable_same_size_token(
     for other in same:
         if os.path.realpath(other.path) == want:
             continue
-        for value in (other.serial, meaningful_wwn(other.wwn)):
+        for value in (meaningful_serial(other.serial), meaningful_wwn(other.wwn)):
             value = (value or "").strip()
             peer_full.add(_safe_token(value).casefold())
             if len(value) >= 4:
@@ -401,7 +424,7 @@ def _stable_same_size_token(
         value = (
             meaningful_wwn(disk.wwn)
             if field == "wwn"
-            else (disk.serial or "").strip()
+            else meaningful_serial(disk.serial)
         )
         candidates = []
         if len(value) >= 4:
@@ -454,24 +477,61 @@ def meaningful_wwn(value: str) -> str:
     """Normalize a LUN identifier, ignoring all-zero device padding."""
     text = (value or "").strip().casefold()
     body = text[2:] if text.startswith("0x") else text
-    if not body or set(body) <= {"0"}:
+    if _missing_hardware_identifier(body):
         return ""
     return text
 
 
+def canonical_wwn(value: str) -> str:
+    """WWN comparison key; lsblk may include or omit its ``0x`` prefix."""
+    text = meaningful_wwn(value)
+    return text[2:] if text.startswith("0x") else text
+
+
+def _missing_hardware_identifier(body: str) -> bool:
+    compact = "".join(char.casefold() for char in body if char.isalnum())
+    return (
+        not compact
+        or set(compact) <= {"0"}
+        or compact in {
+            "unknown", "none", "na", "null", "notavailable", "notapplicable",
+            "noserial", "unspecified", "notspecified",
+        }
+    )
+
+
+def meaningful_serial(value: str) -> str:
+    """Return a reported serial, ignoring all-zero device padding."""
+    text = (value or "").strip()
+    body = text[2:] if text.casefold().startswith("0x") else text
+    if _missing_hardware_identifier(body):
+        return ""
+    return text
+
+
+def possible_hardware_alias(left: Disk, right: Disk) -> bool:
+    """True when two disk paths share an ID without stronger contrary evidence.
+
+    Some devices reuse serials. Distinct reported WWNs disambiguate them;
+    when either WWN is missing, a shared serial remains an ambiguous alias.
+    """
+    left_wwn, right_wwn = canonical_wwn(left.wwn), canonical_wwn(right.wwn)
+    if left_wwn and right_wwn:
+        return left_wwn == right_wwn
+    left_serial = meaningful_serial(left.serial).casefold()
+    right_serial = meaningful_serial(right.serial).casefold()
+    return bool(left_serial and left_serial == right_serial)
+
+
 def assert_boot_excluded(discovery: DiscoveryResult) -> None:
-    if not discovery.boot_identified or discovery.boot is None:
+    if discovery.boot_identified is not True or discovery.boot is None:
         raise SafetyError(_copy.IDENTIFY_ERROR)
     if boot_device_in_selectable(discovery):
         raise SafetyError(BOOT_APPEARED_SELECTABLE)
     selectable_paths = {os.path.realpath(s.path) for s in discovery.selectable}
     if any(d.is_boot and os.path.realpath(d.path) in selectable_paths for d in discovery.disks):
         raise SafetyError(BOOT_APPEARED_SELECTABLE)
-    boot_wwn = meaningful_wwn(discovery.boot.wwn)
-    if boot_wwn and any(
-        meaningful_wwn(disk.wwn) == boot_wwn
-        for disk in discovery.selectable
-    ):
+    if any(possible_hardware_alias(discovery.boot, disk) for disk in discovery.selectable):
         raise SafetyError(BOOT_APPEARED_ALIAS)
 
 
@@ -544,9 +604,9 @@ def normalize_whole_disk(path: str, *, allow_optical: bool = False) -> str:
     real = os.path.realpath(path)
     if not real.startswith("/dev/"):
         raise SafetyError("Device path must resolve under /dev.")
-    if not WHOLE_DISK_RE.match(real):
+    if not WHOLE_DISK_RE.fullmatch(real):
         raise SafetyError("Device path is not a whole-disk /dev node.")
-    if OPTICAL_RE.match(real) and not allow_optical:
+    if OPTICAL_RE.fullmatch(real) and not allow_optical:
         raise SafetyError("Refusing to erase an optical drive.")
     return real
 
@@ -577,7 +637,7 @@ def assert_rediscovered_identity(request: WipeRequest, discovery: DiscoveryResul
     boot = discovery.boot
     boot_confirmed = tuple(request.boot_identity or ())
     if (
-        not discovery.boot_identified
+        discovery.boot_identified is not True
         or discovery.error
         or boot is None
         or os.path.realpath(boot.path) != os.path.realpath(request.boot_device)
@@ -713,13 +773,27 @@ def assert_local_device_transport(path: str) -> None:
     # A dangling link can resolve to a plausible old PCI path. Its target
     # can also disappear after realpath() but before this check. Both leave
     # the local bus unproven, even when `resolved` looks like a PCI path.
-    if not device.exists():
+    try:
+        device_present = device.exists()
+    except OSError as exc:
+        raise SafetyError("Cannot prove the disk is locally attached.") from exc
+    if not device_present:
         raise SafetyError("Cannot prove the disk is locally attached.")
     lowered = resolved.casefold()
     if any(token in lowered for token in REMOTE_SYSFS_TOKENS) or REMOTE_SYSFS_SESSION_RE.search(
         lowered
     ):
         raise SafetyError("Refusing a remote or unknown SCSI transport.")
+    # SRP disks can sit below a physical PCI InfiniBand adapter, so their
+    # resolved block-device path need not contain a remote-transport token.
+    # The SCSI host's local_ib_device attribute identifies an SRP initiator.
+    for host in re.findall(r"(?:^|/)(host\d+)(?:/|$)", lowered):
+        try:
+            is_srp = (Path("/sys/class/scsi_host") / host / "local_ib_device").exists()
+        except OSError as exc:
+            raise SafetyError("Cannot prove the disk is locally attached.") from exc
+        if is_srp:
+            raise SafetyError("Refusing a remote or unknown SCSI transport.")
 
 
 def _is_under(path: Path, root: Path) -> bool:
@@ -793,70 +867,68 @@ def assert_log_not_on_target(
 
 
 def _log_filesystem_is_target(log: Path, target: str) -> bool:
-    """True if mountinfo says `log` lives on `target` (or a partition of it).
+    """True unless mountinfo proves `log` lives on tmpfs.
 
-    Unreadable mountinfo is fail-closed on the live USB (treat as on-target)
-    and fail-open in preview, where /proc may not describe the fake disks.
+    Even a different block device is unsuitable for session logs: the live
+    image promises that evidence stays in memory under /tmp. Unreadable or
+    ambiguous mountinfo is fail-closed on live media and ignored in preview.
     """
     if not target:
         return False
-    try:
-        target_real = os.path.realpath(target)
-    except OSError:
-        return not is_preview_env()
+    return not (is_preview_env() or log_location_is_tmpfs(log))
+
+
+def log_location_is_tmpfs(path: Path) -> bool:
+    """Prove a canonical log or journal path is on one effective tmpfs mount.
+
+    This check does not treat a matching device number as proof: a persistent
+    root filesystem can also supply /tmp. Callers must separately constrain
+    and resolve the path and verify their opened directory inode.
+    """
     from beamo_wipe.discover import MOUNTINFO_PATH, parse_mountinfo
 
     try:
+        path_text = str(path)
         with open(MOUNTINFO_PATH, encoding="utf-8") as fh:
             mountinfo_text = fh.read()
             pairs = parse_mountinfo(mountinfo_text)
-    except OSError:
-        return not is_preview_env()
+    except (OSError, ValueError, UnicodeError):
+        return False
     if len(pairs) != sum(bool(line.strip()) for line in mountinfo_text.splitlines()):
         # A dropped/truncated row could be a later mount over /tmp. A valid
         # earlier tmpfs row cannot prove the effective log filesystem then.
-        return not is_preview_env()
-    log_text = str(log)
-    best_sources: list[str] = []
+        return False
+    # parse_mountinfo preserves row order. Its completeness check above means
+    # every nonempty row has a separator and a filesystem type, so keep that
+    # type alongside each source when deciding whether /tmp is memory-backed.
+    filesystems = [
+        line.split(" - ", 1)[1].split()[0]
+        for line in mountinfo_text.splitlines()
+        if line.strip()
+    ]
+    best_sources: list[tuple[str, str]] = []
     best_len = -1
-    for source, mountpoint in pairs:
+    for (source, mountpoint), filesystem in zip(pairs, filesystems):
         mp = mountpoint.rstrip("/") or "/"
-        if log_text == mp or mp == "/" or log_text.startswith(mp + "/"):
+        if path_text == mp or mp == "/" or path_text.startswith(mp + "/"):
             if len(mp) > best_len:
-                best_sources = [source]
+                best_sources = [(source, filesystem)]
                 best_len = len(mp)
-            elif len(mp) == best_len and source not in best_sources:
-                best_sources.append(source)
+            elif len(mp) == best_len:
+                best_sources.append((source, filesystem))
     if not best_sources:
         # A readable yet empty/incomplete mount table proves nothing about
         # where /tmp lives. Treat it like an unreadable table on a live run.
-        return not is_preview_env()
+        return False
     if len(best_sources) != 1:
         # Stacked mounts can share the longest mountpoint. The first row may
         # be hidden by a later target-backed mount, so neither proves where
         # this log will be written.
-        return not is_preview_env()
-    src = best_sources[0].split("[", 1)[0].strip()
-    if not src.startswith("/dev/"):
         return False
-    try:
-        src_real = os.path.realpath(src)
-    except OSError:
-        src_real = src
-    if src_real == target_real:
-        return True
-    if _is_partition_of(src_real, target_real) or _is_partition_of(target_real, src_real):
-        return True
-    try:
-        tst = os.lstat(target_real)
-        sst = os.lstat(src_real)
-    except OSError:
-        return not is_preview_env()
-    return (
-        stat.S_ISBLK(tst.st_mode)
-        and stat.S_ISBLK(sst.st_mode)
-        and tst.st_rdev == sst.st_rdev
-    )
+    _source, filesystem = best_sources[0]
+    # A tmpfs has no disk backing, regardless of the user-chosen source name
+    # shown in mountinfo. A disk-backed, network, or overlay fs is persistent.
+    return filesystem == "tmpfs"
 
 
 def default_log_dir() -> Path:
@@ -965,7 +1037,7 @@ def assert_ready_to_wipe(
     from beamo_wipe.methods import METHODS
 
     require_live_or_dry_run()
-    if not owner_ok:
+    if owner_ok is not True:
         raise SafetyError("Owner checkbox is required.")
     assert_boot_excluded(discovery)
     if disk is None or disk.is_boot or not is_wipeable_disk(disk):
@@ -979,7 +1051,7 @@ def assert_ready_to_wipe(
     spec = confirm_spec(disk, listed_disks(discovery))
     if not token_matches(typed_token, spec):
         raise SafetyError(TOKEN_MISMATCH)
-    if not countdown_complete:
+    if countdown_complete is not True:
         raise SafetyError("Erase delay has not finished.")
     boot = discovery.boot
     if boot is None:

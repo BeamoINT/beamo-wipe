@@ -15,6 +15,7 @@ from beamo_wipe.evidence import build_evidence
 from beamo_wipe.keyboard import (
     APPLY_FAILED,
     DEFAULT_LAYOUT,
+    GRAPHICAL_ONLY,
     LAYOUTS,
     TOOLS_MISSING,
     UNAVAILABLE,
@@ -130,6 +131,22 @@ def test_missing_tools_are_visible(monkeypatch):
     result = apply_layout("fr", graphical=True)
     assert not result.ok
     assert result.message == TOOLS_MISSING
+
+
+def test_graphical_change_warns_when_console_layout_tool_is_missing(monkeypatch):
+    from beamo_wipe import keyboard
+
+    monkeypatch.setattr(
+        "beamo_wipe.safety.resolve_system_binary",
+        lambda name: "/usr/bin/setxkbmap" if name == "setxkbmap" else None,
+    )
+    monkeypatch.setattr(keyboard, "_run_allowlisted", lambda _argv: True)
+
+    result = apply_layout("fr", graphical=True)
+
+    assert result.ok
+    assert GRAPHICAL_ONLY in result.message
+    assert result.layout_id == "fr"
 
 
 def test_failed_apply_does_not_change_layout_or_clear_auth():

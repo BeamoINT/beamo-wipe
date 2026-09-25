@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
     "failure",
     [
         "readback",
+        "syslinux_missing",
         "publication",
         "replacement",
         "directory",
@@ -80,32 +81,49 @@ def test_image_output_published_only_after_readback(tmp_path, failure):
         "#!/bin/sh\n"
         "for tree do :; done\n"
         'mkdir -p "$tree/EFI/boot" "$tree/isolinux"\n'
+        'printf "%s" "$tree" > "$BEAMO_FIXTURE_DIR/tree-path"\n'
         'printf MZ > "$tree/EFI/boot/bootx64.efi"\n'
         'printf MZ > "$tree/EFI/boot/grubx64.efi"\n'
         'printf config > "$tree/isolinux/isolinux.cfg"\n'
+        'printf iso-module > "$tree/isolinux/ldlinux.c32"\n'
         'cp "$BEAMO_FIXTURE_DIR/desktop-build.json" "$tree/"\n'
         'cp "$BEAMO_FIXTURE_DIR/Start Beamo Wipe.exe" "$tree/"\n'
         'cp "$BEAMO_FIXTURE_DIR/Start Beamo Wipe Linux" "$tree/"\n'
     )
     xorriso.chmod(0o755)
-    for name in ("mkfs.vfat", "mcopy", "syslinux"):
+    (tmp_path / "installed-ldlinux.c32").write_bytes(b"installed module" * 128)
+    for name in ("mkfs.vfat", "mcopy", "mmd"):
         tool = fake_bin / name
         tool.write_text("#!/bin/sh\nexit 0\n")
         tool.chmod(0o755)
+    syslinux = fake_bin / "syslinux"
+    syslinux.write_text(
+        "#!/bin/sh\n"
+        + (
+            "exit 0\n"
+            if failure == "syslinux_missing"
+            else 'dd if=/dev/zero of="$BEAMO_FIXTURE_DIR/ldlinux.sys" bs=1024 count=1 2>/dev/null\n'
+        )
+    )
+    syslinux.chmod(0o755)
     mtype = fake_bin / "mtype"
     if failure == "readback":
         mtype.write_text("#!/bin/sh\nexit 9\n")
     else:
-        mtype.write_text(
-            "#!/bin/sh\n"
-            "for file do :; done\n"
-            'case "$file" in\n'
-            '  "::/desktop-build.json") cat "$BEAMO_FIXTURE_DIR/desktop-build.json" ;;\n'
-            '  "::/Start Beamo Wipe.exe") cat "$BEAMO_FIXTURE_DIR/Start Beamo Wipe.exe" ;;\n'
-            '  "::/Start Beamo Wipe Linux") cat "$BEAMO_FIXTURE_DIR/Start Beamo Wipe Linux" ;;\n'
-            "  *) exit 9 ;;\n"
-            "esac\n"
-        )
+            mtype.write_text(
+                "#!/bin/sh\n"
+                "for file do :; done\n"
+                'case "$file" in\n'
+                '  ::/isolinux/ldlinux.sys) exec cat "$BEAMO_FIXTURE_DIR/ldlinux.sys" ;;\n'
+                '  ::/isolinux/ldlinux.c32) exec cat "$BEAMO_FIXTURE_DIR/installed-ldlinux.c32" ;;\n'
+                '  ::/*) name=${file#::/} ;;\n'
+                '  *) exit 9 ;;\n'
+                "esac\n"
+                'if [ -n "${name:-}" ]; then\n'
+                '  tree=$(cat "$BEAMO_FIXTURE_DIR/tree-path")\n'
+                '  cat "$tree/$name"\n'
+                'fi\n'
+            )
     mtype.chmod(0o755)
     if failure in {
         "publication",
@@ -178,7 +196,7 @@ def test_image_output_published_only_after_readback(tmp_path, failure):
         check=False,
     )
     image = dist / "beamo-wipe-0.2.9-amd64.img"
-    if failure in {"readback", "publication"}:
+    if failure in {"readback", "syslinux_missing", "publication"}:
         assert result.returncode != 0
         assert not image.exists()
         assert not (dist / f"{image.name}.sha256").exists()

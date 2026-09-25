@@ -82,16 +82,19 @@ def test_untrusted_or_malformed_log_lines_cannot_complete(line):
 
 def test_exact_status_row_and_progress_still_complete():
     assert evaluate_nwipe_completion(
-        0, " vda | Erased | 1 MB/s | 00:01 | disk", "/dev/vda"
-    )[0]
-    assert evaluate_nwipe_completion(
         0,
-        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]",
+        "********************************* Drive Status *********************************\n"
+        "      vda | Erased |  1MB/s | 00:01:00 | TEST/DISK\n",
         "/dev/vda",
     )[0]
     assert evaluate_nwipe_completion(
         0,
-        "[2026/09/03 12:34:56]    info: /dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]",
+        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\n",
+        "/dev/vda",
+    )[0]
+    assert evaluate_nwipe_completion(
+        0,
+        "[2026/09/03 12:34:56]    info: /dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\n",
         "/dev/vda",
     )[0]
 
@@ -375,6 +378,7 @@ def test_root_mounted_target_is_detected(tmp_path, monkeypatch):
     mountinfo = tmp_path / "mountinfo"
     mountinfo.write_text("1 0 0:1 / / rw - ext4 /dev/vda1 rw\n", encoding="utf-8")
     monkeypatch.setattr("beamo_wipe.discover.MOUNTINFO_PATH", str(mountinfo))
+    monkeypatch.setattr("beamo_wipe.safety.is_preview_env", lambda: False)
     assert _log_filesystem_is_target(Path("/tmp/beamo-wipe/log"), "/dev/vda")
 
 
@@ -616,6 +620,7 @@ def test_live_tk_failure_returns_to_supervisor_before_console(monkeypatch):
         dry_run=False,
         screen=Screen.WHAT,
         cancel_wipe=lambda: None,
+        set_language=lambda _code: True,
     )
     console_calls = []
     monkeypatch.setattr(app, "running_on_live_usb", lambda: False)

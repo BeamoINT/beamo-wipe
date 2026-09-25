@@ -325,8 +325,9 @@ def test_last_chance_enter_without_erase_focus_never_erases(ui):
     wizard.set_confirm_input(wizard.confirm.token)
     wizard.continue_confirm()
     wizard.continue_method()
-    wizard._erase_until = 0
     app = ui(wizard)
+    # The first visible review deliberately restarts the five-second timer.
+    wizard._erase_until = 0
     app.update_status()
     erase = app.actions["Erase now"]
     assert erase.get_sensitive()
@@ -1143,12 +1144,15 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
     w.set_confirm_input(w.confirm.token)
     w.continue_confirm()
     w.continue_method()
-    w._erase_until = 0
     barrier = Barrier()
     if phase == "stopping":
+        w._erase_until = 0
         w.confirm_erase()
     app = ui(w)
     if phase == "checking":
+        # Make the fully presented review ready before activating Erase.
+        w._erase_until = 0
+        app.update_status()
         original = w.runner.start
         def slow(request):
             barrier.wait()

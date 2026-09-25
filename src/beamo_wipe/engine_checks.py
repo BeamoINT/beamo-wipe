@@ -45,18 +45,15 @@ _SG_IO = re.compile(r"SG_IO bad/missing sense data")
 _HDPARM_INVALID = re.compile(
     r"hdparm reports invalid output, sector information may be invalid"
 )
-_ERROR_SUMMARY = "Error Summary"
+_ERROR_SUMMARY = re.compile(r"^(?:\*+\s*)?Error Summary(?:\s*\*+)?$")
 _ERROR_ROW = re.compile(
-    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*$"
+    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*([0-9]{1,20})\s*\|\s*([0-9]{1,20})\s*\|\s*([0-9]{1,20})\s*$"
 )
-_ERASURE_SUMMARY = "Erasure Summary"
+_ERASURE_SUMMARY = re.compile(r"^(?:\*+\s*)?Erasure Summary(?:\s*\*+)?$")
 _ERASURE_ROW = re.compile(
-    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\S+)\s*$"
+    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*([0-9]{1,20})\s*\|\s*([0-9]{1,20})\s*\|\s*(\S+)\s*$"
 )
-_FAILURE_MARK = re.compile(
-    r"(?:>>> FAILURE! <<<|\|-FAILED-\||\|UABORTED\||\|INSANITY\|)"
-)
-_VERIFY_MISMATCH = re.compile(r"Verification mismatch on")
+MAX_UINT64 = 2**64 - 1
 
 
 @dataclass(frozen=True)
@@ -107,7 +104,9 @@ def _mentions(line: str, names: Iterable[str]) -> bool:
 
 
 def _matches_device(pattern: re.Pattern[str], line: str, names: frozenset[str]) -> bool:
-    match = pattern.search(_body(line))
+    # The pinned nwipe status sentence starts the log body. Device-supplied
+    # model/serial text can contain the same words later in a line.
+    match = pattern.match(_body(line))
     return match is not None and match.group(1) in names
 
 
@@ -143,7 +142,7 @@ def _check(
 
 def _target_lines(log_text: str, names: frozenset[str]) -> list[str]:
     out = []
-    for raw in (log_text or "").splitlines():
+    for raw in (log_text or "").split("\n"):
         if _mentions(raw, names):
             out.append(raw)
     return out
@@ -192,7 +191,7 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
     ]
     missing_tool = [
         line
-        for line in (log_text or "").splitlines()
+        for line in (log_text or "").split("\n")
         if _HDPARM_MISSING.search(_body(line))
         or _HDPARM_STREAM.search(_body(line))
         or _HDPARM_FAILED.search(_body(line))
@@ -254,9 +253,9 @@ def _erasure_summary_state(log_text: str, names: frozenset[str]) -> str:
     """Classify the target's v0.42 summary without trusting a first row only."""
     in_table = False
     found: Optional[bool] = None
-    for raw in (log_text or "").splitlines():
+    for raw in (log_text or "").split("\n"):
         body = _body(raw)
-        if _ERASURE_SUMMARY in body:
+        if _ERASURE_SUMMARY.fullmatch(body.strip()):
             in_table = True
             continue
         if in_table and body.startswith("***"):
@@ -276,7 +275,14 @@ def _erasure_summary_state(log_text: str, names: frozenset[str]) -> str:
             continue
         erased, total = int(match.group(2)), int(match.group(3))
         percentage = re.fullmatch(r"(\d{1,3})\.(\d{2})%", match.group(4))
-        if found is not None or total <= 0 or erased > total or percentage is None:
+        if (
+            found is not None
+            or total <= 0
+            or erased > total
+            or erased > MAX_UINT64
+            or total > MAX_UINT64
+            or percentage is None
+        ):
             return "invalid"
         hundredths = int(percentage.group(1)) * 100 + int(percentage.group(2))
         # The printed percentage is rounded to two decimal places by nwipe.
@@ -300,14 +306,18 @@ def _parse_io_media(log_text: str, device: str) -> CheckResult:
             HIDDEN_NO_DEVICE,
             _provenance(parser, source="missing"),
         )
-    from beamo_wipe.nwipe_runner import _status_column_is_shared
+    from beamo_wipe.nwipe_runner import (
+        _line_reports_target_failure,
+        _line_reports_target_verification_mismatch,
+        _status_column_is_shared,
+    )
 
     if _status_column_is_shared(log_text, device):
         explicit_failures = [
             line
-            for line in (log_text or "").splitlines()
-            if _mentions(line, (device,))
-            and (_FAILURE_MARK.search(line) or _VERIFY_MISMATCH.search(_body(line)))
+            for line in (log_text or "").split("\n")
+            if _line_reports_target_failure(line, device, shared=True)
+            or _line_reports_target_verification_mismatch(line, device)
         ]
         if explicit_failures:
             return _check(
@@ -321,8 +331,9 @@ def _parse_io_media(log_text: str, device: str) -> CheckResult:
         )
     fail_lines = [
         line
-        for line in _target_lines(log_text, names)
-        if _FAILURE_MARK.search(line) or _VERIFY_MISMATCH.search(_body(line))
+        for line in (log_text or "").split("\n")
+        if _line_reports_target_failure(line, device, shared=False)
+        or _line_reports_target_verification_mismatch(line, device)
     ]
     row = _error_summary_row(log_text, names)
     if row is None and not fail_lines:
@@ -370,9 +381,9 @@ def _error_summary_row(
     in_table = False
     malformed = False
     found = None
-    for raw in (log_text or "").splitlines():
+    for raw in (log_text or "").split("\n"):
         body = _body(raw)
-        if _ERROR_SUMMARY in body:
+        if _ERROR_SUMMARY.fullmatch(body.strip()):
             in_table = True
             continue
         if in_table and body.startswith("***"):
@@ -392,6 +403,9 @@ def _error_summary_row(
         if match.group(1) not in names:
             continue
         counts = (int(match.group(2)), int(match.group(3)), int(match.group(4)))
+        if any(count > MAX_UINT64 for count in counts):
+            malformed = True
+            continue
         if found is not None and counts != found:
             malformed = True
         found = counts

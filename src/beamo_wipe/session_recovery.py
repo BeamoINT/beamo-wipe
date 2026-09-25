@@ -11,6 +11,7 @@ import re
 import secrets
 import stat
 import time
+import unicodedata
 from dataclasses import asdict
 from pathlib import Path
 
@@ -83,7 +84,11 @@ def _disk(raw):
         elif (
             not isinstance(value, str)
             or len(value) > 256
-            or any(ord(c) < 32 or ord(c) == 127 for c in value)
+            or any(
+                unicodedata.category(c).startswith("C")
+                or unicodedata.category(c) in {"Zl", "Zp"}
+                for c in value
+            )
         ):
             raise ValueError("Invalid disk text")
     from beamo_wipe.support_export import ROOT_PATH_RE
@@ -172,6 +177,10 @@ class SessionStore:
             os.close(fd)
 
     def open(self):
+        # A second open on this object would replace fd/owner before flock()
+        # fails, orphaning the first interface lock in this process.
+        if self.fd >= 0 or self.owner >= 0 or self.quiescent >= 0:
+            raise SafetyError("Recovery store is already open.")
         try:
             return self._open_owned()
         except BaseException:
@@ -195,6 +204,11 @@ class SessionStore:
             raise SafetyError(RECOVERY_UNSAFE_RECOVERY_DIRECTORY)
         if self._production_directory and st.st_dev != os.stat("/tmp").st_dev:
             raise SafetyError(RECOVERY_DIRECTORY_NOT_VOLATILE)
+        if self._production_directory:
+            from beamo_wipe.safety import log_location_is_tmpfs
+
+            if not log_location_is_tmpfs((self.directory / NAME).resolve()):
+                raise SafetyError(RECOVERY_DIRECTORY_NOT_VOLATILE)
         self.owner = self._file("interface.lock", os.O_RDWR | os.O_CREAT)
         fcntl.flock(self.owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if self.boot is None:

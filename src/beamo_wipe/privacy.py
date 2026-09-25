@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Mapping
 
 POLICY_VERSION = 1
@@ -89,6 +90,7 @@ _KEEP_EXIT = frozenset({"exit_code", "signal"})
 _KEEP_VERIFICATION = frozenset({"requested", "verified", "scope"})
 _KEEP_COMPLETION = frozenset({"validated", "reason"})
 _KEEP_INTERRUPTION = frozenset({"interrupted", "cancelled", "origin"})
+_KEEP_LOCALE = frozenset({"language", "keyboard_layout"})
 _KEEP_PRESENTATION = frozenset(
     {"code", "message", "next_step", "tone", "icon", "success"}
 )
@@ -151,7 +153,7 @@ def _scrub(value: object, secrets: tuple[str, ...]) -> object:
     if isinstance(value, str):
         out = value
         for secret in secrets:
-            out = out.replace(secret, WITHHELD)
+            out = re.sub(re.escape(secret), WITHHELD, out, flags=re.IGNORECASE)
         return out
     if isinstance(value, list):
         return [_scrub(item, secrets) for item in value]
@@ -168,28 +170,26 @@ def make_sharing_copy(evidence: Mapping[str, Any]) -> dict[str, Any]:
     """Build a new sharing document. Does not mutate ``evidence``."""
     secrets = collect_secrets(evidence)
     root = _pick(evidence, _KEEP_ROOT)
-    if isinstance(root.get("device"), dict):
-        root["device"] = _pick(root["device"], _KEEP_DEVICE)
-    if isinstance(root.get("device_presentation"), dict):
-        root["device_presentation"] = _pick(
-            root["device_presentation"], _KEEP_DEVICE_PRESENTATION
-        )
-    if isinstance(root.get("method"), dict):
-        root["method"] = _pick(root["method"], _KEEP_METHOD)
-    if isinstance(root.get("timestamps"), dict):
-        root["timestamps"] = _pick(root["timestamps"], _KEEP_TIMESTAMPS)
-    if isinstance(root.get("nwipe"), dict):
-        root["nwipe"] = _pick(root["nwipe"], _KEEP_NWIPE)
-    if isinstance(root.get("exit_evidence"), dict):
-        root["exit_evidence"] = _pick(root["exit_evidence"], _KEEP_EXIT)
-    if isinstance(root.get("verification"), dict):
-        root["verification"] = _pick(root["verification"], _KEEP_VERIFICATION)
-    if isinstance(root.get("completion"), dict):
-        root["completion"] = _pick(root["completion"], _KEEP_COMPLETION)
-    if isinstance(root.get("interruption"), dict):
-        root["interruption"] = _pick(root["interruption"], _KEEP_INTERRUPTION)
-    if isinstance(root.get("presentation"), dict):
-        root["presentation"] = _pick(root["presentation"], _KEEP_PRESENTATION)
+    for key, allowed in (
+        ("device", _KEEP_DEVICE),
+        ("device_presentation", _KEEP_DEVICE_PRESENTATION),
+        ("method", _KEEP_METHOD),
+        ("timestamps", _KEEP_TIMESTAMPS),
+        ("nwipe", _KEEP_NWIPE),
+        ("exit_evidence", _KEEP_EXIT),
+        ("verification", _KEEP_VERIFICATION),
+        ("completion", _KEEP_COMPLETION),
+        ("interruption", _KEEP_INTERRUPTION),
+        ("presentation", _KEEP_PRESENTATION),
+        ("locale", _KEEP_LOCALE),
+    ):
+        if key not in root:
+            continue
+        section = root[key]
+        if isinstance(section, dict):
+            root[key] = _pick(section, allowed)
+        else:
+            del root[key]
     root["privacy"] = {
         "policy_version": POLICY_VERSION,
         "policy": POLICY_ID,

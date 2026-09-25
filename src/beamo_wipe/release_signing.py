@@ -95,6 +95,10 @@ def normalize_utc(value: object) -> str:
             text = text[: -len("+00:00")] + "Z"
         if not UTC_RE.fullmatch(text):
             raise RuntimeError(f"time is not normalized UTC: {value!r}")
+        try:
+            datetime.datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as exc:
+            raise RuntimeError(f"time is not a real UTC time: {value!r}") from exc
         return text
     raise RuntimeError(f"time must be a datetime or string, got {type(value).__name__}")
 
@@ -312,11 +316,33 @@ def verify_release_acceptance(
     return {**result, "beamo_wipe_version": version}
 
 
-def _read_json_file(path: Path, *, what: str) -> Any:
+def _read_regular_bytes(path: Path, *, what: str, limit: int) -> bytes:
+    """Bound CLI input and refuse links or special files before reading."""
+    path = Path(path)
+    if os.name != "posix" and path.is_symlink():
+        raise RuntimeError(f"{what} cannot be safely read: {path}")
     try:
-        raw = Path(path).read_bytes()
+        fd = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0),
+        )
     except OSError as exc:
-        raise RuntimeError(f"{what} cannot be read: {path}") from exc
+        raise RuntimeError(f"{what} cannot be safely read: {path}") from exc
+    try:
+        with os.fdopen(fd, "rb") as stream:
+            metadata = os.fstat(stream.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
+                raise RuntimeError(f"{what} is not a bounded regular file: {path}")
+            raw = stream.read(limit + 1)
+    except OSError as exc:
+        raise RuntimeError(f"{what} cannot be safely read: {path}") from exc
+    if len(raw) > limit:
+        raise RuntimeError(f"{what} exceeds the input size limit: {path}")
+    return raw
+
+
+def _read_json_file(path: Path, *, what: str) -> Any:
+    raw = _read_regular_bytes(path, what=what, limit=1024 * 1024)
     try:
         return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_fields)
     except (UnicodeDecodeError, ValueError) as exc:
@@ -324,10 +350,9 @@ def _read_json_file(path: Path, *, what: str) -> Any:
 
 
 def _read_bytes_file(path: Path, *, what: str) -> bytes:
-    try:
-        data = Path(path).read_bytes()
-    except OSError as exc:
-        raise RuntimeError(f"{what} cannot be read: {path}") from exc
+    data = _read_regular_bytes(
+        path, what=what, limit=32 if what == "signing key" else 16 * 1024 * 1024
+    )
     if not data:
         raise RuntimeError(f"{what} is empty: {path}")
     return data
@@ -393,7 +418,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             key_raw,
             signed_at=args.signed_at or None,
         )
-        Path(args.out).write_text(json.dumps(sidecar, indent=2, sort_keys=True) + "\n")
+        _write_new_file(
+            Path(args.out),
+            (json.dumps(sidecar, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+            0o644,
+        )
         print(f"signed with key {sidecar['key_id']}")
         return 0
     manifest_bytes = _read_bytes_file(Path(args.manifest), what="manifest")
