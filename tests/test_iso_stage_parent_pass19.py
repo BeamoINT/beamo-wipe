@@ -22,7 +22,7 @@ def test_iso_stage_cleanup_refuses_linked_parent(tmp_path):
     )
     package = project / "src" / "beamo_wipe"
     package.mkdir(parents=True)
-    (package / "__init__.py").write_text('__version__ = "0.2.9"\n')
+    (package / "__init__.py").write_text('__version__ = "0.2.10"\n')
 
     foreign = tmp_path / "foreign"
     target = foreign / "beamo_wipe"

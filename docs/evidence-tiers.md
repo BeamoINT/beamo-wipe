@@ -1,7 +1,7 @@
 # Beamo Wipe — Evidence tiers, receipts, and revalidation
 
 > Historical snapshot: current release identity and executed gate results are carried
-> by the signed release manifest. See [0.2.9 release notes](release-0.2.9.md).
+> by the signed release manifest. See [0.2.10 release notes](release-0.2.10.md).
 
 > **Version 1.0 — 2026-09-11 | Owner: Accountable senior engineer (this checkout)**
 > Pinned wrapper `0.2.7` / `nwipe v0.42` commit `6082bde060091e66365d852a1877f2ee80c67105`

@@ -21,7 +21,7 @@ def test_iso_builder_rejects_linked_dist_before_any_docker_work(tmp_path):
     )
     package = project / "src/beamo_wipe"
     package.mkdir(parents=True)
-    (package / "__init__.py").write_text('__version__ = "0.2.9"\n')
+    (package / "__init__.py").write_text('__version__ = "0.2.10"\n')
 
     foreign = tmp_path / "foreign"
     foreign.mkdir()
@@ -76,7 +76,7 @@ def test_iso_builder_rechecks_output_after_long_build_window(tmp_path):
     (scripts / "build-iso.sh").write_text(source)
     package = project / "src/beamo_wipe"
     package.mkdir(parents=True)
-    (package / "__init__.py").write_text('__version__ = "0.2.9"\n')
+    (package / "__init__.py").write_text('__version__ = "0.2.10"\n')
     (project / "dist").mkdir()
     foreign = tmp_path / "foreign"
     foreign.mkdir()

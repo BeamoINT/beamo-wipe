@@ -6,14 +6,14 @@ Each release publishes a machine-readable manifest that links the ISO to its sou
 
 | File | Purpose | Retention | Location |
 | --- | --- | --- | --- |
-| `beamo-wipe-0.2.9-amd64.iso` | Bootable live image (hybrid BIOS+UEFI) | Operator-defined after authorization | local `dist/` until separately published |
-| `beamo-wipe-0.2.9-amd64.iso.sha256` | SHA256 sidecar (`<sha>  <name>`) | same | `dist/` alongside ISO |
-| `beamo-wipe-0.2.9-amd64.manifest.json` | Release provenance (this doc) | same | `dist/` |
-| `beamo-wipe-0.2.9-amd64.manifest.json.sha256` | Manifest checksum | same | `dist/` |
+| `beamo-wipe-0.2.10-amd64.iso` | Bootable live image (hybrid BIOS+UEFI) | Operator-defined after authorization | local `dist/` until separately published |
+| `beamo-wipe-0.2.10-amd64.iso.sha256` | SHA256 sidecar (`<sha>  <name>`) | same | `dist/` alongside ISO |
+| `beamo-wipe-0.2.10-amd64.manifest.json` | Release provenance (this doc) | same | `dist/` |
+| `beamo-wipe-0.2.10-amd64.manifest.json.sha256` | Manifest checksum | same | `dist/` |
 | `SHA256SUMS` | `sha256sum` of ISO + manifest | same | `dist/` |
-| `beamo-wipe-0.2.9-amd64.img` | Desktop-readable FAT32 USB image with BIOS/UEFI boot | same | `dist/` after the USB-image builder |
-| `beamo-wipe-0.2.9-amd64.img.sha256` | USB image checksum | same | alongside image |
-| `beamo-wipe-0.2.9-amd64.img.json` | USB image size, layout, checksum, and source ISO checksum | same | alongside image |
+| `beamo-wipe-0.2.10-amd64.img` | Desktop-readable FAT32 USB image with BIOS/UEFI boot | same | `dist/` after the USB-image builder |
+| `beamo-wipe-0.2.10-amd64.img.sha256` | USB image checksum | same | alongside image |
+| `beamo-wipe-0.2.10-amd64.img.json` | USB image size, layout, checksum, and source ISO checksum | same | alongside image |
 
 The ISO artifacts are under `dist/` after `./scripts/build-iso.sh`. The hosted
 QEMU phase also runs `./scripts/build-usb-image.sh` on its isolated amd64 Linux
@@ -106,7 +106,7 @@ python3 -m beamo_wipe.verification_evidence parse-dpkg-status \
   --apt-source https://deb.debian.org/debian/ \
   --apt-source https://security.debian.org/ \
   --commit "$(git rev-parse HEAD)" --generated-at 2026-09-11T00:00:00Z \
-  --out dist/beamo-wipe-0.2.9-amd64.packages.json
+  --out dist/beamo-wipe-0.2.10-amd64.packages.json
 python3 -m beamo_wipe.verification_evidence verify-receipts \
   --receipt receipts/lint.receipt.json --receipt receipts/tests.receipt.json
 ```
@@ -117,27 +117,27 @@ Top-level `_manifest_sha256` is the SHA256 of the canonical JSON (sorted keys, n
 
 ```sh
 # From the release directory (where ISO and manifest were downloaded):
-sha256sum -c beamo-wipe-0.2.9-amd64.iso.sha256
-sha256sum -c beamo-wipe-0.2.9-amd64.manifest.json.sha256
+sha256sum -c beamo-wipe-0.2.10-amd64.iso.sha256
+sha256sum -c beamo-wipe-0.2.10-amd64.manifest.json.sha256
 # From repo root, change directory because each sidecar intentionally binds a
 # bare filename rather than an arbitrary path:
-(cd dist && sha256sum -c beamo-wipe-0.2.9-amd64.iso.sha256)
-(cd dist && sha256sum -c beamo-wipe-0.2.9-amd64.manifest.json.sha256)
+(cd dist && sha256sum -c beamo-wipe-0.2.10-amd64.iso.sha256)
+(cd dist && sha256sum -c beamo-wipe-0.2.10-amd64.manifest.json.sha256)
 (cd dist && sha256sum -c SHA256SUMS)
 
-# From a checked-out v0.2.9 source tree, place the downloaded release files
+# From a checked-out v0.2.10 source tree, place the downloaded release files
 # together under dist/, then verify the manifest and sibling ISO (fails closed
 # on dirty/placeholder, path escape, size, content, or sidecar mismatch):
 python3 - <<'PY'
 import pathlib, sys
 sys.path.insert(0, "src")
 from beamo_wipe.release_manifest import verify_manifest
-verify_manifest(pathlib.Path("dist/beamo-wipe-0.2.9-amd64.manifest.json"))
+verify_manifest(pathlib.Path("dist/beamo-wipe-0.2.10-amd64.manifest.json"))
 print("manifest OK")
 PY
 
 # Inspect provenance without trusting ISO:
-python3 -m json.tool dist/beamo-wipe-0.2.9-amd64.manifest.json | head -n 60
+python3 -m json.tool dist/beamo-wipe-0.2.10-amd64.manifest.json | head -n 60
 # Check source commit matches tag:
 git rev-parse HEAD  # should equal manifest source.commit
 git status --porcelain  # should be clean for a release
@@ -218,15 +218,15 @@ python3 - <<'PY'
 import json, pathlib, sys
 sys.path.insert(0, "src")
 from beamo_wipe.release_signing import load_key_registry, verify_release_acceptance
-manifest = pathlib.Path("beamo-wipe-0.2.9-amd64.manifest.json").read_bytes()
-sidecar = json.loads(pathlib.Path("beamo-wipe-0.2.9-amd64.manifest.json.sig").read_text())
+manifest = pathlib.Path("beamo-wipe-0.2.10-amd64.manifest.json").read_bytes()
+sidecar = json.loads(pathlib.Path("beamo-wipe-0.2.10-amd64.manifest.json.sig").read_text())
 registry = load_key_registry(json.loads(pathlib.Path("packaging/release-keys/keys.json").read_text()))
-result = verify_release_acceptance(manifest, sidecar, registry, min_version="0.2.9")
+result = verify_release_acceptance(manifest, sidecar, registry, min_version="0.2.10")
 print("signature ok:", result["key_id"], "version:", result["beamo_wipe_version"])
 PY
 ```
 
-Expected success: `signature ok: <16-hex-key-id> version: 0.2.9`.
+Expected success: `signature ok: <16-hex-key-id> version: 0.2.10`.
 Expected failures (each raises `RuntimeError`, never a partial pass):
 
 - altered manifest or sidecar bytes → `digest mismatch` / `different manifest bytes` / `signature is invalid`
@@ -235,7 +235,7 @@ Expected failures (each raises `RuntimeError`, never a partial pass):
 - retired key → `is not active (retired)`; compromised key → `is revoked`
 - older signed release against the floor → `below the acceptance floor`
 
-Or use the CLI: `python3 -m beamo_wipe.release_signing verify --manifest … --signature … --registry … --min-version 0.2.9`.
+Or use the CLI: `python3 -m beamo_wipe.release_signing verify --manifest … --signature … --registry … --min-version 0.2.10`.
 
 ## Reproducibility
 

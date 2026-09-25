@@ -17,7 +17,7 @@ def test_finalizer_uses_verified_manifest_bytes_after_path_replacement(
     monkeypatch.setenv("BUILD_ID", "local")
     dist = tmp_path / "dist"
     dist.mkdir()
-    dest = dist / "beamo-wipe-0.2.9-amd64.manifest.json"
+    dest = dist / "beamo-wipe-0.2.10-amd64.manifest.json"
     verified = {
         "source": {"commit": "a" * 40},
         "build": {"release_build_id": "local"},
@@ -40,7 +40,7 @@ def test_finalizer_uses_verified_manifest_bytes_after_path_replacement(
 def test_manifest_verifier_rejects_oversize_before_parsing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    path = tmp_path / "beamo-wipe-0.2.9-amd64.manifest.json"
+    path = tmp_path / "beamo-wipe-0.2.10-amd64.manifest.json"
     with path.open("wb") as stream:
         stream.truncate(16 * 1024 * 1024 + 1)
     parsed = False

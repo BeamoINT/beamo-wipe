@@ -6,8 +6,8 @@ from beamo_wipe import release_manifest as rm
 
 
 def test_manifest_tag_prefers_its_release_version(monkeypatch):
-    monkeypatch.setattr(rm, "_run", lambda *_args, **_kw: "v0.2.8\nv0.2.9")
-    assert rm.git_tag_for_commit("a" * 40) == "v0.2.9"
+    monkeypatch.setattr(rm, "_run", lambda *_args, **_kw: "v0.2.8\nv0.2.10")
+    assert rm.git_tag_for_commit("a" * 40) == "v0.2.10"
 
 
 @pytest.mark.parametrize("kind", ["file", "directory", "parent_directory"])

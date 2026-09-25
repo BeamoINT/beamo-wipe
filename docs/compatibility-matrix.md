@@ -28,8 +28,8 @@ The screen-reader view exposes Keep first and both native buttons. See
 [the state, console, and recovery rules](report-shutdown.md). No report survives
 live-session shutdown or power loss unless it has been exported.
 
-> **Matrix v1.10 — for Beamo Wipe 0.2.9 (nwipe 0.42)**
-> Date: 2026-09-13
+> **Matrix v1.11 — for Beamo Wipe 0.2.10 (nwipe 0.42)**
+> Date: 2026-09-25
 > Author: Accountable senior engineer (this checkout)
 > Status: Versioned release target. No physical destructives on the developer host. Production evidence requires the isolated x86_64 Cloud Build gate described below.
 
@@ -74,10 +74,10 @@ Environments map to evidence tiers defined in [`docs/evidence-tiers.md`](evidenc
 
 | Artifact | Version | Path | Size | SHA-256 | Build inputs pinned |
 | --- | --- | --- | --- | --- | --- |
-| Beamo Wipe wrapper | **0.2.9** | `src/beamo_wipe/__init__.py:__version__` | — | — | `pyproject.toml 0.2.9`, `NWIPE_PINNED_VERSION 0.42`, `NWIPE_PINNED_COMMIT 6082bde0…67105` |
-| Staged chroot copy | 0.2.9 | `packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/__init__.py` | — | — | Synced from `src/` by `scripts/build-iso.sh` (hook `0500-build-nwipe` clones at pinned commit, `GIT_CONFIG_*` isolated, fails closed if compiler packages remain) |
+| Beamo Wipe wrapper | **0.2.10** | `src/beamo_wipe/__init__.py:__version__` | — | — | `pyproject.toml 0.2.10`, `NWIPE_PINNED_VERSION 0.42`, `NWIPE_PINNED_COMMIT 6082bde0…67105` |
+| Staged chroot copy | 0.2.10 | `packaging/live/config/includes.chroot/usr/lib/python3/dist-packages/beamo_wipe/__init__.py` | — | — | Synced from `src/` by `scripts/build-iso.sh` (hook `0500-build-nwipe` clones at pinned commit, `GIT_CONFIG_*` isolated, fails closed if compiler packages remain) |
 | Prior stable ISO | **0.2.9** | GitHub release `v0.2.9` | 537 MiB | `4042f85e0e7c155dd2340dc93a6b879c35ebe2f13da9c81c1ba6269524a6b169` | Source `452cfc061ad20a9c44df202201404f3c4130fbb6`; branded BIOS/UEFI menus; retained rollback target |
-| Release target | **0.2.9** | `dist/beamo-wipe-0.2.9-amd64.iso` | Set by hosted build | Set by manifest | Content-addressed build inputs; production upload only after full hosted/QEMU success |
+| Release target | **0.2.10** | `dist/beamo-wipe-0.2.10-amd64.iso` | Set by hosted build | Set by manifest | Content-addressed build inputs; production upload only after full hosted/QEMU success |
 
 `packaging/live/config/bootstrap` and `binary` are `https://deb.debian.org` / `https://security.debian.org` only, use debootstrap `minbase` with system defaults ignored, `firmware false`, `bootappend live: noeject nopersistence noswap ip=frommedia nox11autologin`, and `bootloaders syslinux grub-efi` (BIOS + UEFI). Full apt/package list: `packaging/live/config/package-lists/beamo.list.chroot` (kept minimal — no `curl/git/build-essential/sudo/network-manager/openssh-server`).
 
@@ -318,10 +318,10 @@ BEAMO_WIPE_NO_OPEN=1 ./preview --web && ls web-preview/index.html
 ./scripts/ci-cloud.sh --project beamo-wipe --publish-release # separately authorized production path
 # or: gcloud builds submit --project=beamo-wipe --config cloudbuild.yaml .
 # Logs: Google Cloud Console → Cloud Build → beamo-wipe-pr-gate / beamo-wipe-main-gate
-# Authorized artifacts: gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/beamo-wipe-0.2.9-amd64.iso
+# Authorized artifacts: gs://beamo-wipe_cloudbuild/releases/<BUILD_ID>/beamo-wipe-0.2.10-amd64.iso
 # Validate locally after download:
-sha256sum dist/beamo-wipe-0.2.9-amd64.iso
-dd if=dist/beamo-wipe-0.2.9-amd64.iso bs=1 skip=32769 count=5 2>/dev/null | od -An -tx1  # CD001
+sha256sum dist/beamo-wipe-0.2.10-amd64.iso
+dd if=dist/beamo-wipe-0.2.10-amd64.iso bs=1 skip=32769 count=5 2>/dev/null | od -An -tx1  # CD001
 python3 -m pytest  # (inside cloudbuild step, xvfb-run 72 DPI)
 ```
 
@@ -329,7 +329,7 @@ python3 -m pytest  # (inside cloudbuild step, xvfb-run 72 DPI)
 
 ```bash
 # On a throwaway x86_64 Linux VM with /dev/kvm, no host disks passed through:
-BEAMO_WIPE_VERSION=0.2.9 ./scripts/qemu-verify.sh
+BEAMO_WIPE_VERSION=0.2.10 ./scripts/qemu-verify.sh
 # Checklist per docs/vm-test.md:
 # - exact manifest/ISO checksums
 # - shipped nwipe 0.42 bytes only
@@ -377,6 +377,7 @@ BEAMO_WIPE_VERSION=0.2.9 ./scripts/qemu-verify.sh
 | **1.8** | 2026-09-09 | 0.2.7 | Fail closed on leftover USB label fallback and mounted RAID/multipath members; decimal GB labels use half-up rounding; Tk Enter follows the focused control. |
 | **1.9** | 2026-09-13 | 0.2.8 | First signed release, speech boot entries, and full three-method qualification; physical-hardware limits remain. |
 | **1.10** | 2026-09-13 | 0.2.9 | Bounded kiosk recovery and portable developer tooling. Exact qualification is recorded in the release manifest; hardware support is unchanged. |
+| **1.11** | 2026-09-25 | 0.2.10 | Safety, recovery, desktop media, release packaging, and verification fixes from the comprehensive audit. Hardware support and pinned nwipe remain unchanged. |
 
 ---
 

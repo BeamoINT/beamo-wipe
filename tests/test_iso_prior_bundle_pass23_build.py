@@ -10,8 +10,8 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ISO = "beamo-wipe-0.2.9-amd64.iso"
-MANIFEST = "beamo-wipe-0.2.9-amd64.manifest.json"
+ISO = "beamo-wipe-0.2.10-amd64.iso"
+MANIFEST = "beamo-wipe-0.2.10-amd64.manifest.json"
 
 
 def _preflight(tmp_path: Path, setup):
@@ -23,7 +23,7 @@ def _preflight(tmp_path: Path, setup):
     (scripts / "build-iso.sh").write_text(source.split("\nif ! docker info", 1)[0] + "\n")
     package = project / "src/beamo_wipe"
     package.mkdir(parents=True)
-    (package / "__init__.py").write_text('__version__ = "0.2.9"\n')
+    (package / "__init__.py").write_text('__version__ = "0.2.10"\n')
     out = project / "dist"
     out.mkdir()
     setup(out)
@@ -50,7 +50,7 @@ def _complete_bundle(out: Path):
     iso_sha = hashlib.sha256(iso_blob).hexdigest()
     fields = {
         "schema_version": 2,
-        "beamo_wipe_version": "0.2.9",
+        "beamo_wipe_version": "0.2.10",
         "artifact": {
             "iso_name": ISO,
             "iso_path": ISO,
@@ -159,7 +159,7 @@ def test_iso_backup_accepts_verified_previous_version_sums(tmp_path):
     helper = "verify_prior_bundle() {" + source.split("verify_prior_bundle() {", 1)[1].split(
         "\ncleanup() {", 1
     )[0]
-    script = "#!/bin/sh\nset -eu\nVERSION=0.2.9\n" + helper + '\nverify_prior_bundle "$1" "$2"\n'
+    script = "#!/bin/sh\nset -eu\nVERSION=0.2.10\n" + helper + '\nverify_prior_bundle "$1" "$2"\n'
     result = subprocess.run(
         ["sh", "-c", script, "verify", str(backup), str(out)],
         capture_output=True,
@@ -193,7 +193,7 @@ def test_iso_transaction_preserves_prior_name_swapped_to_foreign_regular_file(tm
     )[1].split('\necho "Wrote ', 1)[0]
     script = tmp_path / "transaction.sh"
     script.write_text(
-        f"#!/bin/sh\nset -eu\nOUT_DIR='{out}'\nVERSION=0.2.9\nISO_NAME={ISO}\n"
+        f"#!/bin/sh\nset -eu\nOUT_DIR='{out}'\nVERSION=0.2.10\nISO_NAME={ISO}\n"
         + helpers
         + "\ntrap cleanup EXIT\n"
         + 'BUILD_OUT="$(mktemp -d "$OUT_DIR/.build-output.XXXXXX")"\n'
