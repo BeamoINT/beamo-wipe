@@ -16,6 +16,7 @@ from beamo_wipe.discover import discover, load_lsblk_json_text
 from beamo_wipe.nwipe_runner import DryRunRunner, NwipeRunner
 from beamo_wipe.models import Screen
 from beamo_wipe.safety import SafetyError, require_live_or_dry_run, running_on_live_usb
+from beamo_wipe.ui import StartupDisplayUnavailable
 from beamo_wipe.wizard import Wizard
 
 
@@ -117,7 +118,13 @@ def _open_html(path: Path) -> int:
         return 0
     import webbrowser
 
-    webbrowser.open(path.resolve().as_uri())
+    try:
+        opened = webbrowser.open(path.resolve().as_uri())
+    except Exception:
+        opened = False
+    if not opened:
+        print(f"Could not open the helper in a browser: {path}", file=sys.stderr)
+        return 2
     print(path)
     return 0
 
@@ -280,6 +287,13 @@ def _shutdown() -> bool:
     return False
 
 
+def _shutdown_if_still_safe(wizard: Wizard) -> bool:
+    if not wizard.shutdown_still_safe():
+        print(POWER_REQUEST_BLOCKED, file=sys.stderr)
+        return False
+    return _shutdown()
+
+
 def _blocked_wizard(exc: Exception) -> Wizard:
     # Startup remains fail-closed, but support stays reachable.
     from beamo_wipe.diagnostic_report import exception_code
@@ -314,13 +328,18 @@ def _build_wizard_with_console_stages(args: argparse.Namespace) -> Wizard:
 
     def show() -> None:
         for row in run.drain():
-            if row["key"] in shown:
+            if row["state"] == "pending" or row["key"] in shown:
                 continue
             shown.add(row["key"])
             _print_startup_row(row["title"], row["hint"])
 
     show()
-    run.start()
+    try:
+        run.start()
+    except Exception as exc:
+        # A worker launch failure leaves no startup outcome to poll. Keep the
+        # same blocked support route as a discovery failure.
+        return _blocked_wizard(exc)
     while True:
         _time.sleep(0.2)
         outcome = run.poll()
@@ -355,11 +374,13 @@ def _build_wizard_with_tk_stages(args: argparse.Namespace, fullscreen: bool):
             lambda report: _build_wizard(args, progress=report),
             fullscreen=fullscreen,
         )
-    except RuntimeError:
+    except StartupDisplayUnavailable:
         # No display for the splash (probe refused to abort the process).
         # Build with no splash; the later run_tk keeps the long-standing
         # graphical-failure path (keyboard fallback, or code 3).
         return _build_without_splash(args)
+    except Exception as exc:
+        return _blocked_wizard(exc)
     if kind == "wizard":
         return payload
     if kind == "failed":
@@ -376,9 +397,11 @@ def _build_wizard_with_accessible_stages(args: argparse.Namespace, fullscreen: b
             lambda report: _build_wizard(args, progress=report),
             fullscreen=fullscreen,
         )
-    except RuntimeError:
+    except StartupDisplayUnavailable:
         # No display for the splash; same fallback discipline as Tk.
         return _build_without_splash(args)
+    except Exception as exc:
+        return _blocked_wizard(exc)
     if kind == "wizard":
         return payload
     if kind == "failed":
@@ -403,11 +426,14 @@ def _main(argv: list[str] | None = None, *, session_store=None, args=None) -> in
         dest = project_root() / "web-preview" / "index.html"
         if not (project_root() / "helper" / "index.html").is_file():
             dest = Path.cwd() / "web-preview" / "index.html"
-        if os.environ.get("BEAMO_WIPE_NO_OPEN") == "1":
-            path = write_gallery(dest, args.lang)
-            print(path)
-            return 0
-        path = open_gallery(dest, args.lang)
+        try:
+            if os.environ.get("BEAMO_WIPE_NO_OPEN") == "1":
+                path = write_gallery(dest, args.lang)
+            else:
+                path = open_gallery(dest, args.lang)
+        except OSError:
+            print("Could not write or open the preview gallery in a browser.", file=sys.stderr)
+            return 2
         print(path)
         return 0
     if args.helper:
@@ -449,23 +475,29 @@ def _run_session(args, *, session_store, use_console, want_accessible,
     # A new object graph is the session boundary: never reset live authority
     # fields in place or reuse a runner, report worker, or discovery snapshot.
     keyboard_layout = None
+    language = None
+    text_size = None
     while True:
         code = _run_one_session(
             args, session_store=session_store, use_console=use_console,
             want_accessible=want_accessible, fullscreen=fullscreen, reader=reader,
-            keyboard_layout=keyboard_layout)
+            keyboard_layout=keyboard_layout, language=language,
+            text_size=text_size)
         if not isinstance(code, Wizard):
             return code
         keyboard_layout = code.keyboard_layout
+        language = code.language
+        text_size = code.text_size
         use_console = code.diagnostic_ui == "console"
         want_accessible = code.diagnostic_ui == "accessible"
-        code = None
+        del code
         if session_store is not None:
             session_store.begin_new_session()
 
 
 def _run_one_session(args, *, session_store, use_console, want_accessible,
-                     fullscreen, reader, keyboard_layout=None) -> int | Wizard:
+                     fullscreen, reader, keyboard_layout=None,
+                     language=None, text_size=None) -> int | Wizard:
     if args.demo:
         # Instant fake data: stages would flash meaninglessly.
         try:
@@ -495,11 +527,14 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
 
     if keyboard_layout is not None:
         wizard.keyboard_layout = keyboard_layout
+    if text_size is not None:
+        wizard.set_text_size(text_size)
     wizard.diagnostic_ui = "console" if use_console else "graphical"
-    if args.lang != "en":
-        # Preview/dev only: the flag is cleared on the live USB, where the
-        # keyboard screen owns the choice.
-        wizard.set_language(args.lang)
+    # The language modules are process-wide. Every freshly constructed
+    # wizard must record the same choice as the copy it will render. Keep
+    # the owner's choice when they erase another disk in this live session.
+    # The flag is preview/dev only; it is cleared on the live USB.
+    wizard.set_language(language if language is not None else args.lang)
     if use_console and os.environ.get("BEAMO_WIPE_GRAPHICAL_UNAVAILABLE") == "1" and not wizard.startup_error_code:
         wizard.startup_error_code = "graphical_unavailable"
     if not use_console:
@@ -518,9 +553,20 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
             if wizard.wants_new_session:
                 return wizard
             if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
-                _shutdown()
+                _shutdown_if_still_safe(wizard)
+            if not wizard.wants_shutdown and not wizard.wants_new_session:
+                # Tk/GTK can return without a window action (for example if
+                # their event loop is quit externally). Keep the same owner
+                # boundary as the console before releasing SessionStore.
+                wizard.settle_failed_interface()
             return code
-        except Exception:  # noqa: BLE001 — fall back to console
+        except BaseException as exc:  # noqa: BLE001 — settle owned engine first
+            if not isinstance(exc, Exception):
+                # A control interruption bypasses the normal graphical
+                # fallback. Keep the same ownership boundary as the console
+                # before SessionStore's outer finally can release it.
+                wizard.settle_failed_interface()
+                raise
             print(GRAPHICAL_UNAVAILABLE, file=sys.stderr)
             if getattr(wizard, "_wipe_request", None) is None and not getattr(wizard, "startup_error_code", ""):
                 wizard.startup_error_code = "graphical_unavailable"
@@ -528,40 +574,50 @@ def _run_one_session(args, *, session_store, use_console, want_accessible,
                 # Under startx, running the console here leaves X owning tty1
                 # and hides the fallback. Exit so the kiosk supervisor can
                 # tear X down and launch the visible console on tty1.
-                if wizard.screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}:
+                try:
+                    wizard.settle_failed_interface()
+                except Exception as cancel_exc:
                     try:
-                        wizard.interface_failed()
-                    except Exception as cancel_exc:
-                        try:
-                            from beamo_wipe.diagnostics import log_diag
+                        from beamo_wipe.diagnostics import log_diag
 
-                            log_diag(
-                                "app",
-                                "graphical_failure_cancel_failed",
-                                type(cancel_exc).__name__,
-                            )
-                        except Exception:
-                            pass
+                        log_diag(
+                            "app",
+                            "graphical_failure_cancel_failed",
+                            type(cancel_exc).__name__,
+                        )
+                    except Exception:
+                        pass
                 return 3
             use_console = True
 
     wizard.diagnostic_ui = "console"
     from beamo_wipe.ui.console_wizard import run_console
 
-    if args.plain_console:
-        from beamo_wipe.ui.console_wizard import _plain_loop
-        code = _plain_loop(wizard)
-    else:
-        code = run_console(wizard)
+    try:
+        if args.plain_console:
+            from beamo_wipe.ui.console_wizard import _plain_loop
+            code = _plain_loop(wizard)
+        else:
+            code = run_console(wizard)
+    except BaseException:
+        # The console may fail outside its own handlers. Settle any active
+        # engine before SessionStore's outer finally releases UI ownership.
+        wizard.settle_failed_interface()
+        raise
+    if not wizard.wants_shutdown and not wizard.wants_new_session:
+        # A console exit without an accepted end-of-session action is also
+        # interface loss, even if the renderer returned a status code.
+        wizard.settle_failed_interface()
     if wizard.wants_new_session:
         return wizard
     if wizard.wants_shutdown and not args.demo and not wizard.dry_run:
-        _shutdown()
+        _shutdown_if_still_safe(wizard)
     return code
 
 
 FAKE_REQUIRED = "A fake lsblk JSON file is required for refresh."
 SHUTDOWN_FAILED = "Shutdown failed: could not power off. Hold the power button."
+POWER_REQUEST_BLOCKED = "Power request blocked: an erase or report action may still be active."
 STARTUP_BLOCKED = "Startup was blocked. Save a diagnostic report for support."
 STARTUP_BLOCKED_LOG = "Startup blocked ({code})."
 GRAPHICAL_UNAVAILABLE = "Graphical UI unavailable. Using keyboard screens."
@@ -581,7 +637,23 @@ def main(argv: list[str] | None = None) -> int:
         # A failed journal/identity/ownership check must never reach runner startup.
         store.open()
         return _main(argv, session_store=store, args=args)
-    except (OSError, SafetyError, ValueError):
+    except (OSError, SafetyError, ValueError) as exc:
+        # A fixed serial marker lets the isolated boot gate distinguish a
+        # volatile-filesystem refusal from other pre-UI startup failures.
+        # Never put the exception text, a disk path, or journal data on serial.
+        try:
+            from beamo_wipe.diagnostics import emit_serial_marker
+            from beamo_wipe.session_recovery import RECOVERY_DIRECTORY_NOT_VOLATILE
+
+            marker = (
+                "BEAMO_WIPE_RECOVERY_TMP_NOT_VOLATILE"
+                if isinstance(exc, SafetyError)
+                and str(exc) == RECOVERY_DIRECTORY_NOT_VOLATILE
+                else "BEAMO_WIPE_RECOVERY_UNAVAILABLE"
+            )
+            emit_serial_marker(marker)
+        except Exception:
+            pass
         print(RECOVERY_UNAVAILABLE, file=sys.stderr)
         return 3
     finally:

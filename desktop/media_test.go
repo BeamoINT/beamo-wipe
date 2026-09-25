@@ -17,6 +17,8 @@ func mediaFixture(t *testing.T) string {
 	fixtureFile(t, root, "live/filesystem.squashfs", "squash")
 	fixtureFile(t, root, "desktop-build.json", `{"version":"test"}`)
 	fixtureFile(t, root, "EFI/BOOT/BOOTX64.EFI", "MZfixture-not-executable")
+	fixtureFile(t, root, "Start Beamo Wipe Linux", "launcher fixture")
+	fixtureFile(t, root, "app", "launcher fixture")
 	return root
 }
 func fixtureFile(t *testing.T, root, rel, content string) {
@@ -94,6 +96,24 @@ func TestLinkedMarkerRefused(t *testing.T) {
 		t.Fatal("followed linked marker")
 	}
 }
+
+func TestLinkedLauncherRefusedEvenWhenUSBMarkersArePresent(t *testing.T) {
+	root := mediaFixture(t)
+	launcher := filepath.Join(root, "app")
+	outside := filepath.Join(t.TempDir(), "other-launcher")
+	if err := os.WriteFile(outside, []byte("not the USB launcher"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(launcher); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, launcher); err != nil {
+		t.Skip("host does not allow test symlinks")
+	}
+	if got := inspectMedia(launcher); got.Problem != "media" {
+		t.Fatalf("linked launcher was accepted as USB media: %+v", got)
+	}
+}
 func TestMediaChangesInvalidateRestartFingerprint(t *testing.T) {
 	root := mediaFixture(t)
 	exe := filepath.Join(root, "app")
@@ -103,7 +123,7 @@ func TestMediaChangesInvalidateRestartFingerprint(t *testing.T) {
 	if original.Fingerprint == changed.Fingerprint {
 		t.Fatal("loader not bound to plan")
 	}
-	s := Snapshot{UEFI: true, MediaID: "usb", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}, Layout: original.Fingerprint}
+	s := Snapshot{UEFI: true, MediaID: "usb", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: option(1)}, Layout: original.Fingerprint}
 	p := makePlan(s)
 	s.Layout = changed.Fingerprint
 	if !p.Direct || makePlan(s).Fingerprint == p.Fingerprint {

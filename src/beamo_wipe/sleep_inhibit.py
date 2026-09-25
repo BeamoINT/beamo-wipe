@@ -43,10 +43,20 @@ class SleepInhibit:
     @property
     def active(self) -> bool:
         proc = self._proc
-        return proc is not None and proc.poll() is None
+        if proc is None:
+            return False
+        try:
+            return proc.poll() is None
+        except (OSError, AttributeError):
+            # Status could not be confirmed; retain the handle for another stop.
+            return True
 
     def start(self) -> None:
         self.stop()
+        if self._proc is not None:
+            # The previous inhibitor may still be alive. Do not lose its handle
+            # by replacing it with a second process.
+            return
         if os.environ.get("BEAMO_WIPE_LIVE") != "1":
             return
         if os.environ.get("BEAMO_WIPE_DRY_RUN") == "1":
@@ -77,18 +87,28 @@ class SleepInhibit:
 
     def stop(self) -> None:
         proc = self._proc
-        self._proc = None
         if proc is None:
             return
         try:
             if proc.poll() is None:
-                proc.terminate()
+                try:
+                    proc.terminate()
+                except (OSError, AttributeError):
+                    proc.kill()
                 try:
                     proc.wait(timeout=2)
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait(timeout=1)
+            self._proc = None
         except (OSError, subprocess.TimeoutExpired, AttributeError):
+            # A failed terminate/kill leaves liveness uncertain. A successful
+            # poll can still prove that the process exited in the meantime.
+            try:
+                if proc.poll() is not None:
+                    self._proc = None
+            except (OSError, AttributeError):
+                pass
             try:
                 from beamo_wipe.diagnostics import log_diag
 

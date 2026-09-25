@@ -97,8 +97,10 @@ def excluded_device(
 ) -> ExcludedDevice:
     from beamo_wipe.safety import (
         SafetyError,
+        assert_local_device_transport,
         has_any_mount,
         has_protected_mount,
+        is_preview_env,
         is_remote_disk,
         is_unproven_scsi_transport,
         normalize_whole_disk,
@@ -115,13 +117,21 @@ def excluded_device(
         reasons.append(
             REASON_CAPACITY_UNKNOWN if capacity_unknown else REASON_ZERO_CAPACITY
         )
+    whole_disk = True
     try:
         normalize_whole_disk(disk.path)
     except SafetyError:
         unsupported = True
+        whole_disk = False
     if unsupported or is_remote_disk(disk):
         reasons.append(REASON_UNSUPPORTED)
-    if is_unproven_scsi_transport(disk):
+    unproven_transport = is_unproven_scsi_transport(disk)
+    if whole_disk and not is_preview_env() and not is_remote_disk(disk):
+        try:
+            assert_local_device_transport(disk.path)
+        except SafetyError:
+            unproven_transport = True
+    if unproven_transport:
         reasons.append(REASON_UNPROVEN_TRANSPORT)
     if not reasons:
         reasons.append(REASON_ELIGIBILITY)
@@ -160,15 +170,11 @@ def nested_under(
     """Children whose known physical parent is parent_path. Display only."""
     if not parent_path:
         return ()
-    aliases = {parent_path}
-    try:
-        aliases.add(os.path.realpath(parent_path))
-    except OSError:
-        pass
+    aliases = _path_aliases(parent_path)
     return tuple(
         device
         for device in devices
-        if device.parent_path and device.parent_path in aliases
+        if device.parent_path and _path_aliases(device.parent_path) & aliases
     )
 
 
@@ -216,7 +222,7 @@ def _raw_other_devices(discovery: DiscoveryResult) -> tuple[ExcludedDevice, ...]
         return tuple(
             device
             for device in discovery.excluded
-            if not device.path or device.path not in boot_paths
+            if not device.path or not (_path_aliases(device.path) & boot_paths)
         )
     eligible = {d.path for d in selectable_disks(discovery)}
     return tuple(
@@ -248,7 +254,7 @@ def _group_other_devices(
     known = _known_parent_paths(raw, discovery)
     roots = []
     for device in raw:
-        if device.parent_path and device.parent_path in known:
+        if device.parent_path and _path_aliases(device.parent_path) & known:
             continue
         roots.append(device)
     grouped = []
@@ -302,7 +308,7 @@ def count_summary(discovery: DiscoveryResult, *, spoken: bool = False) -> str:
     """Concise hardware inventory. Display only; never changes eligibility."""
     if not discovery.boot_identified or discovery.error or discovery.boot is None:
         return UNKNOWN_COUNT
-    from beamo_wipe.safety import selectable_disks
+    from beamo_wipe.safety import OPTICAL_RE, selectable_disks
 
     eligible = len(selectable_disks(discovery))
     if eligible == 0:
@@ -313,7 +319,13 @@ def count_summary(discovery: DiscoveryResult, *, spoken: bool = False) -> str:
         available = f"{eligible} disks available to erase"
     parts = [available]
     boot = discovery.boot
-    parts.append(USB_PROTECTED if boot.bus == "USB" else DISC_PROTECTED)
+    # USB-SATA bridges can report ATA/SATA (or no TRAN). A /dev/sd* boot
+    # medium is still the Beamo USB; only an optical kernel node is a disc.
+    parts.append(
+        DISC_PROTECTED
+        if OPTICAL_RE.fullmatch(os.path.realpath(boot.path))
+        else USB_PROTECTED
+    )
     others = other_devices(discovery)
     if others:
         n = len(others)
@@ -401,7 +413,9 @@ def comparison_entries(
             ENTRY_DISK.format(number=number),
             ENTRY_MODEL.format(value=view.title),
             ENTRY_CAPACITY.format(value=view.capacity),
-            ENTRY_SERIAL.format(value=(disk.serial or '').strip() or SERIAL_NOT_REPORTED),
+            ENTRY_SERIAL.format(
+                value=view.id_value if view.id_label == SERIAL_LABEL else SERIAL_NOT_REPORTED
+            ),
             ENTRY_CONNECTION.format(value=view.connection),
         ]
         if view.id_label != SERIAL_LABEL:
@@ -413,4 +427,3 @@ def comparison_entries(
 
 def comparison_text(disks: Iterable[Disk], *, peers: Iterable[Disk] | None = None) -> str:
     return COMPARE_INTRO + "\n\n" + "\n\n".join(comparison_entries(disks, peers=peers))
-

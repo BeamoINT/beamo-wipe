@@ -107,8 +107,9 @@ Wizard shows `No disk to erase`
 ### 4.d Extra disks / uncertain boot media — `PICK_BLOCKED` (cannot tell which disk is this USB)
 
 ```
-Wizard shows `We cannot tell which disk is this USB. Unplug extra USB sticks and start again.`
+Wizard shows `We cannot tell which disk is this USB. Shut down, check USB connections, and start again. If this repeats, contact support.`
   ├─ Tell customer to unplug every USB except the Beamo stick + restart (hubs hide sticks, docs/boot-card.md). Do NOT suggest picking the USB as a target.
+  ├─ If only the Beamo USB is attached and this repeats, do not assume a large SATA/NVMe disk is internal: a USB bridge can report either transport. Collect live mount sources and contact support. Label/cmdline evidence alone cannot expose a target in this case.
   ├─ Check: two sticks both labeled BEAMO_WIPE? → duplicate label triggers fail-closed duplicate (fixture lsblk duplicate BEAMO_WIPE on sda+sdb, both usb → boot_identified False). Guidance same: one stick only.
   ├─ Stale BEAMO_WIPE on internal SATA (sda tran sata label BEAMO_WIPE) + real USB as sdb with DEBIAN label → label fallback correctly ignores sda (must be usb/rom, _looks_like_live_medium) and mount wins. If still blocked, collect mount sources + cmdline (`boot=live` token).
   └─ Still blocked → collect `lsblk`, `cat /proc/cmdline`, `findmnt --json` from live (via second USB), file SEV-2/3. Engineer adds fixture `lsblk_sata_bridge.json` style. Never "export BEAMO_WIPE_BOOT_DEVICE" to customer.

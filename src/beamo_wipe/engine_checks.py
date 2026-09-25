@@ -45,18 +45,15 @@ _SG_IO = re.compile(r"SG_IO bad/missing sense data")
 _HDPARM_INVALID = re.compile(
     r"hdparm reports invalid output, sector information may be invalid"
 )
-_ERROR_SUMMARY = "Error Summary"
+_ERROR_SUMMARY = re.compile(r"^(?:\*+\s*)?Error Summary(?:\s*\*+)?$")
 _ERROR_ROW = re.compile(
-    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*$"
+    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*([0-9]{1,20})\s*\|\s*([0-9]{1,20})\s*\|\s*([0-9]{1,20})\s*$"
 )
-_ERASURE_SUMMARY = "Erasure Summary"
+_ERASURE_SUMMARY = re.compile(r"^(?:\*+\s*)?Erasure Summary(?:\s*\*+)?$")
 _ERASURE_ROW = re.compile(
-    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\S+)\s*$"
+    r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|\s*([0-9]{1,20})\s*\|\s*([0-9]{1,20})\s*\|\s*(\S+)\s*$"
 )
-_FAILURE_MARK = re.compile(
-    r"(?:>>> FAILURE! <<<|\|-FAILED-\||\|UABORTED\||\|INSANITY\|)"
-)
-_VERIFY_MISMATCH = re.compile(r"Verification mismatch on")
+MAX_UINT64 = 2**64 - 1
 
 
 @dataclass(frozen=True)
@@ -107,7 +104,9 @@ def _mentions(line: str, names: Iterable[str]) -> bool:
 
 
 def _matches_device(pattern: re.Pattern[str], line: str, names: frozenset[str]) -> bool:
-    match = pattern.search(_body(line))
+    # The pinned nwipe status sentence starts the log body. Device-supplied
+    # model/serial text can contain the same words later in a line.
+    match = pattern.match(_body(line))
     return match is not None and match.group(1) in names
 
 
@@ -143,7 +142,7 @@ def _check(
 
 def _target_lines(log_text: str, names: frozenset[str]) -> list[str]:
     out = []
-    for raw in (log_text or "").splitlines():
+    for raw in (log_text or "").split("\n"):
         if _mentions(raw, names):
             out.append(raw)
     return out
@@ -192,12 +191,20 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
     ]
     missing_tool = [
         line
-        for line in (log_text or "").splitlines()
+        for line in (log_text or "").split("\n")
         if _HDPARM_MISSING.search(_body(line))
         or _HDPARM_STREAM.search(_body(line))
         or _HDPARM_FAILED.search(_body(line))
     ]
-    reduced = _erasure_shortfall(log_text, names)
+    from beamo_wipe.nwipe_runner import _status_column_is_shared
+
+    # The Erasure Summary carries only eight characters of the disk name.
+    # A second logged path with the same cell makes that table unassignable.
+    erasure = (
+        "invalid"
+        if _status_column_is_shared(log_text, device)
+        else _erasure_summary_state(log_text, names)
+    )
     if sum(1 for flag in (bool(detected), bool(none), bool(unknown)) if flag) > 1:
         sample = (detected or none or unknown)[0]
         return _check(
@@ -207,7 +214,7 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
             HIDDEN_CONTRADICTORY,
             _provenance(parser, sample),
         )
-    if detected or reduced is True:
+    if detected or erasure == "shortfall":
         sample = (detected[0] if detected else "")
         return _check(
             "hidden_capacity",
@@ -225,7 +232,7 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
             HIDDEN_INDETERMINATE,
             _provenance(parser, sample),
         )
-    if none and reduced is not True:
+    if none and erasure in {"absent", "complete"}:
         return _check(
             "hidden_capacity",
             "pass",
@@ -242,28 +249,50 @@ def _parse_hidden_capacity(log_text: str, device: str) -> CheckResult:
     )
 
 
-def _erasure_shortfall(log_text: str, names: frozenset[str]) -> Optional[bool]:
-    """True if v0.42 Erasure Summary shows bytes erased < bytes total for target."""
+def _erasure_summary_state(log_text: str, names: frozenset[str]) -> str:
+    """Classify the target's v0.42 summary without trusting a first row only."""
     in_table = False
-    for raw in (log_text or "").splitlines():
+    found: Optional[bool] = None
+    for raw in (log_text or "").split("\n"):
         body = _body(raw)
-        if _ERASURE_SUMMARY in body:
+        if _ERASURE_SUMMARY.fullmatch(body.strip()):
             in_table = True
             continue
         if in_table and body.startswith("***"):
-            return None
+            in_table = False
+            continue
         if not in_table:
             continue
         match = _ERASURE_ROW.match(body)
         if not match:
+            # A target row with invalid numbers or a missing percentage must
+            # not be ignored while an earlier, apparently complete row passes.
+            row_name = re.match(r"^[! ]\s*([A-Za-z0-9._+-]+)\s*\|", body)
+            if row_name and row_name.group(1) in names:
+                return "invalid"
             continue
         if match.group(1) not in names:
             continue
         erased, total = int(match.group(2)), int(match.group(3))
-        if total <= 0:
-            return None
-        return erased < total
-    return None
+        percentage = re.fullmatch(r"(\d{1,3})\.(\d{2})%", match.group(4))
+        if (
+            found is not None
+            or total <= 0
+            or erased > total
+            or erased > MAX_UINT64
+            or total > MAX_UINT64
+            or percentage is None
+        ):
+            return "invalid"
+        hundredths = int(percentage.group(1)) * 100 + int(percentage.group(2))
+        # The printed percentage is rounded to two decimal places by nwipe.
+        # Compare in integer arithmetic so large byte counts cannot overflow.
+        if abs(hundredths * total - erased * 10000) > total // 2:
+            return "invalid"
+        found = erased < total
+    if found is None:
+        return "absent"
+    return "shortfall" if found else "complete"
 
 
 def _parse_io_media(log_text: str, device: str) -> CheckResult:
@@ -277,10 +306,34 @@ def _parse_io_media(log_text: str, device: str) -> CheckResult:
             HIDDEN_NO_DEVICE,
             _provenance(parser, source="missing"),
         )
+    from beamo_wipe.nwipe_runner import (
+        _line_reports_target_failure,
+        _line_reports_target_verification_mismatch,
+        _status_column_is_shared,
+    )
+
+    if _status_column_is_shared(log_text, device):
+        explicit_failures = [
+            line
+            for line in (log_text or "").split("\n")
+            if _line_reports_target_failure(line, device, shared=True)
+            or _line_reports_target_verification_mismatch(line, device)
+        ]
+        if explicit_failures:
+            return _check(
+                "io_media", "fail", IO_ERRORS, IO_FAILURE_MARK,
+                _provenance(parser, explicit_failures[0]),
+            )
+        return _check(
+            "io_media", "unavailable", IO_UNAVAILABLE,
+            "The nwipe status column is shared by another logged disk.",
+            _provenance(parser, source="nwipe_log"),
+        )
     fail_lines = [
         line
-        for line in _target_lines(log_text, names)
-        if _FAILURE_MARK.search(line) or _VERIFY_MISMATCH.search(_body(line))
+        for line in (log_text or "").split("\n")
+        if _line_reports_target_failure(line, device, shared=False)
+        or _line_reports_target_verification_mismatch(line, device)
     ]
     row = _error_summary_row(log_text, names)
     if row is None and not fail_lines:
@@ -328,9 +381,9 @@ def _error_summary_row(
     in_table = False
     malformed = False
     found = None
-    for raw in (log_text or "").splitlines():
+    for raw in (log_text or "").split("\n"):
         body = _body(raw)
-        if _ERROR_SUMMARY in body:
+        if _ERROR_SUMMARY.fullmatch(body.strip()):
             in_table = True
             continue
         if in_table and body.startswith("***"):
@@ -350,6 +403,9 @@ def _error_summary_row(
         if match.group(1) not in names:
             continue
         counts = (int(match.group(2)), int(match.group(3)), int(match.group(4)))
+        if any(count > MAX_UINT64 for count in counts):
+            malformed = True
+            continue
         if found is not None and counts != found:
             malformed = True
         found = counts

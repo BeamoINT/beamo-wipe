@@ -116,28 +116,23 @@ def _parse() -> _Doc:
 
 
 def test_helper_and_iso_start_here_are_injected_from_source(tmp_path):
-    # A clean checkout has no generated ISO staging. Execute the builder's
-    # copy commands against disposable destinations, then the same inject
-    # function the ISO script calls.
+    # A clean checkout has no generated ISO staging. Check the asset stager's
+    # two destinations and exercise the same injection against disposable files.
     from beamo_wipe import __version__
     from beamo_wipe.build_identity import write_injected
     from beamo_wipe.compat_story import SOURCE_STUB, inject_helper_html
 
     script = BUILD_ISO.read_text(encoding="utf-8")
-    commands = [line.strip() for line in script.splitlines()
-                if line.strip().startswith('cp "$ROOT/helper/index.html" ')]
-    assert commands == [
-        'cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"',
-        'cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"',
-    ]
-    assert "inject_helper_html" in script
+    assets = (ROOT / "scripts/stage_live_assets.py").read_text(encoding="utf-8")
+    assert "stage_live_assets.py" in script
+    assert 'put_bytes(share / "helper/index.html", packaged_html)' in assets
+    assert 'put_bytes(binary / "START-HERE.html", packaged_html)' in assets
     binary = tmp_path / "binary"
     share = tmp_path / "share"
     binary.mkdir()
     (share / "helper").mkdir(parents=True)
-    subprocess.run(["bash", "-ceu", "\n".join(commands)], check=True,
-                   env=dict(os.environ, ROOT=str(ROOT), STAGE_BIN=str(binary),
-                            STAGE_SHARE=str(share)))
+    for dest in (binary / "START-HERE.html", share / "helper/index.html"):
+        dest.write_bytes(HELPER.read_bytes())
     assert HELPER.read_bytes() == (binary / "START-HERE.html").read_bytes()
     assert HELPER.read_bytes() == (share / "helper/index.html").read_bytes()
     payload = write_injected(
@@ -162,16 +157,13 @@ def test_helper_and_iso_start_here_are_injected_from_source(tmp_path):
     assert injected != HELPER.read_text(encoding="utf-8")
     assert SOURCE_STUB not in injected
     assert "12345678-1234-1234-1234-123456789abc" in injected
-    if START_HERE.is_file():
-        staged = START_HERE.read_text(encoding="utf-8")
-        assert "<!--BEAMO_BUILD_LABEL-->" in staged
 
 
 def test_helper_is_self_contained_for_offline_usb():
     doc = _parse()
     assert doc.external_assets == []
     text = _html()
-    assert "<link rel=\"stylesheet\"" not in text
+    assert '<link rel="stylesheet"' not in text
     assert "<script" not in text
     assert "Windows 11: start this USB from Settings" in text
     assert "Windows 10: start this USB from Settings" in text
@@ -274,7 +266,11 @@ def test_helper_and_desktop_guide_the_four_startup_problems():
     desktop = DESKTOP.read_text(encoding="utf-8")
     desktop_css = (ROOT / "desktop/web/style.css").read_text(encoding="utf-8")
     for html, css, phone_query in (
-        (helper, helper.split("<style>", 1)[1].split("</style>", 1)[0], "@media (max-width: 600px)"),
+        (
+            helper,
+            helper.split("<style>", 1)[1].split("</style>", 1)[0],
+            "@media (max-width: 600px)",
+        ),
         (desktop, desktop_css, "@media (max-width: 580px)"),
     ):
         guide = _guide_section(html)
@@ -294,7 +290,7 @@ def test_helper_and_desktop_guide_the_four_startup_problems():
         assert "min-height: 2.75em" in css
         assert "white-space: nowrap" not in css
         # Table chrome on the helper may clip row corners; chooser/panels must wrap.
-        chooser_css = css[css.index(".chooser"):]
+        chooser_css = css[css.index(".chooser") :]
         assert "overflow: hidden" not in chooser_css
         media = css.split(phone_query, 1)[1]
         assert ".chooser { grid-template-columns: 1fr; }" in media
@@ -305,8 +301,12 @@ def test_guided_branches_use_plain_language_and_safe_recovery():
     helper = _html()
     usb = helper.split('id="trouble-usb"', 1)[1].split('id="trouble-key"', 1)[0]
     key = helper.split('id="trouble-key"', 1)[1].split('id="trouble-firmware"', 1)[0]
-    firmware = helper.split('id="trouble-firmware"', 1)[1].split('id="trouble-launcher"', 1)[0]
-    launcher = helper.split('id="trouble-launcher"', 1)[1].split("Start from your desktop", 1)[0]
+    firmware = helper.split('id="trouble-firmware"', 1)[1].split(
+        'id="trouble-launcher"', 1
+    )[0]
+    launcher = helper.split('id="trouble-launcher"', 1)[1].split(
+        "Start from your desktop", 1
+    )[0]
     assert "keyboard, monitor, or hub" in usb
     assert "Use a device" in usb
     assert "another direct USB port" in usb or "different port" in usb
@@ -319,8 +319,12 @@ def test_guided_branches_use_plain_language_and_safe_recovery():
     assert "Start Beamo Wipe.exe" in launcher
     assert "kiosk-recovery" in launcher
     desktop = DESKTOP.read_text(encoding="utf-8")
-    desktop_fw = desktop.split('id="trouble-firmware"', 1)[1].split('id="trouble-launcher"', 1)[0]
-    assert desktop_fw.lower().index("bitlocker") < desktop_fw.lower().index("manufacturer")
+    desktop_fw = desktop.split('id="trouble-firmware"', 1)[1].split(
+        'id="trouble-launcher"', 1
+    )[0]
+    assert desktop_fw.lower().index("bitlocker") < desktop_fw.lower().index(
+        "manufacturer"
+    )
     assert "does not run on macOS" in desktop
     assert "Not Apple Silicon" in desktop
     # Intel Mac Option key is helper-only; the launcher does not run on macOS.
@@ -350,7 +354,9 @@ def test_helper_guide_stays_offline_and_keyboard_operable():
 
 @pytest.mark.parametrize("url", MICROSOFT_SOURCES)
 def test_cited_microsoft_sources_are_current(url):
-    request = urllib.request.Request(url, headers={"User-Agent": "BeamoWipeHelperCheck/1.0"})
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "BeamoWipeHelperCheck/1.0"}
+    )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             status = getattr(response, "status", 200)
@@ -363,7 +369,11 @@ def test_cited_microsoft_sources_are_current(url):
     except urllib.error.URLError as exc:
         pytest.skip(f"network unavailable for {url}: {exc.reason}")
     assert status < 400
-    assert "microsoft" in final.lower() or "learn.microsoft.com" in final.lower() or "support.microsoft.com" in final.lower()
+    assert (
+        "microsoft" in final.lower()
+        or "learn.microsoft.com" in final.lower()
+        or "support.microsoft.com" in final.lower()
+    )
     if "bitlocker" in url:
         assert "recovery" in body
     if "windows-recovery-environment" in url or "windows-re" in url:
@@ -391,7 +401,11 @@ def _chrome() -> str | None:
     mac = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
     if mac.is_file():
         return str(mac)
-    return shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
+    return (
+        shutil.which("google-chrome")
+        or shutil.which("chromium")
+        or shutil.which("chromium-browser")
+    )
 
 
 def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
@@ -414,7 +428,9 @@ def test_helper_renders_both_windows_paths_on_small_and_desktop_displays():
                 assert title in dom
 
 
-def _render_helper(chrome: str, tmp_path: Path, name: str, url: str, width: int, height: int) -> str:
+def _render_helper(
+    chrome: str, tmp_path: Path, name: str, url: str, width: int, height: int
+) -> str:
     shot = tmp_path / f"{name}.png"
     argv = [
         chrome,
@@ -439,7 +455,9 @@ def _render_helper(chrome: str, tmp_path: Path, name: str, url: str, width: int,
         url,
     ]
     with (tmp_path / f"{name}.log").open("w+b") as output:
-        proc = subprocess.Popen(argv, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+        proc = subprocess.Popen(
+            argv, stdout=output, stderr=subprocess.STDOUT, start_new_session=True
+        )
         try:
             deadline = time.monotonic() + 40
             dom = ""

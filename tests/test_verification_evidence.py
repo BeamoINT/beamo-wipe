@@ -130,6 +130,19 @@ def test_complete_evidence_verifies():
     assert set(verified) >= set(REQUIRED_GATES)
 
 
+def test_required_gate_cannot_pass_when_every_check_was_skipped():
+    with pytest.raises(RuntimeError, match="no passing checks"):
+        _receipt(
+            "tests",
+            measured=_measured(passed=0, skipped=1, total=1),
+        )
+
+
+def test_skipped_gate_cannot_claim_passing_checks():
+    with pytest.raises(RuntimeError, match="skip.*passing checks"):
+        _receipt("qemu", status="skip", log_sha256="", reason="fixture skip")
+
+
 def test_skipped_desktop_launchers_fails_as_required():
     gates = _complete_gates()
     gates["desktop-launchers"] = _receipt(
@@ -158,15 +171,15 @@ def test_skipped_required_gate_fails():
         "qemu",
         status="skip",
         measured={
-            "passed": 1,
+            "passed": 0,
             "failed": 0,
             "errors": 0,
-            "skipped": 0,
+            "skipped": 1,
             "xfailed": 0,
             "deselected": 0,
             "total": 1,
         },
-        skips=[],
+        skips=[{"id": "qemu", "kind": "skip", "reason": "worker unavailable"}],
         log_sha256="",
         reason="worker unavailable",
     )
@@ -285,6 +298,18 @@ def test_junit_parser_rejects_garbage():
         parse_junit_xml("not xml at all {{{")
 
 
+def test_junit_parser_cannot_hide_a_nested_failed_suite():
+    xml = (
+        '<testsuites><testsuite tests="1" failures="0" errors="0" skipped="0">'
+        '<testcase name="visible"/>'
+        '<testsuite tests="1" failures="1" errors="0" skipped="0">'
+        '<testcase name="hidden"><failure message="broken"/></testcase>'
+        '</testsuite></testsuite></testsuites>'
+    )
+    with pytest.raises(RuntimeError, match="nested|hidden"):
+        parse_junit_xml(xml)
+
+
 def test_dpkg_parser_keeps_installed_with_provenance():
     packages = parse_dpkg_status(STATUS_DB)
     assert [(p["name"], p["version"], p["arch"]) for p in packages] == [
@@ -303,6 +328,64 @@ def test_dpkg_parser_keeps_installed_with_provenance():
     assert verify_package_inventory(inventory)["package_count"] == 2
 
 
+def test_dpkg_parser_keeps_valid_multiline_descriptions():
+    status = (
+        "Package: base-files\nStatus: install ok installed\nVersion: 1\n"
+        "Architecture: amd64\nDescription: package summary\n more detail\n"
+    )
+    assert [entry["name"] for entry in parse_dpkg_status(status)] == ["base-files"]
+
+
+def test_dpkg_parser_includes_held_installed_packages():
+    status = (
+        "Package: held\nStatus: hold ok installed\nVersion: 2\nArchitecture: amd64\n\n"
+        "Package: normal\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n\n"
+        "Package: removed\nStatus: deinstall ok config-files\nVersion: 1\nArchitecture: amd64\n"
+    )
+    assert [(entry["name"], entry["status"]) for entry in parse_dpkg_status(status)] == [
+        ("held", "hold ok installed"),
+        ("normal", "install ok installed"),
+    ]
+
+
+def test_dpkg_inventory_keeps_same_package_on_two_architectures():
+    status = (
+        "Package: shared\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n\n"
+        "Package: shared\nStatus: install ok installed\nVersion: 1\nArchitecture: i386\n"
+    )
+    packages = parse_dpkg_status(status)
+    assert [(entry["name"], entry["arch"]) for entry in packages] == [
+        ("shared", "amd64"),
+        ("shared", "i386"),
+    ]
+    inventory = build_package_inventory(
+        packages=packages,
+        collected_from="squashfs var/lib/dpkg/status",
+        apt_sources=list(APT),
+        source_commit=COMMIT,
+        generated_at=T0,
+    )
+    assert verify_package_inventory(inventory)["package_count"] == 2
+
+
+def test_dpkg_parser_rejects_malformed_status_instead_of_hiding_package():
+    status = (
+        "Package: hidden\nStatus: hold ok installed unexpected\nVersion: 2\nArchitecture: amd64\n\n"
+        "Package: visible\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n"
+    )
+    with pytest.raises(RuntimeError, match="invalid Status"):
+        parse_dpkg_status(status)
+
+
+def test_dpkg_parser_rejects_broken_installed_package():
+    status = (
+        "Package: broken\nStatus: install reinstreq installed\nVersion: 2\nArchitecture: amd64\n\n"
+        "Package: normal\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n"
+    )
+    with pytest.raises(RuntimeError, match="reinstallation required"):
+        parse_dpkg_status(status)
+
+
 def test_dpkg_parser_rejects_empty_and_duplicates():
     with pytest.raises(RuntimeError, match="empty"):
         parse_dpkg_status("   \n")
@@ -311,6 +394,47 @@ def test_dpkg_parser_rejects_empty_and_duplicates():
             "Package: a\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n\n"
             "Package: a\nStatus: install ok installed\nVersion: 2\nArchitecture: amd64\n"
         )
+
+
+def test_dpkg_parser_rejects_duplicate_fields_that_hide_installed_packages():
+    status = (
+        "Package: hidden\nStatus: install ok installed\n"
+        "Status: deinstall ok config-files\nVersion: 1\nArchitecture: amd64\n\n"
+        "Package: visible\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n"
+    )
+    with pytest.raises(RuntimeError, match="duplicate.*Status"):
+        parse_dpkg_status(status)
+
+
+def test_dpkg_parser_rejects_continued_status_that_hides_installed_package():
+    status = (
+        "Package: hidden\nStatus: install ok installed\n continued\n"
+        "Version: 1\nArchitecture: amd64\n\n"
+        "Package: visible\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n"
+    )
+    with pytest.raises(RuntimeError, match="multiline.*Status"):
+        parse_dpkg_status(status)
+
+
+def test_dpkg_parser_rejects_package_with_malformed_status_line():
+    status = (
+        "Package: hidden\nStatus install ok installed\n"
+        "Version: 1\nArchitecture: amd64\n\n"
+        "Package: visible\nStatus: install ok installed\n"
+        "Version: 1\nArchitecture: amd64\n"
+    )
+    with pytest.raises(RuntimeError, match="malformed.*Status"):
+        parse_dpkg_status(status)
+
+
+def test_dpkg_parser_rejects_installed_stanza_without_package_name():
+    status = (
+        "Status: install ok installed\nVersion: 1\nArchitecture: amd64\n\n"
+        "Package: visible\nStatus: install ok installed\n"
+        "Version: 1\nArchitecture: amd64\n"
+    )
+    with pytest.raises(RuntimeError, match="without Package"):
+        parse_dpkg_status(status)
 
 
 def test_receipt_rejects_secrets_and_host_details():

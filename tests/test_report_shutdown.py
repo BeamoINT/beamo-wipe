@@ -440,6 +440,10 @@ def test_live_graphical_failure_recovers_intent_and_power_action_is_once(
     store, monkeypatch
 ):
     from beamo_wipe import app, report_intent, session_recovery
+    monkeypatch.setattr(
+        "beamo_wipe.nwipe_runner.pinned_nwipe_already_running",
+        lambda **_kwargs: False,
+    )
     real_store = session_recovery.SessionStore
     monkeypatch.setattr(session_recovery, "SessionStore", lambda: real_store(
         store.directory, boot="00000000-0000-0000-0000-000000000001", build="a" * 64))

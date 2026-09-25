@@ -13,10 +13,6 @@ from dataclasses import replace
 from typing import Callable, Mapping, Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from beamo_wipe import copy as _copy
-
-IDENTITY_UNAVAILABLE = "Device identity unavailable"
-IDENTITY_UNCONFIRMED = "identity could not be confirmed"
-UNKNOWN_MODEL = "Unknown model"
 from beamo_wipe.startup_stages import STAGE_BOOT_USB, STAGE_FINDING
 from beamo_wipe.models import (
     CONTENTS_DATA,
@@ -27,6 +23,11 @@ from beamo_wipe.models import (
     DiskKind,
     DiscoveryResult,
 )
+from beamo_wipe.safety import possible_hardware_alias
+
+IDENTITY_UNAVAILABLE = "Device identity unavailable"
+IDENTITY_UNCONFIRMED = "identity could not be confirmed"
+UNKNOWN_MODEL = "Unknown model"
 
 HIDDEN_TYPES = frozenset({"loop", "ram", "rom"})
 # eMMC boot/RPMB hardware areas are type=disk siblings of mmcblk0. They are
@@ -160,7 +161,7 @@ def classify_bus(tran: Optional[str]) -> str:
     # safety.is_remote_disk matches bus.casefold() against remote tokens,
     # so this must never become UNKNOWN/"other" (that would make iSCSI/FC
     # wipeable).
-    fallback = re.sub(r"[\x00-\x1f\x7f]", "", key).upper()[:32]
+    fallback = "".join(ch for ch in key if not _unsafe_text_character(ch)).upper()[:32]
     return fallback or "other"
 
 
@@ -197,27 +198,64 @@ def _as_int(value: Any) -> int:
             try:
                 from beamo_wipe.diagnostics import log_diag
 
-                log_diag("discover", "size_parse_failed", str(value)[:64])
+                log_diag("discover", "size_parse_failed", f"type={type(value).__name__} length={len(text)}")
             except Exception:
                 pass
             return 0
 
 
 def _clean(value: Any) -> str:
+    s = _clean_unbounded(value)
+    if len(s) > 128:
+        s = s[:128]
+    return s
+
+
+def _clean_unbounded(value: Any) -> str:
     if value is None:
         return ""
     # Untrusted lsblk metadata (model/serial/wwn/label) may contain control
     # chars, ANSI, newlines, or HTML. Strip control codes (0x00-0x1F, 0x7F),
     # truncate to 128 (display/evidence limit), and never pass raw to innerHTML.
     s = str(value)
-    # Remove every Unicode control/format/surrogate/private-use/unassigned
-    # character.  C0-only filtering leaves C1 CSI and bidi overrides that can
-    # make an untrusted drive model/serial visually impersonate another disk.
-    s = "".join(ch for ch in s if not unicodedata.category(ch).startswith("C"))
+    # Unicode line/paragraph separators (Zl/Zp) also create visual line
+    # breaks, despite not being control characters. A drive must not use one
+    # to impersonate another line in the picker or in a report.
+    s = "".join(ch for ch in s if not _unsafe_text_character(ch))
     s = s.strip()
-    if len(s) > 128:
-        s = s[:128]
     return s
+
+
+def _unsafe_text_character(ch: str) -> bool:
+    category = unicodedata.category(ch)
+    return category.startswith("C") or category in {"Zl", "Zp"}
+
+
+def _bounded_identity_metadata(value: Any, field: str) -> str:
+    """Sanitize display metadata without shortening the rediscovery identity."""
+    if value is not None and any(
+        _unsafe_text_character(ch) for ch in str(value)
+    ):
+        # Deleting controls can make two distinct raw labels, models or
+        # vendors compare equal at the final rediscovery boundary.
+        raise ValueError(f"lsblk {field} contains control characters")
+    text = _clean_unbounded(value)
+    if len(text) > 128:
+        raise ValueError(f"lsblk {field} is too long")
+    return text
+
+
+def _layout_label(value: Any, field: str) -> str:
+    """Keep raw label edges in the layout hash; UI cleanup happens elsewhere."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"lsblk {field} must be text")
+    if len(value) > 128:
+        raise ValueError(f"lsblk {field} is too long")
+    if any(_unsafe_text_character(ch) for ch in value):
+        raise ValueError(f"lsblk {field} contains control characters")
+    return value
 
 
 def _identity_text(value: Any, field: str) -> str:
@@ -228,11 +266,25 @@ def _identity_text(value: Any, field: str) -> str:
         raise ValueError(f"lsblk {field} must be text")
     if not value or not value.strip():
         return ""
-    if any(unicodedata.category(ch).startswith("C") for ch in value):
+    if any(_unsafe_text_character(ch) for ch in value):
         raise ValueError(f"lsblk {field} contains control characters")
     text = value.strip()
     if text != value or not text or len(text) > 128:
         raise ValueError(f"lsblk {field} is malformed")
+    return text
+
+
+def _hardware_identity(value: Any, field: str) -> str:
+    """Keep a hardware ID intact or refuse it; an abbreviated ID is unsafe."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"lsblk {field} must be text")
+    if any(_unsafe_text_character(ch) for ch in value):
+        raise ValueError(f"lsblk {field} contains control characters")
+    text = value.strip()
+    if len(text) > 128:
+        raise ValueError(f"lsblk {field} is too long")
     return text
 
 
@@ -302,17 +354,47 @@ def _path_aliases(path: str) -> set:
         try:
             from beamo_wipe.diagnostics import log_diag
 
-            log_diag("discover", "alias_realpath_failed", f"{type(exc).__name__}:{path[:32]}")
+            log_diag("discover", "alias_realpath_failed", type(exc).__name__)
         except Exception:
             pass
         # Fallback to stderr for visibility
         try:
             import sys
 
-            print(f"beamo-wipe [discover] alias_realpath_failed: {path[:32]}", file=sys.stderr)
+            print(f"beamo-wipe [discover] alias_realpath_failed: {type(exc).__name__}", file=sys.stderr)
         except Exception:
             pass
     return aliases
+
+
+def _disk_identity_contradicts(blockdevices: Sequence[Dict[str, Any]]) -> bool:
+    """Reject a physical device path with conflicting kernel identities."""
+    by_path: Dict[str, set[Tuple[str, str]]] = {}
+    physical_paths: set[str] = set()
+    for node, _parent in flatten_blockdevices(blockdevices):
+        kind = _node_type(node)
+        name = _clean(node.get("name"))
+        path = _clean(node.get("path"))
+        if kind in {"disk", "rom"} and name and path and not (
+            _path_aliases(path) & _path_aliases(f"/dev/{name}")
+        ):
+            return True
+        try:
+            resolved = node_path(node)
+        except ValueError:
+            # The parser skips a malformed row per-node below. A malformed
+            # identity cannot prove a path collision with a valid sibling.
+            continue
+        if resolved:
+            canonical = os.path.realpath(resolved)
+            by_path.setdefault(canonical, set()).add((name, kind))
+            if kind in {"disk", "rom"}:
+                physical_paths.add(canonical)
+    if any(len(by_path[path]) > 1 for path in physical_paths):
+        # A mounted mapper may claim the same /dev path as a different raw
+        # disk whose own row lacks the mount. Neither identity can be trusted.
+        return True
+    return False
 
 
 def _udev_decode(name: str) -> str:
@@ -336,22 +418,40 @@ def _udev_decode(name: str) -> str:
 
 def _dev_disk_typed_source(raw: str) -> Optional[Tuple[str, str]]:
     """Map /dev/disk/by-uuid/… (etc.) to the typed resolver without needing udev."""
-    src = (raw or "").strip()
+    src = raw or ""
     for prefix, key in UDEV_BY_PREFIXES:
         if src.startswith(prefix):
-            value = _udev_decode(src[len(prefix) :]).strip()
-            if value:
+            value = _udev_decode(src[len(prefix) :])
+            if value and value.strip():
                 return key, value
     return None
 
 
 def normalize_mount_source(raw: str) -> str:
     """Turn findmnt SOURCE into a /dev path. LABEL=/UUID= values stay unresolved."""
-    src = (raw or "").split("[", 1)[0].strip()
-    if not src:
+    src = raw or ""
+    if not src.strip():
         return ""
+    # A typed value may contain spaces or brackets. Removing them could turn
+    # the live source into a different disk's label/UUID. By-* path tails are
+    # typed values too. The bracket suffix on ordinary /dev nodes remains a
+    # findmnt subvolume annotation and is removed below.
+    if ("=" in src and not src.startswith("/dev/")) or any(
+        src.startswith(prefix) for prefix, _key in UDEV_BY_PREFIXES
+    ):
+        return src
+    # findmnt annotates a direct kernel source as /dev/sdX1[subvolume].
+    # An alias under /dev/disk/by-id can itself contain '['; shortening it
+    # could resolve a different link and protect the wrong disk.
+    bare = src.split("[", 1)[0]
+    if bare != src and (
+        KERNEL_NAME_RE.fullmatch(bare)
+        or (bare.startswith("/dev/") and KERNEL_NAME_RE.fullmatch(bare[5:]))
+    ):
+        src = bare
     if src.startswith("/dev/"):
         return src
+    src = src.strip()
     if "=" in src:
         return src
     if KERNEL_NAME_RE.fullmatch(src):
@@ -373,31 +473,14 @@ def _looks_like_live_medium(node: Dict[str, Any]) -> bool:
 
 
 def _could_be_live_medium(node: Dict[str, Any]) -> bool:
-    """True for a disk that might be the live stick when mounts are missing.
+    """Treat every target-sized whole disk as a possible live bridge.
 
-    USB-SATA bridges often report tran=sata. USB-NVMe enclosures often report
-    tran=nvme, or no transport at all. SD and eMMC often report tran=mmc or
-    nothing. Any removable disk can be that stick. A leftover BEAMO_WIPE USB
-    must not win label fallback while one of those remains. Large internal
-    SATA/NVMe/eMMC disks are not treated as competing live media.
+    USB-SATA/NVMe enclosures can report a fixed internal transport, no
+    hotplug flag, and any capacity. No lsblk transport or size threshold can
+    prove a second selectable disk is not the running live medium. A zero-size
+    node cannot become a wipe target and need not compete for boot identity.
     """
-    if _looks_like_live_medium(node):
-        return True
-    if _node_type(node) not in {"disk", "rom"}:
-        return False
-    if _as_bool(node.get("rm")) is True or _as_bool(node.get("hotplug")) is True:
-        return True
-    tran = (node.get("tran") or "").lower().strip()
-    name = _clean(node.get("name")).lower()
-    # Blank TRAN is normal for some NVMe disks. A small one is as plausible
-    # a live stick as tran=nvme of the same size. Large internals stay eligible.
-    if tran not in {"sata", "ata", "nvme", "mmc"} and not name.startswith(("mmcblk", "nvme")):
-        return False
-    size = _as_int(node.get("size"))
-    # Decimal 128 GB covers 64 GiB USB-SATA/NVMe enclosures (68.7e9) that
-    # sit just above the previous 64e9 cutoff. 256 GB+ internals stay
-    # non-competing so a unique labeled USB can still be identified.
-    return 0 < size <= 128_000_000_000
+    return _node_type(node) in {"disk", "rom"} and _as_int(node.get("size")) > 0
 
 
 def _node_type(node: Dict[str, Any]) -> str:
@@ -406,8 +489,8 @@ def _node_type(node: Dict[str, Any]) -> str:
 
 # lsblk hangs a mounted RAID or multipath volume off one member. The other
 # member stays a normal disk unless the whole inventory is refused.
-# ``linear`` is md's level name, not a ``raid*`` type. LVM and linear can
-# also be a single resolved stack (crypt -> lv); those keep unrelated disks.
+# ``linear`` is md's level name, not a ``raid*`` type. Mounted LVM, linear,
+# and bcache stacks are refused because member metadata may be incomplete.
 # util-linux 2.38 lowercases the device-mapper UUID prefix and the md level,
 # so DMRAID- is ``dmraid`` and md levels ``faulty`` / ``multipath`` do not
 # start with ``raid``. One PKNAME still hides the other member.
@@ -415,43 +498,29 @@ _UNRESOLVED_HOLDER_TYPES = frozenset({
     "mpath", "md", "dmraid", "faulty", "multipath",
 })
 _STACKED_HOLDER_TYPES = frozenset({"lvm", "linear"})
-_MEMBER_FILESYSTEMS = frozenset({"lvm2_member", "linux_raid_member", "bcache"})
 
 
 def _mounted_holder_hides_members(kind: str) -> bool:
     return kind.startswith("raid") or kind in _UNRESOLVED_HOLDER_TYPES
 
 
-def _meaningful_wwn(value: str) -> str:
-    """WWN that can name one LUN, or empty for padding.
+def _cover_mounted_identifier_aliases(disks: Sequence[Disk]) -> List[Disk]:
+    """Copy a mount onto paths sharing a hardware identifier with that disk.
 
-    An all-zero id is not a multipath alias. It must not glue a mounted
-    disk to every other disk that carries the same padding.
+    Multipath can record the mount on one path only. A repeated meaningful
+    WWN or serial makes another path ambiguous, so it must not stay selectable.
     """
-    text = (value or "").strip().casefold()
-    body = text[2:] if text.startswith("0x") else text
-    if not body or set(body) <= {"0"}:
-        return ""
-    return text
-
-
-def _cover_mounted_wwn_aliases(disks: Sequence[Disk]) -> List[Disk]:
-    """Copy a mount onto every other path that shows that disk's WWN.
-
-    Multipath records the mount on one path. The other path is the same
-    LUN and must not stay selectable.
-    """
-    mounted: Dict[str, List[str]] = {}
-    for disk in disks:
-        wwn = _meaningful_wwn(disk.wwn)
-        if not wwn or not disk.mountpoints:
-            continue
-        mounted.setdefault(wwn, []).extend(disk.mountpoints)
+    mounted = [disk for disk in disks if disk.mountpoints]
     if not mounted:
         return list(disks)
     covered: List[Disk] = []
     for disk in disks:
-        extra = mounted.get(_meaningful_wwn(disk.wwn))
+        extra = [
+            mountpoint
+            for source in mounted
+            if possible_hardware_alias(source, disk)
+            for mountpoint in source.mountpoints
+        ]
         if not extra:
             covered.append(disk)
             continue
@@ -518,20 +587,54 @@ def _owner_disk_name(
     return _resolve_owner_disk(node, parent, by_name)[0]
 
 
-def _disk_member_filesystems(
-    disk_name: str,
+def _reject_shared_device_ancestry(
     flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
     by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
-) -> set[str]:
-    """Member fstypes on this disk, including flat rows that only name it via PKNAME."""
-    found: set[str] = set()
+) -> None:
+    """Refuse a repeated mapper whose copies name different physical disks.
+
+    lsblk can repeat one dependency device below each of its members. Mount
+    and filesystem metadata can be absent from one copy, so assigning those
+    facts to only one backing disk would leave another member selectable.
+    """
+    groups: Dict[Tuple[str, str], List[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]] = {}
     for node, parent in flat_nodes:
-        fs = _clean(node.get("fstype")).casefold()
-        if fs not in _MEMBER_FILESYSTEMS:
+        if _node_type(node) in {"disk", "rom", "part", "loop", "ram"}:
             continue
-        if _owner_disk_name(node, parent, by_name) == disk_name:
-            found.add(fs)
-    return found
+        name = _identity_text(node.get("name"), "name")
+        path = node_path(node)
+        if name:
+            groups.setdefault(("name", name), []).append((node, parent))
+        if path:
+            groups.setdefault(("path", os.path.realpath(path)), []).append((node, parent))
+    for copies in groups.values():
+        if len(copies) < 2:
+            continue
+        if not any(
+            _node_mountpoints(node)
+            or _filesystem_layout_row(node, partition=False)
+            or any(_clean(node.get(key)) for key in ("partlabel", "parttypename", "parttype"))
+            for node, _parent in copies
+        ):
+            # An unmounted mapping without content evidence is an ordinary
+            # wipeable source. There is no mount or layout claim to assign to
+            # the wrong physical member.
+            continue
+        for node, parent in copies:
+            if parent is None or node.get("pkname") is None:
+                continue
+            named_parent = _identity_text(node.get("pkname"), "pkname")
+            tree_parent_name = _identity_text(parent.get("name"), "name")
+            if named_parent and named_parent != tree_parent_name:
+                # One copy may omit every mount/filesystem field while its
+                # tree still identifies a second physical member.
+                raise ValueError("lsblk shared device ancestry contradicts PKNAME")
+        owners = {
+            _resolve_owner_disk(node, parent, by_name)[0]
+            for node, parent in copies
+        }
+        if len(owners) > 1:
+            raise ValueError("lsblk shared device ancestry is unresolved")
 
 
 def _cover_shared_filesystem_members(
@@ -618,48 +721,6 @@ def _has_stacked_holder(
     return False
 
 
-def _cover_unlinked_stacked_members(
-    flat_nodes: Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]],
-    flat_mounts: Dict[str, List[str]],
-    by_name: Mapping[str, Sequence[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]]],
-) -> None:
-    """Give every other LVM or md member the mounted volume's mountpoint.
-
-    lsblk names one physical disk for a mounted stack. The mount may sit on
-    the holder or on a filesystem opened above it. A second disk that still
-    has a member filesystem is the same volume and must not be selectable.
-    A stack with no extra member filesystem stays on its pkname chain, so an
-    unrelated disk can still be erased.
-    """
-    holder_mounts: List[str] = []
-    for node, parent in flat_nodes:
-        mounts = _node_mountpoints(node)
-        if not mounts or not _has_stacked_holder(node, parent, by_name):
-            continue
-        holder_mounts.extend(mounts)
-    if not holder_mounts:
-        return
-    covered = set(flat_mounts)
-    roots: List[Tuple[str, Dict[str, Any]]] = []
-    for node, parent in flat_nodes:
-        if parent is not None or _node_type(node) != "disk":
-            continue
-        if node.get("name") is None:
-            continue
-        name = _identity_text(node.get("name"), "name")
-        if not name:
-            continue
-        if _node_mountpoints(node):
-            covered.add(name)
-        roots.append((name, node))
-    for name, node in roots:
-        if name in covered:
-            continue
-        if not _disk_member_filesystems(name, flat_nodes, by_name):
-            continue
-        flat_mounts.setdefault(name, []).extend(holder_mounts)
-
-
 def parent_disk_path(
     path: str, blockdevices: Sequence[Dict[str, Any]]
 ) -> Optional[str]:
@@ -697,6 +758,108 @@ def parent_disk_path(
             return node_path(parent)
         return None
     return None
+
+
+def _partition_parent_contradicts(
+    node: Dict[str, Any], parent: Optional[Dict[str, Any]]
+) -> bool:
+    """Reject a partition whose explicit parent contradicts its device name."""
+    if _node_type(node) != "part":
+        return False
+    pk = _clean(node.get("pkname"))
+    if not pk and parent is None:
+        return False
+    owner_name = pk
+    if not owner_name and parent is not None:
+        owner_name = _clean(parent.get("name"))
+    if not owner_name:
+        return True
+    name = _identity_text(node.get("name"), "name") if node.get("name") is not None else ""
+    if not name:
+        return True
+    if not _name_is_partition_of(name, owner_name):
+        return True
+    if parent is not None and _clean(parent.get("name")) != owner_name:
+        return True
+    return not (_path_aliases(node_path(node)) & _path_aliases(f"/dev/{name}"))
+
+
+def _name_is_partition_of(name: str, owner_name: str) -> bool:
+    if not name or not owner_name:
+        return False
+    prefix = owner_name + ("p" if owner_name[-1].isdigit() else "")
+    return name.startswith(prefix) and name[len(prefix):].isdigit()
+
+
+def _unresolved_live_source(path: str, blockdevices: Sequence[Dict[str, Any]]) -> bool:
+    """A stacked live source cannot be assigned to one physical member.
+
+    lsblk may nest a RAID/LVM holder under only one of its backing disks.
+    Resolving that holder through paths_under() would wrongly identify that
+    one member as the entire boot medium and offer the other member to erase.
+    """
+    if not path:
+        return False
+    aliases = _path_aliases(path)
+    return any(
+        node_path(node)
+        and aliases & _path_aliases(node_path(node))
+        and (
+            _clean(node.get("fstype")).casefold() == "btrfs"
+            or _node_type(node) not in {"disk", "rom", "part"}
+            or _partition_parent_contradicts(node, parent)
+            or (
+                _node_type(node) in {"disk", "rom"}
+                and (parent is not None or _clean(node.get("pkname")))
+            )
+            or (
+                _node_type(node) == "part"
+                and parent is not None
+                and _node_type(parent) not in {"disk", "rom"}
+            )
+        )
+        for node, parent in flatten_blockdevices(blockdevices)
+    )
+
+
+def _shared_live_uuid(path: str, blockdevices: Sequence[Dict[str, Any]]) -> bool:
+    """A direct live source with the same UUID on another path is ambiguous.
+
+    findmnt may see the live mount while lsblk has empty mountpoint fields.
+    Distinct device paths must not be merged merely because one stale PKNAME
+    makes them appear to have the same owner.
+    """
+    if not path:
+        return False
+    aliases = _path_aliases(path)
+    nodes = list(flatten_blockdevices(blockdevices))
+    for node, parent in nodes:
+        source_path = node_path(node)
+        if not source_path or not (aliases & _path_aliases(source_path)):
+            continue
+        uuid = _clean(node.get("uuid")).casefold()
+        if not uuid:
+            continue
+        for other, _other_parent in nodes:
+            if other is node or _clean(other.get("uuid")).casefold() != uuid:
+                continue
+            other_path = node_path(other)
+            if not other_path:
+                return True
+            if _path_aliases(source_path) & _path_aliases(other_path):
+                continue
+            # ISO-hybrid media can expose one ISO9660 superblock as both the
+            # physical disk and its direct partition. Their tree relationship
+            # proves they are one physical boot medium. PKNAME alone does not.
+            same_disk_child = (
+                (_node_type(node) in {"disk", "rom"} and _node_type(other) == "part"
+                 and _other_parent is node)
+                or (_node_type(other) in {"disk", "rom"} and _node_type(node) == "part"
+                    and parent is other)
+            )
+            if not same_disk_child:
+                return True
+    return False
 
 
 def nesting_parent_path(
@@ -757,7 +920,12 @@ def _first_descendant_field(node: Dict[str, Any], key: str) -> str:
     for child in node.get("children") or []:
         if not isinstance(child, dict):
             continue
-        got = _clean(child.get(key))
+        if key in {"serial", "wwn"}:
+            got = _hardware_identity(child.get(key), key)
+        elif key == "vendor":
+            got = _bounded_identity_metadata(child.get(key), key)
+        else:
+            got = _clean(child.get(key))
         if got:
             return got
         nested = _first_descendant_field(child, key)
@@ -880,6 +1048,14 @@ def _content_evidence(
     partnames: set[str] = set()
     parttypes: set[str] = set()
 
+    if _node_type(node) == "disk":
+        # A partition table is optional: a filesystem may occupy the entire
+        # physical disk. Its FSTYPE proves data is present, while its label
+        # alone does not prove an installed operating system.
+        whole_disk_fs = _clean(node.get("fstype")).casefold()
+        if whole_disk_fs:
+            fstypes.add(whole_disk_fs)
+
     def walk(item: object) -> None:
         if not isinstance(item, dict):
             return
@@ -898,7 +1074,7 @@ def _content_evidence(
 
 
 def classify_contents(node: Mapping[str, Any]) -> str:
-    """Classify disk contents from partition evidence only. No guessing."""
+    """Classify disk contents from filesystem and partition evidence only."""
     return _contents_from_evidence(*_content_evidence(node))
 
 
@@ -953,14 +1129,26 @@ def _hash_layout_rows(rows: Sequence[str]) -> str:
 
 
 def _filesystem_layout_row(item: Mapping[str, Any], *, partition: bool) -> str:
-    fstype = _clean(item.get("fstype")).casefold()
-    uuid = _clean(item.get("uuid")).casefold()
-    partuuid = _clean(item.get("partuuid")).casefold()
-    label = _clean(item.get("label")).casefold()
+    # These values enter the final rediscovery fingerprint. Truncating one
+    # could make two different filesystem layouts compare equal.
+    fstype = _hardware_identity(item.get("fstype"), "fstype").casefold()
+    uuid = _hardware_identity(item.get("uuid"), "uuid").casefold()
+    partuuid = _hardware_identity(item.get("partuuid"), "partuuid").casefold()
+    label = _layout_label(item.get("label"), "label")
+    parttype = _hardware_identity(item.get("parttype"), "parttype").casefold()
+    parttypename = _bounded_identity_metadata(item.get("parttypename"), "parttypename")
+    partlabel = _layout_label(item.get("partlabel"), "partlabel")
     size = str(_as_int(item.get("size"))) if partition else ""
-    if not partition and not (fstype or uuid or partuuid or label):
+    if not partition and not (fstype or uuid or partuuid or label or parttype or parttypename or partlabel):
         return ""
-    return "|".join(("p" if partition else "d", fstype, uuid, partuuid, label, size))
+    # JSON preserves field boundaries even if a malformed identifier or a
+    # user-chosen volume label contains the old `|` separator.
+    return json.dumps(
+        ("p" if partition else "d", fstype, uuid, partuuid, label, size,
+         parttype, parttypename, partlabel),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
 
 
 def _remember_layout_row(
@@ -973,11 +1161,14 @@ def _remember_layout_row(
     row = _filesystem_layout_row(item, partition=partition)
     if not row or not isinstance(item, dict):
         return
-    key = (node_path(item), row)
+    key = (os.path.realpath(node_path(item)), row)
     if key in seen:
         return
     seen.add(key)
-    rows.append(row)
+    # Sorting rows must not erase which physical partition owns a filesystem.
+    # Mapper nodes such as dm-0 can be renumbered without a layout change.
+    stable_path = key[0] if partition else ""
+    rows.append(json.dumps((stable_path, row), ensure_ascii=False, separators=(",", ":")))
 
 
 def _collect_tree_layout(
@@ -1055,7 +1246,7 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
         # whole bus) with a diagnostic for maintainer triage.
         raise ValueError("lsblk node has no usable device path")
     label = _volume_label(node)
-    raw_model = _clean(node.get("model"))
+    raw_model = _bounded_identity_metadata(node.get("model"), "model")
     mountpoints = tuple(mp for mp in _node_mountpoints(node) if mp)
     if not is_boot:
         from beamo_wipe.safety import is_protected_mountpoint
@@ -1065,7 +1256,8 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
         path=path,
         name=name,
         model=raw_model or label or UNKNOWN_MODEL,
-        serial=_clean(node.get("serial")) or _first_descendant_field(node, "serial"),
+        serial=_hardware_identity(node.get("serial"), "serial")
+        or _first_descendant_field(node, "serial"),
         size_bytes=_as_int(node.get("size")),
         size_gb_label=size_gb_label(_as_int(node.get("size"))),
         kind=classify_kind(name, node.get("tran"), node.get("rota")),
@@ -1075,8 +1267,10 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
         # lsblk RO missing (older fakes) means writable: exclude only an
         # explicit read-only flag, never on unknown.
         read_only=_as_bool(node.get("ro")) is True,
-        wwn=_clean(node.get("wwn")) or _first_descendant_field(node, "wwn"),
-        vendor=_clean(node.get("vendor")) or _first_descendant_field(node, "vendor"),
+        wwn=_hardware_identity(node.get("wwn"), "wwn")
+        or _first_descendant_field(node, "wwn"),
+        vendor=_bounded_identity_metadata(node.get("vendor"), "vendor")
+        or _first_descendant_field(node, "vendor"),
         mountpoints=mountpoints,
         raw_model=raw_model,
         contents=classify_contents(node),
@@ -1088,13 +1282,18 @@ def node_to_disk(node: Dict[str, Any], is_boot: bool) -> Disk:
     )
 
 
-def labels_for(node: Dict[str, Any]) -> List[str]:
+def labels_for(node: Dict[str, Any], *, exact: bool = False) -> List[str]:
     found = []
-    label = _clean(node.get("label"))
+    # Boot identification must compare the reported label itself. Display
+    # cleanup could otherwise turn a different label into BEAMO_WIPE.
+    label = (
+        _layout_label(node.get("label"), "label")
+        if exact else _clean(node.get("label"))
+    )
     if label:
         found.append(label)
     for child in node.get("children") or []:
-        found.extend(labels_for(child))
+        found.extend(labels_for(child, exact=exact))
     return found
 
 
@@ -1107,20 +1306,42 @@ def _is_loop_path(path: str, blockdevices: Sequence[Dict[str, Any]]) -> bool:
 
 
 def _resolve_boot_path(
-    raw: str, blockdevices: Sequence[Dict[str, Any]]
+    raw: str, blockdevices: Sequence[Dict[str, Any]], *, require_device_link: bool = True
 ) -> Optional[str]:
     """Map a /dev path or LABEL=/UUID= source to the boot disk/rom, or None."""
     if not raw:
         return None
     raw = normalize_mount_source(raw)
-    typed = _split_typed_source(raw) or _dev_disk_typed_source(raw)
+    typed_path = _dev_disk_typed_source(raw)
+    typed = _split_typed_source(raw) or typed_path
     if typed:
-        return _resolve_typed_source(typed[0], typed[1], blockdevices)
+        resolved = _resolve_typed_source(typed[0], typed[1], blockdevices)
+        if typed_path:
+            # A by-* mount source is also a device link. If it resolves to a
+            # listed node, its physical owner must agree with the lsblk
+            # identifier; stale labels must never protect the wrong disk.
+            # If the link is absent, matching only the reported identifier
+            # could protect a newly inserted disk and expose the real boot USB.
+            try:
+                link_target = os.path.realpath(raw)
+            except OSError:
+                return None
+            if link_target == raw and require_device_link:
+                return None
+            if link_target != raw:
+                actual = parent_disk_path(link_target, blockdevices)
+                if not actual or not resolved or os.path.realpath(actual) != os.path.realpath(resolved):
+                    return None
+        return resolved
     if not raw.startswith("/dev/"):
+        return None
+    if _unresolved_live_source(raw, blockdevices) or _shared_live_uuid(raw, blockdevices):
         return None
     parent = parent_disk_path(raw, blockdevices)
     candidate = parent or raw
     if _is_loop_path(candidate, blockdevices):
+        return None
+    if _unresolved_live_source(candidate, blockdevices):
         return None
     aliases = _path_aliases(candidate)
     for node, _parent in flatten_blockdevices(blockdevices):
@@ -1139,9 +1360,10 @@ def _split_typed_source(raw: str) -> Optional[Tuple[str, str]]:
     if "=" not in (raw or ""):
         return None
     key, value = raw.split("=", 1)
-    key_u = key.strip().upper()
-    value = value.strip().strip('"').strip("'")
-    if key_u in TYPED_SOURCE_KEYS and value:
+    key_u = key.upper()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        value = value[1:-1]
+    if key_u in TYPED_SOURCE_KEYS and value and value.strip():
         return key_u, value
     return None
 
@@ -1150,26 +1372,38 @@ def _resolve_typed_source(
     key: str, value: str, blockdevices: Sequence[Dict[str, Any]]
 ) -> Optional[str]:
     """Unique parent disk whose node (or partition) matches LABEL=/UUID=/…."""
-    want = value.strip()
-    if not want:
+    want = value
+    if not want or not want.strip():
         return None
     found: List[str] = []
     seen = set()
     for node, _parent in flatten_blockdevices(blockdevices):
-        if _node_type(node) == "loop":
-            continue
-        got = _typed_field(node, key)
+        try:
+            got = _typed_field(node, key)
+        except ValueError:
+            # An invalid value might be the live source. Ignore no row when
+            # that could make a different physical disk look uniquely matched.
+            return None
         if not got:
             continue
         if key in {"UUID", "PARTUUID"}:
             match = got.casefold() == want.casefold()
         else:
-            match = got == want or got.casefold() == want.casefold()
+            # Volume and partition labels can differ only by case. A
+            # case-insensitive fallback can assign a typed live source to
+            # the wrong disk and leave the actual boot medium selectable.
+            match = got == want
         if not match:
             continue
+        # Every matching row is a possible live source. Ignoring an orphan
+        # partition or loop would let a stale physical match win a UUID/LABEL
+        # lookup and expose the actual boot medium as a target.
+        if (_unresolved_live_source(node_path(node), blockdevices)
+                or _shared_live_uuid(node_path(node), blockdevices)):
+            return None
         parent = parent_disk_path(node_path(node), blockdevices)
-        if not parent or _is_loop_path(parent, blockdevices):
-            continue
+        if not parent or _is_loop_path(parent, blockdevices) or _unresolved_live_source(parent, blockdevices):
+            return None
         if parent not in seen:
             seen.add(parent)
             found.append(parent)
@@ -1185,29 +1419,39 @@ def _typed_field(node: Dict[str, Any], key: str) -> str:
         "PARTUUID": "partuuid",
         "PARTLABEL": "partlabel",
     }
-    return _clean(node.get(mapping[key]))
+    # Match the raw filesystem identifier. Trimming, truncating, or removing
+    # controls can turn a different volume into the reported live source.
+    return _layout_label(node.get(mapping[key]), mapping[key])
 
 
 def _label_boot_disks(blockdevices: Sequence[Dict[str, Any]]) -> List[str]:
     found: List[str] = []
     seen = set()
 
-    def _norm(label: str) -> str:
-        return re.sub(r"[^A-Z0-9]", "", (label or "").upper())
-
     for node, _parent in flatten_blockdevices(blockdevices):
         if _node_type(node) == "loop":
             continue
         matched = False
-        for label in labels_for(node):
-            if _norm(label) == "BEAMOWIPE" or label.upper() in BOOT_LABELS:
+        try:
+            labels = labels_for(node, exact=True)
+        except ValueError:
+            # An invalid label could itself be the boot label. Do not make
+            # another device look uniquely identified by ignoring this one.
+            return []
+        for label in labels:
+            if label.isascii() and label.upper() in BOOT_LABELS:
                 matched = True
                 break
         if not matched:
             continue
+        if (_unresolved_live_source(node_path(node), blockdevices)
+                or _shared_live_uuid(node_path(node), blockdevices)):
+            return []
         parent = parent_disk_path(node_path(node), blockdevices)
         if not parent or _is_loop_path(parent, blockdevices):
             continue
+        if _unresolved_live_source(parent, blockdevices):
+            return []
         parent_node = None
         parent_aliases = _path_aliases(parent)
         for disk in disk_nodes(blockdevices):
@@ -1247,6 +1491,7 @@ def identify_boot_path(
     env_boot: Optional[str] = None,
     mount_sources: Optional[Sequence[str]] = None,
     cmdline: str = "",
+    require_device_link: bool = True,
 ) -> Optional[str]:
     """Return the parent disk/rom path of the live medium, or None if unsure.
 
@@ -1254,7 +1499,16 @@ def identify_boot_path(
     Filesystem labels are used only when they uniquely identify one USB or
     optical disk. Loop devices are never the boot USB.
     """
-    resolved_env = _resolve_boot_path(env_boot, blockdevices) if env_boot else None
+    if _disk_identity_contradicts(blockdevices):
+        return None
+    resolved_env = (
+        _resolve_boot_path(env_boot, blockdevices, require_device_link=require_device_link)
+        if env_boot else None
+    )
+    # A supplied override is a competing identity claim. If it cannot be
+    # resolved, a valid mount must not silently make that contradiction vanish.
+    if env_boot and not resolved_env:
+        return None
 
     mount_hits: List[str] = []
     unresolved_sources: List[str] = []
@@ -1262,7 +1516,7 @@ def identify_boot_path(
     for source in mount_sources or ():
         if not source:
             continue
-        resolved = _resolve_boot_path(source, blockdevices)
+        resolved = _resolve_boot_path(source, blockdevices, require_device_link=require_device_link)
         if resolved:
             if resolved not in seen:
                 seen.add(resolved)
@@ -1297,8 +1551,6 @@ def identify_boot_path(
         if resolved_env and resolved_env != mount_hits[0]:
             return None
         return mount_hits[0]
-    if env_boot and not resolved_env:
-        return None
     if resolved_env:
         return resolved_env
 
@@ -1306,16 +1558,16 @@ def identify_boot_path(
     if cmdline_sources:
         cmdline_hits: List[str] = []
         for source in cmdline_sources:
-            resolved = _resolve_boot_path(source, blockdevices)
+            resolved = _resolve_boot_path(source, blockdevices, require_device_link=require_device_link)
             if not resolved:
                 return None
             if resolved not in cmdline_hits:
                 cmdline_hits.append(resolved)
         if len(cmdline_hits) != 1:
             return None
-        # A bootloader line can name a large internal disk. That must not
-        # become the boot identity while a USB or other live medium is
-        # still attached, or the stick itself becomes a wipe target.
+        # A stale bootloader label or path can name an internal disk. Without
+        # mount evidence, another plausible live medium makes that identity
+        # ambiguous, including when both paths report a small SATA disk.
         hit = cmdline_hits[0]
         hit_aliases = _path_aliases(hit)
         hit_node = None
@@ -1323,7 +1575,7 @@ def identify_boot_path(
             if hit_aliases & _path_aliases(node_path(node)):
                 hit_node = node
                 break
-        if hit_node is not None and not _could_be_live_medium(hit_node):
+        if hit_node is not None:
             for node in disk_nodes(blockdevices):
                 if hit_aliases & _path_aliases(node_path(node)):
                     continue
@@ -1353,7 +1605,7 @@ def should_hide(node: Dict[str, Any], boot_path: Optional[str]) -> bool:
             try:
                 from beamo_wipe.diagnostics import log_diag
 
-                log_diag("discover", "should_hide_alias_failed", f"path={path[:32]}")
+                log_diag("discover", "should_hide_alias_failed", "alias probe failed")
             except Exception:
                 pass
         if path == boot_path:
@@ -1385,6 +1637,8 @@ def parse_lsblk_json(
     blockdevices = payload.get("blockdevices") or []
     if blockdevices and not isinstance(blockdevices, (list, tuple)):
         raise ValueError("lsblk JSON blockdevices must be a list")
+    if require_boot and _disk_identity_contradicts(blockdevices):
+        return DiscoveryResult(error=_copy.IDENTIFY_ERROR, boot_identified=False)
     if require_boot and not boot_path:
         return DiscoveryResult(error=_copy.IDENTIFY_ERROR, boot_identified=False)
 
@@ -1395,8 +1649,85 @@ def parse_lsblk_json(
         name = _identity_text(candidate.get("name"), "name")
         if name:
             by_name.setdefault(name, []).append((candidate, parent))
-    for candidate, _parent in flat_nodes:
+    known_disk_names = {
+        _identity_text(node.get("name"), "name")
+        for node in disk_nodes(blockdevices)
+    }
+    for candidate, parent in flat_nodes:
         kind = _node_type(candidate)
+        mounts = _node_mountpoints(candidate)
+        if _partition_parent_contradicts(candidate, parent):
+            # A false flat PKNAME or tree parent can assign a mounted volume
+            # to the wrong disk. Even when unmounted, it can move filesystem
+            # identity and OS-content evidence onto another wipe candidate.
+            if mounts:
+                raise ValueError("lsblk mounted ancestry contradicts partition identity")
+            raise ValueError("lsblk partition ancestry contradicts identity")
+        if kind == "part" and parent is None and not _identity_text(
+            candidate.get("pkname"), "pkname"
+        ):
+            # A root-level partition with no PKNAME has no proven owner. If
+            # its kernel name or path matches a listed disk, silently dropping
+            # its filesystem/OS evidence would make that disk look blank or
+            # change the confirmed layout hash. An orphan with no possible
+            # listed parent remains an excluded standalone inventory row.
+            name = _identity_text(candidate.get("name"), "name")
+            path_name = os.path.basename(node_path(candidate))
+            if any(
+                _name_is_partition_of(name, disk_name)
+                or _name_is_partition_of(path_name, disk_name)
+                for disk_name in known_disk_names
+            ):
+                raise ValueError("lsblk partition ancestry is unresolved")
+        if mounts and parent is not None and candidate.get("pkname") is not None:
+            named_parent = _identity_text(candidate.get("pkname"), "pkname")
+            tree_parent_name = _identity_text(parent.get("name"), "name")
+            if named_parent and named_parent != tree_parent_name:
+                # Mapper and holder names do not encode their physical parent.
+                # A mounted child with disagreeing PKNAME/tree ancestry could
+                # otherwise mark only the wrong disk as mounted.
+                raise ValueError("lsblk mounted ancestry contradicts PKNAME")
+        if (
+            kind in _UNRESOLVED_HOLDER_TYPES
+            or kind in _STACKED_HOLDER_TYPES
+            or kind in {"crypt", "dm", "bcache"}
+            or kind.startswith("raid")
+        ) and (
+            _filesystem_layout_row(candidate, partition=False)
+            or any(
+                _clean(candidate.get(key))
+                for key in ("partlabel", "parttypename", "parttype")
+            )
+        ):
+            if parent is not None and candidate.get("pkname") is not None:
+                named_parent = _identity_text(candidate.get("pkname"), "pkname")
+                tree_parent_name = _identity_text(parent.get("name"), "name")
+                if named_parent and named_parent != tree_parent_name:
+                    # An unmounted opened volume still contributes OS content
+                    # and layout identity; its parent cannot be assigned by
+                    # contradictory PKNAME and tree observations.
+                    raise ValueError("lsblk filesystem ancestry contradicts PKNAME")
+            owner, _ambiguous = _resolve_owner_disk(candidate, parent, by_name)
+            if not owner:
+                # An opened filesystem with no physical ancestry can belong
+                # to any candidate disk. Omitting it would hide contents and
+                # weaken the layout identity presented for confirmation.
+                raise ValueError("lsblk filesystem ancestry is unresolved")
+        if mounts and _clean(candidate.get("fstype")).casefold() == "btrfs":
+            # lsblk may show a mount on only one Btrfs member. A second
+            # member can have an empty or stale UUID/fstype, so the inventory
+            # alone cannot prove any other disk is outside that filesystem.
+            raise ValueError("mounted Btrfs membership is unresolved")
+        if mounts and _clean(candidate.get("name")).casefold().startswith("bcache"):
+            # A mounted bcache holder names its backing device in PKNAME, but
+            # its cache device may have empty or stale member metadata. The
+            # complete set of physical members is not proven by lsblk.
+            raise ValueError("mounted bcache membership is unresolved")
+        if mounts and _has_stacked_holder(candidate, parent, by_name):
+            # LVM and linear holders can span physical disks that have an
+            # empty/stale member FSTYPE. A mount on a filesystem opened above
+            # the holder has the same ambiguity, even if one PKNAME resolves.
+            raise ValueError("mounted stacked volume membership is unresolved")
         if _mounted_holder_hides_members(kind):
             # Nested lsblk -J trees attach the array under one member. The
             # sibling stays a normal unmounted disk unless we refuse the
@@ -1442,7 +1773,20 @@ def parse_lsblk_json(
             if not ancestors:
                 raise ValueError("lsblk mounted ancestry is unresolved")
             for ancestor, tree_parent in ancestors:
+                if tree_parent is not None and ancestor.get("pkname") is not None:
+                    named_parent = _identity_text(ancestor.get("pkname"), "pkname")
+                    tree_name = _identity_text(tree_parent.get("name"), "name")
+                    if named_parent and named_parent != tree_name:
+                        # This ancestor need not carry the mount itself: a
+                        # flat mounted mapper can name an unmounted mapper
+                        # whose PKNAME disagrees with its nested tree parent.
+                        raise ValueError("lsblk mounted ancestry contradicts PKNAME")
                 kind = _node_type(ancestor)
+                if _is_stacked_holder(ancestor):
+                    # A duplicated mapper name can make the earlier ancestor
+                    # probe ambiguous. This mounted-chain walk visits every
+                    # candidate, so reject any LVM/linear/bcache holder here.
+                    raise ValueError("mounted stacked volume membership is unresolved")
                 # One PKNAME on multipath or RAID hides the other leg.
                 if _mounted_holder_hides_members(kind):
                     raise ValueError("lsblk mounted ancestry is unresolved")
@@ -1463,8 +1807,8 @@ def parse_lsblk_json(
                     raise ValueError("lsblk mounted ancestry is unresolved")
                 pending.append((next_name, trail | {ancestor_name}))
 
-    _cover_unlinked_stacked_members(flat_nodes, flat_mounts, by_name)
     _cover_shared_filesystem_members(flat_nodes, flat_mounts, by_name)
+    _reject_shared_device_ancestry(flat_nodes, by_name)
 
     disks: List[Disk] = []
     identified_boot: Optional[Disk] = None
@@ -1533,13 +1877,12 @@ def parse_lsblk_json(
         return DiscoveryResult(error=_copy.IDENTIFY_ERROR, boot_identified=False)
     from beamo_wipe.safety import is_wipeable_disk
 
-    # A distinct path with the boot medium's WWN may be a multipath/LUN alias.
-    # Mark every such node as boot so none can become selectable.
-    if boot is not None and (boot.wwn or "").strip():
-        boot_wwn = boot.wwn.strip().casefold()
+    # A distinct path sharing the boot medium's WWN, or its serial without
+    # distinct WWNs, may be an alias. Mark ambiguous paths as protected.
+    if boot is not None:
         disks = [
             replace(d, is_boot=True)
-            if (d.wwn or "").strip().casefold() == boot_wwn
+            if possible_hardware_alias(boot, d)
             else d
             for d in disks
         ]
@@ -1554,8 +1897,8 @@ def parse_lsblk_json(
         if previous is not None and disk != previous:
             raise ValueError("lsblk has conflicting observations for one disk")
         observed_disks[canonical] = disk
-    # A second path with a mounted disk's WWN is that LUN, not another target.
-    disks = _cover_mounted_wwn_aliases(disks)
+    # A second path with a mounted disk's identifier may be the same LUN.
+    disks = _cover_mounted_identifier_aliases(disks)
     if boot is not None:
         boot = next((item for item in disks if item.path == boot.path), boot)
     # Retain even identical rows: final identity validation requires exactly
@@ -1575,7 +1918,7 @@ def parse_lsblk_json(
                 try:
                     from beamo_wipe.diagnostics import log_diag
 
-                    log_diag("discover", "all_hidden", f"nodes={total_disk_nodes} boot={boot_path}")
+                    log_diag("discover", "all_hidden", f"nodes={total_disk_nodes} boot_known={bool(boot_path)}")
                 except Exception:
                     pass
     # Preserve explanations separately from the safety-owned target collection.
@@ -1619,7 +1962,17 @@ def parse_lsblk_json(
 
 
 def load_lsblk_json_text(text: str) -> Dict[str, Any]:
-    data = json.loads(text)
+    def unique_pairs(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                # A later duplicate can replace mount/RO/identity evidence
+                # before the structural checks see the earlier observation.
+                raise ValueError("lsblk JSON has a duplicate field")
+            result[key] = value
+        return result
+
+    data = json.loads(text, object_pairs_hook=unique_pairs)
     if not isinstance(data, dict):
         raise ValueError("lsblk JSON root must be an object")
     return data
@@ -1673,7 +2026,7 @@ def run_lsblk() -> Dict[str, Any]:
             try:
                 from beamo_wipe.diagnostics import log_diag
 
-                log_diag("discover", "lsblk_missing", str(last_exc)[:200])
+                log_diag("discover", "lsblk_missing", type(last_exc).__name__)
             except Exception:
                 pass
             raise last_exc
@@ -1729,7 +2082,7 @@ def read_cmdline(path: str = "/proc/cmdline") -> str:
         try:
             from beamo_wipe.diagnostics import log_diag
 
-            log_diag("discover", "cmdline_unreadable", f"{path}: {type(exc).__name__}")
+            log_diag("discover", "cmdline_unreadable", type(exc).__name__)
         except Exception:
             pass
         return ""
@@ -1750,7 +2103,7 @@ def read_mount_sources(paths: Sequence[str] = LIVE_MOUNTS) -> List[str]:
         try:
             proc = _run_findmnt(mountpoint)
         except (OSError, subprocess.TimeoutExpired) as exc:
-            failures.append(f"{mountpoint}:{type(exc).__name__}")
+            failures.append(type(exc).__name__)
             proc = None
         if proc is not None:
             if proc.returncode == 0:
@@ -1763,9 +2116,9 @@ def read_mount_sources(paths: Sequence[str] = LIVE_MOUNTS) -> List[str]:
                     _add(row)
             elif proc.returncode != 0:
                 # Non-zero findmnt (not a mountpoint) is expected; only log if stderr present
-                detail = (getattr(proc, "stderr", "") or "")[:200].replace("\n", " ").strip()
+                detail = getattr(proc, "stderr", "") or ""
                 if detail:
-                    failures.append(f"{mountpoint}:exit{proc.returncode}:{detail[:80]}")
+                    failures.append(f"exit={proc.returncode} stderr_bytes={len(detail.encode('utf-8', 'replace'))}")
         elif proc is None and mountpoint in LIVE_MOUNTS:
             # _run_findmnt returned None without exception -> OSError/Timeout already logged per-mountpoint
             pass
@@ -1788,7 +2141,9 @@ def _run_findmnt(mountpoint: str):
     for binary in FINDMNT_BINARIES:
         try:
             proc = subprocess.run(
-                [binary, "-n", "-o", "SOURCE", mountpoint],
+                # A positional path can be interpreted as either mountpoint
+                # or bind source. Only an exact live-medium mount is evidence.
+                [binary, "-n", "-o", "SOURCE", "--mountpoint", mountpoint],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -1801,9 +2156,9 @@ def _run_findmnt(mountpoint: str):
                 try:
                     from beamo_wipe.diagnostics import log_diag
 
-                    detail = (proc.stderr or "")[:200].replace("\n", " ").strip()
+                    detail = proc.stderr or ""
                     if detail:
-                        log_diag("discover", "findmnt_stderr", f"{mountpoint}: {detail[:120]}")
+                        log_diag("discover", "findmnt_stderr", f"exit={proc.returncode} stderr_bytes={len(detail.encode('utf-8', 'replace'))}")
                 except Exception:
                     pass
             return proc
@@ -1814,7 +2169,7 @@ def _run_findmnt(mountpoint: str):
             try:
                 from beamo_wipe.diagnostics import log_diag
 
-                log_diag("discover", "findmnt_error", f"{mountpoint}:{type(exc).__name__}")
+                log_diag("discover", "findmnt_error", type(exc).__name__)
             except Exception:
                 pass
             return None
@@ -1822,7 +2177,7 @@ def _run_findmnt(mountpoint: str):
         try:
             from beamo_wipe.diagnostics import log_diag
 
-            log_diag("discover", "findmnt_missing", str(last_exc)[:200])
+            log_diag("discover", "findmnt_missing", type(last_exc).__name__)
         except Exception:
             pass
         raise last_exc
@@ -1905,20 +2260,29 @@ def live_medium_is_mounted(
             except Exception:
                 pass
             return False
+    pairs = parse_mountinfo(text)
+    if len(pairs) != sum(bool(line.strip()) for line in text.splitlines()):
+        # A dropped row might be a later mount covering the apparent live
+        # medium. Incomplete mountinfo cannot establish a real live session.
+        return False
     wanted = set(paths)
-    for source, mountpoint in parse_mountinfo(text):
-        if mountpoint not in wanted:
-            continue
+    live_rows = [(source, mountpoint) for source, mountpoint in pairs if mountpoint in wanted]
+    if not live_rows or len({mountpoint for _source, mountpoint in live_rows}) != len(live_rows):
+        # Two mounts at one path leave an older, hidden source in mountinfo.
+        # Without resolving the effective mount, neither proves boot media.
+        return False
+    for source, _mountpoint in live_rows:
         raw = (source or "").split("[", 1)[0].strip()
         if not raw:
-            continue
+            return False
         if raw.startswith("/dev/"):
-            return True
+            continue
         if _split_typed_source(raw):
-            return True
+            continue
         if KERNEL_NAME_RE.fullmatch(raw):
-            return True
-    return False
+            continue
+        return False
+    return True
 
 
 def discover(
@@ -1967,11 +2331,24 @@ def discover(
         ):
             _validate_real_lsblk_metadata(payload)
         blockdevices = payload.get("blockdevices") or []
+        # The manual boot path is a preview/test hook. On a real inventory,
+        # it could name an internal disk when mount probing is unavailable,
+        # leaving the actual boot USB selectable. Production must establish
+        # boot identity from live mounts, kernel arguments, or the USB label.
+        preview_inventory = lsblk_payload is not None or (
+            env.get("BEAMO_WIPE_DRY_RUN") == "1"
+            or env.get("BEAMO_WIPE_DEMO") == "1"
+        )
+        boot_override = (
+            boot_path or env.get("BEAMO_WIPE_BOOT_DEVICE")
+            if preview_inventory else None
+        )
         identified = identify_boot_path(
             blockdevices,
-            env_boot=boot_path or env.get("BEAMO_WIPE_BOOT_DEVICE"),
+            env_boot=boot_override,
             mount_sources=mount_sources,
             cmdline=cmdline,
+            require_device_link=lsblk_payload is None,
         )
         return parse_lsblk_json(payload, boot_path=identified, require_boot=True)
     except (
@@ -1984,15 +2361,18 @@ def discover(
         json.JSONDecodeError,
     ) as exc:
         # Visible diagnostic for maintainers; UI stays generic and fail-closed.
-        # Never log full lsblk payload (may contain serials), only type and truncated message.
+        # Exception messages can contain device paths and serials from lsblk.
         try:
             from beamo_wipe.diagnostics import log_diag
 
-            # Sanitize: type + first 250 chars of message, no payload dump
-            detail = f"{type(exc).__name__}: {str(exc)[:200]}"
+            detail = type(exc).__name__
+            if isinstance(exc, subprocess.TimeoutExpired):
+                detail += " lsblk timeout"
+            if isinstance(exc, OSError) and exc.errno is not None:
+                detail += f" errno={exc.errno}"
             if isinstance(exc, subprocess.CalledProcessError) and getattr(exc, "stderr", None):
                 detail += f" stderr_bytes={len(str(exc.stderr).encode('utf-8', 'replace'))}"
-            log_diag("discover", "failed", detail[:300])
+            log_diag("discover", "failed", detail)
         except Exception:
             pass
         diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()
@@ -2002,7 +2382,7 @@ def discover(
         try:
             from beamo_wipe.diagnostics import log_diag
 
-            log_diag("discover", "unexpected", f"{type(exc).__name__}: {str(exc)[:200]}")
+            log_diag("discover", "unexpected", type(exc).__name__)
         except Exception:
             pass
         diagnostic = f"{type(exc).__name__}: {str(exc)[:120]}".strip()

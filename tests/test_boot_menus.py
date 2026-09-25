@@ -29,7 +29,7 @@ PLACEHOLDER = re.compile(r"@[A-Z_]+@")
 def _bootappend(name: str) -> str:
     """The exact kernel command line live-build is configured with."""
     text = (ROOT / "packaging/live/inside-docker.sh").read_text(encoding="utf-8")
-    marker = f"--{name} \""
+    marker = f'--{name} "'
     (line,) = [ln for ln in text.splitlines() if marker in ln]
     return line.split(marker, 1)[1].rsplit('"', 1)[0]
 
@@ -185,12 +185,106 @@ def test_built_menu_verifier_accepts_syslinux_hotkey_markup(tmp_path):
     (iso / "isolinux/live.cfg").write_text(_bios_menu())
     (iso / "boot/grub/grub.cfg").write_text(_grub_menu())
     source = (ROOT / "scripts/qemu-verify.sh").read_text()
-    gate = 'BIOS_LIVE=' + source.split('BIOS_LIVE=', 1)[1].split('if find "$SQUASH_MOUNT', 1)[0]
-    result = subprocess.run(["bash", "-ceu", gate], capture_output=True, text=True,
-                            env=dict(os.environ, ISO_MOUNT=str(iso)))
+    gate = (
+        "BIOS_LIVE="
+        + source.split("BIOS_LIVE=", 1)[1].split('if find "$SQUASH_MOUNT', 1)[0]
+    )
+    result = subprocess.run(
+        ["bash", "-ceu", gate],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, ISO_MOUNT=str(iso)),
+    )
     assert result.returncode == 0, result.stdout + result.stderr
-    (iso / "isolinux/live.cfg").write_text(_bios_menu().split('label live-amd64-failsafe')[0])
-    missing = subprocess.run(["bash", "-ceu", gate], capture_output=True, text=True,
-                             env=dict(os.environ, ISO_MOUNT=str(iso)))
+    (iso / "isolinux/live.cfg").write_text(
+        _bios_menu().split("label live-amd64-failsafe")[0]
+    )
+    missing = subprocess.run(
+        ["bash", "-ceu", gate],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, ISO_MOUNT=str(iso)),
+    )
     assert missing.returncode != 0
     assert "lost the troubleshooting entry" in missing.stderr
+
+
+def test_built_menu_verifier_rejects_missing_live_autologin_guard(tmp_path):
+    iso = tmp_path / "iso"
+    (iso / "isolinux").mkdir(parents=True)
+    (iso / "boot/grub").mkdir(parents=True)
+    bios = iso / "isolinux/live.cfg"
+    uefi = iso / "boot/grub/grub.cfg"
+    source = (ROOT / "scripts/qemu-verify.sh").read_text()
+    gate = (
+        "BIOS_LIVE="
+        + source.split("BIOS_LIVE=", 1)[1].split('if find "$SQUASH_MOUNT', 1)[0]
+    )
+
+    normal_bios, failsafe_bios = _bios_menu().split("label live-amd64-failsafe", 1)
+    bios.write_text(
+        normal_bios
+        + "label live-amd64-failsafe"
+        + failsafe_bios.replace(" nox11autologin", "", 1)
+    )
+    uefi.write_text(_grub_menu())
+    rejected_bios = subprocess.run(
+        ["bash", "-ceu", gate],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, ISO_MOUNT=str(iso)),
+    )
+    assert rejected_bios.returncode != 0, (
+        "BIOS troubleshooting entry lost its autologin guard"
+    )
+
+    bios.write_text(_bios_menu())
+    normal_uefi, failsafe_uefi = _grub_menu().split(
+        'menuentry "Beamo Wipe: troubleshoot startup', 1
+    )
+    uefi.write_text(
+        normal_uefi
+        + 'menuentry "Beamo Wipe: troubleshoot startup'
+        + failsafe_uefi.replace(" nox11autologin", "", 1)
+    )
+    rejected_uefi = subprocess.run(
+        ["bash", "-ceu", gate],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, ISO_MOUNT=str(iso)),
+    )
+    assert rejected_uefi.returncode != 0, (
+        "UEFI troubleshooting entry lost its autologin guard"
+    )
+
+    bios.write_text(
+        normal_bios.replace(" nox11autologin", "", 1)
+        + "label live-amd64-failsafe"
+        + failsafe_bios
+    )
+    uefi.write_text(_grub_menu())
+    rejected_normal_bios = subprocess.run(
+        ["bash", "-ceu", gate],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, ISO_MOUNT=str(iso)),
+    )
+    assert rejected_normal_bios.returncode != 0, (
+        "BIOS default entry lost its autologin guard"
+    )
+
+    bios.write_text(_bios_menu())
+    uefi.write_text(
+        normal_uefi.replace(" nox11autologin", "", 1)
+        + 'menuentry "Beamo Wipe: troubleshoot startup'
+        + failsafe_uefi
+    )
+    rejected_normal_uefi = subprocess.run(
+        ["bash", "-ceu", gate],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, ISO_MOUNT=str(iso)),
+    )
+    assert rejected_normal_uefi.returncode != 0, (
+        "UEFI default entry lost its autologin guard"
+    )

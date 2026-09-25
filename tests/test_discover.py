@@ -37,7 +37,7 @@ def test_boot_usb_excluded_and_marked():
     assert "/dev/loop0" not in {d.path for d in result.disks}
 
 
-def test_identify_from_label_without_override():
+def test_label_alone_cannot_identify_boot_with_other_target_sized_disks():
     result = discover(
         lsblk_payload=_load("lsblk_same_size.json"),
         boot_path=None,
@@ -45,8 +45,32 @@ def test_identify_from_label_without_override():
         cmdline="",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
-    assert result.boot is not None
-    assert result.boot.path == "/dev/sdb"
+    assert not result.boot_identified
+    assert result.selectable == ()
+    assert "contact support" in (result.error or "").lower()
+
+
+def test_label_identifies_boot_when_it_is_the_only_whole_disk():
+    payload = _payload([
+        {
+            "name": "sdb", "path": "/dev/sdb", "size": 16_000_000_000,
+            "type": "disk", "tran": " usb", "model": "Beamo Wipe",
+            "serial": "BEAMOUSB001",
+            "children": [
+                {"name": "sdb1", "path": "/dev/sdb1", "type": "part", "label": "BEAMO_WIPE"},
+            ],
+        },
+    ])
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot_identified
+    assert result.boot is not None and result.boot.path == "/dev/sdb"
+    assert result.selectable == ()
 
 
 def test_cannot_identify_boot_refuses_list():
@@ -1047,7 +1071,7 @@ def test_blank_transport_small_nvme_blocks_leftover_label():
         assert result.selectable == (), tran
 
 
-def test_unique_beamo_usb_label_still_identifies_with_internal_nvme():
+def test_unique_beamo_usb_label_cannot_exclude_large_nvme_bridge():
     payload = _payload(
         [
             {
@@ -1084,13 +1108,11 @@ def test_unique_beamo_usb_label_still_identifies_with_internal_nvme():
         cmdline="",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
-    assert result.boot_identified
-    assert result.boot is not None
-    assert result.boot.path == "/dev/sdb"
-    assert [disk.path for disk in result.selectable] == ["/dev/nvme0n1"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_padded_usb_tran_still_identifies_unique_label():
+def test_padded_usb_tran_still_identifies_unique_label_with_live_mount():
     payload = _payload(
         [
             {
@@ -1121,7 +1143,7 @@ def test_padded_usb_tran_still_identifies_unique_label():
     result = discover(
         lsblk_payload=payload,
         boot_path=None,
-        mount_sources=[],
+        mount_sources=["/dev/sdb1"],
         cmdline="",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
@@ -1131,7 +1153,7 @@ def test_padded_usb_tran_still_identifies_unique_label():
     assert [disk.path for disk in result.selectable] == ["/dev/sda"]
 
 
-def test_unique_beamo_usb_label_still_identifies_with_internal_sata():
+def test_unique_beamo_usb_label_cannot_exclude_large_sata_bridge():
     payload = _payload(
         [
             {
@@ -1171,10 +1193,8 @@ def test_unique_beamo_usb_label_still_identifies_with_internal_sata():
         cmdline="",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
-    assert result.boot_identified
-    assert result.boot is not None
-    assert result.boot.path == "/dev/sdb"
-    assert [disk.path for disk in result.selectable] == ["/dev/sda"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 def test_cmdline_internal_disk_does_not_expose_the_usb():
@@ -1224,7 +1244,7 @@ def test_cmdline_internal_disk_does_not_expose_the_usb():
         assert result.selectable == ()
 
 
-def test_cmdline_usb_partition_still_identifies_that_stick():
+def test_cmdline_usb_partition_still_identifies_with_live_mount():
     payload = _payload(
         [
             {
@@ -1256,7 +1276,7 @@ def test_cmdline_usb_partition_still_identifies_that_stick():
     result = discover(
         lsblk_payload=payload,
         boot_path=None,
-        mount_sources=[],
+        mount_sources=["/dev/sdb1"],
         cmdline="boot=live img_dev=/dev/sdb1",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
@@ -1590,7 +1610,7 @@ def test_serial_is_inherited_from_child_when_disk_serial_is_empty():
     assert disk.serial == "REALSERIAL01"
 
 
-def test_udev_by_label_path_identifies_usb():
+def test_udev_by_label_cmdline_is_insufficient_with_other_disks():
     result = discover(
         lsblk_payload=_load("lsblk_same_size.json"),
         boot_path=None,
@@ -1598,9 +1618,8 @@ def test_udev_by_label_path_identifies_usb():
         cmdline="boot=live bootfrom=/dev/disk/by-label/BEAMO_WIPE",
         env={"BEAMO_WIPE_DRY_RUN": "1"},
     )
-    assert result.boot is not None
-    assert result.boot.path == "/dev/sdb"
-    assert "/dev/sdb" not in {d.path for d in result.selectable}
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 def test_unmatched_boot_path_does_not_fall_through_to_protected_mount():

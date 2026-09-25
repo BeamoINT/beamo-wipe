@@ -22,12 +22,20 @@ from test_usb_report_workflow import _payload, _discovery, _success_receipt
 
 BOOT = "00000000-0000-0000-0000-000000000001"
 BUILD = "a" * 64
+STATUS = "********************************* Drive Status *********************************\n"
 
 
 @pytest.fixture
 def session(tmp_path, monkeypatch):
     directory = tmp_path / "private"
     monkeypatch.setattr("beamo_wipe.safety.DEFAULT_LOG_DIR", directory)
+    # These sessions are fake and macOS has no /proc. Production recovery
+    # conservatively refuses on an unreadable process table; model the known
+    # quiescent fixture explicitly, while individual tests can override it.
+    monkeypatch.setattr(
+        "beamo_wipe.nwipe_runner.pinned_nwipe_already_running",
+        lambda **_kwargs: False,
+    )
     opened = []
 
     def factory(**kw):
@@ -56,7 +64,10 @@ def armed(store, method=MethodId.QUICK_ZERO):
 
 
 def finish(store, discovery, request):
-    log = f"{Path(request.device).name} | Erased |\n"
+    log = (
+        STATUS
+        + f"{Path(request.device).name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+    )
     Path(request.logfile).write_text(log)
     os.chmod(request.logfile, 0o600)
     ev = build_evidence(
@@ -134,7 +145,10 @@ def test_process_crash_boundaries_never_resume(session, boundary):
     assert w.done_ok is (boundary == "export")
     assert w.report_status != "saved"
     if boundary in {"discovery", "confirmation"}:
-        assert w.screen == Screen.PICK_BLOCKED and w.can_open_diagnostic
+        # A valid preflight was never armed, so restart begins a new owner
+        # flow without restoring the old confirmation.
+        assert w.screen == Screen.SPLASH and not w.owner_ok
+        assert not w.can_open_diagnostic
     elif boundary != "export":
         assert w.result_view.code == "indeterminate" and w.can_save_report
         assert w.evidence["exit_evidence"]["exit_code"] is None
@@ -301,7 +315,8 @@ def test_atomic_crash_keeps_prior_record_and_never_launches(
     assert (first.directory / NAME).read_bytes() == previous
     first.close()
     w = recover(session())
-    assert w.screen == Screen.PICK_BLOCKED and not w.done_ok
+    assert w.screen == Screen.SPLASH and not w.done_ok
+    assert not w.owner_ok and w._wipe_request is None
 
 
 def test_missing_journal_does_not_migrate_legacy_logs_or_results(session):
@@ -402,6 +417,10 @@ os._exit(73)
         timeout=15,
     )
     assert result.returncode == 73
+    monkeypatch.setattr(
+        "beamo_wipe.nwipe_runner.pinned_nwipe_already_running",
+        lambda **_kwargs: False,
+    )
     store = SessionStore(directory, boot=BOOT, build=BUILD)
     try:
         store.open()
@@ -573,6 +592,7 @@ def test_diagnostic_recovery_report_does_not_claim_engine_never_started(session)
     from beamo_wipe.diagnostic_report import create_report, validate_report
 
     first = session()
+    armed(first)
     first.close()
     w = recover(session())
     data = create_report(

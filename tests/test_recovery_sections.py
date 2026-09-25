@@ -104,7 +104,7 @@ def test_blocked_and_empty_preserve_original_text():
     identify = R.recovery_for_blocked(C.IDENTIFY_ERROR)
     assert identify.happened == C.IDENTIFY_ERROR
     assert "protected" in identify.meaning.lower()
-    assert "Unplug extra USB" in identify.next_step
+    assert "contact support" in identify.next_step
     boot = R.recovery_for_blocked(safety.BOOT_APPEARED_SELECTABLE)
     assert boot.happened == safety.BOOT_APPEARED_SELECTABLE
     assert "Do not erase" in boot.next_step

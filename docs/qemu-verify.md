@@ -21,6 +21,10 @@ Run `scripts/qemu-verify.sh` only on an isolated x86_64 Linux worker with no hos
   USB. A separate killed private-namespace helper must leave no host-namespace
   mount behind.
 - The script accepts only `dist/beamo-wipe-<version>-amd64.iso` and its matching manifest/sidecars. There is no wildcard ISO, distro `nwipe`, host `nwipe`, or apt fallback.
+- Speech boot probes press the shipped S hotkey. BIOS then presses Return to
+  launch the selected entry; GRUB's UEFI hotkey launches immediately, so its
+  probe sends no Return that could boot the default during menu startup. A
+  timeout prints only fixed, allowlisted marker counts.
 - QEMU initially receives only the read-only ISO and a newly created qcow2
   target. The report is a newly created raw file hotplugged through QMP as USB
   storage after Done. QEMU receives no `/dev` bind, host block disk, or network
@@ -60,7 +64,7 @@ The gate fails unless all of these pass:
    RESULT.txt wording, the completion manifest, and checksums. Missing/error
    markers, unchanged target bytes, or early exit fail. The receipt records
    ISO/nwipe hashes, source commit, build identity, and executed repetitions.
-8. OVMF reaches the shipped Tk `WHAT` marker. Missing OVMF, an early exit, or a
+8. OVMF reaches the shipped Tk `OWNER` marker. Missing OVMF, an early exit, or a
    timeout is a failure, never `SKIP` or a tolerated timeout.
 
 ```sh

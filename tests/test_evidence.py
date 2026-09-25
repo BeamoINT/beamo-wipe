@@ -21,6 +21,7 @@ from beamo_wipe.evidence import (
     OUTCOME_STARTED,
     OUTCOME_VERIFIED,
     build_evidence,
+    valid_wall,
     verify_evidence_checksum,
     write_evidence_atomic,
 )
@@ -86,7 +87,10 @@ def test_evidence_log_fallback_uses_the_completion_window(tmp_path, monkeypatch)
     request = wiz._wipe_request
     assert request is not None
     name = os.path.basename(request.device)
-    marker = f"  {name} | Erased |\n"
+    marker = (
+        "********************************* Drive Status *********************************\n"
+        f"  {name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+    )
     padding = "note: trailing controller output\n" * 400
     text = marker + padding
     assert len(text.encode()) > 8192
@@ -233,7 +237,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
         started_mono=0.0,
         ended_mono=60.0,
         argv=["nwipe", "--autonuke"],
-        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
+            log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
     )
     assert ev["outcome"] == OUTCOME_FAILED
     assert ev["failure_reason"] is not None
@@ -268,7 +272,7 @@ def test_outcomes_distinguished(tmp_path, monkeypatch):
         started_mono=0.0,
         ended_mono=60.0,
         argv=[],
-        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [finished]\n",
+        log_text=f"{disk.path}: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\n",
     )
     assert ev3["outcome"] == OUTCOME_COMPLETED
     assert ev3["verification"]["verified"] is False
@@ -670,6 +674,11 @@ def test_clock_anomalies_handled(tmp_path, monkeypatch):
     assert ev2["timestamps"]["duration_s"] == 0.0  # type: ignore[index]
 
 
+def test_wall_validator_accepts_valid_fractional_seconds_and_rejects_impossible_dates():
+    assert valid_wall("2026-09-09T12:01:00.5Z") == "2026-09-09T12:01:00.5Z"
+    assert valid_wall("2026-02-30T12:01:00.5Z") == ""
+
+
 def test_duplicate_events_idempotent(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     wiz, clock = _wiz(tmp_path)
@@ -737,16 +746,21 @@ def test_malformed_log_output_and_signals_do_not_overstate(tmp_path, monkeypatch
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     # Each malformed case must be FAILED
     cases = [
-        ("", 0, False),
-        ("Nwipe successfully completed\n", 0, False),
-        ("/dev/sda is reported as IN USE\nNwipe successfully completed\n", 0, False),
-        ("Unable to open device '/dev/sda'.\n", 0, False),
-        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 3\nNwipe successfully completed\n", 0, False),
-        ("      sda | Erased |  120MB/s\n", 0, True),
-        ("/dev/sda: 100.00%, round 1 of 1\n", 0, False),
-        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n", 0, True),
+        ("", 0, False, False),
+        ("Nwipe successfully completed\n", 0, False, False),
+        ("/dev/sda is reported as IN USE\nNwipe successfully completed\n", 0, False, False),
+        ("Unable to open device '/dev/sda'.\n", 0, False, False),
+        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 3\nNwipe successfully completed\n", 0, False, False),
+        (
+            "********************************* Drive Status *********************************\n"
+            "      sda | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n",
+            0, True, True,
+        ),
+        ("/dev/sda: 100.00%, round 1 of 1\n", 0, False, False),
+        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n", 0, False, False),
+        ("/dev/sda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [verifying]\n", 0, True, True),
     ]
-    for log, code, should_ok in cases:
+    for log, code, should_ok, evidence_ok in cases:
         ok, reason = evaluate_nwipe_completion(code, log, "/dev/sda")
         assert ok == should_ok, f"log {log[:30]!r} code {code} expected ok={should_ok}"
         base = make_demo_wizard()
@@ -765,7 +779,7 @@ def test_malformed_log_output_and_signals_do_not_overstate(tmp_path, monkeypatch
             argv=[],
             log_text=log,
         )
-        if not should_ok:
+        if not evidence_ok:
             assert ev["outcome"] == OUTCOME_FAILED
         else:
             assert ev["outcome"] in (OUTCOME_COMPLETED, OUTCOME_VERIFIED)

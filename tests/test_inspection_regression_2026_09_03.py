@@ -81,8 +81,11 @@ def test_build_iso_provenance_not_masked_by_pipe():
     # lines — e.g. `cat manifest | head` would hide a missing file too).
     assert "| head" not in section, "provenance section pipes to head, masking failure"
     # The fail-closed existence gate itself must be present.
-    assert "missing provenance file" in section, (
+    assert "provenance file" in section and '[ ! -f "$_f" ]' in section, (
         "provenance existence gate missing from build-iso.sh"
+    )
+    assert '[ -L "$_f" ]' in section, (
+        "provenance symlink gate missing from build-iso.sh"
     )
 
 

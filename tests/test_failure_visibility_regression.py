@@ -9,6 +9,7 @@ cancellation race, structured diagnostics, build-script fail-closed.
 from __future__ import annotations
 
 import errno
+import importlib.util
 import os
 from pathlib import Path
 from unittest import mock
@@ -23,21 +24,30 @@ from beamo_wipe.models import MethodId, WipeRequest
 # NwipeRunner: fail-closed already-running guard
 # ---------------------------------------------------------------------------
 
-def test_pinned_already_running_realpath_failed_is_fail_closed_and_logged(tmp_path, monkeypatch):
+
+def test_pinned_already_running_realpath_failed_is_fail_closed_and_logged(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe import nwipe_runner as nr
 
-    with mock.patch("beamo_wipe.nwipe_runner.os.path.realpath", side_effect=OSError("perm")):
+    with mock.patch(
+        "beamo_wipe.nwipe_runner.os.path.realpath", side_effect=OSError("perm")
+    ):
         assert nr.pinned_nwipe_already_running() is True
     diag = (tmp_path / "diagnostics.log").read_text(encoding="utf-8")
     assert "already_running_realpath_failed" in diag
 
 
-def test_pinned_already_running_proc_list_failed_is_fail_closed_and_logged(tmp_path, monkeypatch):
+def test_pinned_already_running_proc_list_failed_is_fail_closed_and_logged(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe import nwipe_runner as nr
 
-    with mock.patch("beamo_wipe.nwipe_runner.os.listdir", side_effect=OSError("no proc")):
+    with mock.patch(
+        "beamo_wipe.nwipe_runner.os.listdir", side_effect=OSError("no proc")
+    ):
         assert nr.pinned_nwipe_already_running() is True
     diag = (tmp_path / "diagnostics.log").read_text(encoding="utf-8")
     assert "proc_list_failed" in diag
@@ -47,17 +57,38 @@ def test_pinned_already_running_unreadable_exe_is_logged(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe import nwipe_runner as nr
 
+    pinned = tmp_path / "nwipe"
+    pinned.write_bytes(b"fake executable")
+    monkeypatch.setattr(nr, "NWIPE_PINNED_PATH", str(pinned))
+
     # realpath for pinned path succeeds, listdir returns one pid, readlink fails
-    monkeypatch.setattr(nr.os.path, "realpath", lambda p: "/usr/lib/beamo-wipe/nwipe" if "nwipe" in p else p)
+    monkeypatch.setattr(
+        nr.os.path,
+        "realpath",
+        lambda p: "/usr/lib/beamo-wipe/nwipe" if "nwipe" in p else p,
+    )
     monkeypatch.setattr(os, "listdir", lambda p: ["123", "self"])
     with mock.patch("os.readlink", side_effect=OSError("perm")):
         # also need os.path.realpath for /proc/.../exe — patch that path
-        with mock.patch.object(nr.os.path, "realpath", side_effect=lambda p: "/usr/lib/beamo-wipe/nwipe" if p == nr.NWIPE_PINNED_PATH else (_ for _ in ()).throw(OSError("x")) if "exe" in p else p):
+        with mock.patch.object(
+            nr.os.path,
+            "realpath",
+            side_effect=lambda p: "/usr/lib/beamo-wipe/nwipe"
+            if p == nr.NWIPE_PINNED_PATH
+            else (_ for _ in ()).throw(OSError("x"))
+            if "exe" in p
+            else p,
+        ):
             # Simpler: mock readlink to raise, and ensure realpath for pinned not failing
             pass
     # Alternative: test the unreadable path via direct mock of os.readlink failure counted
     # Use real pinned path resolution, then listdir with one numeric entry that fails readlink
-    with mock.patch("os.path.realpath", side_effect=lambda p: "/usr/lib/beamo-wipe/nwipe" if p == nr.NWIPE_PINNED_PATH else p):
+    with mock.patch(
+        "os.path.realpath",
+        side_effect=lambda p: "/usr/lib/beamo-wipe/nwipe"
+        if p == nr.NWIPE_PINNED_PATH
+        else p,
+    ):
         with mock.patch("os.listdir", return_value=["999"]):
             with mock.patch(
                 "os.readlink",
@@ -90,7 +121,10 @@ def test_pinned_already_running_unexpected_proc_read_failure_is_fail_closed(
 # Log tail: open/read failures are logged with fallback to stderr
 # ---------------------------------------------------------------------------
 
-def test_read_log_tail_open_permission_is_logged_with_structured_detail(tmp_path, monkeypatch):
+
+def test_read_log_tail_open_permission_is_logged_with_structured_detail(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.nwipe_runner import NwipeRunner
 
@@ -141,11 +175,23 @@ def test_read_log_tail_read_failure_is_logged(tmp_path, monkeypatch):
 # Diagnostics: structured fields and fallback to stderr
 # ---------------------------------------------------------------------------
 
+
 def test_log_diag_returns_bool_and_writes_structured_fields(tmp_path):
-    ok = log_diag("area1", "code1", "detail", log_dir=tmp_path, device="/dev/vda", logfile="/tmp/beamo-wipe/nwipe-vda.log", rdev=2049, request_id="req-123", extra={"k": "v"})
+    ok = log_diag(
+        "area1",
+        "code1",
+        "detail",
+        log_dir=tmp_path,
+        device="/dev/vda",
+        logfile="/tmp/beamo-wipe/nwipe-vda.log",
+        rdev=2049,
+        request_id="req-123",
+        extra={"k": "v"},
+    )
     assert ok is True
     line = (tmp_path / "diagnostics.log").read_text(encoding="utf-8").strip()
     import json
+
     obj = json.loads(line)
     assert obj["device"] == "vda"  # basename only
     assert obj["logfile"] == "nwipe-vda.log"
@@ -205,6 +251,7 @@ def test_diagnostics_log_is_bounded(tmp_path):
 # Discover: alias and safety rdev visibility
 # ---------------------------------------------------------------------------
 
+
 def test_path_aliases_failure_is_visible(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.discover import _path_aliases
@@ -233,6 +280,7 @@ def test_safety_rdev_check_skipped_is_logged(tmp_path, monkeypatch, capsys):
 # Progress: clamp, monotonic, never 100 before verified
 # ---------------------------------------------------------------------------
 
+
 def test_nwipe_runner_progress_is_monotonic_and_clamped(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.nwipe_runner import NwipeRunner
@@ -243,7 +291,9 @@ def test_nwipe_runner_progress_is_monotonic_and_clamped(tmp_path, monkeypatch):
     r._update_progress(30.0)  # backwards
     assert r.progress == 40.0
     r._update_progress(150.0)  # above 100
-    assert r.progress == 40.0 or r.progress <= 99.9  # clamped not jump to 100 while running
+    assert (
+        r.progress == 40.0 or r.progress <= 99.9
+    )  # clamped not jump to 100 while running
     # Now finish: clear proc, allow 100
     r._proc = None
     r._update_progress(100.0)
@@ -254,10 +304,18 @@ def test_dryrun_never_shows_100_on_fail_or_cancel():
     from beamo_wipe.nwipe_runner import DryRunRunner
     from beamo_wipe.models import MethodId, WipeRequest
 
-    req = WipeRequest(device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0", logfile="/tmp/beamo-wipe/nwipe-vda.log")
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile="/tmp/beamo-wipe/nwipe-vda.log",
+    )
     # Fail path
     fake_time = [0.0]
-    def clock(): return fake_time[0]
+
+    def clock():
+        return fake_time[0]
+
     runner = DryRunRunner(duration_s=1.0, fail=True, clock=clock)
     runner.start(req)
     fake_time[0] = 2.0
@@ -283,22 +341,38 @@ def test_nwipe_runner_poll_gates_100_to_verified_success(tmp_path, monkeypatch):
     from beamo_wipe.nwipe_runner import NwipeRunner
 
     script = tmp_path / "fake_nwipe_ok"
-    script.write_text("#!/bin/sh\n" "echo '/dev/vda: 100.00%, round 1 of 1, pass 1 of 1' >> \"$4\"\n" "exit 0\n", encoding="utf-8")
+    script.write_text(
+        "#!/bin/sh\n"
+        "echo '/dev/vda: 100.00%, round 1 of 1, pass 1 of 1' >> \"$4\"\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
     # Not exec needed; we will mock Popen
 
     # Simulate poll reading log that has 100 but exit_code 0 and Erased missing -> ambiguous
     runner = NwipeRunner(binary=str(tmp_path / "fake"))
-    req = WipeRequest(device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0", logfile=str(tmp_path / "nwipe-vda.log"))
-    # Write a completion log with 100 but no Erased row (fallback would succeed previously)
-    Path(req.logfile).write_text("/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\nNwipe successfully completed\n", encoding="utf-8")
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile=str(tmp_path / "nwipe-vda.log"),
+    )
+    # A final read-back sample can prove this method completed without an Erased row.
+    Path(req.logfile).write_text(
+        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [verifying]\nNwipe successfully completed\n",
+        encoding="utf-8",
+    )
+
     # Mock proc that returns 0
     class Proc:
         returncode = 0
-        def poll(self): return 0
+
+        def poll(self):
+            return 0
+
     runner._proc = Proc()  # type: ignore
     runner._lock_fd = None
-    # Call poll — it should log verification_ambiguous if fallback without Erased? Our poll logs when ok false? Actually current logic logs when not ok and code 0
-    # For this log, evaluate_nwipe_completion will return True via _target_reached_last_pass, so ok True, no ambiguous log.
+    # The method-aware fallback accepts the final verification phase.
     res = runner.poll(req)
     assert res.ok is True  # happy path preserved
     assert runner.progress == 100.0
@@ -319,18 +393,26 @@ def test_nwipe_runner_poll_gates_100_to_verified_success(tmp_path, monkeypatch):
 # Cancellation: race handling and UI wires
 # ---------------------------------------------------------------------------
 
+
 def test_nwipe_runner_poll_reports_unavailable_status(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.nwipe_runner import NwipeRunner
     from beamo_wipe.safety import SafetyError
 
     runner = NwipeRunner(binary=str(tmp_path / "fake"))
+
     # An unavailable process status must reach the wizard's visible warning.
     class BadProc:
         def poll(self):
             raise AttributeError("gone")
+
     runner._proc = BadProc()  # type: ignore
-    req = WipeRequest(device="/dev/vda", method=MethodId.EVERYDAY, boot_device="/dev/sr0", logfile=str(tmp_path / "nwipe.log"))
+    req = WipeRequest(
+        device="/dev/vda",
+        method=MethodId.EVERYDAY,
+        boot_device="/dev/sr0",
+        logfile=str(tmp_path / "nwipe.log"),
+    )
     with pytest.raises(SafetyError, match="Process status"):
         runner.poll(req)
     diag = (tmp_path / "diagnostics.log").read_text(encoding="utf-8")
@@ -343,8 +425,13 @@ def test_nwipe_runner_cancel_logs_failures(tmp_path, monkeypatch):
 
     class BadProc:
         returncode = None
-        def terminate(self): raise OSError("perm")
-        def wait(self, timeout=None): return 0
+
+        def terminate(self):
+            raise OSError("perm")
+
+        def wait(self, timeout=None):
+            return 0
+
     runner = NwipeRunner(binary=str(tmp_path / "fake"))
     runner._proc = BadProc()  # type: ignore
     runner._lock_fd = None
@@ -377,12 +464,16 @@ def test_wizard_cancel_wipe_produces_interrupted_evidence(tmp_path, monkeypatch)
     assert wiz.wipe_result is not None and not wiz.wipe_result.ok
     assert "interrupted" in wiz.wipe_result.summary
     assert wiz.evidence is not None
-    assert wiz.evidence["outcome"] == "interrupted" or wiz.evidence["result"]["summary"] == "interrupted"
+    assert (
+        wiz.evidence["outcome"] == "interrupted"
+        or wiz.evidence["result"]["summary"] == "interrupted"
+    )
 
 
 def test_tk_wizard_working_has_cancel_and_escape_wires():
     import inspect
     from beamo_wipe.ui.tk_wizard import TkWizard
+
     assert "request_stop" in inspect.getsource(TkWizard._click_cancel)
     assert "request_stop" in inspect.getsource(TkWizard._close)
     escape = inspect.getsource(TkWizard._on_escape)
@@ -396,6 +487,7 @@ def test_console_working_shows_cancel_hint():
 
     from beamo_wipe import copy as C
     from beamo_wipe.ui import console_wizard
+
     assert "Esc: stop erase" in C.CON_WORKING_IDLE
     assert "CON_WORKING_IDLE" in inspect.getsource(console_wizard._primary_footer)
     text = Path("src/beamo_wipe/ui/console_wizard.py").read_text(encoding="utf-8")
@@ -406,6 +498,7 @@ def test_console_working_shows_cancel_hint():
 # Build script: docker info stderr not swallowed, chmod fail-closed
 # ---------------------------------------------------------------------------
 
+
 def test_build_iso_docker_info_not_swallowed():
     text = Path("scripts/build-iso.sh").read_text(encoding="utf-8")
     assert "beamo-wipe-docker.XXXXXX" in text
@@ -415,10 +508,19 @@ def test_build_iso_docker_info_not_swallowed():
     assert "docker info >/dev/null 2>&1" not in text
 
 
-def test_build_iso_chmod_fail_closed():
+def test_build_iso_chmod_fail_closed(tmp_path):
     text = Path("scripts/build-iso.sh").read_text(encoding="utf-8")
-    assert '2>/dev/null || true' not in text
-    assert "no hook scripts found" in text
+    assert "2>/dev/null || true" not in text
+    assert "stage_live_assets.py" in text
+    script = Path("scripts/stage_wrapper_sources.py").resolve()
+    spec = importlib.util.spec_from_file_location("beamo_stage_hook_visibility", script)
+    assert spec and spec.loader
+    stager = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(stager)
+    live = tmp_path / "live"
+    (live / "config/hooks/normal").mkdir(parents=True)
+    with pytest.raises(RuntimeError, match="unapproved live-build hook"):
+        stager.require_approved_hook(live)
 
 
 def test_build_iso_container_failure_is_diagnosed():
@@ -447,7 +549,10 @@ def test_manifest_verify_steps_propagate_mismatch():
     # Generation must also fail fast: masking it would corrupt SHA256SUMS
     # with stderr and hide the missing-input root cause from set -eu.
     assert "> SHA256SUMS 2>&1 | head" not in text
-    assert "> SHA256SUMS || true" not in text and "SHA256SUMS 2>&1 | head || true" not in text
+    assert (
+        "> SHA256SUMS || true" not in text
+        and "SHA256SUMS 2>&1 | head || true" not in text
+    )
     assert "Manifest written:" in text  # no premature "verified" claim
 
 
@@ -467,7 +572,7 @@ def test_qemu_uefi_probes_4m_firmware():
     """
     text = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
     assert "OVMF_CODE_4M.fd" in text
-    assert 'ls /usr/share/OVMF/OVMF_CODE.fd' not in text
+    assert "ls /usr/share/OVMF/OVMF_CODE.fd" not in text
     # 4M images do not load via -bios; UEFI must use pflash drives.
     assert "if=pflash" in text
 
@@ -479,12 +584,13 @@ def test_qemu_nwipe_exit_codes_are_recorded_truthfully():
     assert '[[ "$nwipe_code" == 0 ]]' in text
     assert "bad_code=0" in text
     assert '[[ "$bad_code" != 0 ]]' in text
-    assert "kill -0 \"$pid\"" in text
+    assert 'kill -0 "$pid"' in text
 
 
 # ---------------------------------------------------------------------------
 # Safety: rdev helper visibility already covered; verify diagnostics detail
 # ---------------------------------------------------------------------------
+
 
 def test_diagnostics_sanitize_still_truncates():
     long = "a" * 500 + "\n\nsecret"
@@ -495,6 +601,7 @@ def test_diagnostics_sanitize_still_truncates():
 
 def test_safety_assert_not_boot_still_blocks_boot(tmp_path):
     from beamo_wipe.safety import assert_not_boot, SafetyError
+
     with pytest.raises(SafetyError):
         assert_not_boot("/dev/vda", "/dev/vda")
 
@@ -502,6 +609,7 @@ def test_safety_assert_not_boot_still_blocks_boot(tmp_path):
 def test_wizard_progress_never_exceeds_100(tmp_path, monkeypatch):
     monkeypatch.setattr("beamo_wipe.safety.default_log_dir", lambda: tmp_path)
     from beamo_wipe.nwipe_runner import NwipeRunner
+
     r = NwipeRunner(binary=str(tmp_path / "fake"))
     r._proc = object()
     for v in [101, 200, 1e6, float("inf")]:

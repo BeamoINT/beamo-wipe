@@ -4,10 +4,12 @@
 You must own this PC and disk, or have written permission.
 
 For the new desktop-readable USB image: open **Start Beamo Wipe.exe** on
-Windows, or **Start Beamo Wipe Linux** on a supported Linux desktop. Approve
-the operating system's permission prompt. The application checks readiness
-and offers **Restart into Beamo Wipe** when supported. Save your work first.
-If the application cannot open or offer a restart, use the boot menu below.
+Windows, or **Start Beamo Wipe Linux** on a supported Linux desktop.
+On Windows, save your work, use the normal Restart command, then
+choose this USB from the boot menu. On supported Linux desktops, the
+application offers **Restart into Beamo Wipe** only when its checks pass;
+an operating-system permission prompt may appear. If the application
+cannot open, use the boot menu below.
 
 **Erasing still requires booting this USB.** Inserting it or opening the
 application does not erase anything. Open START-HERE.html on this USB to see

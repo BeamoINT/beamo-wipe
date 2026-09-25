@@ -282,8 +282,47 @@ def _popen(tool: str, args: List[str]):
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    reaper = threading.Thread(target=proc.wait, daemon=True)
-    reaper.start()
+    launch_decided = threading.Event()
+    launch_allowed = threading.Event()
+
+    def stop_player() -> None:
+        try:
+            proc.terminate()
+        except (OSError, AttributeError):
+            pass
+        try:
+            proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            try:
+                proc.kill()
+                proc.wait(timeout=1)
+            except (OSError, subprocess.TimeoutExpired, AttributeError):
+                pass
+        except (OSError, AttributeError):
+            pass
+
+    def reap() -> None:
+        launch_decided.wait()
+        if launch_allowed.is_set():
+            try:
+                proc.wait(timeout=_PLAY_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                stop_player()
+            except (OSError, subprocess.SubprocessError):
+                pass
+
+    try:
+        reaper = threading.Thread(target=reap, daemon=True)
+        reaper.start()
+        launch_allowed.set()
+    except BaseException:
+        # The sound is optional, but a process with no reaper would become a
+        # zombie. Thread.start may also raise after the thread exists; the
+        # gate above keeps that rejected thread from racing this cleanup.
+        stop_player()
+        return None
+    finally:
+        launch_decided.set()
     return proc
 
 

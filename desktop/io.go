@@ -16,7 +16,7 @@ func validGUID(s string) bool {
 	return guidPattern.MatchString(s) && s != "00000000-0000-0000-0000-000000000000"
 }
 func readSmall(path string, max int64) ([]byte, error) {
-	f, err := os.Open(path)
+	f, err := openRegularInput(path)
 	if err != nil {
 		return nil, err
 	}
@@ -51,18 +51,32 @@ func boundedOutput(cmd *exec.Cmd, max int) ([]byte, error) {
 }
 
 func writeExclusiveFile(path string, data []byte, extraFlags int) error {
+	_, err := writeExclusiveFileOwned(path, data, extraFlags)
+	return err
+}
+
+// created is true only after O_EXCL opened a new file. The caller may clean
+// up an interrupted write only in that case.
+func writeExclusiveFileOwned(path string, data []byte, extraFlags int) (created bool, err error) {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|extraFlags, 0600)
 	if err != nil {
-		return err
+		return false, err
 	}
-	return finishExclusiveWrite(f, path, data)
+	return true, finishExclusiveWrite(f, path, data)
 }
 
 func finishExclusiveWrite(f *os.File, path string, data []byte) error {
+	created, statErr := f.Stat()
 	n, writeErr := f.Write(data)
 	closeErr := f.Close()
 	if writeErr != nil || n != len(data) || closeErr != nil {
-		_ = os.Remove(path)
+		// Another privileged process can replace BootNext while our descriptor
+		// is open. Do not knowingly delete its replacement after a failure.
+		if statErr == nil {
+			if current, err := os.Lstat(path); err == nil && os.SameFile(created, current) {
+				_ = os.Remove(path)
+			}
+		}
 		if writeErr != nil {
 			return writeErr
 		}

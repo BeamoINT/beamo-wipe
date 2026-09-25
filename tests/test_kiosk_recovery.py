@@ -160,8 +160,15 @@ def test_systemd_cannot_reset_supervisor_budget():
     service = SERVICE.read_text()
     assert "Restart=no" in service
     assert "TTYVTDisallocate=no" in service
-    assert "PrivateTmp=yes" in service
+    assert "TemporaryFileSystem=/tmp:mode=1777,nosuid,nodev,size=50%" in service
+    assert "TemporaryFileSystem=/var/tmp:mode=1777,nosuid,nodev,size=10%" in service
     assert "ExecStart=/usr/local/sbin/beamo-wipe-kiosk" in service
+
+
+def test_kiosk_private_tmp_is_a_volatile_filesystem():
+    service = SERVICE.read_text()
+    assert "TemporaryFileSystem=/tmp:mode=1777,nosuid,nodev,size=50%" in service
+    assert "PrivateTmp=yes" not in service
 
 
 @pytest.mark.parametrize("status", [126, 127, 139])

@@ -21,16 +21,52 @@ def test_qemu_report_verifier_accepts_production_bundles(tmp_path, method_id, pr
     from beamo_wipe.methods import METHODS
     from beamo_wipe.models import MethodId
     from beamo_wipe.support_export import _bundle_files
-    from test_result_presentations import case_evidence
+    from test_result_presentations import STATUS, case_evidence
 
     method = MethodId(method_id)
     spec = METHODS[method]
-    _, evidence, log = case_evidence(("completed", method, 0, "{name} | Erased |", False, False))
+    _, evidence, _ = case_evidence((
+        "completed", method, 0,
+        STATUS + "     {name} | Erased |  120 MB/s | 00:00:02 | QEMU/DISK",
+        False, False,
+    ))
     evidence.update(source_commit="a" * 40, build_id="fixture")
+    evidence["device"].update(
+        path="/dev/vda", realpath="/dev/vda", name="vda",
+        serial={"everyday": "0001", "extra": "0002", "quick_zero": "0003"}[method_id],
+        size_bytes=67108864, size_gb_label="0",
+    )
+    evidence["logfile"] = "/tmp/beamo-wipe/nwipe.log"
     evidence["nwipe"]["argv_redacted"] = [
+        "nwipe", "--autonuke", "--nogui", "--nowait", "--quiet",
         f"--method={spec.nwipe_method}", f"--verify={spec.verify}",
-        "--rounds=1", "--noblank", "--quiet", "--autonuke",
+        "--rounds=1", "--logfile=/tmp/beamo-wipe/nwipe.log",
+        "--PDFreportpath=noPDF", f"--exclude={evidence['boot_device']}",
+        "--noblank", evidence["device"]["path"],
     ]
+    target = evidence["device"]["path"]
+    label = {"prng": "PRNG Stream", "dodshort": "DoD Short", "zero": "Fill With Zeros"}[
+        spec.nwipe_method
+    ]
+    passes = spec.overwrite_passes
+    lines = [
+        f"method = {label}",
+        f"verify = {1 if spec.verify == 'last' else 0} ({'last pass' if spec.verify == 'last' else 'off'})",
+        "rounds = 1",
+    ]
+    for number in range(1, passes + 1):
+        lines.append(f"Starting pass {number}/{passes}, round 1/1, on {target}")
+        if number == passes and spec.verify == "last":
+            lines.append(f"Verifying pass {number} of {passes}, round 1 of 1, on {target}")
+            lines.append(f"Verified pass {number} of {passes}, round 1 of 1, on '{target}'.")
+        lines.append(f"Finished pass {number}/{passes}, round 1/1, on {target}")
+    lines.extend([
+        STATUS.rstrip("\n"),
+        f"     {target.rsplit('/', 1)[-1]} | Erased |  120 MB/s | 00:00:02 | QEMU/DISK",
+    ])
+    log = "\n".join(lines) + "\n"
+    evidence["log_checksum_sha256"] = hashlib.sha256(log.encode()).hexdigest()
+    evidence["log_snapshot_size_bytes"] = len(log.encode())
     files = _bundle_files(json.dumps(evidence).encode(), log.encode(), "complete", privacy_reduced=privacy_reduced)
     session = tmp_path / "BEAMO-WIPE-REPORTS" / ("report-" + "a" * 24)
     session.mkdir(parents=True)
@@ -87,11 +123,16 @@ def test_build_provenance_can_precede_qemu_but_cannot_pass_release(build_provena
         rm.verify_build_manifest(dest)
 
 
-def test_finalize_requires_all_executed_gates_and_image_inventory(build_provenance):
+@pytest.mark.parametrize("dirty,drift", [(False, False), (True, False), (True, True)])
+def test_finalize_requires_all_executed_gates_and_image_inventory(build_provenance, monkeypatch, dirty, drift):
     from beamo_wipe.ci_evidence import finalize, collect_inventory
     from beamo_wipe.verification_evidence import REQUIRED_GATES, build_gate_receipt
 
     root, dest, _ = build_provenance
+    if dirty:
+        monkeypatch.setenv("ALLOW_DIRTY", "1")
+        monkeypatch.setattr(rm, "git_dirty", lambda: (True, [" M src/beamo_wipe/wizard.py"]))
+        rm.write_manifest(rm.generate_manifest(strict=False, build_only=True), dest)
     evidence = root / "dist/evidence"
     evidence.mkdir()
     image = root / "mounted-fixture"
@@ -113,8 +154,16 @@ def test_finalize_requires_all_executed_gates_and_image_inventory(build_provenan
             with pytest.raises(RuntimeError, match="missing required gate"):
                 finalize(root)
         (evidence / f"{gate}.receipt.json").write_text(json.dumps(receipt))
+    if drift:
+        monkeypatch.setattr(rm, "live_build_inputs", lambda: {"src/beamo_wipe/": "c" * 64})
+        with pytest.raises(RuntimeError, match="build inputs changed during verification"):
+            finalize(root)
+        return
     finalize(root)
-    rm.verify_manifest(dest)
+    rm.verify_manifest(dest, allow_dirty=dirty)
+    if dirty:
+        with pytest.raises(RuntimeError, match="uncommitted source state"):
+            rm.verify_manifest(dest)
     assert json.loads(dest.read_text())["test_evidence"]["measured"] is True
     for line in (root / "dist/SHA256SUMS").read_text().splitlines():
         digest, name = line.split("  ")
@@ -139,10 +188,20 @@ def test_gate_runner_records_real_process_status_and_log(tmp_path, exit_code):
 
 def test_qemu_host_log_parser_accepts_actual_whitespace(tmp_path):
     source = (ROOT / "scripts/qemu-verify.sh").read_text()
-    block = source.split('python3 - "$logf" "$nwipe_method" "$verify" <<\'PY\'\n', 1)[1].split("\nPY", 1)[0]
+    block = source.split('python3 - "$logf" "$nwipe_method" "$verify" "$LOOP" <<\'PY\'\n', 1)[1].split("\nPY", 1)[0]
     log = tmp_path / "nwipe.log"
-    log.write_text("method = PRNG Stream\nverify = 1 (last pass)\nrounds = 1\nStarting pass 1/1, round 1/1, on /dev/loop0\nVerifying pass 1 of 1, round 1 of 1, on /dev/loop0\nVerified pass 1 of 1, round 1 of 1, on /dev/loop0\nFinished pass 1/1, round 1/1, on /dev/loop0\n| Erased |\n")
-    result = subprocess.run([sys.executable, "-", str(log), "prng", "last"], input=block, text=True, capture_output=True)
+    log.write_text(
+        "[2026/09/07 04:58:44]  notice: method = PRNG Stream\n"
+        "[2026/09/07 04:58:44]  notice: verify = 1 (last pass)\n"
+        "[2026/09/07 04:58:44]  notice: rounds = 1\n"
+        "[2026/09/07 04:58:44]  notice: Starting pass 1/1, round 1/1, on /dev/loop0\n"
+        "[2026/09/07 04:58:44]  notice: Verifying pass 1 of 1, round 1 of 1, on /dev/loop0\n"
+        "[2026/09/07 04:58:44]  notice: Verified pass 1 of 1, round 1 of 1, on '/dev/loop0'.\n"
+        "[2026/09/07 04:58:44]  notice: Finished pass 1/1, round 1/1, on /dev/loop0\n"
+        "********************************* Drive Status *********************************\n"
+        "     loop0 | Erased |  120 MB/s | 00:00:02 | QEMU/DISK\n"
+    )
+    result = subprocess.run([sys.executable, "-", str(log), "prng", "last", "/dev/loop0"], input=block, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
 
 

@@ -212,5 +212,6 @@ dependencies and install Chrome or Chromium. Run
 `python3 -m pytest tests/test_launcher_readiness.py`; it renders shipped assets
 against fake Go snapshots and intercepts all launcher requests. Missing browser
 tooling is an explicit skip, not rendered acceptance. The tests inspect the
-accessibility tree and keyboard behavior; actual screen-reader speech and
-physical Windows/Linux restart acceptance remain separate environment checks.
+accessibility tree and keyboard behavior; actual screen-reader speech,
+physical Windows manual boot, and Linux guided restart acceptance remain
+separate environment checks.

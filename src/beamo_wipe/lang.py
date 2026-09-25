@@ -112,9 +112,13 @@ def set_language(code: str) -> str:
         raise ValueError(f"unsupported language: {code!r}")
     global _current
     modules = _modules()
+    # Capture source English values before the first non-English table can
+    # overwrite them. A later switch back to English must restore the same
+    # values even when no caller requested surface() at startup.
+    english_values = _snapshot()
     if code == "en":
         for module_name in TRANSLATED_MODULES:
-            names = _snapshot().get(module_name, {})
+            names = english_values.get(module_name, {})
             for name, value in names.items():
                 setattr(modules[module_name], name, value)
             _apply_hook(modules[module_name])

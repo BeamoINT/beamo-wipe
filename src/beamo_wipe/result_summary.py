@@ -11,9 +11,15 @@ import unicodedata
 from typing import Any, Mapping
 
 from beamo_wipe.build_identity import BUILD_ID_RE, COMMIT_RE as WRAPPER_COMMIT_RE, STATUSES
+from beamo_wipe.evidence import valid_wall
 from beamo_wipe import identity as _identity
 from beamo_wipe.lang import LANGUAGE_ORDER, current as _lang_current
-from beamo_wipe.outcomes import ResultView, present_evidence, view_needs_support
+from beamo_wipe.outcomes import (
+    ResultView,
+    _method_copy_for_locale,
+    present_evidence,
+    view_needs_support,
+)
 from beamo_wipe.support_contact import qr_svg as _support_qr_svg
 from beamo_wipe import privacy as _privacy
 from beamo_wipe.privacy import SHARE_JSON, is_sharing_copy
@@ -23,7 +29,6 @@ UNAVAILABLE = "unavailable"
 WITHHELD = "withheld"
 TRUNCATED_SUFFIX = " (truncated)"
 MAX_VALUE = 240
-WALL_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 RESULT_FILE_RE = re.compile(r"^result-[A-Za-z0-9._-]{1,120}\.json$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -145,16 +150,19 @@ def _int_text(value: object) -> str:
 def _finite_number(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
     if not math.isfinite(number):
         return None
     return number
 
 
 def _wall(value: object) -> str:
-    if not isinstance(value, str) or not WALL_RE.fullmatch(value):
-        return UNAVAILABLE
-    return value
+    # Rendering an imported or damaged report needs the same calendar check
+    # as evidence creation; a shape-only match can print impossible dates.
+    return valid_wall(value) or UNAVAILABLE
 
 
 def _schema_version(evidence: Mapping[str, Any]) -> int:
@@ -168,7 +176,11 @@ def _clock_line(timestamps: Mapping[str, Any], schema_version: int) -> str:
         provenance = timestamps.get("wall_provenance")
         if confidence == "verified":
             return UNAVAILABLE
-        if confidence == "unverified" and provenance in {"os_utc", "injected"}:
+        if (
+            confidence == "unverified"
+            and isinstance(provenance, str)
+            and provenance in {"os_utc", "injected"}
+        ):
             return CLOCK_UNVERIFIED_SRC.format(source=provenance)
         return UNAVAILABLE
     if _wall(timestamps.get("started_at_wall")) != UNAVAILABLE or _wall(
@@ -182,7 +194,10 @@ def _wall_display(timestamps: Mapping[str, Any], key: str, schema_version: int) 
     if schema_version >= 2:
         if timestamps.get("wall_confidence") != "unverified":
             return UNAVAILABLE
-        if timestamps.get("wall_provenance") not in {"os_utc", "injected"}:
+        provenance = timestamps.get("wall_provenance")
+        if not isinstance(provenance, str) or provenance not in {
+            "os_utc", "injected"
+        }:
             return UNAVAILABLE
     return _wall(timestamps.get(key))
 
@@ -193,8 +208,10 @@ def _elapsed(timestamps: object) -> str:
         return UNAVAILABLE
     started = _finite_number(timestamps.get("started_monotonic"))
     ended = _finite_number(timestamps.get("ended_monotonic"))
-    if started is not None and ended is not None and ended >= started:
-        return duration(ended - started)
+    if started is not None and ended is not None:
+        # Contradictory monotonic stamps make the elapsed time untrustworthy,
+        # even if an imported report also supplies a duration hint.
+        return duration(ended - started) if ended >= started else UNAVAILABLE
     seconds = _finite_number(timestamps.get("duration_s"))
     if seconds is None:
         return UNAVAILABLE
@@ -219,7 +236,7 @@ def _maybe_withhold(value: str) -> str:
 def _scrub(text: str, secrets: tuple[str, ...]) -> str:
     out = text
     for secret in secrets:
-        out = out.replace(secret, WITHHELD)
+        out = re.sub(re.escape(secret), WITHHELD, out, flags=re.IGNORECASE)
     return out
 
 
@@ -279,15 +296,36 @@ def _disk_lines(evidence: Mapping[str, Any], *, redacted: bool) -> list[tuple[st
 
 def _method_lines(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
     method = _object_mapping(evidence.get("method"))
-    title = _optional_text(method, "title")
-    summary = _optional_text(method, "operation_summary")
+    # Saved prose is not authority for the operation the engine ran. The
+    # report uses the pinned method and the record's language instead.
+    from beamo_wipe.methods import METHODS
+    from beamo_wipe.models import MethodId
+
+    try:
+        spec = METHODS[MethodId(method["id"])]
+        language = _object_mapping(evidence.get("locale")).get("language")
+        if language not in LANGUAGE_ORDER:
+            language = _current_language()
+        if is_sharing_copy(evidence):
+            # A sharing copy may have replaced part of a canonical label with
+            # a withheld marker. Preserve that redaction in the readable copy.
+            if present_evidence(evidence).code == "indeterminate":
+                raise ValueError("Invalid sharing method")
+            title = _optional_text(method, "title")
+            summary = _optional_text(method, "operation_summary")
+        else:
+            canonical = _method_copy_for_locale(spec, language)
+            title = _text(canonical["title"])
+            summary = _text(canonical["operation_summary"])
+        overwrites = str(spec.overwrite_passes)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        title = summary = overwrites = UNAVAILABLE
     if title != UNAVAILABLE and summary != UNAVAILABLE:
         method_line = METHOD_BOTH.format(title=title, summary=summary)
     elif summary != UNAVAILABLE:
         method_line = summary
     else:
         method_line = title
-    overwrites = _int_text(method.get("overwrite_passes"))
     return [(H_METHOD, method_line), (H_OVERWRITES, overwrites)]
 
 
@@ -354,7 +392,11 @@ def _application(evidence: Mapping[str, Any]) -> list[tuple[str, str]]:
     else:
         build_text = build_id
     status = evidence.get("build_status")
-    status_text = STATUS_LABELS.get(status, UNAVAILABLE) if status in STATUSES else UNAVAILABLE
+    status_text = (
+        STATUS_LABELS.get(status, UNAVAILABLE)
+        if isinstance(status, str) and status in STATUSES
+        else UNAVAILABLE
+    )
     if status_text == UNAVAILABLE:
         wrapper_text = UNAVAILABLE
         build_text = UNAVAILABLE
@@ -505,7 +547,7 @@ def build_result_summary(
     sharing = is_sharing_copy(payload)
     view = present_evidence(payload)
     device = _object_mapping(payload.get("device"))
-    secrets = _secrets(device) if (redacted or sharing) else ()
+    secrets = _privacy.collect_secrets(payload) if redacted else (_secrets(device) if sharing else ())
     checksum = evidence_sha256 if HEX64_RE.fullmatch(evidence_sha256 or "") else UNAVAILABLE
     timestamps = _object_mapping(payload.get("timestamps"))
     if sharing:

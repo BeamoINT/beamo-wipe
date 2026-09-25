@@ -10,19 +10,39 @@ import (
 func TestExclusiveWriteRemovesIncompleteFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "BootNext")
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
 	err = finishExclusiveWrite(f, path, []byte{7, 0, 0, 0, 4, 0})
 	if err == nil {
-		t.Fatal("expected write failure after the file was closed")
+		t.Fatal("expected write failure on a read-only descriptor")
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatal("incomplete firmware variable left behind")
+	}
+}
+
+func TestExclusiveWriteDoesNotRemoveAnotherOwnersReplacement(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "BootNext")
+	f, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(path, path+".old"); err != nil {
+		t.Fatal(err)
+	}
+	other := []byte{7, 0, 0, 0, 9, 0}
+	if err := os.WriteFile(path, other, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := finishExclusiveWrite(f, path, []byte{7, 0, 0, 0, 4, 0}); err == nil {
+		t.Fatal("expected write failure")
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != string(other) {
+		t.Fatalf("another owner's BootNext was removed or changed: %q %v", got, err)
 	}
 }
 

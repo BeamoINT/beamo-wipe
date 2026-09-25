@@ -87,7 +87,7 @@ def test_tk_unexpected_timer_failure_stops_engine_instead_of_losing_poll_loop(
         wants_new_session=False,
         tick=lambda: None,
         report_view=SimpleNamespace(revision=0),
-        interface_failed=stop,
+        settle_failed_interface=stop,
     )
     app = TkWizard.__new__(TkWizard)
     app.w = wizard
@@ -110,8 +110,7 @@ def test_tk_unexpected_timer_failure_stops_engine_instead_of_losing_poll_loop(
     # This is the same exception boundary used by real Tk callbacks; no window
     # or display is created, and no engine or device is touched.
     tk.CallWrapper(app._tick, None, app.root)()
-    running = screen in {Screen.CHECKING, Screen.WORKING, Screen.STOPPING}
-    assert calls == (["stop", "closed"] if running else ["closed"])
+    assert calls == ["stop", "closed"]
     assert app._fatal_ui
     assert app._after_id is None
 

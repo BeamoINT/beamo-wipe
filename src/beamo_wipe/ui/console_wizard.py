@@ -25,6 +25,11 @@ from beamo_wipe import inventory
 from beamo_wipe import keyboard as _keyboard
 from beamo_wipe.keyboard import LAYOUT_ORDER
 from beamo_wipe.lang import LANGUAGE_NAMES, LANGUAGE_ORDER
+from beamo_wipe import identity as _identity
+from beamo_wipe.methods import METHODS, MethodId
+from beamo_wipe.models import Screen
+from beamo_wipe.safety import same_size_conflict
+from beamo_wipe.wizard import Wizard, error_needs_support
 
 
 def _print_recovery(sections) -> None:
@@ -61,11 +66,6 @@ def _next_language(wizard: Wizard) -> str:
     except ValueError:
         index = -1
     return LANGUAGE_ORDER[(index + 1) % len(LANGUAGE_ORDER)]
-from beamo_wipe import identity as _identity
-from beamo_wipe.methods import METHODS, MethodId
-from beamo_wipe.models import Screen
-from beamo_wipe.safety import same_size_conflict
-from beamo_wipe.wizard import Wizard, error_needs_support
 
 
 ENTER_RELEASE_QUIET_S = 1.0
@@ -264,6 +264,18 @@ def _support_identity_text(wizard: Wizard) -> str:
     return C.support_identity_text(ident)
 
 
+def _pick_disk_header(wizard: Wizard, disk, width: int):
+    """The selectable card through its complete identifier row."""
+    view = wizard.disk_view(disk)
+    star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
+    block = _lines(f"{star} {view.title}", width)
+    meta = "  ".join(part for part in (view.capacity, view.kind_chip, view.connection) if part)
+    if meta:
+        block.extend(_lines(f"  {meta}", width))
+    block.extend(_lines(f"  {view.id_label}: {view.id_value}", width))
+    return view, block
+
+
 def _pick_blocks(wizard: Wizard, width: int) -> list[tuple[object, list[str]]]:
     """Wrapped identity blocks. Protected boot is listed first and is not selectable."""
     blocks: list[tuple[object, list[str]]] = []
@@ -274,13 +286,7 @@ def _pick_blocks(wizard: Wizard, width: int) -> list[tuple[object, list[str]]]:
         block.extend(_nested_lines(wizard, wizard.protected_boot, width))
         blocks.append((None, block))
     for disk in sorted(wizard.selectable, key=lambda d: d.path):
-        view = wizard.disk_view(disk)
-        star = ">" if wizard.selected and disk.path == wizard.selected.path else " "
-        block = _lines(f"{star} {view.title}", width)
-        meta = "  ".join(part for part in (view.capacity, view.kind_chip, view.connection) if part)
-        if meta:
-            block.extend(_lines(f"  {meta}", width))
-        block.extend(_lines(f"  {view.id_label}: {view.id_value}", width))
+        view, block = _pick_disk_header(wizard, disk, width)
         for note in view.notes:
             block.extend(_lines("  " + note, width))
         block.extend(_nested_lines(wizard, disk, width))
@@ -288,7 +294,10 @@ def _pick_blocks(wizard: Wizard, width: int) -> list[tuple[object, list[str]]]:
     return blocks
 
 
-def _paint_paged(stdscr, y: int, lines: list[str], offset: int, y_max: int, width: int) -> int:
+def _paint_paged(
+    stdscr, y: int, lines: list[str], offset: int, y_max: int, width: int,
+    visible: set[int] | None = None,
+) -> int:
     """Page wrapped body lines. Hints never overwrite the only visible rows."""
     if y >= y_max:
         return offset
@@ -298,6 +307,8 @@ def _paint_paged(stdscr, y: int, lines: list[str], offset: int, y_max: int, widt
             if y + i >= y_max:
                 break
             _add(stdscr, y + i, 0, line)
+            if visible is not None:
+                visible.add(i)
         return 0
     page = max(1, avail - 2)
     offset = min(max(0, offset), max(0, len(lines) - page))
@@ -306,10 +317,12 @@ def _paint_paged(stdscr, y: int, lines: list[str], offset: int, y_max: int, widt
     inner = y_max - (1 if need_below else 0)
     if need_above:
         y = _wrap(stdscr, y, C.CON_MORE_ABOVE, width, inner)
-    for line in lines[offset:]:
+    for index, line in enumerate(lines[offset:], offset):
         if y >= inner:
             break
         _add(stdscr, y, 0, line)
+        if visible is not None:
+            visible.add(index)
         y += 1
     if need_below:
         _add(stdscr, y_max - 1, 0, C.CON_MORE_BELOW)
@@ -368,7 +381,9 @@ def _sounds_footer(wizard: Wizard, hear: str) -> str:
     return f"{state}  {hear}"
 
 
-def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
+def _primary_footer(
+    wizard: Wizard, inventory_open: bool, review_pending: bool = False
+) -> list[str]:
     if inventory_open:
         return [C.CON_READ_ONLY]
     screen = wizard.screen
@@ -404,8 +419,10 @@ def _primary_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
         return [C.CON_ADVANCED_FOOTER]
     if screen == Screen.LAST_CHANCE:
         return [
-            C.CON_LAST_WAIT.format(seconds=wizard.countdown_display)
-            if not wizard.erase_enabled else C.CON_LAST_ERASE,
+            C.CON_LAST_REVIEW_FIRST if review_pending else (
+                C.CON_LAST_WAIT.format(seconds=wizard.countdown_display)
+                if not wizard.erase_enabled else C.CON_LAST_ERASE
+            ),
             C.CON_BACK_READ_MORE,
         ]
     if screen == Screen.WORKING:
@@ -473,10 +490,13 @@ def _assist_footer(wizard: Wizard, inventory_open: bool) -> list[str]:
     return []
 
 
-def _footer_lines(wizard: Wizard, inventory_open: bool, width: int, height: int) -> list[str]:
+def _footer_lines(
+    wizard: Wizard, inventory_open: bool, width: int, height: int,
+    review_pending: bool = False,
+) -> list[str]:
     """Pin next-step actions. Assist and extra chrome drop before identity."""
     actions: list[str] = []
-    for line in _primary_footer(wizard, inventory_open):
+    for line in _primary_footer(wizard, inventory_open, review_pending):
         actions.extend(_lines(line, width) or [""])
     assist: list[str] = []
     for line in _assist_footer(wizard, inventory_open):
@@ -520,9 +540,14 @@ def _paint_footer(stdscr, lines: list[str]) -> int:
 
 def run_console(wizard: Wizard) -> int:
     try:
-        return curses.wrapper(lambda stdscr: _loop(stdscr, wizard))
+        return curses.wrapper(lambda stdscr: _run_loop_guarded(stdscr, wizard))
     except (curses.error, KeyboardInterrupt):
         return _plain_loop(wizard)
+    except BaseException:
+        # A render or terminal exception must not release the interface while
+        # this session may still own a running engine.
+        wizard.settle_failed_interface()
+        raise
 
 
 class _InventoryRefreshed(Exception):
@@ -557,20 +582,40 @@ def _print_operation_identity(wizard, width: int = 76) -> None:
 
 
 def _answer(wizard: Wizard, prompt: str) -> str:
+    confirm_token = wizard.confirm if wizard.screen == Screen.CONFIRM else None
+    confirm_word = confirm_token.token.casefold() if confirm_token is not None else ""
+    if wizard.can_open_keyboard and wizard.screen != Screen.KEYBOARD:
+        if confirm_token is not None and confirm_token.token.casefold() in {"k", "keyboard"}:
+            print(C.CON_KEYBOARD_LONG)
+        else:
+            print(C.CON_KEYBOARD)
     if wizard.can_refresh:
         if wizard.screen == Screen.REFRESH_CONFIRM:
             print(C.CON_REFRESH_HINT_CONFIRM)
         else:
             print(C.CON_REFRESH_HINT)
-    if wizard.can_open_diagnostic:
+    if wizard.can_open_diagnostic and confirm_word != "diagnostic":
         print(C.CON_DIAGNOSTIC_HINT)
-    if wizard.can_open_report_help:
+    if wizard.can_open_report_help and confirm_word != "report":
         print(C.CON_REPORT_HINT)
     answer = input(prompt)
-    if wizard.can_open_report_help and answer.strip().upper() == "REPORT":
+    keyboard_command = answer.strip().upper()
+    names_confirm_token = (
+        confirm_token is not None
+        and keyboard_command.casefold() == confirm_token.token.casefold()
+    )
+    if (
+        wizard.can_open_keyboard
+        and wizard.screen != Screen.KEYBOARD
+        and keyboard_command in {"K", "KEYBOARD", "CHANGE KEYBOARD"}
+        and not names_confirm_token
+    ):
+        wizard.open_keyboard()
+        raise _InventoryRefreshed
+    if wizard.can_open_report_help and keyboard_command == "REPORT" and not names_confirm_token:
         wizard.open_report_help()
         raise _InventoryRefreshed
-    if wizard.can_open_diagnostic and answer.strip().upper() == "DIAGNOSTIC":
+    if wizard.can_open_diagnostic and keyboard_command == "DIAGNOSTIC" and not names_confirm_token:
         wizard.open_diagnostic()
         raise _InventoryRefreshed
     if wizard.can_refresh and answer.strip().upper() == "CHECK DISKS AGAIN":
@@ -603,8 +648,7 @@ def _plain_loop(wizard: Wizard) -> int:
         except _InventoryRefreshed:
             continue
         except EOFError:
-            if wizard.screen == Screen.WORKING:
-                wizard.cancel_wipe(origin="system")
+            wizard.settle_failed_interface()
             wizard.shutdown()
             if not wizard.wants_shutdown:
                 if wizard.screen == Screen.SHUTDOWN_CONFIRM:
@@ -632,6 +676,9 @@ def _plain_loop(wizard: Wizard) -> int:
                 wizard.shutdown()
             if wizard.wants_shutdown or wizard.wants_new_session:
                 return 0
+        except BaseException:
+            wizard.settle_failed_interface()
+            raise
 
 
 def _plain_loop_body(wizard: Wizard) -> int:
@@ -915,22 +962,30 @@ def _plain_loop_body(wizard: Wizard) -> int:
             time.sleep(0.2)
             continue
         if screen == Screen.LAST_CHANCE:
-            print(C.LAST_LEAD)
-            if wizard.selected:
-                _print_view(wizard.disk_view(wizard.selected))
-            print(C.POWER_KEEP)
-            print(wizard.power_text)
-            print(wizard.prepare_text())
-            print(wizard.operation_summary)
-            print(f"{C.SEVERITY_WARNING}: {wizard.erase_label()}")
-            print(wizard.method_summary)
-            if wizard.error:
-                _print_error_recovery(wizard.error)
-                if error_needs_support(wizard.error):
-                    print(C.support_text())
-            ident = _support_identity_text(wizard)
-            if ident:
-                print(ident)
+            # A slow terminal may spend the entire original countdown
+            # printing the warning. Start a fresh review only after the
+            # owner can see all of its disk and method details.
+            review = wizard.begin_review_overlay()
+            try:
+                print(C.LAST_LEAD)
+                if wizard.selected:
+                    _print_view(wizard.disk_view(wizard.selected))
+                print(C.POWER_KEEP)
+                print(wizard.power_text)
+                print(wizard.prepare_text())
+                print(wizard.operation_summary)
+                print(f"{C.SEVERITY_WARNING}: {wizard.erase_label()}")
+                print(wizard.method_summary)
+                if wizard.error:
+                    _print_error_recovery(wizard.error)
+                    if error_needs_support(wizard.error):
+                        print(C.support_text())
+                ident = _support_identity_text(wizard)
+                if ident:
+                    print(ident)
+            finally:
+                if review:
+                    wizard.end_review_overlay()
             while wizard.countdown_left > 0:
                 wizard.tick()
                 print(C.CON_COUNTDOWN.format(seconds=wizard.countdown_display))
@@ -1102,6 +1157,16 @@ def _plain_loop_body(wizard: Wizard) -> int:
     return 0
 
 
+def _run_loop_guarded(stdscr, wizard: Wizard) -> int:
+    """Release the final-review hold even if curses abandons its renderer."""
+    overlay_depth = getattr(wizard, "_review_overlay_depth", 0)
+    try:
+        return _loop(stdscr, wizard)
+    finally:
+        while getattr(wizard, "_review_overlay_depth", 0) > overlay_depth:
+            wizard.end_review_overlay()
+
+
 def _loop(stdscr, wizard: Wizard) -> int:
     _curses_opt("curs_set", 0)
     stdscr.keypad(True)
@@ -1109,6 +1174,12 @@ def _loop(stdscr, wizard: Wizard) -> int:
     _curses_opt("use_default_colors")
     enter_held = False
     enter_quiet_since = None
+    escape_held = False
+    escape_quiet_since = None
+    space_held = False
+    space_quiet_since = None
+    share_held = False
+    share_quiet_since = None
     limits_offset = 0
     inventory_open = False
     comparison_open = False
@@ -1117,12 +1188,34 @@ def _loop(stdscr, wizard: Wizard) -> int:
     pick_offset = 0
     pick_follow = True
     pick_page = 1
+    shown_screen = None
+    review_overlay_held = False
+    review_lines: tuple[str, ...] = ()
+    review_seen: set[int] = set()
     while not wizard.wants_shutdown and not wizard.wants_new_session:
         wizard.tick()
+        first_review_frame = wizard.screen == Screen.LAST_CHANCE and shown_screen != Screen.LAST_CHANCE
+        if wizard.screen != Screen.LAST_CHANCE and review_overlay_held:
+            wizard.end_review_overlay()
+            review_overlay_held = False
+            review_seen.clear()
+            review_lines = ()
+        if first_review_frame:
+            limits_offset = 0
+            review_seen.clear()
+            review_lines = ()
+            review_overlay_held = wizard.begin_review_overlay()
+        shown_screen = wizard.screen
+        if wizard.screen not in {Screen.WHAT, Screen.OWNER, Screen.REPORT_HELP}:
+            space_held = False
+            space_quiet_since = None
+        if wizard.screen != Screen.REPORT_HELP:
+            share_held = False
+            share_quiet_since = None
         stdscr.erase()
         h, w = stdscr.getmaxyx()
         h, w = max(2, h), max(20, w)
-        footer = _footer_lines(wizard, inventory_open, w, h)
+        footer = _footer_lines(wizard, inventory_open, w, h, review_overlay_held)
         y_max = max(1, h - len(footer))
         chrome = _chrome_lines(wizard, w)
         y = 0
@@ -1210,13 +1303,10 @@ def _loop(stdscr, wizard: Wizard) -> int:
         elif wizard.screen == Screen.PICK:
             blocks = _pick_blocks(wizard, w)
             first_disk = next((disk for disk, _block in blocks if disk is not None), None)
-            first_block = next((block for disk, block in blocks if disk is first_disk), [])
-            identity_rows = 0
-            serial = first_disk.serial or "" if first_disk is not None else ""
-            for index, line in enumerate(first_block):
-                identity_rows = index + 1
-                if serial and serial in line:
-                    break
+            identity_rows = (
+                len(_pick_disk_header(wizard, first_disk, w)[1])
+                if first_disk is not None else 0
+            )
             total_block_lines = sum(len(block) for _disk, block in blocks)
             hint_rows = 2 if total_block_lines > identity_rows else 0
             intro_budget = max(0, y_max - y - identity_rows - hint_rows)
@@ -1356,7 +1446,9 @@ def _loop(stdscr, wizard: Wizard) -> int:
             _paint_footer(stdscr, footer)
             _curses_opt("echo")
             _curses_opt("curs_set", 1)
-            stdscr.nodelay(False)
+            # Keep a bounded read so the shared Escape hold can observe a
+            # quiet interval even while Confirm accepts typed token input.
+            stdscr.timeout(100)
             stdscr.refresh()
             ch = stdscr.getch()
             _curses_opt("noecho")
@@ -1364,6 +1456,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
             stdscr.nodelay(True)
             if ch == KEY_RESIZE:
                 continue
+            if ch == -1:
+                escape_held, escape_quiet_since, _ = _advance_enter_quiet(
+                    escape_held, escape_quiet_since, time.monotonic()
+                )
+                continue
+            if escape_held:
+                escape_quiet_since = None
             if ch == curses.KEY_F5 and wizard.can_refresh:
                 wizard.open_refresh_confirm()
                 continue
@@ -1382,6 +1481,13 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 enter_held = True
                 enter_quiet_since = None
             elif ch in (27,):
+                if escape_held:
+                    continue
+                # Confirm reads keys in its own blocking branch. Carry the
+                # hold into the shared loop so a repeated Escape cannot back
+                # out of Pick as a second action.
+                escape_held = True
+                escape_quiet_since = None
                 wizard.back()
             elif ch in (curses.KEY_BACKSPACE, 127, 8):
                 wizard.set_confirm_input(wizard.confirm_input[:-1])
@@ -1468,7 +1574,17 @@ def _loop(stdscr, wizard: Wizard) -> int:
             ident = _support_identity_text(wizard)
             if ident:
                 rest.extend(_lines(ident, w))
-            limits_offset = _paint_paged(stdscr, y, rest, limits_offset, y_max, w)
+            current_lines = tuple(rest)
+            if current_lines != review_lines:
+                review_lines = current_lines
+                review_seen.clear()
+                if not review_overlay_held:
+                    review_overlay_held = wizard.begin_review_overlay()
+            visible_review: set[int] = set()
+            limits_offset = _paint_paged(
+                stdscr, y, rest, limits_offset, y_max, w, visible_review
+            )
+            review_seen.update(visible_review)
         elif wizard.screen == Screen.WORKING:
             lines = []
             if wizard.stop_confirmation is not None:
@@ -1563,9 +1679,24 @@ def _loop(stdscr, wizard: Wizard) -> int:
             limits_offset = _paint_paged(stdscr, y, lines, limits_offset, y_max, w)
         _paint_footer(stdscr, footer)
         stdscr.refresh()
+        if review_overlay_held and len(review_seen) == len(review_lines):
+            # Start the visible five seconds only after every page of the
+            # final details has actually been painted at least once.
+            wizard.end_review_overlay()
+            review_overlay_held = False
         ch = stdscr.getch()
         if ch == KEY_RESIZE:
             continue
+        # Handle Escape before inventory overlays and shortcut actions. A
+        # held key can close an overlay and then repeat on the picker, which
+        # would otherwise back out of the disk selection as a second action.
+        if ch != -1:
+            if escape_held:
+                escape_quiet_since = None
+                if ch == 27:
+                    continue
+            elif ch == 27:
+                escape_held = True
         if wizard.screen == Screen.SHUTDOWN_CONFIRM and ch in (ord("d"), ord("D")):
             _confirm_report_discard(stdscr, wizard)
             continue
@@ -1586,6 +1717,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 delta = {curses.KEY_UP: -1, curses.KEY_DOWN: 1,
                          curses.KEY_PPAGE: -page_size, curses.KEY_NPAGE: page_size}[ch]
                 inventory_offset = max(0, inventory_offset + delta)
+            elif ch == -1:
+                time.sleep(0.08)
             continue
         if wizard.screen == Screen.PICK and ch in (ord("c"), ord("C")) and len(wizard.selectable) > 1:
             inventory_open = True
@@ -1609,6 +1742,20 @@ def _loop(stdscr, wizard: Wizard) -> int:
             enter_held, enter_quiet_since, released = _advance_enter_quiet(
                 enter_held, enter_quiet_since, time.monotonic()
             )
+            # Curses reports presses but no releases. A held Esc otherwise
+            # opens Stop confirmation and its next repeat dismisses it.
+            escape_held, escape_quiet_since, _ = _advance_enter_quiet(
+                escape_held, escape_quiet_since, time.monotonic()
+            )
+            # Space toggles owner consent and report preferences. Curses has
+            # no key-up event, so repeated presses from one hold need the
+            # same quiet interval as Enter and Escape.
+            space_held, space_quiet_since, _ = _advance_enter_quiet(
+                space_held, space_quiet_since, time.monotonic()
+            )
+            share_held, share_quiet_since, _ = _advance_enter_quiet(
+                share_held, share_quiet_since, time.monotonic()
+            )
             if released and wizard.screen in (
                 Screen.DONE,
                 Screen.PICK_EMPTY,
@@ -1617,13 +1764,30 @@ def _loop(stdscr, wizard: Wizard) -> int:
                 wizard.arm_done_keyboard()
             time.sleep(0.08)
             continue
+        if wizard.screen in {Screen.WHAT, Screen.OWNER, Screen.REPORT_HELP}:
+            if space_held:
+                space_quiet_since = None
+                if ch == ord(" "):
+                    continue
+            elif ch == ord(" "):
+                space_held = True
+        if wizard.screen == Screen.REPORT_HELP:
+            if share_held:
+                share_quiet_since = None
+                if ch in (ord("s"), ord("S")):
+                    continue
+            elif ch in (ord("s"), ord("S")):
+                share_held = True
         if enter_held:
             # Any queued event breaks the quiet interval. A repeat Enter is
             # still part of the same physical hold and remains suppressed.
             enter_quiet_since = None
         if _is_enter_repeat(enter_held, ch):
             continue
-        enter_held = ch in (curses.KEY_ENTER, 10, 13)
+        # Curses has no key release event. Another key interleaved with an
+        # auto-repeating Enter does not prove that Enter was released; only
+        # the observed quiet interval may rearm it.
+        enter_held = enter_held or ch in (curses.KEY_ENTER, 10, 13)
         if (
             wizard.screen == Screen.DONE
             and not wizard.preview
@@ -1673,6 +1837,8 @@ def _loop(stdscr, wizard: Wizard) -> int:
         if wizard.screen not in _paged:
             limits_offset = 0
         _handle(wizard, ch)
+    if review_overlay_held:
+        wizard.end_review_overlay()
     return 0
 
 
@@ -1741,8 +1907,9 @@ def _confirm_report_save(stdscr, wizard: Wizard) -> None:
     stdscr.nodelay(False)
     try:
         _add(stdscr, max(0, h - 2), 0, C.CON_SAVE_TYPE)
+        _add(stdscr, max(0, h - 1), 0, " " * _w)
         stdscr.refresh()
-        typed = stdscr.getstr(max(0, h - 2), len(C.CON_SAVE_TYPE), 8).decode("ascii", errors="ignore")
+        typed = stdscr.getstr(max(0, h - 1), 0, 8).decode("ascii", errors="ignore")
         if typed == "SAVE":
             wizard.save_report_to_usb()
     finally:

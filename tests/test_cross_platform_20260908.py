@@ -21,7 +21,9 @@ def test_injected_inventory_never_reads_host_boot_metadata(monkeypatch):
     for name in ('run_lsblk', 'read_mount_sources', 'read_cmdline'):
         monkeypatch.setattr(discover, name, forbidden)
     payload = json.loads(FIXTURE.read_text())
-    result = discover.discover(lsblk_payload=payload, env={})
+    # The fixture supplies its boot identity explicitly; a label alone cannot
+    # safely distinguish this USB from a large USB-SATA/NVMe bridge.
+    result = discover.discover(lsblk_payload=payload, boot_path='/dev/sdb', env={})
     assert result.boot_identified and result.boot.path == '/dev/sdb'
     assert len(result.selectable) == 2
     # Explicit contradictory evidence still fails closed.
@@ -33,7 +35,9 @@ def test_injected_inventory_never_reads_host_boot_metadata(monkeypatch):
 def test_fixture_cli_refresh_stays_on_fake_machine(monkeypatch):
     for name in ('run_lsblk', 'read_mount_sources', 'read_cmdline'):
         monkeypatch.setattr(discover, name, forbidden)
-    wizard = app._build_wizard(app._parser().parse_args(['--lsblk-json', str(FIXTURE)]))
+    wizard = app._build_wizard(app._parser().parse_args([
+        '--lsblk-json', str(FIXTURE), '--boot-device', '/dev/sdb',
+    ]))
     assert wizard.dry_run and isinstance(wizard.runner, DryRunRunner)
     before = wizard.discovery
     wizard.skip_intro()

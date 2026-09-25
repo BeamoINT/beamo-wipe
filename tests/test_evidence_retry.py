@@ -65,7 +65,10 @@ def test_checksum_failure_is_visible(tmp_path, monkeypatch):
 
 
 def complete(w, clock, outcome='completed'):
-    log = f'{Path(w.selected.path).name} | Erased |\n'
+    log = (
+        '********************************* Drive Status *********************************\n'
+        f'{Path(w.selected.path).name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n'
+    )
     Path(w._wipe_request.logfile).write_text(log)
     Path(w._wipe_request.logfile).chmod(0o600)
     w.runner._log_tail = log
@@ -288,6 +291,7 @@ def test_stale_retry_rejected_without_writing(tmp_path, monkeypatch, change):
 def test_recovery_save_failure_has_no_tick_retry(tmp_path, monkeypatch):
     from beamo_wipe.session_recovery import SessionStore
     from test_session_recovery import BOOT, BUILD, armed
+    monkeypatch.setattr('beamo_wipe.nwipe_runner.pinned_nwipe_already_running', lambda: False)
     directory = tmp_path / 'recovery'
     first = SessionStore(directory, boot=BOOT, build=BUILD).open()
     discovery, _ = armed(first)

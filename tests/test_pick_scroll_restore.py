@@ -4,6 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from beamo_wipe.models import DiskKind
+
 try:
     import tkinter as tk
     from beamo_wipe.ui.tk_wizard import TkWizard
@@ -106,6 +108,27 @@ def test_direct_scroll_with_stable_geometry_keeps_user_position():
     app._pick_restore_tick(1, final=True)
     assert canvas.top == 100
     assert not app._pick_restore_pending
+
+
+def test_new_selected_ssd_guidance_keeps_clicked_card_in_view():
+    app, canvas, card = picker()
+    app.w.selected = None
+    app.w.select_disk = lambda path: setattr(
+        app.w, "selected", SimpleNamespace(path=path, kind=DiskKind.SSD)
+    )
+    card.y = 300  # The owner clicks a card in the current 400px viewport.
+    canvas.content = 600
+
+    def redraw():
+        # The SSD limits panel is now above the card in the picker canvas.
+        card.y = 450
+        canvas.content = 750
+        app._pick_restore_pending = True
+        app._pick_restore_scroll()
+
+    app._draw = redraw
+    app._click_disk("fake-disk")
+    assert card.y + card.height <= canvas.top + canvas.height
 
 
 class RedrawReachedClear(Exception):

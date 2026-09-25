@@ -351,7 +351,7 @@ def test_evaluate_progress_boundary_99_99_and_zero_summary(tmp_path):
     ok4, _ = evaluate_nwipe_completion(0, log_mid, "/dev/vda")
     assert not ok4
     # device-scoped: busy on other device does not fail target
-    log_other_busy = "/dev/sdb is reported as IN USE\n/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\nNwipe successfully completed\n"
+    log_other_busy = "/dev/sdb is reported as IN USE\n/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\nNwipe successfully completed\n"
     ok5, _ = evaluate_nwipe_completion(0, log_other_busy, "/dev/vda")
     assert ok5
 
@@ -561,7 +561,10 @@ def test_evidence_verification_outcomes_truthful(tmp_path):
         started_mono=0.0,
         ended_mono=1.0,
         argv=[],
-        log_text=" sda | Erased | 1 MB/s | 00:01 | model/serial",
+        log_text=(
+            "********************************* Drive Status *********************************\n"
+            "      sda | Erased |  1MB/s | 00:01:00 | TEST/DISK\n"
+        ),
     )
     assert ev_off["outcome"] == OUTCOME_COMPLETED
     assert ev_off["verification"]["verified"] is False
@@ -578,7 +581,10 @@ def test_evidence_verification_outcomes_truthful(tmp_path):
         started_mono=0.0,
         ended_mono=1.0,
         argv=[],
-        log_text=" sda | Erased | 1 MB/s | 00:01 | model/serial",
+        log_text=(
+            "********************************* Drive Status *********************************\n"
+            "      sda | Erased |  1MB/s | 00:01:00 | TEST/DISK\n"
+        ),
     )
     assert ev_last["outcome"] == OUTCOME_VERIFIED
     assert ev_last["verification"]["verified"] is True

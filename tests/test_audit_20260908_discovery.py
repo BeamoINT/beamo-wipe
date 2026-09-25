@@ -88,7 +88,7 @@ def test_nested_mounted_multiparent_volume_does_not_leave_sibling_selectable(mon
 
 @pytest.mark.parametrize("kind,member_fs", [("lvm", "LVM2_member"), ("linear", "linux_raid_member")])
 def test_mounted_stacked_volume_does_not_leave_another_member_selectable(monkeypatch, kind, member_fs):
-    """A second physical member is not the one lsblk hangs the mount on."""
+    """Reported members do not prove an unmarked disk is outside the stack."""
     result = probe(monkeypatch, [
         disk("sda", tran="sata", children=[
             disk("sda1", type="part", tran="sata", children=[
@@ -101,8 +101,8 @@ def test_mounted_stacked_volume_does_not_leave_another_member_selectable(monkeyp
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 def test_flat_lvm_on_multipath_does_not_leave_the_other_leg_selectable(monkeypatch):
@@ -117,7 +117,7 @@ def test_flat_lvm_on_multipath_does_not_leave_the_other_leg_selectable(monkeypat
     assert result.selectable == ()
 
 
-def test_flat_partition_on_disk_holder_follows_the_backing_disk(monkeypatch):
+def test_flat_partition_on_mounted_bcache_holder_refuses_unknown_members(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata"),
         disk("bcache0", pkname="sda", tran=None, serial="BCACHE0"),
@@ -125,11 +125,13 @@ def test_flat_partition_on_disk_holder_follows_the_backing_disk(monkeypatch):
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    # PKNAME identifies one backing device, but cannot prove that sdd is not
+    # a cache member whose signature is missing from this lsblk snapshot.
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_mounted_bcache_does_not_leave_the_cache_disk_selectable(monkeypatch):
+def test_mounted_bcache_refuses_even_when_known_members_are_marked(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata", children=[
             disk("sda1", type="part", fstype="bcache", children=[
@@ -142,20 +144,21 @@ def test_mounted_bcache_does_not_leave_the_cache_disk_selectable(monkeypatch):
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    # Marking two known members does not prove there is no third cache member.
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_flat_mounted_disk_holder_does_not_leave_its_backing_disk_selectable(monkeypatch):
-    """A mounted holder emitted as its own type=disk row still belongs to pkname."""
+def test_flat_mounted_disk_holder_refuses_unknown_bcache_members(monkeypatch):
+    """One PKNAME on a mounted bcache row is not a complete member list."""
     result = probe(monkeypatch, [
         disk("sda", tran="sata"),
         disk("bcache0", pkname="sda", mountpoints=["/mnt/data"], tran=None, serial="BCACHE0"),
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 def test_nested_mounted_child_without_pkname_uses_tree_parent(monkeypatch):
@@ -171,8 +174,8 @@ def _part(name, pk, **changes):
     return disk(name, type="part", pkname=pk, tran="sata", **changes)
 
 
-def test_mounted_btrfs_member_is_not_selectable(monkeypatch):
-    """lsblk records the mount on one btrfs member. The other shares its UUID."""
+def test_mounted_btrfs_member_blocks_unproven_inventory(monkeypatch):
+    """Even a shared UUID does not prove that every member was reported."""
     result = probe(monkeypatch, [
         disk("sda", tran="sata", children=[
             _part("sda1", "sda", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
@@ -183,22 +186,22 @@ def test_mounted_btrfs_member_is_not_selectable(monkeypatch):
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_whole_disk_btrfs_member_is_not_selectable(monkeypatch):
+def test_whole_disk_btrfs_mount_blocks_unproven_inventory(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
         disk("sdb", tran="sata", fstype="btrfs", uuid="FS"),
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_shared_uuid_without_fstype_is_not_selectable(monkeypatch):
+def test_shared_uuid_without_fstype_cannot_prove_btrfs_membership(monkeypatch):
     """A member can show the filesystem UUID before fstype is filled in."""
     result = probe(monkeypatch, [
         disk("sda", tran="sata", children=[
@@ -210,11 +213,11 @@ def test_shared_uuid_without_fstype_is_not_selectable(monkeypatch):
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_shared_uuid_with_a_different_fstype_stays_selectable(monkeypatch):
+def test_shared_uuid_with_a_different_fstype_cannot_prove_btrfs_membership(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata", children=[
             _part("sda1", "sda", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
@@ -225,11 +228,11 @@ def test_shared_uuid_with_a_different_fstype_stays_selectable(monkeypatch):
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert "/dev/sdb" in [target.path for target in result.selectable]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_different_btrfs_uuid_stays_selectable(monkeypatch):
+def test_different_btrfs_uuid_cannot_prove_membership(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata", children=[
             _part("sda1", "sda", fstype="btrfs", uuid="FS", mountpoints=["/data"]),
@@ -240,22 +243,22 @@ def test_different_btrfs_uuid_stays_selectable(monkeypatch):
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdb", "/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_empty_filesystem_uuid_does_not_glue_disks(monkeypatch):
+def test_empty_filesystem_uuid_cannot_prove_btrfs_membership(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata", fstype="btrfs", uuid="", mountpoints=["/data"]),
         disk("sdb", tran="sata", fstype="btrfs", uuid=""),
         disk("sdd", tran="sata"),
         disk("sdc"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdb", "/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_flat_lvm_member_is_not_selectable(monkeypatch):
+def test_flat_lvm_members_do_not_prove_complete_membership(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata"),
         disk("sdb", tran="sata"),
@@ -265,11 +268,12 @@ def test_flat_lvm_member_is_not_selectable(monkeypatch):
         _part("sdb1", "sdb", fstype="LVM2_member"),
         disk("vg-lv", type="lvm", pkname="sda1", mountpoints=["/mnt/data"]),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    # A third physical member can have empty or stale LVM metadata.
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_flat_bcache_member_is_not_selectable(monkeypatch):
+def test_flat_bcache_members_do_not_prove_complete_membership(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata"),
         disk("sdb", tran="sata"),
@@ -279,15 +283,17 @@ def test_flat_bcache_member_is_not_selectable(monkeypatch):
         _part("sdb1", "sdb", fstype="bcache"),
         disk("bcache0", pkname="sda", mountpoints=["/mnt/data"], serial="BCACHE0"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    # The extra disk may still be an unreported or stale cache member.
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 def test_flat_mount_above_the_volume_does_not_leave_another_member_selectable(monkeypatch):
     """The open filesystem can sit on a device above the LVM or md holder.
 
     lsblk then puts the mount on that upper device. The other physical
-    member still shows only the member filesystem and must not be erased.
+    member still shows only the member filesystem; membership completeness
+    remains unknown for any other disk in the inventory.
     """
     result = probe(monkeypatch, [
         disk("sda", tran="sata"),
@@ -299,11 +305,11 @@ def test_flat_mount_above_the_volume_does_not_leave_another_member_selectable(mo
         disk("dm-0", type="lvm", pkname="sda1", serial="LV"),
         disk("dm-1", type="crypt", pkname="dm-0", mountpoints=["/mnt/data"], fstype="ext4", serial="CRYPT"),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
-def test_flat_partition_above_linear_does_not_leave_another_member_selectable(monkeypatch):
+def test_flat_partition_above_linear_refuses_unknown_members(monkeypatch):
     result = probe(monkeypatch, [
         disk("sda", tran="sata"),
         disk("sdb", tran="sata"),
@@ -314,8 +320,8 @@ def test_flat_partition_above_linear_does_not_leave_another_member_selectable(mo
         disk("md0", type="linear", pkname="sda1", serial="MD"),
         _part("md0p1", "md0", fstype="ext4", mountpoints=["/mnt/data"]),
     ], boot="/dev/sdc")
-    assert result.boot_identified
-    assert [target.path for target in result.selectable] == ["/dev/sdd"]
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 def test_single_disk_luks_does_not_consume_an_unrelated_member(monkeypatch):

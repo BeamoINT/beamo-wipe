@@ -145,10 +145,12 @@ def connection_note(disk: Disk) -> str:
 
 
 def strongest_identifier(disk: Disk) -> tuple[str, str]:
-    serial = (disk.serial or "").strip()
+    from beamo_wipe.safety import meaningful_serial, meaningful_wwn
+
+    serial = meaningful_serial(disk.serial)
     if serial:
         return "serial", serial
-    wwn = (disk.wwn or "").strip()
+    wwn = meaningful_wwn(disk.wwn)
     if wwn:
         return "wwn", wwn
     return "missing", ""
@@ -159,14 +161,16 @@ def _norm(value: str) -> str:
 
 
 def duplicate_identifier(disk: Disk, peers: Sequence[Disk]) -> bool:
-    serial = _norm(disk.serial)
-    wwn = _norm(disk.wwn)
+    from beamo_wipe.safety import canonical_wwn, meaningful_serial
+
+    serial = _norm(meaningful_serial(disk.serial))
+    wwn = canonical_wwn(disk.wwn)
     for other in peers:
         if other.path == disk.path:
             continue
-        if serial and _norm(other.serial) == serial:
+        if serial and _norm(meaningful_serial(other.serial)) == serial:
             return True
-        if wwn and _norm(other.wwn) == wwn:
+        if wwn and canonical_wwn(other.wwn) == wwn:
             return True
     return False
 
@@ -175,7 +179,7 @@ def present_disk(
     disk: Disk, peers: Iterable[Disk] = (), *, compare_serials: bool = False
 ) -> DiskIdentityView:
     """Present raw identity; pickers may opt into comparison guidance."""
-    from beamo_wipe.safety import SafetyError, confirm_spec
+    from beamo_wipe.safety import SafetyError, confirm_spec, meaningful_serial
     from beamo_wipe.inventory import serial_comparison
 
     listed = tuple(peers)
@@ -190,10 +194,17 @@ def present_disk(
         id_label, id_value, missing = SERIAL_LABEL, value, ""
     elif kind == "wwn":
         id_label, id_value = HARDWARE_ID_LABEL, value
-        missing = CONFIRM_HARDWARE_ID if (disk.serial or "").strip() else MISSING_SERIAL_HARDWARE_ID
+        missing = CONFIRM_HARDWARE_ID if meaningful_serial(disk.serial) else MISSING_SERIAL_HARDWARE_ID
     else:
         id_label, id_value, missing = SERIAL_LABEL, SERIAL_NOT_REPORTED, MISSING_SERIAL
-    start, end, comparison = serial_comparison(disk, listed) if compare_serials else (0, 0, "")
+    comparable = kind == "serial" and all(
+        meaningful_serial(peer.serial)
+        for peer in listed
+        if peer.path != disk.path and peer.size_gb_label == disk.size_gb_label
+    )
+    start, end, comparison = (
+        serial_comparison(disk, listed) if compare_serials and comparable else (0, 0, "")
+    )
     confirmable = spec is not None
 
     return DiskIdentityView(

@@ -39,7 +39,9 @@ import binascii
 import datetime
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence
@@ -93,6 +95,10 @@ def normalize_utc(value: object) -> str:
             text = text[: -len("+00:00")] + "Z"
         if not UTC_RE.fullmatch(text):
             raise RuntimeError(f"time is not normalized UTC: {value!r}")
+        try:
+            datetime.datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as exc:
+            raise RuntimeError(f"time is not a real UTC time: {value!r}") from exc
         return text
     raise RuntimeError(f"time must be a datetime or string, got {type(value).__name__}")
 
@@ -270,6 +276,15 @@ def _version_tuple(version: str) -> tuple:
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
+def _unique_json_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise RuntimeError("duplicate JSON field")
+        fields[key] = value
+    return fields
+
+
 def verify_release_acceptance(
     manifest_bytes: bytes,
     signature: Mapping[str, Any],
@@ -285,7 +300,10 @@ def verify_release_acceptance(
     """
     result = verify_with_registry(manifest_bytes, signature, registry)
     try:
-        manifest = json.loads(bytes(manifest_bytes).decode("utf-8"))
+        manifest = json.loads(
+            bytes(manifest_bytes).decode("utf-8"),
+            object_pairs_hook=_unique_json_fields,
+        )
     except (UnicodeDecodeError, ValueError) as exc:
         raise RuntimeError("signed manifest bytes are not JSON") from exc
     if not isinstance(manifest, dict):
@@ -298,25 +316,62 @@ def verify_release_acceptance(
     return {**result, "beamo_wipe_version": version}
 
 
-def _read_json_file(path: Path, *, what: str) -> Any:
+def _read_regular_bytes(path: Path, *, what: str, limit: int) -> bytes:
+    """Bound CLI input and refuse links or special files before reading."""
+    path = Path(path)
+    if os.name != "posix" and path.is_symlink():
+        raise RuntimeError(f"{what} cannot be safely read: {path}")
     try:
-        raw = Path(path).read_bytes()
+        fd = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0),
+        )
     except OSError as exc:
-        raise RuntimeError(f"{what} cannot be read: {path}") from exc
+        raise RuntimeError(f"{what} cannot be safely read: {path}") from exc
     try:
-        return json.loads(raw.decode("utf-8"))
+        with os.fdopen(fd, "rb") as stream:
+            metadata = os.fstat(stream.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
+                raise RuntimeError(f"{what} is not a bounded regular file: {path}")
+            raw = stream.read(limit + 1)
+    except OSError as exc:
+        raise RuntimeError(f"{what} cannot be safely read: {path}") from exc
+    if len(raw) > limit:
+        raise RuntimeError(f"{what} exceeds the input size limit: {path}")
+    return raw
+
+
+def _read_json_file(path: Path, *, what: str) -> Any:
+    raw = _read_regular_bytes(path, what=what, limit=1024 * 1024)
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_fields)
     except (UnicodeDecodeError, ValueError) as exc:
         raise RuntimeError(f"{what} is not JSON: {path}") from exc
 
 
 def _read_bytes_file(path: Path, *, what: str) -> bytes:
-    try:
-        data = Path(path).read_bytes()
-    except OSError as exc:
-        raise RuntimeError(f"{what} cannot be read: {path}") from exc
+    data = _read_regular_bytes(
+        path, what=what, limit=32 if what == "signing key" else 16 * 1024 * 1024
+    )
     if not data:
         raise RuntimeError(f"{what} is empty: {path}")
     return data
+
+
+def _write_new_file(path: Path, data: bytes, mode: int) -> None:
+    """Create a key file with final permissions before writing any bytes."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, mode)
+    with os.fdopen(fd, "wb") as stream:
+        if (
+            mode == 0o600
+            and os.name == "posix"
+            and stat.S_IMODE(os.fstat(stream.fileno()).st_mode) != 0o600
+        ):
+            raise RuntimeError("key file permissions were not private at creation")
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -343,12 +398,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "keygen":
         private_raw, public_raw = generate_keypair()
         private_path = Path(args.private_out)
-        private_path.write_bytes(private_raw)
-        try:
-            private_path.chmod(0o600)
-        except OSError as exc:
-            raise RuntimeError("cannot protect the generated key file") from exc
-        Path(args.public_out).write_bytes(public_raw)
+        public_path = Path(args.public_out)
+        if (
+            private_path == public_path
+            or public_path.exists()
+            or public_path.is_symlink()
+        ):
+            raise FileExistsError("key output path already exists")
+        _write_new_file(private_path, private_raw, 0o600)
+        _write_new_file(public_path, public_raw, 0o644)
         print(f"key id {key_id(public_raw)}; guard the private file accordingly")
         return 0
     if args.command == "sign":
@@ -360,7 +418,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             key_raw,
             signed_at=args.signed_at or None,
         )
-        Path(args.out).write_text(json.dumps(sidecar, indent=2, sort_keys=True) + "\n")
+        _write_new_file(
+            Path(args.out),
+            (json.dumps(sidecar, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+            0o644,
+        )
         print(f"signed with key {sidecar['key_id']}")
         return 0
     manifest_bytes = _read_bytes_file(Path(args.manifest), what="manifest")

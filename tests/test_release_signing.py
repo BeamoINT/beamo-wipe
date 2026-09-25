@@ -53,6 +53,21 @@ def _registry(*entries: tuple, statuses: dict | None = None) -> dict:
     return rs.load_key_registry({"schema": rs.KEYS_SCHEMA, "keys": keys})
 
 
+def test_signature_rejects_impossible_utc_calendar_time():
+    private_raw, public_raw = rs.generate_keypair()
+    manifest = _manifest_bytes()
+    impossible = "2026-09-31T25:61:61Z"
+    with pytest.raises(RuntimeError, match="real UTC time"):
+        rs.sign_manifest_bytes(manifest, private_raw, signed_at=impossible)
+
+    valid = rs.sign_manifest_bytes(
+        manifest, private_raw, signed_at="2026-09-11T00:00:00Z"
+    )
+    valid["signed_at"] = impossible
+    with pytest.raises(RuntimeError, match="real UTC time"):
+        rs.verify_signature(manifest, valid, public_raw)
+
+
 def test_valid_signature_verifies():
     private_raw, public_raw = rs.generate_keypair()
     manifest = _manifest_bytes()
@@ -266,3 +281,28 @@ def test_cli_keygen_sign_verify_round_trip(tmp_path):
         )
         == 0
     )
+
+
+@pytest.mark.parametrize("output_name", ["manifest.json", "release.key", "existing.sig"])
+def test_cli_sign_refuses_existing_output_without_changing_it(tmp_path, output_name):
+    private_raw, _public_raw = rs.generate_keypair()
+    manifest = tmp_path / "manifest.json"
+    manifest.write_bytes(_manifest_bytes())
+    key_file = tmp_path / "release.key"
+    key_file.write_bytes(private_raw)
+    output = tmp_path / output_name
+    if not output.exists():
+        output.write_bytes(b"previous signature")
+    original = output.read_bytes()
+
+    with pytest.raises(FileExistsError):
+        rs.main(
+            [
+                "sign",
+                "--manifest", str(manifest),
+                "--key-file", str(key_file),
+                "--out", str(output),
+            ]
+        )
+
+    assert output.read_bytes() == original

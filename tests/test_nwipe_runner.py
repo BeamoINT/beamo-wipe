@@ -10,6 +10,10 @@ from beamo_wipe.nwipe_runner import DryRunRunner, build_nwipe_argv, parse_percen
 from beamo_wipe.safety import SafetyError, selectable_disks
 
 FIXTURES = Path(__file__).parent / "fixtures"
+DRIVE_STATUS_HEADER = (
+    "********************************* Drive Status "
+    "*********************************\n"
+)
 
 
 def _request(method=MethodId.EVERYDAY) -> WipeRequest:
@@ -336,7 +340,7 @@ def test_evaluate_nwipe_busy_on_boot_usb_does_not_fail_target():
 
     log = (
         "/dev/sdb is reported as IN USE (it could be mounted)\n"
-        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00\n"
+        "/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\n"
         "Nwipe successfully completed. See summary table for details.\n"
     )
     ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
@@ -407,8 +411,9 @@ def test_evaluate_nwipe_serial_probe_warning_is_not_open_failure():
 
     log = (
         "Unable to open device /dev/vda to obtain serial number\n"
-        "      vda | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
-        "Nwipe successfully completed. See summary table for details.\n"
+        + DRIVE_STATUS_HEADER
+        + "      vda | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
+        + "Nwipe successfully completed. See summary table for details.\n"
     )
     ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
     assert ok is True
@@ -420,8 +425,9 @@ def test_evaluate_nwipe_model_insanity_is_not_drive_status_failure():
     from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
 
     log = (
-        "      vda | Erased |  120MB/s | 01:25:04 | QEMU/INSANITYBOX\n"
-        "Nwipe successfully completed. See summary table for details.\n"
+        DRIVE_STATUS_HEADER
+        + "      vda | Erased |  120MB/s | 01:25:04 | QEMU/INSANITYBOX\n"
+        + "Nwipe successfully completed. See summary table for details.\n"
     )
     ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
     assert ok is True
@@ -492,7 +498,10 @@ def test_one_pass_log_does_not_verify_three_overwrites():
         "/dev/nvme0n1: 100.00%, round 1 of 1, pass 3 of 3, "
         "eta 00:00:00, [verifying]>\n"
     )
-    erased = " nvme0n1 | Erased |  120MB/s | 01:25:04 | QEMU\n"
+    erased = (
+        DRIVE_STATUS_HEADER
+        + " nvme0n1 | Erased |  120MB/s | 01:25:04 | QEMU\n"
+    )
     result = WipeResult(ok=True, exit_code=0, summary="finished", logfile="/tmp/x")
     ok, _summary, reason = completion_for_method(
         0, one_pass, "/dev/nvme0n1", MethodId.EXTRA
@@ -521,7 +530,7 @@ def test_one_pass_log_does_not_verify_three_overwrites():
         result=result, method=MethodId.EVERYDAY, log_text=one_pass,
         device="/dev/nvme0n1", interrupted=False, cancelled=False,
     )
-    assert outcome == OUTCOME_VERIFIED
+    assert outcome == OUTCOME_FAILED
     from beamo_wipe.evidence import build_evidence
     from beamo_wipe.models import DiscoveryResult, Disk, DiskKind
     from beamo_wipe.outcomes import present_evidence
@@ -566,7 +575,8 @@ def test_truncated_drive_status_name_still_counts_as_erased():
     assert nwipe_status_device_field("/dev/nvme0n1") == " nvme0n1"
     log = (
         f"{device}: 099.87%, round 1 of 1, pass 1 of 1, eta 00:00:02, [verifying]\n"
-        "  vme0n100 | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
+        + DRIVE_STATUS_HEADER
+        + "  vme0n100 | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
     )
     ok, summary, reason = evaluate_nwipe_outcome(0, log, device)
     assert (ok, summary, reason) == (True, "finished", "completed")
@@ -608,8 +618,9 @@ def test_evaluate_nwipe_erased_table_is_finished():
     from beamo_wipe.nwipe_runner import evaluate_nwipe_completion
 
     log = (
-        "      vda | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
-        "Nwipe successfully completed. See summary table for details.\n"
+        DRIVE_STATUS_HEADER
+        + "      vda | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK\n"
+        + "Nwipe successfully completed. See summary table for details.\n"
     )
     ok, summary = evaluate_nwipe_completion(0, log, "/dev/vda")
     assert ok is True
@@ -889,6 +900,7 @@ def test_completion_sees_erased_row_after_large_pdf_tail(tmp_path, monkeypatch):
         "for arg in \"$@\"; do\n"
         "  case \"$arg\" in --logfile=*)\n"
         "    log=\"${arg#--logfile=}\"\n"
+        "    echo '********************************* Drive Status *********************************' >> \"$log\"\n"
         "    echo '      vda | Erased |  120MB/s | 01:25:04 | QEMU/HARDDISK' >> \"$log\"\n"
         "    dd if=/dev/zero bs=1024 count=80 2>/dev/null | tr '\\0' 'x' >> \"$log\"\n"
         "    echo >> \"$log\"\n"

@@ -6,6 +6,11 @@ import pytest
 from beamo_wipe.models import MethodId, WipeRequest
 from beamo_wipe.nwipe_runner import NwipeRunner, evaluate_nwipe_outcome
 
+COMPLETE_LOG = (
+    "********************************* Drive Status *********************************\n"
+    "      vda | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
+)
+
 
 @pytest.mark.parametrize("suffix", [", pass nope of 3", ", pass 1 of", ", pass 3 of 3garbage"])
 def test_malformed_progress_never_proves_completion(suffix):
@@ -36,7 +41,7 @@ def test_cancel_snapshot_cannot_discard_a_later_run(tmp_path, monkeypatch):
     old = FakeProc()
     runner._proc = old
     request = WipeRequest("/dev/vda", MethodId.EVERYDAY, "/dev/sr0", str(tmp_path / "nwipe.log"))
-    monkeypatch.setattr(runner, "_read_log_tail", lambda *args: "vda | Erased |\n")
+    monkeypatch.setattr(runner, "_read_log_tail", lambda *args: COMPLETE_LOG)
     cancellations = []
 
     def cancel():
@@ -94,7 +99,7 @@ def test_poll_releases_only_its_own_run_lock(tmp_path, monkeypatch):
     new = FakeProc()
     new.returncode = None
     monkeypatch.setattr("beamo_wipe.nwipe_runner.subprocess.Popen", lambda *a, **kw: new)
-    monkeypatch.setattr(runner, "_read_log_tail", lambda *args: "vda | Erased |\n")
+    monkeypatch.setattr(runner, "_read_log_tail", lambda *args: COMPLETE_LOG)
     release_entered, allow_release, started = threading.Event(), threading.Event(), threading.Event()
     release_lock = runner._release_wipe_lock
     errors = []

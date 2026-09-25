@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -140,7 +142,7 @@ def _disks_payload(scenario: str = "happy") -> list[dict]:
                 "duplicateNote": view.duplicate_note,
                 "announcement": view.announcement,
                 "isBoot": disk.is_boot,
-                "eligible": disk.path in eligible_paths,
+                "eligible": spec is not None,
                 "token": spec.token if spec else "",
                 "prompt": spec.prompt if spec else "",
                 "warning": "" if disk.is_boot else C.confirm_warning(disk),
@@ -470,7 +472,11 @@ def _gallery_html_for_current_language(lang: str) -> str:
         "limitsTitle": limits.TITLE,
         "reportHelpTitle": C.REPORT_HELP_TITLE,
         "reportHelpText": C.REPORT_HELP_TEXT,
+        "helpReadHint": C.HINT_READ_KEYS,
+        "helpNoDiskHint": C.HINT_ESC_NO_SELECTION,
+        "stopKeepConnected": C.POWER_KEEP_CONNECTED,
         "reportWanted": C.REPORT_WANTED,
+        "reportShareRedacted": C.REPORT_SHARE_REDACTED,
         "reportMediaWhat": C.REPORT_MEDIA_WHAT,
         "reportMediaWanted": C.REPORT_MEDIA_WANTED,
         "anotherTitle": C.ANOTHER_TITLE,
@@ -746,8 +752,34 @@ def write_gallery(dest: Path | None = None, lang: str = "en") -> Path:
             dest = root / "web-preview" / "index.html"
         else:
             dest = Path.cwd() / "web-preview" / "index.html"
+    html = gallery_html(lang)
+    # The named page is replaced atomically below, but a linked parent would
+    # still redirect both the temporary file and replacement outside the
+    # requested preview tree. Check before creating missing descendants too.
+    def require_unlinked_parent() -> None:
+        if any(part.is_symlink() for part in (dest.parent, *dest.parent.parents)):
+            raise OSError("Preview output directory is a symbolic link")
+
+    require_unlinked_parent()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(gallery_html(lang), encoding="utf-8")
+    require_unlinked_parent()
+    # The preview is regenerated in place. Write a new inode and replace the
+    # named artifact so a stale symlink or hard link cannot redirect that
+    # write into another file in the shared checkout.
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=dest.parent,
+        prefix=f".{dest.name}.", suffix=".tmp", delete=False,
+    ) as stream:
+        temporary = Path(stream.name)
+        try:
+            stream.write(html)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        os.replace(temporary, dest)
+    finally:
+        temporary.unlink(missing_ok=True)
     return dest
 
 
@@ -755,7 +787,12 @@ def open_gallery(dest: Path | None = None, lang: str = "en") -> Path:
     import webbrowser
 
     path = write_gallery(dest, lang)
-    webbrowser.open(path.resolve().as_uri())
+    try:
+        opened = webbrowser.open(path.resolve().as_uri())
+    except Exception as exc:
+        raise OSError("Browser could not open preview gallery") from exc
+    if not opened:
+        raise OSError("Browser could not open preview gallery")
     return path
 
 
@@ -1121,6 +1158,7 @@ let screen = "splash";
 let soundsOn = false;
 let renderedScreen = null;
 let reportWanted = false;
+let reportShareRedacted = false;
 let reportHelpFrom = "owner";
 let refreshFrom = "owner";
 let shutdownFrom = "owner";
@@ -1212,6 +1250,7 @@ function renderHint(text) {
 function boot(m) {
   anotherPending = false;
   reportWanted = false;
+  reportShareRedacted = false;
   reportHelpFrom = "owner";
   mode = m;
   fail = (m === "fail");
@@ -1266,6 +1305,13 @@ function btn(label, fn, cls, disabled) {
   b.disabled = !!disabled;
   b.onclick = fn;
   return b;
+}
+function requestAnotherPreview() {
+  if (screen !== "done" && screen !== "stopped") return;
+  anotherPending = true;
+  shutdownFrom = screen;
+  screen = "shutdown_confirm";
+  draw();
 }
 function closePreview() {
   anotherPending = false;
@@ -1357,10 +1403,16 @@ function diskCard(d) {
   </div>`;
 }
 function requestRefresh() {
-  if (["working", "done", "splash", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "shutdown_confirm"].includes(screen)) return;
+  if (["working", "done", "splash", "keyboard", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "shutdown_confirm"].includes(screen)) return;
   if (screen === "refresh_confirm") return;
+  if (screen === "last" && timer) { clearInterval(timer); timer = null; }
   refreshFrom = screen;
   screen = "refresh_confirm";
+  draw();
+}
+function cancelRefresh() {
+  screen = refreshFrom;
+  if (screen === "last") { tLeft = 5; startCount(); }
   draw();
 }
 function refreshPreview() {
@@ -1388,6 +1440,14 @@ function draw() {
   // final review always starts on Back, including screenshot deep links.
   const reviewFocus = screen === "last" && renderedScreen === "last"
     && document.activeElement.matches(".foot button") ? document.activeElement.textContent : null;
+  // Demo progress repaints the working controls every frame. Keep the
+  // owner's focused action reachable across those repaints.
+  const workingFocus = screen === "working" && renderedScreen === "working"
+    && document.activeElement.matches(".foot button")
+    ? Array.from(document.getElementById("foot").querySelectorAll("button")).indexOf(document.activeElement)
+    : -1;
+  const workingMoreFocus = screen === "working" && renderedScreen === "working"
+    && document.activeElement.id === "more";
   if (screen === "what") screen = "owner";
   const info = stepInfo();
   const stepEl = document.getElementById("step");
@@ -1440,12 +1500,26 @@ function draw() {
       <div class="entryshell"><input class="token" id="kbcheck" type="text" autocomplete="off" spellcheck="false" value=""></div>
       </div></div>`;
     main.querySelectorAll("[data-layout]").forEach(el => {
-      const pick = () => { keyboardLayout = el.dataset.layout; owner = false; token = ""; selected = null; draw(); };
-      el.onclick = pick;
-      el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
+      const pick = (keyboard = false) => {
+        keyboardLayout = el.dataset.layout;
+        owner = false; token = ""; selected = null;
+        draw();
+        if (keyboard) main.querySelector(`[data-layout="${keyboardLayout}"]`)?.focus();
+      };
+      el.onclick = () => pick();
+      el.onkeydown = (e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          if (!e.repeat) pick(true);
+        }
+      };
     });
     main.querySelectorAll("[data-text]").forEach(el => {
-      el.onclick = () => { textSize = el.dataset.text; draw(); };
+      el.onclick = () => {
+        textSize = el.dataset.text;
+        draw();
+        main.querySelector(`[data-text="${textSize}"]`)?.focus();
+      };
     });
     const box = main.querySelector("#kbcheck");
     if (box) box.value = "";
@@ -1462,7 +1536,6 @@ function draw() {
       <div id="power-status" role="status" aria-live="polite">${powerText()}</div></div></div>
       ${moreLink("more-detail")}
       ${moreDetail(showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
-      ${moreDetail(showMore ? `<div class="panel info" style="margin-top:12px">${badge("info", 28)}<div>
       <div>${P.thisUsb}</div><div class="extra">${P.secureBoot} ${P.engine} ${P.powerEvents}</div></div></div>` : "")}
       <p class="subtitle" style="margin-top:16px">${P.ownerLead}</p>
       <div class="ownercard${owner ? " checked" : ""}" id="own" tabindex="0" role="checkbox" aria-checked="${owner}">
@@ -1471,7 +1544,7 @@ function draw() {
     const card = main.querySelector("#own");
     const toggle = () => { owner = !owner; draw(); document.getElementById("own").focus(); };
     card.onclick = toggle;
-    card.onkeydown = (e) => { if (e.key === " ") { e.preventDefault(); toggle(); } };
+    card.onkeydown = (e) => { if (e.key === " ") { e.preventDefault(); if (!e.repeat) toggle(); } };
     btnsL.append(btn(P.buttons.back, () => { screen = "keyboard"; draw(); }));
     renderHint(P.hints.owner);
     btnsR.append(btn(P.buttons.chooseDisk, () => { if (owner) { if (mode==="blocked") screen="blocked"; else if (!selectable().length) screen="empty"; else screen="pick"; draw(); } }, "primary", !owner));
@@ -1577,9 +1650,18 @@ function draw() {
     main.innerHTML = html;
     bindMore();
     main.querySelectorAll(".card.pickable").forEach(el => {
-      const pick = () => { method = el.dataset.id; draw(); };
-      el.onclick = pick;
-      el.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); pick(); } };
+      const pick = (keyboard = false) => {
+        method = el.dataset.id;
+        draw();
+        if (keyboard) main.querySelector(`[data-id="${method}"]`)?.focus();
+      };
+      el.onclick = () => pick();
+      el.onkeydown = (e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          if (!e.repeat) pick(true);
+        }
+      };
     });
     main.querySelector("#limits").onclick = () => { screen = "limits"; draw(); };
     renderHint(P.hints.method);
@@ -1587,7 +1669,7 @@ function draw() {
     btnsR.append(btn(P.buttons.reviewErase, () => { screen = "last"; tLeft = 5; startCount(); draw(); }, "primary"));
   } else if (screen === "refresh_confirm") {
     main.innerHTML = `<h1 class="sub">${P.titles.refresh}</h1><p class="subtitle">${P.refreshLead}</p>`;
-    btnsL.append(btn(P.buttons.back, () => { screen = refreshFrom; draw(); }));
+    btnsL.append(btn(P.buttons.back, cancelRefresh));
     const go = btn(P.refreshButton, refreshPreview, "primary");
     btnsR.append(go);
     renderHint(P.refreshHint);
@@ -1604,8 +1686,9 @@ function draw() {
     renderHint(P.shutdownHint);
     keep.focus();
   } else if (screen === "report_help") {
-    main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" class="help-reader compact" role="region" aria-label="Report requirements" tabindex="0"></div>
-      <div class="checkrow${reportWanted ? " checked" : ""}" id="report-wanted" tabindex="0" role="checkbox" aria-checked="${reportWanted}"><span class="cbox">${reportWanted ? "✓" : ""}</span><span>${P.reportWanted}</span></div>`;
+    main.innerHTML = `<h1>${P.reportHelpTitle}</h1><div id="report-text" class="help-reader compact" role="region" aria-label="${esc(P.reportHelpTitle)}" tabindex="0"></div>
+      <div class="checkrow${reportWanted ? " checked" : ""}" id="report-wanted" tabindex="0" role="checkbox" aria-checked="${reportWanted}"><span class="cbox">${reportWanted ? "✓" : ""}</span><span>${P.reportWanted}</span></div>
+      <div class="checkrow${reportShareRedacted ? " checked" : ""}" id="report-share" tabindex="0" role="checkbox" aria-checked="${reportShareRedacted}"><span class="cbox">${reportShareRedacted ? "✓" : ""}</span><span>${P.reportShareRedacted}</span></div>`;
     main.querySelector("#report-text").textContent = P.reportHelpText;
     const wanted = main.querySelector("#report-wanted");
     const syncWanted = () => {
@@ -1614,18 +1697,26 @@ function draw() {
       wanted.querySelector(".cbox").textContent = reportWanted ? "✓" : "";
     };
     wanted.onclick = () => { reportWanted = !reportWanted; syncWanted(); };
-    wanted.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); reportWanted = !reportWanted; syncWanted(); } };
+    wanted.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!e.repeat) { reportWanted = !reportWanted; syncWanted(); } } };
+    const share = main.querySelector("#report-share");
+    const syncShare = () => {
+      share.classList.toggle("checked", reportShareRedacted);
+      share.setAttribute("aria-checked", reportShareRedacted);
+      share.querySelector(".cbox").textContent = reportShareRedacted ? "✓" : "";
+    };
+    share.onclick = () => { reportShareRedacted = !reportShareRedacted; syncShare(); };
+    share.onkeydown = (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!e.repeat) { reportShareRedacted = !reportShareRedacted; syncShare(); } } };
     btnsL.append(btn(P.buttons.back, () => { screen = reportHelpFrom; draw(); }));
-    renderHint("Nothing is saved here. Esc returns.");
+    renderHint(P.helpReadHint);
   } else if (screen === "disk_help") {
-    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" class="help-reader" role="region" aria-label="Identify the disk" tabindex="0"></div>`;
+    main.innerHTML = `<h1>${P.diskHelpTitle}</h1><div id="disk-help-text" class="help-reader" role="region" aria-label="${esc(P.diskHelpTitle)}" tabindex="0"></div>`;
     main.querySelector("#disk-help-text").textContent = P.diskHelpText;
     main.querySelector("#disk-help-text").focus();
     btnsL.append(btn(P.buttons.back, () => { screen = "pick"; draw(); main.querySelector("#unsure-disk").focus(); }));
     btnsR.append(btn(P.diskHelpStop, closePreview));
-    renderHint("Esc returns with no disk selected.");
+    renderHint(P.helpNoDiskHint);
   } else if (screen === "limits") {
-    main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" class="help-reader" role="region" aria-label="Supported storage limits" tabindex="0"></div>`;
+    main.innerHTML = `<h1>${P.limitsTitle}</h1><div id="limits-text" class="help-reader" role="region" aria-label="${esc(P.limitsTitle)}" tabindex="0"></div>`;
     main.querySelector("#limits-text").textContent = P.limitsText;
     main.querySelector("#limits-text").focus();
     btnsL.append(btn(P.buttons.back, () => { screen = "method"; draw(); main.querySelector("#limits").focus(); }));
@@ -1699,12 +1790,12 @@ function draw() {
     const stopProgress = screen === "stopping" ? P.progress.states.stopping : "";
     main.innerHTML = `<h1 tabindex="-1" id="stop-heading">${title}</h1>
       ${recovery ? recoveryHtml(recovery) : `<p role="status" aria-live="polite">${detail}</p>`}
-      <p>Preview only. Nothing on this computer was erased.</p>
+      <p>${esc(P.previewBanner)}</p>
       ${selected ? summaryCard(selected) : ""}
       ${stopProgress ? `<p class="progress-timing" id="stop-timing">${esc(stopProgress.timingText)}</p>` : ""}
       ${stopSupport}
       <p class="small muted" id="stop-method">${P.methods[method].operation}</p>`;
-    renderHint("Keep the disk and Beamo USB connected.");
+    renderHint(P.stopKeepConnected);
     if (screen === "stop_confirm") {
       const confirmation = main.firstElementChild;
       const keep = btn(P.stop.keep, () => {
@@ -1722,9 +1813,9 @@ function draw() {
     } else {
       main.querySelector("#stop-heading").focus();
       if (screen === "stop_unconfirmed")
-        btnsL.append(btn("Review stop again (preview)", () => { screen = "stop_confirm"; draw(); }));
+        btnsL.append(btn(P.stop.title, () => { screen = "stop_confirm"; draw(); }));
       if (screen === "stopped")
-        btnsR.append(btn(P.buttons.runAgain, () => boot(mode), "primary"));
+        btnsR.append(btn(P.buttons.runAgain, requestAnotherPreview, "primary"));
     }
   } else if (screen === "done") {
     if (!selected) { screen = "pick"; draw(); return; }
@@ -1743,10 +1834,7 @@ function draw() {
       <p class="small muted" id="soundsNote" role="status"></p>
       ${moreLink("more-detail")}</div>`;
     bindMore();
-    utilities.append(btn(P.eraseAnother, () => {
-      if (screen !== "done") return;
-      anotherPending = true; shutdownFrom = "done"; screen = "shutdown_confirm"; draw();
-    }, "secondary"));
+    utilities.append(btn(P.eraseAnother, requestAnotherPreview, "secondary"));
     btnsL.append(btn(P.buttons.closePreview, closePreview, "secondary"));
     btnsL.append(btn(soundsOn ? P.sounds.toggleOn : P.sounds.toggleOff, function() {
       soundsOn = !soundsOn;
@@ -1756,12 +1844,12 @@ function draw() {
     btnsL.append(btn(P.sounds.hearAgain, () => {
       document.getElementById("soundsNote").textContent = P.sounds.offLive;
     }));
-    btnsR.append(btn(P.buttons.runAgain, () => boot(fail ? "fail" : mode), "primary"));
+    btnsR.append(btn(P.buttons.runAgain, requestAnotherPreview, "primary"));
   }
   if (["what", "owner", "method", "advanced"].includes(screen)) {
     utilities.append(btn(P.reportHelpTitle, () => { reportHelpFrom = screen; screen = "report_help"; draw(); }, "ghost"));
   }
-  if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm", "refresh_confirm"].includes(screen)) {
+  if (!["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "keyboard", "shutdown_confirm", "refresh_confirm"].includes(screen)) {
     utilities.prepend(btn(P.refreshUtility, requestRefresh, "ghost"));
   }
   if (screen === "method") {
@@ -1769,21 +1857,36 @@ function draw() {
   }
   if (!["splash", "keyboard", "working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "shutdown_confirm", "refresh_confirm"].includes(screen)) {
     const current = (P.textSizes.find(s => s.id === textSize) || P.textSizes[0]).label;
-    utilities.append(btn(`${P.textSizeUtility}: ${current}`, () => {
+    const sizeButton = btn(`${P.textSizeUtility}: ${current}`, () => {
       const ids = P.textSizes.map(s => s.id);
       const i = Math.max(0, ids.indexOf(textSize));
       textSize = ids[(i + 1) % ids.length];
       draw();
-    }, "ghost"));
+      document.getElementById("text-size-utility")?.focus();
+    }, "ghost");
+    sizeButton.id = "text-size-utility";
+    utilities.append(sizeButton);
   }
   if (screen === "last") {
     const focused = Array.from(foot.querySelectorAll("button"))
       .find(button => button.textContent === reviewFocus && !button.disabled);
     (focused || btnsL.querySelector("button")).focus();
+  } else if (screen === "working") {
+    if (workingMoreFocus) document.getElementById("more")?.focus();
+    else if (workingFocus >= 0)
+      foot.querySelectorAll("button")[workingFocus]?.focus();
   }
   renderedScreen = screen;
 }
 document.addEventListener("keydown", e => {
+  // A held key cannot trigger the newly focused action after navigation.
+  // Last chance deliberately focuses Back when reached from Method; a repeat
+  // Enter from Continue would otherwise activate that Back button.
+  if (e.repeat && ["Escape", "Enter"].includes(e.key)) { e.preventDefault(); return; }
+  if (screen === "splash" && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey
+      && !e.target?.closest?.(".scenarios")) {
+    e.preventDefault(); screen = "keyboard"; draw(); return;
+  }
   if (["working", "stop_confirm"].includes(screen) && e.key === "Escape") {
     e.preventDefault();
     if (!e.repeat) { screen = screen === "working" ? "stop_confirm" : "working"; draw(); }
@@ -1793,7 +1896,10 @@ document.addEventListener("keydown", e => {
     e.preventDefault(); return;
   }
   if (screen === "refresh_confirm" && e.key === "Escape") {
-    e.preventDefault(); screen = refreshFrom; draw(); return;
+    e.preventDefault();
+    if (refreshFrom === "last") cancelRefresh();
+    else { screen = refreshFrom; draw(); }
+    return;
   }
   if (screen === "shutdown_confirm" && ["Escape", "Enter"].includes(e.key)) {
     e.preventDefault(); screen = shutdownFrom; draw(); return;
@@ -1804,8 +1910,9 @@ document.addEventListener("keydown", e => {
   if (screen === "report_help" && e.key === "Escape") {
     e.preventDefault(); screen = reportHelpFrom; draw(); return;
   }
-  if (e.key === "F5" && !e.repeat && !["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) {
+  if (e.key === "F5") {
     e.preventDefault();
+    if (e.repeat || ["working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed", "done", "splash", "shutdown_confirm"].includes(screen)) return;
     if (screen === "refresh_confirm") refreshPreview();
     else requestRefresh();
     return;
@@ -1869,17 +1976,29 @@ function startWork() {
   }, 280);
 }
 // Deep-link for screenshot verification, e.g.:
-// #scenario=happy&s=confirm&disk=0&typed=1  ·  #s=last&ready=1  ·  #s=working&pct=42
-// #s=working&progress=stale  ·  #s=working&more=1  ·  #s=stopping&disk=0
+// #scenario=happy&s=confirm&disk=0&typed=1  ·  #s=last&disk=0&ready=1  ·  #s=working&disk=0&pct=42
+// #s=working&disk=0&progress=stale  ·  #s=working&disk=0&more=1  ·  #s=stopping&disk=0
 function applyHash() {
   const q = new URLSearchParams(location.hash.slice(1));
   const scenario = q.get("scenario") || "happy";
   boot(scenario);
+  const s = q.get("s");
+  const known = new Set([
+    "splash", "keyboard", "what", "owner", "pick", "blocked", "empty",
+    "confirm", "method", "disk_help", "limits", "advanced", "last",
+    "working", "stop_confirm", "stopping", "stopped", "stop_unconfirmed",
+    "done", "report_help", "refresh_confirm", "shutdown_confirm",
+  ]);
+  const needsDisk = new Set([
+    "confirm", "method", "limits", "advanced", "last", "working", "stop_confirm", "stopping",
+    "stopped", "stop_unconfirmed", "done",
+  ]);
   const di = q.get("disk");
-  if (di !== null) selected = selectable()[parseInt(di, 10)] || null;
+  if ((s === "pick" || needsDisk.has(s)) && di !== null && /^(0|[1-9][0-9]*)$/.test(di))
+    selected = selectable()[Number(di)] || null;
   if (q.get("typed") === "1" && selected) token = selected.token;
   if (q.get("owner") === "1") owner = true;
-  if (q.get("method")) method = q.get("method");
+  if (Object.hasOwn(P.methods, q.get("method"))) method = q.get("method");
   if (q.get("ready") === "1") tLeft = 0;
   if (q.get("text")) textSize = q.get("text");
   if (q.get("progress") && P.progress.states[q.get("progress")]) progressKey = q.get("progress");
@@ -1893,9 +2012,16 @@ function applyHash() {
   }
   if (q.get("more") === "1") showMore = true;
   reportWanted = q.get("report") === "1";
-  const s = q.get("s");
+  reportShareRedacted = q.get("share") === "1";
   if (s === "disk_help") { selected = null; token = ""; tLeft = 5; }
-  if (s) { screen = s; draw(); }
+  if (s && known.has(s)) {
+    const available = selectable().length > 0;
+    const inventoryScreen = scenario === "blocked" ? "blocked" : available ? "pick" : "empty";
+    screen = (["pick", "blocked", "empty"].includes(s) || (needsDisk.has(s) && !selected))
+      ? inventoryScreen : s;
+    if (screen === "last" && tLeft > 0) startCount();
+    draw();
+  }
 }
 if (location.hash) applyHash(); else boot("happy");
 </script>

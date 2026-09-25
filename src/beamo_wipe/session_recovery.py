@@ -11,6 +11,7 @@ import re
 import secrets
 import stat
 import time
+import unicodedata
 from dataclasses import asdict
 from pathlib import Path
 
@@ -83,7 +84,11 @@ def _disk(raw):
         elif (
             not isinstance(value, str)
             or len(value) > 256
-            or any(ord(c) < 32 or ord(c) == 127 for c in value)
+            or any(
+                unicodedata.category(c).startswith("C")
+                or unicodedata.category(c) in {"Zl", "Zp"}
+                for c in value
+            )
         ):
             raise ValueError("Invalid disk text")
     from beamo_wipe.support_export import ROOT_PATH_RE
@@ -133,6 +138,7 @@ class SessionStore:
             raise SafetyError(RECOVERY_INVALID_RECOVERY_FILENAME)
         fd = self._file(name)
         try:
+            opened = os.fstat(fd)
             chunks = []
             remaining = LIMIT + 1
             while remaining:
@@ -143,11 +149,51 @@ class SessionStore:
                 remaining -= len(chunk)
             if not remaining:
                 raise SafetyError(RECOVERY_RECOVERY_FILE_TOO_LARGE)
+            after = os.fstat(fd)
+            if (
+                opened.st_dev,
+                opened.st_ino,
+                opened.st_size,
+                opened.st_mode,
+                opened.st_nlink,
+                opened.st_mtime_ns,
+                opened.st_ctime_ns,
+            ) != (
+                after.st_dev,
+                after.st_ino,
+                after.st_size,
+                after.st_mode,
+                after.st_nlink,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ) or (
+                stat.S_IMODE(after.st_mode) != 0o600
+                or after.st_nlink != 1
+                or sum(map(len, chunks)) != opened.st_size
+            ):
+                raise SafetyError(RECOVERY_UNSAFE_RECOVERY_FILE)
             return b"".join(chunks)
         finally:
             os.close(fd)
 
     def open(self):
+        # A second open on this object would replace fd/owner before flock()
+        # fails, orphaning the first interface lock in this process.
+        if self.fd >= 0 or self.owner >= 0 or self.quiescent >= 0:
+            raise SafetyError("Recovery store is already open.")
+        try:
+            return self._open_owned()
+        except BaseException:
+            # Opening may fail after acquiring the interface flock (invalid
+            # boot/build identity, unsafe directory, or an I/O error). Do not
+            # strand ownership and block a corrected retry in this process.
+            try:
+                self.close()
+            except BaseException:
+                pass  # Preserve the original refusal; close retired each fd.
+            raise
+
+    def _open_owned(self):
         try:
             self.directory.mkdir(mode=0o700)
         except FileExistsError:
@@ -158,6 +204,11 @@ class SessionStore:
             raise SafetyError(RECOVERY_UNSAFE_RECOVERY_DIRECTORY)
         if self._production_directory and st.st_dev != os.stat("/tmp").st_dev:
             raise SafetyError(RECOVERY_DIRECTORY_NOT_VOLATILE)
+        if self._production_directory:
+            from beamo_wipe.safety import log_location_is_tmpfs
+
+            if not log_location_is_tmpfs((self.directory / NAME).resolve()):
+                raise SafetyError(RECOVERY_DIRECTORY_NOT_VOLATILE)
         self.owner = self._file("interface.lock", os.O_RDWR | os.O_CREAT)
         fcntl.flock(self.owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if self.boot is None:
@@ -310,6 +361,7 @@ class SessionStore:
             raise SafetyError(RECOVERY_RECOVERY_RECORD_TOO_LARGE)
         name = ".recovery-" + secrets.token_hex(12)
         fd = self._file(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        replaced = False
         try:
             while data:
                 n = os.write(fd, data)
@@ -318,14 +370,41 @@ class SessionStore:
                 data = data[n:]
             os.fsync(fd)
             os.replace(name, NAME, src_dir_fd=self.fd, dst_dir_fd=self.fd)
-            os.fsync(self.fd)
+            replaced = True
+            # The new journal is now visible. A failed directory sync makes
+            # durability uncertain, so keep this phase in memory and block
+            # further writes until recovery reopens the on-disk record.
             self.record = record
+            os.fsync(self.fd)
+        except BaseException:
+            if replaced:
+                self.invalid = True
+            raise
         finally:
-            os.close(fd)
             try:
-                os.unlink(name, dir_fd=self.fd)
-            except FileNotFoundError:
-                pass
+                os.close(fd)
+            except BaseException:
+                if replaced:
+                    self.invalid = True
+                raise
+            finally:
+                try:
+                    os.unlink(name, dir_fd=self.fd)
+                except FileNotFoundError:
+                    pass
+                except BaseException:
+                    if replaced:
+                        self.invalid = True
+                    raise
+
+    def _release_quiescent(self):
+        fd = self.quiescent
+        self.quiescent = -1  # A failed close may already have retired this fd.
+        try:
+            os.close(fd)
+        except BaseException:
+            self.invalid = True
+            raise
 
     def begin_new_session(self):
         """Rotate the journal only after the UI resolved the previous report.
@@ -335,11 +414,42 @@ class SessionStore:
         """
         if self.invalid or self.record is None or not self.is_quiescent():
             raise SafetyError(RECOVERY_PREVIOUS_ERASE_IS_NOT_CONFIRMED_STOPPED)
+        # A manually started pinned engine may not hold our wipe.lock. Keep
+        # the journal and this UI owner until its absence is proved too.
+        from beamo_wipe.nwipe_runner import pinned_nwipe_already_running
+
+        try:
+            pinned_busy = pinned_nwipe_already_running() is not False
+        except Exception:
+            pinned_busy = True
+        if pinned_busy:
+            raise SafetyError(RECOVERY_PREVIOUS_ERASE_IS_NOT_CONFIRMED_STOPPED)
         self.save({"phase": "preflight", "context": None, "terminal": None,
                    "session": secrets.token_hex(16), "created": time.monotonic()})
         self.previous = False
-        os.close(self.quiescent)
-        self.quiescent = -1
+        self._release_quiescent()
+
+    def resume_previous_preflight(self) -> bool:
+        """Rotate a valid pre-spawn journal after ruling out an active engine.
+
+        The caller must not restore any confirmation or erase request. The
+        exclusive runner lock covers the gap between the process probe and
+        writing the new journal.
+        """
+        if (
+            not self.previous or self.invalid or self.record is None
+            or self.record.get("phase") != "preflight"
+            or self.record.get("context") is not None
+            or self.record.get("terminal") is not None
+            or not self.is_quiescent()
+        ):
+            return False
+        from beamo_wipe.nwipe_runner import pinned_nwipe_already_running
+
+        if pinned_nwipe_already_running() is not False:
+            return False
+        self.begin_new_session()
+        return True
 
     def arm(self, discovery, request):
         if self.record is None or self.record["phase"] != "preflight" or self.previous:
@@ -365,6 +475,16 @@ class SessionStore:
             }
         )
 
+    def disarm_unstarted(self):
+        """Restore preflight only when the caller proved no engine was spawned."""
+        if (
+            self.invalid or self.previous or self.record is None
+            or self.record["phase"] != "armed" or not self.is_quiescent()
+        ):
+            raise SafetyError(RECOVERY_PREVIOUS_ERASE_IS_NOT_CONFIRMED_STOPPED)
+        self.save({"phase": "preflight", "context": None, "terminal": None})
+        self._release_quiescent()
+
     def finish(self, path):
         if Path(path).parent != self.directory:
             raise SafetyError(RECOVERY_FOREIGN_EVIDENCE_DIRECTORY)
@@ -389,6 +509,9 @@ class SessionStore:
         except BlockingIOError:
             os.close(fd)
             return False
+        except BaseException:
+            os.close(fd)
+            raise
         self.quiescent = fd  # Retain through recovery/export, never attach or signal.
         return True
 
@@ -441,19 +564,28 @@ class SessionStore:
             or not self.record["created"] <= start <= end <= time.monotonic()
         ):
             raise SafetyError(RECOVERY_STALE_TERMINAL_EVIDENCE)
-        view = recover_result(path)
+        view = recover_result(path, expected_sha256=digest)
         if view.code == "indeterminate" or view != present_evidence(evidence):
             raise SafetyError(RECOVERY_TERMINAL_RESULT_CANNOT_BE_PROVED)
-        if view.success:
+        if view.success or view.code in {"occupied", "open_failed", "geometry_unusable"}:
             # recover_result validates the exact log suffix; additionally reject
-            # unsafe log modes/links before using that verdict for startup.
+            # unsafe log modes/links before using a log-backed verdict.
             fd = self._file(Path(context["logfile"]).name)
             os.close(fd)
         return path, evidence
 
     def close(self):
+        first_error = None
         for key in ("quiescent", "owner", "fd"):
             fd = getattr(self, key)
+            # A failed close may already have retired this fd. Never retain a
+            # stale number that a later close could use against another file.
+            setattr(self, key, -1)
             if fd >= 0:
-                os.close(fd)
-                setattr(self, key, -1)
+                try:
+                    os.close(fd)
+                except BaseException as exc:
+                    if first_error is None:
+                        first_error = exc
+        if first_error is not None:
+            raise first_error

@@ -26,6 +26,7 @@ from test_tk_runtime import (
     _clipping_problems,
     _drive_to,
     _off_window_problems,
+    descendants,
     ui,  # noqa: F401
 )
 from test_usb_report_workflow import _done_wizard, _success_receipt
@@ -176,6 +177,14 @@ def test_long_and_duplicate_identities_render_without_truncation(ui):  # noqa: F
     assert long.model in shown
     assert long.serial in shown or long.serial[:20] in shown.replace("\n", "")
     assert DUPLICATE_ID in shown
+    # Guidance may be tall, but its scroll region must leave the disclosure
+    # and footer actions at their usable height on a minimum-size window.
+    assert app._more_button.winfo_height() >= 28
+    assert any(
+        widget.winfo_class() == "Label"
+        and C.SAME_SIZE_HINT[:24] in str(widget.cget("text"))
+        for widget in descendants(app._pick_canvas)
+    )
     _assert_geometry(app)
     wiz.continue_pick()
     if wiz.screen == Screen.CONFIRM:

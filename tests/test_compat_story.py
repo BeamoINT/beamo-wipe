@@ -63,14 +63,14 @@ def _payload(**kwargs):
 def test_source_helper_is_honest_checkout_stub():
     html = _html()
     assert SOURCE_STUB in html
-    assert "id=\"this-usb\"" in html
+    assert 'id="this-usb"' in html
     assert f"Beamo Wipe <!--BEAMO_VERSION-->{__version__}<!--/BEAMO_VERSION-->" in html
     assert NOT_PACKAGED in html
     for name in MARKERS:
         assert html.count(f"<!--{name}-->") == 1
         assert html.count(f"<!--/{name}-->") == 1
     assert "<script" not in html
-    assert "<link rel=\"stylesheet\"" not in html
+    assert '<link rel="stylesheet"' not in html
 
 
 def test_helper_and_desktop_match_current_build_story():
@@ -78,7 +78,9 @@ def test_helper_and_desktop_match_current_build_story():
     desktop = DESKTOP.read_text(encoding="utf-8")
     for phrase in (SECURE_BOOT, OLDER_MEDIA, THIS_IMAGE_ONLY):
         assert phrase in helper, phrase
-    assert "For 64-bit Intel/AMD Windows or Linux PCs that start from this USB." in helper
+    assert (
+        "For 64-bit Intel/AMD Windows or Linux PCs that start from this USB." in helper
+    )
     assert "Not Apple Silicon Macs. Not Chromebooks." in helper
     assert PLATFORMS in desktop
     assert SECURE_BOOT in desktop
@@ -86,7 +88,12 @@ def test_helper_and_desktop_match_current_build_story():
     assert PLATFORMS == WHAT_BULLETS[-1]
     assert "signed boot files" in SECURE_BOOT_HINT
     assert "does not change Secure Boot" in SECURE_BOOT_HINT
-    assert required_story_phrases() == (PLATFORMS, SECURE_BOOT, OLDER_MEDIA, THIS_IMAGE_ONLY)
+    assert required_story_phrases() == (
+        PLATFORMS,
+        SECURE_BOOT,
+        OLDER_MEDIA,
+        THIS_IMAGE_ONLY,
+    )
 
 
 def test_customer_surfaces_do_not_dump_development_history():
@@ -144,7 +151,9 @@ def test_inject_refuses_missing_markers_or_identity():
     with pytest.raises(RuntimeError, match="manufactured helper"):
         inject_helper_html(_html(), version=__version__, injected=None, packaged=True)
     with pytest.raises(RuntimeError, match="marker"):
-        inject_helper_html("<html></html>", version=__version__, injected={}, packaged=False)
+        inject_helper_html(
+            "<html></html>", version=__version__, injected={}, packaged=False
+        )
     with pytest.raises(RuntimeError, match="invalid build identity"):
         inject_helper_html(
             _html(),
@@ -161,10 +170,12 @@ def test_inject_refuses_missing_markers_or_identity():
 
 def test_iso_builder_copies_then_injects_helper(tmp_path):
     script = BUILD_ISO.read_text(encoding="utf-8")
-    assert 'cp "$ROOT/helper/index.html" "$STAGE_SHARE/helper/index.html"' in script
-    assert 'cp "$ROOT/helper/index.html" "$STAGE_BIN/START-HERE.html"' in script
-    assert "inject_helper_html" in script
-    assert "includes.binary/build-identity.json" in script
+    assets = (ROOT / "scripts/stage_live_assets.py").read_text(encoding="utf-8")
+    assert "stage_live_assets.py" in script
+    assert "inject_helper_html" in assets
+    assert 'put_bytes(share / "helper/index.html", packaged_html)' in assets
+    assert 'put_bytes(binary / "START-HERE.html", packaged_html)' in assets
+    assert 'put_bytes(binary / "build-identity.json", identity)' in assets
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert "packaging/live/config/includes.binary/build-identity.json" in gitignore
     ignored = subprocess.run(
@@ -249,15 +260,22 @@ def test_status_labels_match_build_identity():
 
 
 def test_support_sentence_uses_application_identity():
-    assert sentence_from_application(None) == "This session is not a manufactured USB image."
     assert (
-        sentence_from_application({"build_status": STATUS_PRODUCTION, "build": {"build_id": PRODUCTION_ID}})
+        sentence_from_application(None)
+        == "This session is not a manufactured USB image."
+    )
+    assert (
+        sentence_from_application(
+            {"build_status": STATUS_PRODUCTION, "build": {"build_id": PRODUCTION_ID}}
+        )
         == LABEL_PRODUCTION
     )
     assert customer_label(STATUS_DEVELOPMENT, packaged=True) == (
         "This USB is a development image, not a manufactured release."
     )
-    assert customer_label(STATUS_DIRTY, packaged=True).startswith("This USB was built from changed source")
+    assert customer_label(STATUS_DIRTY, packaged=True).startswith(
+        "This USB was built from changed source"
+    )
     assert customer_label(STATUS_PRODUCTION, packaged=False) == SOURCE_STUB
 
 

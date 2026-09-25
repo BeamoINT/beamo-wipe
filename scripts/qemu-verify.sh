@@ -47,10 +47,9 @@ RUN_ROOT="$(mktemp -d /tmp/beamo-wipe-qemu.XXXXXX)"
 EVIDENCE_DIR="$RUN_ROOT/evidence"
 TARGET="$RUN_ROOT/target.qcow2"
 TARGET_RAW="$RUN_ROOT/target.raw"
-# Small disks still display as 1 GB (size_gb_label floors at 1). Unique
-# serials therefore remain the confirmation tokens against the ISO, which
-# also rounds to 1 GB. Method flags stay the production mapping; only the
-# fixture size is bounded.
+# The guest target is deliberately small. Its displayed size is now 0 GB;
+# derive the confirmation token from the same production policy as the UI
+# instead of assuming the target serial or a particular ISO size.
 QEMU_TARGET_SERIAL="0001"
 HOST_METHOD_BYTES=67108864
 # case|key|nwipe_method|verify|outcome|host_timeout_s|guest_done_timeout_s|serial
@@ -67,7 +66,26 @@ REPORT_RAW="$RUN_ROOT/report-usb.raw"
 REPORT_MOUNT="$RUN_ROOT/report-usb"
 mkdir -m 0700 "$EVIDENCE_DIR" "$ISO_MOUNT" "$SQUASH_MOUNT" "$REPORT_MOUNT"
 mkdir -p "$ROOT/qemu-evidence"
-printf '%s\n' "$EVIDENCE_DIR" >"$ROOT/qemu-evidence/PATH"
+# Direct invocations need the same output boundary as the hosted wrapper.
+# Exclusive no-follow creation rejects an older or planted PATH receipt.
+python3 - "$ROOT/qemu-evidence" "$EVIDENCE_DIR" <<'PY'
+import os
+import sys
+
+directory_fd = os.open(sys.argv[1], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    path_fd = os.open(
+        "PATH", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600, dir_fd=directory_fd,
+    )
+    with os.fdopen(path_fd, "w", encoding="ascii") as receipt:
+        receipt.write(sys.argv[2] + "\n")
+        receipt.flush()
+        os.fsync(receipt.fileno())
+    os.fsync(directory_fd)
+finally:
+    os.close(directory_fd)
+PY
 
 LOOP=""
 BOOT_LOOP=""
@@ -226,8 +244,9 @@ git rev-parse HEAD >"$EVIDENCE_DIR/source-commit.txt"
   sha256sum -c "$(basename "$MANIFEST").sha256"
 ) >"$EVIDENCE_DIR/checksums.txt" 2>&1
 log "artifact checksums verified"
+QEMU_USB_SHA="$(sha256sum "$USB_IMAGE" | awk '{print $1}')"
 PYTHONPATH="$ROOT/src" python3 -c \
-  'import pathlib,sys; from beamo_wipe.release_manifest import verify_build_manifest; verify_build_manifest(pathlib.Path(sys.argv[1]))' \
+  'import os,pathlib,sys; from beamo_wipe.release_manifest import verify_build_manifest; verify_build_manifest(pathlib.Path(sys.argv[1]), allow_dirty=os.environ.get("ALLOW_DIRTY") == "1")' \
   "$MANIFEST"
 magic="$(dd if="$ISO" bs=1 skip=32769 count=5 status=none)"
 [[ "$magic" == CD001 ]] || { echo "ISO 9660 PVD check failed" >&2; exit 2; }
@@ -278,6 +297,35 @@ grep -q "Beamo Wipe: start the erase guide (nothing is erased yet)" "$EFI_GRUB" 
   echo "ISO UEFI menu lost the branded normal entry" >&2; exit 2; }
 grep -q "Beamo Wipe: troubleshoot startup (nothing is erased yet)" "$EFI_GRUB" || {
   echo "ISO UEFI menu lost the troubleshooting entry" >&2; exit 2; }
+# Check the kernel lines in the built ISO, not just the entry labels or the
+# source lb config. A missing nox11autologin lets live-config seize tty1 before
+# the kiosk starts, including when the owner chooses troubleshooting mode.
+bios_failsafe_append="$(awk '
+  /^label live-.*-failsafe[[:space:]]*$/ { in_entry=1; next }
+  in_entry && /^label / { exit }
+  in_entry && /^[[:space:]]*append[[:space:]]/ { print; exit }
+' "$BIOS_LIVE")"
+uefi_failsafe_linux="$(awk '
+  /^[[:space:]]*menuentry "Beamo Wipe: troubleshoot startup/ { in_entry=1; next }
+  in_entry && /^[[:space:]]*}/ { exit }
+  in_entry && /^[[:space:]]*linux[[:space:]]/ { print; exit }
+' "$EFI_GRUB")"
+for boot_line in "$bios_failsafe_append" "$uefi_failsafe_linux"; do
+  for required in boot=live nopersistence noswap ip=frommedia nox11autologin \
+                  memtest noapic noapm nodma nomce nolapic nosmp nosplash vga=788; do
+    if ! printf '%s\n' "$boot_line" | grep -Eq "(^|[[:space:]])${required}([[:space:]]|$)"; then
+      echo "ISO troubleshooting kernel line lost required flag: $required" >&2; exit 2
+    fi
+  done
+done
+for menu in "$BIOS_LIVE" "$EFI_GRUB"; do
+  if ! awk '
+    /^[[:space:]]*(append|linux)[[:space:]]/ && /boot=live/ &&
+      !/(^|[[:space:]])nox11autologin([[:space:]]|$)/ { exit 1 }
+  ' "$menu"; then
+    echo "ISO boot entry lost the live-config autologin guard" >&2; exit 2
+  fi
+done
 grep -Eq 'Beamo Wipe: \^?speech for screen readers' "$BIOS_LIVE" || {
   echo "ISO BIOS menu lost the speech entry" >&2; exit 2; }
 grep -q 'beamo.ui=accessible' "$BIOS_LIVE" || {
@@ -520,40 +568,59 @@ run_host_method_boundary() {
     echo "nwipe $case did not confirm anonymized logging" >&2
     return 1
   }
-  if ! python3 - "$logf" "$nwipe_method" "$verify" <<'PY'
+  if ! python3 - "$logf" "$nwipe_method" "$verify" "$LOOP" <<'PY'
 import pathlib
 import re
 import sys
 
-log = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-method, verify = sys.argv[2], sys.argv[3]
+raw_log = pathlib.Path(sys.argv[1]).read_bytes()
+method, verify, target = sys.argv[2:5]
+if not raw_log.endswith(b"\n"):
+    raise SystemExit("nwipe host log ended mid-record")
+log = raw_log.decode("utf-8", "replace")
 labels = {"zero": "Fill With Zeros", "prng": "PRNG Stream", "dodshort": "DoD Short"}
-method_at = re.search(rf"method\s*=\s*{re.escape(labels[method])}\s*$", log, re.M)
-verify_at = re.search(rf"verify\s*=\s*{0 if verify == 'off' else 1}\s*\({'off' if verify == 'off' else 'last pass'}\)", log)
-rounds_at = re.search(r"rounds\s*=\s*1(?:\s|$)", log)
-success_at = re.search(r"\|\s*Erased\s*\|", log)
-if not (method_at and verify_at and rounds_at and success_at):
-    raise SystemExit("nwipe log is missing configured method, verify, rounds, or success")
+def unique_option(name, expected):
+    pattern = (rf"(?m)^(?:\[[^\]\r\n]*\][ \t]*)?"
+               rf"(?:(?:debug|info|notice|warning):[ \t]*)?[ \t]*"
+               rf"{re.escape(name)}[ \t]*=[ \t]*([^\r\n]*)$")
+    matches = list(re.finditer(pattern, log))
+    if len(matches) != 1 or matches[0][1].strip() != expected:
+        raise SystemExit(f"nwipe log has missing or conflicting {name} setting")
+    return matches[0]
+
+method_at = unique_option("method", labels[method])
+verify_at = unique_option("verify", f"{0 if verify == 'off' else 1} ({'off' if verify == 'off' else 'last pass'})")
+rounds_at = unique_option("rounds", "1")
+target_name = target.rsplit("/", 1)[-1]
+status_row = rf"^[ \t]*!?[ \t]*(?:{re.escape(target_name)}|{re.escape(target)})[ \t]*\|[ \t]*([^|]+)\|"
+statuses = list(re.finditer(status_row, log, re.M))
+success_at = statuses[-1] if statuses and statuses[-1][1].strip() == "Erased" else None
+if any(row[1].strip() in {"-FAILED-", "UABORTED", "INSANITY"} for row in statuses):
+    raise SystemExit("nwipe reported a target failure")
+if not success_at:
+    raise SystemExit("nwipe log is missing target success")
 if not all(m.start() < success_at.start() for m in (method_at, verify_at, rounds_at)):
     raise SystemExit("nwipe success marker appeared before method/verify/rounds configuration")
 passes = 3 if method == "dodshort" else 1
-cursor = 0
+cursor = max(m.end() for m in (method_at, verify_at, rounds_at))
+def phase_at(marker, cursor):
+    # Pinned nwipe emits one timestamped notice per completed phase. Match a
+    # complete line so /dev/loop0p1 cannot prove work on /dev/loop0.
+    pattern = (r"(?m)^(?:\[[^\]\r\n]+\][ \t]*)?"
+               r"(?:(?:debug|info|notice|warning):[ \t]*)?[ \t]*"
+               + re.escape(marker) + r"[ \t]*$")
+    found = re.search(pattern, log[cursor:success_at.start()])
+    if not found:
+        raise SystemExit("nwipe overwrite phase missing or out of order")
+    return cursor + found.end()
+
 for number in range(1, passes + 1):
-    for phase in ("Starting", "Finished"):
-        marker = f"{phase} pass {number}/{passes}, round 1/1, on "
-        index = log.find(marker, cursor)
-        if index < 0 or index > success_at.start():
-            raise SystemExit("nwipe overwrite phase missing or out of order")
-        cursor = index + len(marker)
-verification = list(re.finditer(r"Verifying pass \d+ of \d+, round \d+ of \d+, on ", log))
-if verify == "last":
-    start = log.find(f"Verifying pass {passes} of {passes}, round 1 of 1, on ")
-    finish = log.find(f"Verified pass {passes} of {passes}, round 1 of 1, on ", start)
-    write_start = log.find(f"Starting pass {passes}/{passes}, round 1/1, on ")
-    write_finish = log.find(f"Finished pass {passes}/{passes}, round 1/1, on ")
-    if len(verification) != 1 or not (write_start < start < finish < write_finish < success_at.start()):
-        raise SystemExit("nwipe last-pass verification missing or out of order")
-elif verification:
+    cursor = phase_at(f"Starting pass {number}/{passes}, round 1/1, on {target}", cursor)
+    if number == passes and verify == "last":
+        cursor = phase_at(f"Verifying pass {number} of {passes}, round 1 of 1, on {target}", cursor)
+        cursor = phase_at(f"Verified pass {number} of {passes}, round 1 of 1, on '{target}'.", cursor)
+    cursor = phase_at(f"Finished pass {number}/{passes}, round 1/1, on {target}", cursor)
+if verify == "off" and "Verifying pass" in log:
     raise SystemExit("nwipe unexpectedly verified an unverified method")
 
 PY
@@ -568,15 +635,28 @@ PY
       return 1
     }
   else
-    if ! python3 - "$raw" <<'PY'
+    if ! python3 - "$raw" "$HOST_METHOD_BYTES" <<'PY'
 import pathlib
 import sys
-blob = pathlib.Path(sys.argv[1]).read_bytes()[:1048576]
-if blob == b"\xa5" * len(blob):
-    raise SystemExit(1)
+
+path, expected_size = pathlib.Path(sys.argv[1]), int(sys.argv[2])
+if path.stat().st_size != expected_size:
+    raise SystemExit("host target readback size mismatch")
+with path.open("rb") as stream:
+    while chunk := stream.read(1024 * 1024):
+        # A one-byte write per sector removes every whole A5 run without
+        # actually overwriting the disposable target. A genuine PRNG pass
+        # averages two A5 bytes per sector. Reject >32 A5 bytes or any
+        # contiguous run of 16, both far beyond ordinary PRNG variation.
+        for offset in range(0, len(chunk), 512):
+            sector = chunk[offset : offset + 512]
+            if sector.count(0xA5) > 32 or b"\xa5" * 16 in sector:
+                raise SystemExit("host target retained prefill in a sector")
+            if sector.count(sector[0]) == len(sector):
+                raise SystemExit("host random final pass left a constant sector")
 PY
     then
-      echo "nwipe $case left the 0xa5 prefill unchanged" >&2
+      echo "nwipe $case left an untouched prefill sector or changed the target size" >&2
       return 1
     fi
   fi
@@ -614,7 +694,7 @@ BOOT_LOOP=""
 
 # BIOS and UEFI get only the ISO and disposable qcow2 files. Each production
 # method gets an isolated BIOS journey, its own 64 MiB target, and its own
-# FAT32 report image. UEFI still has to reach the real Tk WHAT screen.
+# FAT32 report image. UEFI still has to reach the real Tk owner screen.
 make_guest_target() {
   local img="$1"
   qemu-img create -f qcow2 "$img" "${HOST_METHOD_BYTES}" >>"$EVIDENCE_DIR/qemu-img.txt" 2>&1
@@ -649,8 +729,13 @@ with path.open("rb") as stream:
         if method == "zero":
             if chunk != bytes(len(chunk)):
                 raise SystemExit("guest target was not completely zeroed")
-        elif b"\xa5" * 512 in chunk:
-            raise SystemExit("guest target retained an untouched prefill sector")
+        else:
+            for offset in range(0, len(chunk), 512):
+                sector = chunk[offset : offset + 512]
+                if sector.count(0xA5) > 32 or b"\xa5" * 16 in sector:
+                    raise SystemExit("guest target retained prefill in a sector")
+                if sector.count(sector[0]) == len(sector):
+                    raise SystemExit("guest random final pass left a constant sector")
         digest.update(chunk)
 print(f"verified_bytes={expected_size}")
 print(f"readback_sha256={digest.hexdigest()}")
@@ -771,11 +856,38 @@ record_qemu_cmdline() {
       echo "ABORT: QEMU command mentions a host block device" >&2
       return 1
     fi
-    if [[ "$previous" == -nic && "$arg" == none ]]; then network_disabled=1; fi
+    if [[ "$previous" == -nic ]]; then
+      if [[ "$arg" != none || "$network_disabled" == 1 ]]; then
+        echo "ABORT: QEMU command enables or repeats guest networking" >&2
+        return 1
+      fi
+      network_disabled=1
+    fi
+    if [[ "$previous" == -device ]]; then
+      # Only the storage and USB controllers used by this gate are expected.
+      # An added NIC can otherwise appear even beside `-nic none`.
+      case "$arg" in
+        qemu-xhci,id=beamo-xhci|usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,bootindex=1|virtio-blk-pci,drive=beamo-target,serial=*) ;;
+        *) echo "ABORT: QEMU command has an unexpected guest device" >&2; return 1 ;;
+      esac
+    fi
+    case "$arg" in
+      -nic)
+        if [[ "$network_disabled" == 1 ]]; then
+          echo "ABORT: QEMU command repeats -nic" >&2
+          return 1
+        fi
+        ;;
+      -nic=*|-net*|-readconfig*|-device=*)
+        # A config file can add a NIC after the explicit `-nic none`.
+        echo "ABORT: QEMU command has another network option or config file" >&2
+        return 1
+        ;;
+    esac
     previous="$arg"
   done
-  [[ "$network_disabled" == 1 ]] || {
-    echo "ABORT: QEMU command is missing -nic none" >&2
+  [[ "$network_disabled" == 1 && "$previous" != -device ]] || {
+    echo "ABORT: QEMU command is missing -nic none or a device argument" >&2
     return 1
   }
 }
@@ -800,6 +912,10 @@ report_marker_summary() {
     BEAMO_WIPE_STAGE_DONE \
     BEAMO_WIPE_STAGE_FAILED \
     BEAMO_WIPE_STAGE_STALLED \
+    BEAMO_WIPE_RECOVERY_TMP_NOT_VOLATILE \
+    BEAMO_WIPE_RECOVERY_UNAVAILABLE \
+    BEAMO_WIPE_UI_MODE=accessible \
+    BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD \
     BEAMO_WIPE_SCREEN_SPLASH \
     BEAMO_WIPE_SCREEN_KEYBOARD \
     BEAMO_WIPE_SCREEN_WHAT \
@@ -1022,6 +1138,37 @@ type_token_for_marker() {
     "$label" "$qmp_socket" "${token: -1}" "$marker" "$limit"
 }
 
+guest_confirmation_token() {
+  local boot_media="$1" target_bytes="$2" serial="$3"
+  PYTHONPATH="$ROOT/src" python3 - "$boot_media" "$target_bytes" "$serial" <<'PY'
+import pathlib
+import re
+import sys
+
+from beamo_wipe.discover import size_gb_label
+from beamo_wipe.models import Disk, DiskKind
+from beamo_wipe.safety import confirm_spec
+
+boot_size = pathlib.Path(sys.argv[1]).stat().st_size
+target_size = int(sys.argv[2])
+serial = sys.argv[3]
+boot = Disk(
+    path="/dev/guest-boot-media", name="guest-boot-media", model="QEMU boot media",
+    serial="", size_bytes=boot_size, size_gb_label=size_gb_label(boot_size),
+    kind=DiskKind.UNKNOWN, bus="ata", label="Beamo Wipe", is_boot=True,
+)
+target = Disk(
+    path="/dev/vda", name="vda", model="QEMU target", serial=serial,
+    size_bytes=target_size, size_gb_label=size_gb_label(target_size),
+    kind=DiskKind.HDD, bus="virtio", label="",
+)
+token = confirm_spec(target, (target, boot)).token
+if not re.fullmatch(r"[0-9]+", token):
+    raise SystemExit("QEMU confirmation token is not numeric")
+print(token)
+PY
+}
+
 wait_for_report_saved() {
   local label="$1" pid
   pid="$(guest_pid "$label")"
@@ -1058,7 +1205,6 @@ wait_for_report_saved() {
 drive_report_export() {
   local label="$1" qmp_socket="$2" method_key="${3:-3}" token="${4:-$QEMU_TARGET_SERIAL}"
   local done_limit="${5:-300}" report_img="${6:-$REPORT_RAW}"
-  send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
   send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20
   send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_PICK 20
   send_key_for_marker "$label" "$qmp_socket" down BEAMO_WIPE_SCREEN_PICK 20
@@ -1091,15 +1237,18 @@ drive_speech_boot() {
   local label="$1" qmp_socket="$2" deadline
   deadline=$((SECONDS + BOOT_WAIT_SECONDS))
   # Exercise the shipped menu hotkey. BIOS selects the entry with S and
-  # activates it with Return; GRUB's S hotkey activates it directly.
+  # activates it with Return; GRUB's S hotkey activates it directly. On
+  # UEFI, a Return after an early S can reach GRUB just as its menu appears
+  # and boot the normal default before the next S has a chance to select speech.
   # Stop sending keys before X starts, at the supervisor's mode marker.
   while [[ "$(marker_count "$label" BEAMO_WIPE_UI_MODE=accessible)" == 0 ]]; do
     if (( SECONDS >= deadline )); then
+      report_marker_summary "$label"
       echo "QEMU $label never selected the speech boot entry" >&2
       return 1
     fi
     send_key "$qmp_socket" s
-    send_key "$qmp_socket" ret
+    if [[ "$label" == bios* ]]; then send_key "$qmp_socket" ret; fi
     sleep 1
   done
   wait_for_marker "$label" BEAMO_WIPE_STAGE_DONE "$BOOT_WAIT_SECONDS" || return 1
@@ -1111,7 +1260,7 @@ boot_probe() {
   local label="$1" exercise_export="$2"
   local method_key=3 token="${QEMU_TARGET_SERIAL:-}"
   local target_img="${TARGET:-}" report_img="${REPORT_RAW:-}" done_limit=300
-  local qmp_socket pid machine
+  local qmp_socket pid machine boot_media confirmation_token
   shift 2
   if [[ "${1:-}" =~ ^[123]$ ]]; then method_key="$1"; shift; fi
   if [[ "${1:-}" =~ ^[A-Za-z0-9._:-]+$ && "${1:-}" != -* && "${1:-}" != *.qcow2 && "${1:-}" != *.raw ]]; then
@@ -1126,11 +1275,14 @@ boot_probe() {
   : >"$EVIDENCE_DIR/${label}-serial.txt"
   machine="pc,accel=kvm:tcg"
   if [[ "$label" == secureboot-usb ]]; then machine="q35,accel=kvm:tcg,smm=on"; fi
+  boot_media="$ISO"
   local media_args=(-cdrom "$ISO" -boot order=d)
   if [[ "$label" == *-usb ]]; then
+    boot_media="$USB_IMAGE"
     media_args=(-drive "if=none,id=beamo-boot-media,format=raw,readonly=on,file=$USB_IMAGE"
       -device "usb-storage,drive=beamo-boot-media,serial=BEAMOBOOT,bootindex=1")
   fi
+  confirmation_token="$(guest_confirmation_token "$boot_media" "$HOST_METHOD_BYTES" "$token")"
   # shellcheck disable=SC2054 # commas are inside QEMU values, not separators
   local qemu_args=(
     qemu-system-x86_64 -machine "$machine" -m 1024 -nic none
@@ -1156,33 +1308,29 @@ boot_probe() {
     return 0
   fi
   wait_for_marker "$label" BEAMO_WIPE_SCREEN_KEYBOARD "$BOOT_WAIT_SECONDS"
-  send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_WHAT 20
+  send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
   # The rendered Tk screen is the authoritative kiosk-ready boundary.  The
   # supervisor's earlier serial marker is best-effort and deliberately
   # suppresses device/write failures even when the shipped UI starts.
-  wait_for_marker "$label" BEAMO_WIPE_SCREEN_WHAT "$BOOT_WAIT_SECONDS" || {
-    echo "QEMU $label never rendered the shipped Tk WHAT screen" >&2
+  wait_for_marker "$label" BEAMO_WIPE_SCREEN_OWNER "$BOOT_WAIT_SECONDS" || {
+    echo "QEMU $label never rendered the shipped Tk owner screen" >&2
     return 1
   }
   if [[ "$label" == secureboot-usb ]]; then
     wait_for_marker "$label" 'BEAMO_WIPE_SECURE_BOOT=1' 20
   fi
   if [[ "$exercise_export" == yes ]]; then
-    drive_report_export "$label" "$qmp_socket" "$method_key" "$token" "$done_limit" "$report_img"
+    drive_report_export "$label" "$qmp_socket" "$method_key" "$confirmation_token" "$done_limit" "$report_img"
   elif [[ "$label" == *-usb ]]; then
     # A visible welcome screen alone does not prove the new FAT32 layout is
     # recognized as protected boot media. Reach the disposable target's exact
     # confirmation without accepting it or starting an erase in these probes.
-    send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_OWNER 20
     send_key_for_marker "$label" "$qmp_socket" spc BEAMO_WIPE_OWNER_CHECKED 20
     send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_PICK 20
     send_key_for_marker "$label" "$qmp_socket" down BEAMO_WIPE_SCREEN_PICK 20
     send_key_for_marker "$label" "$qmp_socket" ret BEAMO_WIPE_SCREEN_CONFIRM 20
     wait_for_marker "$label" BEAMO_WIPE_CONFIRM_FOCUSED 20
-    # The 2 GiB USB image differs from the 1 GiB target, so this layout asks
-    # for the unique displayed size. The ISO probe instead needs the serial
-    # token because its optical boot medium also rounds to 1 GB.
-    type_token_for_marker "$label" "$qmp_socket" 1 BEAMO_WIPE_CONFIRM_MATCHED 20
+    type_token_for_marker "$label" "$qmp_socket" "$confirmation_token" BEAMO_WIPE_CONFIRM_MATCHED 20
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "QEMU $label exited immediately after its final marker" >&2
@@ -1197,7 +1345,7 @@ boot_probe() {
   if [[ "$exercise_export" == yes ]]; then
     log "$label boot completed the shipped Wizard report export"
   else
-    log "$label boot reached the shipped Tk WHAT screen"
+    log "$label boot reached the shipped Tk owner screen"
   fi
 }
 
@@ -1227,6 +1375,14 @@ import re
 import stat
 import sys
 
+def unique_report_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise SystemExit("duplicate JSON field in guest report")
+        fields[key] = value
+    return fields
+
 mountpoint = pathlib.Path(sys.argv[1])
 expected_outcome, expected_method, expected_nwipe, expected_title = sys.argv[2:6]
 expected_build_id, expected_source = sys.argv[6:8]
@@ -1250,7 +1406,7 @@ for path in session.iterdir():
     actual[path.name] = path.read_bytes()
 if "COMPLETE" not in actual or "result.json" not in actual or "result.json.sha256" not in actual:
     raise SystemExit("report completion files are missing")
-complete = json.loads(actual["COMPLETE"].decode("utf-8"))
+complete = json.loads(actual["COMPLETE"].decode("utf-8"), object_pairs_hook=unique_report_fields)
 expected_complete_keys = {
     "files",
     "log_status",
@@ -1294,7 +1450,23 @@ for name, expected in manifest.items():
 result_digest = hashlib.sha256(actual["result.json"]).hexdigest()
 if actual["result.json.sha256"] != f"{result_digest}  result.json\n".encode("ascii"):
     raise SystemExit("result.json sidecar mismatch")
-result = json.loads(actual["result.json"].decode("utf-8"))
+result = json.loads(actual["result.json"].decode("utf-8"), object_pairs_hook=unique_report_fields)
+if (
+    complete["log_status"] != "complete"
+    or "nwipe.log" not in actual
+    or "nwipe-tail.log" in actual
+    or not actual["nwipe.log"].endswith(b"\n")
+):
+    raise SystemExit("verified guest report needs a complete nwipe log")
+log_digest = hashlib.sha256(actual["nwipe.log"]).hexdigest()
+if actual.get("nwipe.log.sha256") != f"{log_digest}  nwipe.log\n".encode("ascii"):
+    raise SystemExit("guest nwipe log sidecar mismatch")
+if (
+    result.get("log_checksum_sha256") != log_digest
+    or type(result.get("log_snapshot_size_bytes")) is not int
+    or result["log_snapshot_size_bytes"] != len(actual["nwipe.log"])
+):
+    raise SystemExit("guest nwipe log snapshot differs from result metadata")
 if result.get("source_commit") != expected_source or result.get("build_id") != expected_build_id:
     raise SystemExit("guest report is for another source or build")
 if result.get("outcome") != expected_outcome:
@@ -1338,16 +1510,83 @@ if method.get("verify") != expected_verify or method.get("verification_passes") 
     raise SystemExit("guest verification fields do not match the production method")
 nwipe = result.get("nwipe") if isinstance(result.get("nwipe"), dict) else {}
 argv = nwipe.get("argv_redacted") if isinstance(nwipe.get("argv_redacted"), list) else []
-for flag in (
-    f"--method={expected_nwipe}",
-    f"--verify={expected_verify}",
-    "--rounds=1",
-    "--noblank",
-    "--quiet",
-    "--autonuke",
+device = result.get("device") if isinstance(result.get("device"), dict) else {}
+target, boot, logfile = device.get("path"), result.get("boot_device"), result.get("logfile")
+if (
+    not isinstance(target, str) or not re.fullmatch(r"/dev/[A-Za-z0-9][A-Za-z0-9._-]*", target)
+    or not isinstance(boot, str) or not re.fullmatch(r"/dev/[A-Za-z0-9][A-Za-z0-9._-]*", boot)
+    or target == boot
+    or not isinstance(logfile, str)
+    or not re.fullmatch(r"/tmp/beamo-wipe/[A-Za-z0-9._-]+\.log", logfile)
 ):
-    if flag not in argv:
-        raise SystemExit(f"guest argv missing {flag}")
+    raise SystemExit("guest argv target, boot exclusion, or log path is invalid")
+expected_argv = [
+    "nwipe", "--autonuke", "--nogui", "--nowait", "--quiet",
+    f"--method={expected_nwipe}", f"--verify={expected_verify}",
+    "--rounds=1", f"--logfile={logfile}", "--PDFreportpath=noPDF",
+    f"--exclude={boot}", "--noblank", target,
+]
+if argv != expected_argv:
+    raise SystemExit("guest argv differs from the single-target production command")
+expected_serial = {"everyday": "0001", "extra": "0002", "quick_zero": "0003"}[expected_method]
+if (
+    target != "/dev/vda"
+    or device.get("realpath") != "/dev/vda"
+    or device.get("name") != "vda"
+    or device.get("serial") != expected_serial
+    or type(device.get("size_bytes")) is not int
+    or device["size_bytes"] != 67108864
+):
+    raise SystemExit("guest target identity differs from the disposable QEMU disk")
+target_name = target.rsplit("/", 1)[-1]
+log_text = actual["nwipe.log"].decode("utf-8", "replace")
+status_row = rf"^\s*!?\s*(?:{re.escape(target_name)}|{re.escape(target)})\s*\|\s*([^|]+)\|"
+statuses = list(re.finditer(status_row, log_text, re.M))
+if (
+    not statuses
+    or statuses[-1][1].strip() != "Erased"
+    or any(row[1].strip() in {"-FAILED-", "UABORTED", "INSANITY"} for row in statuses)
+):
+    raise SystemExit("guest nwipe log has no unambiguous target status row")
+success_at = statuses[-1].start()
+labels = {"zero": "Fill With Zeros", "prng": "PRNG Stream", "dodshort": "DoD Short"}
+def unique_option(name, expected):
+    pattern = rf"(?m)^(?:\[[^\]\r\n]*\]\s*)?(?:(?:debug|info|notice|warning):\s*)?\s*{name}\s*=\s*([^\r\n]*)$"
+    matches = list(re.finditer(pattern, log_text))
+    if len(matches) != 1 or matches[0][1].strip() != expected:
+        raise SystemExit(f"guest engine method log has missing or conflicting {name} setting")
+    return matches[0]
+
+method_at = unique_option("method", labels[expected_nwipe])
+verify_at = unique_option(
+    "verify", f"{0 if expected_verify == 'off' else 1} ({'off' if expected_verify == 'off' else 'last pass'})"
+)
+rounds_at = unique_option("rounds", "1")
+if not all(match.start() < success_at for match in (method_at, verify_at, rounds_at)):
+    raise SystemExit("guest engine method log configuration follows success")
+cursor = max(match.end() for match in (method_at, verify_at, rounds_at))
+def phase_at(marker, cursor):
+    # Complete nwipe notice lines bind the operation to this exact block node.
+    pattern = (r"(?m)^(?:\[[^\]\r\n]+\][ \t]*)?"
+               r"(?:(?:debug|info|notice|warning):[ \t]*)?[ \t]*"
+               + re.escape(marker) + r"[ \t]*$")
+    found = re.search(pattern, log_text[cursor:success_at])
+    if not found:
+        raise SystemExit("guest engine method log has missing or out-of-order phases")
+    return cursor + found.end()
+
+for number in range(1, expected_overwrites + 1):
+    cursor = phase_at(f"Starting pass {number}/{expected_overwrites}, round 1/1, on {target}", cursor)
+    if number == expected_overwrites and expected_verify == "last":
+        cursor = phase_at(
+            f"Verifying pass {number} of {expected_overwrites}, round 1 of 1, on {target}", cursor
+        )
+        cursor = phase_at(
+            f"Verified pass {number} of {expected_overwrites}, round 1 of 1, on '{target}'.", cursor
+        )
+    cursor = phase_at(f"Finished pass {number}/{expected_overwrites}, round 1/1, on {target}", cursor)
+if expected_verify == "off" and "Verifying pass" in log_text:
+    raise SystemExit("guest engine method log unexpectedly verified an unverified method")
 summary = actual.get("RESULT.txt", b"").decode("utf-8", "replace")
 if expected_title not in summary:
     raise SystemExit(f"RESULT.txt missing method title {expected_title!r}")
@@ -1401,7 +1640,6 @@ import sys
 
 required = (
     "BEAMO_WIPE_SCREEN_KEYBOARD",
-    "BEAMO_WIPE_SCREEN_WHAT",
     "BEAMO_WIPE_SCREEN_OWNER",
     "BEAMO_WIPE_OWNER_CHECKED",
     "BEAMO_WIPE_SCREEN_PICK",
@@ -1466,27 +1704,25 @@ for candidate in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd; d
 done
 [[ -n "$OVMF_CODE" ]] || { echo "OVMF firmware missing" >&2; exit 2; }
 OVMF_VARS="${OVMF_CODE/CODE/VARS}"
-if [[ -f "$OVMF_VARS" ]]; then
-  cp "$OVMF_VARS" "$RUN_ROOT/ovmf-vars.fd"
-  boot_probe uefi no \
-    -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
-    -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-vars.fd"
-else
-  boot_probe uefi no -bios "$OVMF_CODE"
-fi
+uefi_boot_probe() {
+  local probe_name=$1 vars_name=$2
+  if [[ -f "$OVMF_VARS" ]]; then
+    cp "$OVMF_VARS" "$RUN_ROOT/$vars_name"
+    boot_probe "$probe_name" no \
+      -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+      -drive "if=pflash,format=raw,file=$RUN_ROOT/$vars_name"
+  else
+    boot_probe "$probe_name" no -bios "$OVMF_CODE"
+  fi
+}
+uefi_boot_probe uefi ovmf-vars.fd
 
 boot_probe bios-usb no
-cp "$OVMF_VARS" "$RUN_ROOT/ovmf-usb-vars.fd"
-boot_probe uefi-usb no \
-  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
-  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-usb-vars.fd"
+uefi_boot_probe uefi-usb ovmf-usb-vars.fd
 
 # Both real USB boot menus must select the new view, not merely contain its text.
 boot_probe bios-speech-usb no
-cp "$OVMF_VARS" "$RUN_ROOT/ovmf-speech-vars.fd"
-boot_probe uefi-speech-usb no \
-  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
-  -drive "if=pflash,format=raw,file=$RUN_ROOT/ovmf-speech-vars.fd"
+uefi_boot_probe uefi-speech-usb ovmf-speech-vars.fd
 
 # Enrolled Microsoft keys and SMM enforcement. A bare OVMF boot is not
 # Secure Boot evidence. The guest must report the actual firmware variable.
@@ -1499,8 +1735,13 @@ boot_probe secureboot-usb no \
   -drive "if=pflash,format=raw,readonly=on,file=$SECURE_CODE" \
   -drive "if=pflash,format=raw,file=$RUN_ROOT/secureboot-vars.fd"
 
-printf 'iso_sha256=%s\nnwipe_sha256=%s\nsource_commit=%s\nbuild_id=%s\nrepetitions=2\ncases=%s\neveryday=pass\nextra=pass\nquick_zero=pass\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nspeech_bios_usb=pass\nspeech_uefi_usb=pass\nreport_export=pass\n' \
-  "$(sha256sum "$ISO" | awk '{print $1}')" "$shipped_sha" \
+if [[ "$(sha256sum "$USB_IMAGE" | awk '{print $1}')" != "$QEMU_USB_SHA" ]]; then
+  echo 'ABORT: USB image changed during QEMU verification' >&2
+  exit 2
+fi
+log "usb_image_sha256=$QEMU_USB_SHA"
+printf 'iso_sha256=%s\nusb_image_sha256=%s\nnwipe_sha256=%s\nsource_commit=%s\nbuild_id=%s\nrepetitions=2\ncases=%s\neveryday=pass\nextra=pass\nquick_zero=pass\nbios=pass\nuefi=pass\nbios_usb=pass\nuefi_usb=pass\nsecureboot_usb=pass\nspeech_bios_usb=pass\nspeech_uefi_usb=pass\nreport_export=pass\n' \
+  "$(sha256sum "$ISO" | awk '{print $1}')" "$QEMU_USB_SHA" "$shipped_sha" \
   "$(tr -d '\n' <"$EVIDENCE_DIR/source-commit.txt")" \
   "${BUILD_ID:-local}" "${EXECUTED_CASES}" \
   >"$EVIDENCE_DIR/summary.txt"

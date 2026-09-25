@@ -150,6 +150,26 @@ def test_scan_failure_blocks_closed_without_escape():
         app._teardown()
 
 
+def test_refresh_worker_start_failure_finishes_with_visible_error(monkeypatch):
+    app, calls, _main = _stub_app(lambda: discovery_for_scenario("happy"))
+    try:
+        app._click_refresh()
+        assert app.w.screen == Screen.REFRESH_CONFIRM
+
+        def fail_start(_thread):
+            raise RuntimeError("no worker")
+
+        monkeypatch.setattr(threading.Thread, "start", fail_start)
+        app._click_refresh()
+        assert app.w.screen == Screen.PICK_BLOCKED
+        assert app.w.error == REDISCOVER_ERROR
+        assert app.w.can_refresh
+        assert not app._refresh_threads
+        assert not calls
+    finally:
+        app._teardown()
+
+
 def test_duplicate_scan_refused_single_worker():
     app, _calls, _main = _stub_app(lambda: discovery_for_scenario("happy"), delay=0.5)
     try:
@@ -158,8 +178,9 @@ def test_duplicate_scan_refused_single_worker():
         time.sleep(0.1)
         app.root.pump()
         app._click_refresh()
+        workers = list(app._refresh_threads.values())
         assert _settle(app) == Screen.OWNER
-        for worker in app._refresh_threads.values():
+        for worker in workers:
             worker.join(timeout=10)
         # Wording, then one checking paint, one applied paint, one thread.
         assert [screen for _ident, screen in app.draws] == [
@@ -167,7 +188,8 @@ def test_duplicate_scan_refused_single_worker():
             Screen.REFRESHING,
             Screen.OWNER,
         ]
-        assert len(app._refresh_threads) == 1
+        assert len(workers) == 1
+        assert not app._refresh_threads
     finally:
         app._teardown()
 

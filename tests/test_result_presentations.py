@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from beamo_wipe import lang, outcomes
 from beamo_wipe.demo import make_demo_wizard
 from beamo_wipe.evidence import build_evidence, recover_result, write_evidence_atomic
 from beamo_wipe.models import MethodId, Screen, WipeResult
@@ -14,10 +15,13 @@ from beamo_wipe.outcomes import VIEWS, present_evidence
 from beamo_wipe.support_export import _bundle_files
 from beamo_wipe.ui import console_wizard as console
 
+STATUS = "********************************* Drive Status *********************************\n"
+ERASED = "{name} | Erased |  120MB/s | 01:25:04 | QEMU/DISK"
+
 
 CASES = [
-    ("verified", MethodId.EVERYDAY, 0, "{name} | Erased |", False, False),
-    ("unverified", MethodId.QUICK_ZERO, 0, "{name} | Erased |", False, False),
+    ("verified", MethodId.EVERYDAY, 0, STATUS + ERASED, False, False),
+    ("unverified", MethodId.QUICK_ZERO, 0, STATUS + ERASED, False, False),
     ("occupied", MethodId.EVERYDAY, 0, "{path} is reported as IN USE", False, False),
     (
         "open_failed",
@@ -61,7 +65,7 @@ def test_recovery_and_export_agree_on_normalized_engine_log(tmp_path):
     from beamo_wipe.support_export import read_export_log
 
     logfile = tmp_path / "nwipe.log"
-    case = ("verified", MethodId.EVERYDAY, 0, "\ufffd\n{name} | Erased |", False, False)
+    case = ("verified", MethodId.EVERYDAY, 0, "\ufffd\n" + STATUS + ERASED, False, False)
     _, evidence, normalized_log = case_evidence(case, str(logfile))
     logfile.write_bytes(normalized_log.replace("\ufffd", "\xff").encode("latin-1"))
     path = write_evidence_atomic(evidence, log_dir=tmp_path)
@@ -118,6 +122,7 @@ def case_evidence(case, logfile=""):
         log_text=log,
         interrupted=interrupted,
         cancelled=cancelled,
+        language=lang.current(),
     )
     wiz.preview = False
     wiz.selected = disk
@@ -126,6 +131,17 @@ def case_evidence(case, logfile=""):
     wiz.wipe_result = result
     wiz.evidence = ev
     return wiz, ev, log
+
+
+def test_case_evidence_preserves_active_language():
+    try:
+        lang.set_language("de")
+        case = next(c for c in CASES if c[0] == "completion_missing")
+        wiz, evidence, _ = case_evidence(case)
+        assert evidence["locale"]["language"] == "de"
+        assert wiz.result_view == outcomes.VIEWS["completion_missing"]
+    finally:
+        lang.set_language("en")
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c[0] for c in CASES])
@@ -192,7 +208,10 @@ def test_missing_saved_evidence_cannot_keep_green_runner_result():
 
 def test_verification_failure_for_another_disk_is_not_relabelled():
     ok, _, reason = evaluate_nwipe_outcome(
-        0, "Verification mismatch on '/dev/sdz' at offset 1\nvda | Erased |", "/dev/vda"
+        0,
+        "Verification mismatch on '/dev/sdz' at offset 1\n"
+        + STATUS + "vda | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n",
+        "/dev/vda",
     )
     assert ok and reason == "completed"
 

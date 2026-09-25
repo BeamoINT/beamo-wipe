@@ -21,7 +21,7 @@ from types import SimpleNamespace
 import pytest
 
 from beamo_wipe.evidence import write_evidence_atomic
-from beamo_wipe.discover import node_to_disk
+from beamo_wipe.discover import node_to_disk, size_gb_label
 from beamo_wipe.models import Disk, DiskKind, DiscoveryResult, Screen, WipeResult
 from beamo_wipe.safety import CLEAN_SUBPROCESS_ENV, SafetyError, confirm_spec
 from beamo_wipe.support_export import (
@@ -246,7 +246,7 @@ def test_blank_boot_stick_moved_to_an_empty_model_name_is_not_a_report_volume():
         _fp("/dev/sdb", 8_000_000_000, ""),
         _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
     ))
-    with pytest.raises(SafetyError, match="could not be verified"):
+    with pytest.raises(SafetyError, match="Leave the Beamo"):
         select_export_volume(payload, baseline)
 
 
@@ -270,7 +270,7 @@ def test_blank_baseline_replaced_by_a_named_disk_is_not_still_present():
         _fp("/dev/sdb", 8_000_000_000, ""),
         _fp("/dev/nvme0n1", 256_000_000_000, "Target", "TARGET-1", "target-wwn"),
     ))
-    with pytest.raises(SafetyError, match="could not be verified"):
+    with pytest.raises(SafetyError, match="Leave the Beamo"):
         select_export_volume(payload, baseline)
 
 
@@ -1423,43 +1423,62 @@ def test_qemu_key_steps_synchronize_press_redraw_and_release():
     assert 'wait_for_marker "$label" BEAMO_WIPE_CONFIRM_FOCUSED 20' in qemu
 
 
-def test_qemu_types_the_token_required_for_same_size_boot_and_target_disks():
-    """The shipped ISO and 1 GiB target both display as 1 GB in this gate."""
+def test_qemu_types_the_token_required_for_current_guest_disk_size(tmp_path):
+    """QEMU uses the real 64 MiB fixture and each boot image's size label."""
     qemu = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
     serial_match = re.search(r'^QEMU_TARGET_SERIAL="([A-Za-z0-9._:-]+)"$', qemu, re.MULTILINE)
     assert serial_match is not None
     serial = serial_match.group(1)
-
-    boot = Disk(
-        path="/dev/sr0",
-        name="sr0",
-        model="QEMU DVD-ROM",
-        serial="",
-        size_bytes=429_916_160,
-        size_gb_label="1",
-        kind=DiskKind.UNKNOWN,
-        bus="ata",
-        label="Beamo Wipe",
-        is_boot=True,
-    )
+    target_size = 67_108_864
+    assert size_gb_label(target_size) == "0"
     target = Disk(
         path="/dev/vda",
         name="vda",
         model="QEMU HARDDISK",
         serial=serial,
-        size_bytes=1_073_741_824,
-        size_gb_label="1",
+        size_bytes=target_size,
+        size_gb_label=size_gb_label(target_size),
         kind=DiskKind.HDD,
         bus="virtio",
         label="",
     )
-
-    assert confirm_spec(target, (target, boot)).token == serial
+    helper = re.search(r"^guest_confirmation_token\(\) \{\n.*?^\}", qemu, re.MULTILINE | re.DOTALL)
+    assert helper is not None
+    for boot_size, expected in ((563_085_312, "0"), (2 * 1024**3, "0"), (429_916_160, serial)):
+        boot = Disk(
+            path="/dev/sr0",
+            name="sr0",
+            model="QEMU boot media",
+            serial="",
+            size_bytes=boot_size,
+            size_gb_label=size_gb_label(boot_size),
+            kind=DiskKind.UNKNOWN,
+            bus="ata",
+            label="Beamo Wipe",
+            is_boot=True,
+        )
+        assert confirm_spec(target, (target, boot)).token == expected
+        boot_file = tmp_path / f"boot-{boot_size}.img"
+        with boot_file.open("wb") as stream:
+            stream.truncate(boot_size)
+        result = subprocess.run(
+            ["bash", "-c", helper.group(0) + '\nguest_confirmation_token "$1" "$2" "$3"',
+             "bash", str(boot_file), str(target_size), serial],
+            cwd=Path.cwd(),
+            env={**os.environ, "ROOT": str(Path.cwd())},
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        assert result.stdout.strip() == expected
     assert 'serial=$token' in qemu
+    assert 'confirmation_token="$(guest_confirmation_token "$boot_media" "$HOST_METHOD_BYTES" "$token")"' in qemu
+    assert 'drive_report_export "$label" "$qmp_socket" "$method_key" "$confirmation_token"' in qemu
     assert (
-        'type_token_for_marker "$label" "$qmp_socket" "$token" '
+        'type_token_for_marker "$label" "$qmp_socket" "$confirmation_token" '
         'BEAMO_WIPE_CONFIRM_MATCHED 20'
     ) in qemu
+    assert 'type_token_for_marker "$label" "$qmp_socket" 1 BEAMO_WIPE_CONFIRM_MATCHED' not in qemu
 
 
 def test_owner_card_space_suppresses_x11_autorepeat_pair():
@@ -1684,13 +1703,13 @@ def test_qemu_tcg_boot_gets_a_larger_bounded_startup_budget():
     qemu = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
     assert "BOOT_WAIT_SECONDS=120" in qemu
     assert 'if [[ ! -r /dev/kvm ]]; then BOOT_WAIT_SECONDS=300; fi' in qemu
-    assert 'BEAMO_WIPE_SCREEN_WHAT "$BOOT_WAIT_SECONDS"' in qemu
+    assert 'BEAMO_WIPE_SCREEN_OWNER "$BOOT_WAIT_SECONDS"' in qemu
 
 
 def test_qemu_boot_readiness_uses_the_rendered_tk_screen_not_the_wrapper_marker():
-    """A rendered WHAT screen proves the kiosk even if its early marker was lost."""
+    """A rendered owner screen proves the kiosk even if its early marker was lost."""
     qemu = Path("scripts/qemu-verify.sh").read_text(encoding="utf-8")
     boot_probe = qemu.split("boot_probe() {", 1)[1].split("\n}", 1)[0]
 
-    assert 'wait_for_marker "$label" BEAMO_WIPE_SCREEN_WHAT' in boot_probe
+    assert 'wait_for_marker "$label" BEAMO_WIPE_SCREEN_OWNER' in boot_probe
     assert 'wait_for_marker "$label" BEAMO_WIPE_KIOSK_READY' not in boot_probe

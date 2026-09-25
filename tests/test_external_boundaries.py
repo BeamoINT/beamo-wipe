@@ -83,9 +83,25 @@ def test_lsblk_control_chars_truncated_and_no_injection():
         }
     )
     r = parse_lsblk_json(payload, boot_path=None, require_boot=False)
-    # _clean strips control chars without replacement
-    assert r.selectable[0].label == "CTRLBAD"
-    assert "\n" not in r.selectable[0].label
+    # Display cleanup remains safe, but malformed identity metadata must not
+    # become a selectable disk with the same identity as clean "CTRLBAD".
+    assert "\n" not in _clean("CTRL\nBAD")
+    assert r.selectable == ()
+
+
+def test_lsblk_clean_label_remains_selectable():
+    payload = _payload(
+        {
+            "name": "sda",
+            "path": "/dev/sda",
+            "size": 10,
+            "type": "disk",
+            "tran": "sata",
+            "label": "CTRLBAD",
+        }
+    )
+    result = parse_lsblk_json(payload, boot_path=None, require_boot=False)
+    assert result.selectable[0].label == "CTRLBAD"
 
 
 def test_udev_decode_invalid_hex_left_literal():
@@ -398,7 +414,7 @@ def test_partial_log_no_sane_geometry_and_abort_not_success(tmp_path):
 
 
 def test_partial_failure_busy_on_other_device_does_not_fail_target():
-    log = "/dev/sdb is reported as IN USE\n/dev/vda: 100.00%, round 1 of 1, pass 1 of 1\n|/dev/vda| 100.00% |Erased|\nNwipe successfully completed\n"
+    log = "/dev/sdb is reported as IN USE\n/dev/vda: 100.00%, round 1 of 1, pass 1 of 1, eta 00:00:00, [writing]\n|/dev/vda| 100.00% |Erased|\nNwipe successfully completed\n"
     # busy RE on sdb should not make target vda busy
     assert not target_skipped_busy(log, "/dev/vda")
     assert target_skipped_busy(log, "/dev/sdb")

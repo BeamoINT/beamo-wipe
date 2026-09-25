@@ -38,15 +38,16 @@ cases as such; do not count a safe refusal as proof of direct-restart support.
 | Case | Expected result | Result / evidence |
 | --- | --- | --- |
 | Insert USB in a running OS | Files are visible; insertion itself does not execute the application or erase anything | NOT TESTED |
-| Open the platform launcher | The offline browser UI opens; required UAC or Linux execution/permission prompts are understandable | NOT TESTED |
-| Standard-user permission declined | No restart or erasure; the app explains the failure or permission requirement | NOT TESTED |
+| Open the platform launcher | The offline browser UI opens; Linux execution/permission prompts are understandable; Windows does not request UAC for manual guidance | NOT TESTED |
+| Linux standard-user permission declined | No restart or erasure; the app explains the permission requirement | NOT TESTED |
 | Linux filesystem mounted `noexec` or desktop blocks execution | The restriction is documented; do not bypass OS policy or advertise seamless launch on this configuration | NOT TESTED |
-| Exact existing USB EFI entry | Readiness identifies the USB; explicit restart enters that USB's Beamo Wipe welcome screen | NOT TESTED |
+| Exact existing USB EFI entry on Linux | Readiness identifies the USB; explicit restart enters that USB's Beamo Wipe welcome screen | NOT TESTED |
+| Windows manual boot route | Readiness directs the owner to the normal Restart command and boot menu; no `BootNext` request or UAC prompt occurs | NOT TESTED |
 | No exact entry / generic USB entry / legacy BIOS desktop | Readiness gives boot-menu guidance; it does not guess a boot target | NOT TESTED |
-| Another one-time boot request is already pending | Direct restart is refused without replacing that request | NOT TESTED |
-| Remove or replace USB after readiness | Restart is refused after rechecking identity; no unrelated boot entry is chosen | NOT TESTED |
+| Another one-time boot request is already pending on Linux | Direct restart is refused without replacing that request | NOT TESTED |
+| Remove or replace USB after Linux readiness | Restart is refused after rechecking identity; no unrelated boot entry is chosen | NOT TESTED |
 | Leave application idle, refresh, then Close | Refresh retains the current session while active; Close removes controls and the server exits | NOT TESTED |
-| Cancel restart or an application vetoes it | No forced application closure or erasure; record whether firmware retains the requested one-time USB boot | NOT TESTED |
+| Cancel Linux restart or an application vetoes it | No forced application closure or erasure; record whether firmware retains the requested one-time USB boot | NOT TESTED |
 | Ordinary firmware boot-menu selection | USB reaches the welcome screen without the desktop launcher | NOT TESTED |
 | Supported Secure Boot configuration | USB reaches the welcome screen with Secure Boot still enabled; record actual trust state | NOT TESTED |
 | Repeat using advertised ports/controllers | The same media and identity remain usable; record failures by port/controller | NOT TESTED |
@@ -55,9 +56,9 @@ cases as such; do not count a safe refusal as proof of direct-restart support.
 | Exit before final erase confirmation | No target writes occur | NOT TESTED |
 
 A restart may close unsaved work through normal OS prompts. Save work before
-an intentional restart test. A Windows application veto can leave the already
-requested one-time boot entry for the next restart; this does not authorize an
-erase. Do not create or edit firmware entries on a customer's PC merely to make
+an intentional restart test. The Windows launcher no longer requests a one-time
+boot entry because a canceled Windows shutdown could leave it pending for the
+next restart. Do not create or edit firmware entries on a customer's PC merely to make
 the exact-entry test pass. A seeded virtual entry is a separate integration test.
 
 ## Optional authorized destructive acceptance

@@ -215,6 +215,13 @@ its disposable overlay and firmware files before tearing down the cloud host.
 
 ### Firmware restart tests after Windows installation
 
+The current Windows launcher gives manual boot-menu instructions and does not
+write `BootNext` or request a restart. Validate that refusal on Windows, then
+use the normal Windows Restart command and the VM firmware boot menu for the
+current customer flow. The direct-restart notes below describe the retained
+September 7 historical fixture and are not current Windows acceptance steps.
+Linux guided restart still needs its separate exact-entry handoff test.
+
 Remove installer-only `bootindex` overrides before testing an operating system's
 one-time firmware restart. OVMF can rebuild BootOrder from QEMU's configured boot
 order and prune otherwise valid HD boot entries. In the September 7 KVM run,

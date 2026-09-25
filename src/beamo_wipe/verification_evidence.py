@@ -26,15 +26,25 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
+from urllib.parse import urlsplit
 
 GATE_RECEIPT_SCHEMA = "beamo-wipe-gate-receipt/1"
 TEST_EVIDENCE_SCHEMA = "beamo-wipe-test-evidence/1"
 PACKAGE_INVENTORY_SCHEMA = "beamo-wipe-package-inventory/1"
+
+DPKG_SELECTION_STATES = frozenset({"unknown", "install", "hold", "deinstall", "purge"})
+DPKG_ERROR_FLAGS = frozenset({"ok", "reinstreq"})
+DPKG_PACKAGE_STATES = frozenset({
+    "not-installed", "config-files", "half-installed", "unpacked",
+    "half-configured", "triggers-awaited", "triggers-pending", "installed",
+})
 
 REQUIRED_GATES = (
     "lint",
@@ -60,7 +70,25 @@ SECRET_RES = (
     re.compile("g[h]p_[A-Za-z0-9]{8,}"),
     re.compile("github[_]pat_[A-Za-z0-9_]+"),
     re.compile("-----BEGIN [A-Z ]*PRIVATE KEY"),
-    re.compile(r"(?i)\b(password|passwd|secret|credential)\b\s*[:=]\s*\S+"),
+    re.compile(
+        r"""(?i)(?<![A-Za-z0-9_])(?:[A-Za-z0-9]+[_-])*(?:pass(?:phrase|word|wd)?|secrets?|credentials?|token|(?:api|access|private|secret)[_-]?key)(?:\\?["'])?\s*[:=]\s*(?:\\?["'])?\S+"""
+    ),
+)
+HOST_PATH_RES = (
+    # A file URL is a host-local path even though its first slash is followed
+    # by another slash, which the generic rooted-path pattern excludes.
+    re.compile(r"(?i)(?<![A-Za-z0-9_])file:[^\s\"'<>]+"),
+    # A rooted path may follow a quote, space, equals sign, or colon. Exclude
+    # URL separators and relative paths such as scripts/ci-hosted.sh.
+    re.compile(r"(?<![A-Za-z0-9/])/(?!/)[^\s\"'<>]*"),
+    # A protocol-relative URL can also denote a network share. Preserve
+    # ordinary https:// URLs by requiring that no scheme colon precede //.
+    re.compile(r"(?<![A-Za-z0-9:/])//[^/\s\"'<>]+/[^\s\"'<>]+"),
+    # JSON doubles backslashes before receipt scanning; accept either the
+    # original Windows path or its serialized form. UNC shares are host-local
+    # locations too, including when a server name precedes the private path.
+    re.compile(r"(?i)(?<![A-Za-z0-9_])[A-Z]:\\+[^\s\"'<>]+"),
+    re.compile(r"(?<![A-Za-z0-9_])\\{2,}[^\s\"'<>\\]+\\+[^\s\"'<>]+"),
 )
 
 ENV_VALUE_TYPES = (str, int, bool)
@@ -80,6 +108,18 @@ FORBIDDEN_ENV_KEYS = frozenset(
         "pythonpath",
     }
 )
+SECRET_ENV_KEY_RE = re.compile(
+    r"(?:^|_)(?:pass|passphrase|password|passwd|secret|credential|credentials|token|key)(?:_|$)"
+)
+
+
+def _unique_receipt_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise RuntimeError("duplicate JSON field in gate receipt")
+        fields[key] = value
+    return fields
 
 
 def utc_now_s() -> str:
@@ -144,6 +184,18 @@ def _check_no_secrets(blob: str, *, what: str) -> None:
             raise RuntimeError(f"{what} appears to contain secret material")
 
 
+def _check_no_host_paths(blob: str, *, what: str) -> None:
+    for pattern in HOST_PATH_RES:
+        if pattern.search(blob):
+            raise RuntimeError(f"{what} contains a private host path")
+
+
+def _hide_host_paths(value: str) -> str:
+    for pattern in HOST_PATH_RES:
+        value = pattern.sub("[path]", value)
+    return value
+
+
 def sanitize_environment(env: Mapping[str, Any], *, what: str) -> Dict[str, Any]:
     """Keep only stable, non-identifying environment facts.
 
@@ -157,8 +209,14 @@ def sanitize_environment(env: Mapping[str, Any], *, what: str) -> Dict[str, Any]
         if not isinstance(key, str) or not key or key.strip() != key:
             raise RuntimeError(f"{what} environment has a bad key: {key!r}")
         lowered = key.lower()
-        if lowered in FORBIDDEN_ENV_KEYS or lowered.endswith(
-            ("hostname", "username", "_path", "_dir", "_file", "token")
+        if (
+            lowered in FORBIDDEN_ENV_KEYS
+            or SECRET_ENV_KEY_RE.search(lowered)
+            or lowered.endswith(
+                ("hostname", "username", "_path", "_dir", "_file",
+                 "passphrase", "password", "passwd", "secret", "credential", "credentials",
+                 "token", "key")
+            )
         ):
             raise RuntimeError(f"{what} environment must not carry {key!r}")
         if isinstance(value, bool):
@@ -168,6 +226,7 @@ def sanitize_environment(env: Mapping[str, Any], *, what: str) -> Dict[str, Any]
         elif isinstance(value, str):
             if not value.strip():
                 raise RuntimeError(f"{what} environment field {key!r} is empty")
+            _check_no_host_paths(value, what=f"{what} environment")
             clean[key] = value.strip()
         else:
             raise RuntimeError(f"{what} environment field {key!r} has a bad type")
@@ -189,8 +248,22 @@ def parse_junit_xml(text: str, *, what: str = "junit report") -> Dict[str, Any]:
     suites = root.findall("testsuite") or ([root] if root.tag == "testsuite" else [])
     if not suites:
         raise RuntimeError(f"{what} contains no testsuite")
+    # Only direct suite/testcase children are counted below. Reject any
+    # nested records rather than issuing a passing receipt that omits them.
+    if (
+        sum(1 for _ in root.iter("testsuite")) != len(suites)
+        or sum(1 for _ in root.iter("testcase"))
+        != sum(len(suite.findall("testcase")) for suite in suites)
+        or any(
+            sum(1 for _ in root.iter(kind))
+            != sum(len(case.findall(kind)) for suite in suites for case in suite.findall("testcase"))
+            for kind in ("failure", "error", "skipped")
+        )
+    ):
+        raise RuntimeError(f"{what} contains nested or hidden tests or outcomes")
     totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
     skips: List[Dict[str, str]] = []
+    case_number = 0
     for suite in suites:
         declared = {}
         for key in totals:
@@ -203,11 +276,19 @@ def parse_junit_xml(text: str, *, what: str = "junit report") -> Dict[str, Any]:
                 raise RuntimeError(f"{what} has a bad {key} count: {raw!r}") from exc
         observed = dict.fromkeys(totals, 0)
         for case in suite.findall("testcase"):
+            case_number += 1
             classname = (case.get("classname") or "").strip()
             name = (case.get("name") or "").strip()
             if not name:
                 raise RuntimeError(f"{what} has a testcase without a name")
             test_id = f"{classname}.{name}" if classname else name
+            redacted_id = _hide_host_paths(test_id)
+            if redacted_id != test_id:
+                # Pytest parameter IDs can contain fake device paths or even
+                # file URLs. Keep distinct skip IDs without hashing private
+                # path text into a stable host fingerprint.
+                test_id = f"{redacted_id} [case-{case_number}]"
+            _check_no_host_paths(test_id, what=what)
             failure_nodes = case.findall("failure")
             error_nodes = case.findall("error")
             skipped_nodes = case.findall("skipped")
@@ -221,7 +302,9 @@ def parse_junit_xml(text: str, *, what: str = "junit report") -> Dict[str, Any]:
             for skipped_node in skipped_nodes:
                 kind = skipped_node.get("type") or ""
                 kind = "xfail" if "xfail" in kind else "skip"
-                reason = (skipped_node.get("message") or "").strip() or "unspecified"
+                reason = _hide_host_paths(
+                    (skipped_node.get("message") or "").strip()
+                ) or "unspecified"
                 skips.append({"id": test_id, "kind": kind, "reason": reason})
         # Hidden failures/errors/skips are never allowed. Pytest's tests=
         # attribute may sit between testcase count and per-outcome count when
@@ -307,6 +390,8 @@ def _check_skips(skips: object, *, what: str) -> List[Dict[str, str]]:
             raise RuntimeError(f"{what} has a skip with a bad kind")
         if not isinstance(reason, str) or not reason.strip():
             raise RuntimeError(f"{what} has a skip without a reason")
+        _check_no_host_paths(test_id, what=f"{what} skip id")
+        _check_no_host_paths(reason, what=f"{what} skip reason")
         clean.append(
             {"id": test_id.strip(), "kind": kind, "reason": reason.strip()}
         )
@@ -361,6 +446,10 @@ def build_gate_receipt(
     if counts["failed"] > 0 or counts["errors"] > 0:
         if status != "fail":
             raise RuntimeError(f"gate {gate} has failures but status {status!r}")
+    if status == "pass" and counts["passed"] == 0:
+        raise RuntimeError(f"gate {gate} has no passing checks")
+    if status == "skip" and counts["passed"] != 0:
+        raise RuntimeError(f"gate {gate} is skipped but records passing checks")
     receipt: Dict[str, Any] = {
         "schema": GATE_RECEIPT_SCHEMA,
         "gate": gate,
@@ -378,7 +467,9 @@ def build_gate_receipt(
     }
     if receipt["started_at"] > receipt["ended_at"]:
         raise RuntimeError(f"gate {gate} ends before it starts")
-    _check_no_secrets(canonical_bytes(receipt).decode("utf-8"), what=f"gate {gate}")
+    receipt_blob = canonical_bytes(receipt).decode("utf-8")
+    _check_no_secrets(receipt_blob, what=f"gate {gate}")
+    _check_no_host_paths(receipt_blob, what=f"gate {gate}")
     receipt["receipt_sha256"] = canonical_digest(
         {k: v for k, v in receipt.items() if k != "receipt_sha256"}
     )
@@ -431,6 +522,8 @@ def verify_release_evidence(evidence: Mapping[str, Any]) -> Dict[str, Dict[str, 
     """
     if not isinstance(evidence, Mapping):
         raise RuntimeError("release evidence must be an object")
+    if set(evidence) - {"schema", "measured", "gates", "evidence_sha256", "note"}:
+        raise RuntimeError("release evidence contains unknown fields")
     if evidence.get("schema") != TEST_EVIDENCE_SCHEMA:
         raise RuntimeError("release evidence has an unknown schema")
     gates = evidence.get("gates")
@@ -463,10 +556,16 @@ def verify_release_evidence(evidence: Mapping[str, Any]) -> Dict[str, Dict[str, 
         raise RuntimeError("release evidence spans more than one source commit")
     if len({receipt["build_id"] for receipt in verified.values()}) != 1:
         raise RuntimeError("release evidence spans more than one build identity")
-    if "evidence_sha256" in evidence:
-        digest = hashlib.sha256("".join(sorted(r["receipt_sha256"] for r in verified.values())).encode("ascii")).hexdigest()
-        if evidence["evidence_sha256"] != digest:
-            raise RuntimeError("release evidence digest mismatch")
+    digest = hashlib.sha256("".join(sorted(r["receipt_sha256"] for r in verified.values())).encode("ascii")).hexdigest()
+    if evidence.get("evidence_sha256") != digest:
+        raise RuntimeError("release evidence digest mismatch")
+    if evidence.get("measured") is not True:
+        raise RuntimeError("release evidence is not marked measured")
+    note = evidence.get("note", "")
+    if not isinstance(note, str):
+        raise RuntimeError("release evidence note must be text")
+    _check_no_secrets(note, what="release evidence note")
+    _check_no_host_paths(note, what="release evidence note")
     return verified
 
 
@@ -476,14 +575,25 @@ def build_test_evidence(
     """Assemble the manifest ``test_evidence`` object from gate receipts."""
     if len({r.get("gate") for r in receipts}) != len(receipts):
         raise RuntimeError("duplicate gate receipts")
-    gates = verify_release_evidence({"schema": TEST_EVIDENCE_SCHEMA, "gates": {r.get("gate"): r for r in receipts}})
-    digests = sorted(receipt["receipt_sha256"] for receipt in gates.values())
+    checked = [verify_gate_receipt(receipt) for receipt in receipts]
+    digests = sorted(receipt["receipt_sha256"] for receipt in checked)
+    digest = hashlib.sha256("".join(digests).encode("ascii")).hexdigest()
+    note = measured_note.strip() if isinstance(measured_note, str) else ""
+    _check_no_secrets(note, what="release evidence note")
+    _check_no_host_paths(note, what="release evidence note")
+    gates = verify_release_evidence({
+        "schema": TEST_EVIDENCE_SCHEMA,
+        "measured": True,
+        "gates": {receipt["gate"]: receipt for receipt in checked},
+        "evidence_sha256": digest,
+        "note": note,
+    })
     return {
         "schema": TEST_EVIDENCE_SCHEMA,
         "measured": True,
         "gates": {name: gates[name] for name in sorted(gates)},
-        "evidence_sha256": hashlib.sha256("".join(digests).encode("ascii")).hexdigest(),
-        "note": measured_note.strip() if isinstance(measured_note, str) else "",
+        "evidence_sha256": digest,
+        "note": note,
     }
 
 
@@ -491,8 +601,8 @@ def parse_dpkg_status(text: str, *, what: str = "dpkg status") -> List[Dict[str,
     """Parse a dpkg status database into a deterministic package list.
 
     Keeps name, version, architecture, install state, and source-package
-    provenance per package. Paragraphs without a ``Status: install ok
-    installed`` line are skipped: only installed packages shape the image.
+    provenance per package. The third Status token is the actual package
+    state; held packages can also be installed and must be counted.
     """
     if not isinstance(text, str) or not text.strip():
         raise RuntimeError(f"{what} is empty")
@@ -502,20 +612,37 @@ def parse_dpkg_status(text: str, *, what: str = "dpkg status") -> List[Dict[str,
         current = ""
         for line in paragraph.splitlines():
             if line[:1] in (" ", "\t") and current:
+                if current == "Status":
+                    raise RuntimeError(f"{what} has multiline Status field")
                 fields[current] += "\n" + line.strip()
                 continue
             if ":" not in line:
-                continue
+                label = "Status" if line.lstrip().startswith("Status") else "field"
+                raise RuntimeError(f"{what} has malformed {label} line")
             key, _, value = line.partition(":")
             current = key.strip()
+            if current in fields:
+                raise RuntimeError(f"{what} has duplicate field {current!r}")
             fields[current] = value.strip()
         name = fields.get("Package", "")
         version = fields.get("Version", "")
         arch = fields.get("Architecture", "")
         status = fields.get("Status", "")
         if not name:
-            continue
-        if status != "install ok installed":
+            raise RuntimeError(f"{what} has an entry without Package")
+        if not status:
+            raise RuntimeError(f"{what} has an entry without Status for {name!r}")
+        status_parts = status.split()
+        if (
+            len(status_parts) != 3
+            or status_parts[0] not in DPKG_SELECTION_STATES
+            or status_parts[1] not in DPKG_ERROR_FLAGS
+            or status_parts[2] not in DPKG_PACKAGE_STATES
+        ):
+            raise RuntimeError(f"{what} has invalid Status for {name!r}")
+        if status_parts[1] == "reinstreq":
+            raise RuntimeError(f"{what} has a package with reinstallation required: {name!r}")
+        if status_parts[2] != "installed":
             continue
         if not version or not arch:
             raise RuntimeError(f"{what} has an incomplete entry for {name!r}")
@@ -532,10 +659,11 @@ def parse_dpkg_status(text: str, *, what: str = "dpkg status") -> List[Dict[str,
         raise RuntimeError(f"{what} lists no installed packages")
     seen = set()
     for entry in packages:
-        if entry["name"] in seen:
-            raise RuntimeError(f"{what} lists {entry['name']!r} twice")
-        seen.add(entry["name"])
-    packages.sort(key=lambda entry: entry["name"])
+        identity = (entry["name"], entry["arch"])
+        if identity in seen:
+            raise RuntimeError(f"{what} lists {entry['name']!r} for {entry['arch']!r} twice")
+        seen.add(identity)
+    packages.sort(key=lambda entry: (entry["name"], entry["arch"]))
     return packages
 
 
@@ -561,6 +689,21 @@ def build_package_inventory(
     sources = sorted({s.strip() for s in apt_sources if isinstance(s, str) and s.strip()})
     if not sources:
         raise RuntimeError("package inventory is missing apt source provenance")
+    for source in sources:
+        try:
+            parsed = urlsplit(source)
+            port = parsed.port
+        except ValueError as exc:
+            raise RuntimeError("package inventory has an invalid apt source URI") from exc
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or any(char.isspace() or ord(char) < 32 for char in source)
+            or (port is not None and port <= 0)
+        ):
+            raise RuntimeError("package inventory has an invalid apt source URI")
+        if parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment:
+            raise RuntimeError("package inventory apt source may contain credentials")
     clean: List[Dict[str, str]] = []
     for entry in packages:
         if not isinstance(entry, Mapping):
@@ -583,8 +726,8 @@ def build_package_inventory(
                 "source": source.strip() if isinstance(source, str) else "",
             }
         )
-    clean.sort(key=lambda entry: entry["name"])
-    names = [entry["name"] for entry in clean]
+    clean.sort(key=lambda entry: (entry["name"], entry["arch"]))
+    names = [(entry["name"], entry["arch"]) for entry in clean]
     if len(set(names)) != len(names):
         raise RuntimeError("package inventory lists a package twice")
     if not clean:
@@ -599,7 +742,9 @@ def build_package_inventory(
         "package_count": len(clean),
         "packages": clean,
     }
-    _check_no_secrets(canonical_bytes(inventory).decode("utf-8"), what="package inventory")
+    inventory_blob = canonical_bytes(inventory).decode("utf-8")
+    _check_no_secrets(inventory_blob, what="package inventory")
+    _check_no_host_paths(inventory_blob, what="package inventory")
     inventory["inventory_sha256"] = canonical_digest(
         {k: v for k, v in inventory.items() if k != "inventory_sha256"}
     )
@@ -635,10 +780,25 @@ def verify_package_inventory(
 
 
 def _read_text_file(path: Path, *, what: str) -> str:
+    path = Path(path)
+    limit = 16 * 1024 * 1024
     try:
-        raw = Path(path).read_bytes()
+        fd = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0),
+        )
     except OSError as exc:
-        raise RuntimeError(f"{what} cannot be read: {path}") from exc
+        raise RuntimeError(f"{what} cannot be safely read: {path}") from exc
+    try:
+        with os.fdopen(fd, "rb") as stream:
+            metadata = os.fstat(stream.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
+                raise RuntimeError(f"{what} is not a bounded regular file: {path}")
+            raw = stream.read(limit + 1)
+    except OSError as exc:
+        raise RuntimeError(f"{what} cannot be safely read: {path}") from exc
+    if len(raw) > limit:
+        raise RuntimeError(f"{what} exceeds input size limit: {path}")
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -719,10 +879,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     receipts = []
     for path in args.receipt:
-        receipts.append(json.loads(_read_text_file(Path(path), what="gate receipt")))
-    verified = verify_release_evidence(
-        {"schema": TEST_EVIDENCE_SCHEMA, "gates": {r.get("gate"): r for r in receipts}}
-    )
+        receipts.append(
+            json.loads(
+                _read_text_file(Path(path), what="gate receipt"),
+                object_pairs_hook=_unique_receipt_fields,
+            )
+        )
+    verified = build_test_evidence(receipts)["gates"]
     print(f"evidence ok: {', '.join(sorted(verified))}")
     return 0
 

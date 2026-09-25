@@ -34,6 +34,8 @@ from beamo_wipe.wizard import Wizard, make_demo_wizard
 from test_boot_exclusion_fails_closed import SpyRunner, _wizard_for_discovery
 
 FIXTURES = Path(__file__).parent / "fixtures"
+STATUS = "********************************* Drive Status *********************************\n"
+ERASED = "vda | Erased |  120MB/s | 01:25:04 | QEMU/DISK\n"
 
 
 class Clock:
@@ -276,8 +278,8 @@ def test_xen_dasd_and_ide_whole_disks_are_wipe_nodes_partitions_are_not(monkeypa
 def test_target_verification_mismatch_beats_erased_row_and_exit_zero():
     log = (
         "Verification mismatch on '/dev/vda' at offset 4096\n"
-        "vda | Erased |\n"
-        "Nwipe successfully completed\n"
+        + STATUS + ERASED
+        + "Nwipe successfully completed\n"
     )
     ok, detail, reason = evaluate_nwipe_outcome(0, log, "/dev/vda")
     assert not ok
@@ -288,8 +290,8 @@ def test_target_verification_mismatch_beats_erased_row_and_exit_zero():
 def test_partition_verification_mismatch_is_not_attributed_to_parent_disk():
     log = (
         "Verification mismatch on '/dev/vda1' at offset 1\n"
-        "vda | Erased |\n"
-        "Nwipe successfully completed\n"
+        + STATUS + ERASED
+        + "Nwipe successfully completed\n"
     )
     ok, _, reason = evaluate_nwipe_outcome(0, log, "/dev/vda")
     assert ok and reason == "completed"

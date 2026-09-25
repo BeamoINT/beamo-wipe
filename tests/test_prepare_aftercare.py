@@ -231,9 +231,12 @@ def test_missing_fstype_is_unknown_not_a_windows_claim():
     assert "Windows partitions" not in text
 
 
-def test_disk_level_fstype_without_partitions_is_unknown():
+def test_whole_disk_filesystem_is_data_without_claiming_windows_os():
     node = _disk_node(children=[], fstype="ntfs", label="Windows")
-    assert classify_contents(node) == "unknown"
+    assert classify_contents(node) == "data"
+    text = C.prepare_selected(node_to_disk(node, False))
+    assert text == C.PREPARE_DATA
+    assert "Windows partitions" not in text
 
 
 def test_opened_luks_or_lvm_root_is_not_called_a_data_disk():

@@ -15,13 +15,14 @@ Each test asserts four fail-closed properties:
 
 from __future__ import annotations
 
+from dataclasses import replace
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from beamo_wipe.copy import IDENTIFY_ERROR, REDISCOVER_ERROR
-from beamo_wipe.discover import discover, load_lsblk_json_text
+from beamo_wipe.discover import discover, load_lsblk_json_text, parse_lsblk_json
 from beamo_wipe.models import WipeRequest
 from beamo_wipe.safety import SafetyError, assert_boot_excluded
 
@@ -234,8 +235,10 @@ def test_duplicate_lsblk_nodes_refuse_identity():
             "serial": "Z9A",
         }
 
+    boot_node = _node("sdb")
+    boot_node["serial"] = "BOOT-Z9A"
     result = parse_lsblk_json(
-        _payload([_node("sda"), _node("sda"), _node("sdb")]), boot_path="/dev/sdb"
+        _payload([_node("sda"), _node("sda"), boot_node]), boot_path="/dev/sdb"
     )
     assert result.boot_identified
     dup = [d for d in result.selectable if d.path == "/dev/sda"]
@@ -260,6 +263,74 @@ def test_duplicate_uuid_typed_source_fails_closed():
     payload = _load("lsblk_adversarial_duplicate_uuid.json")
     blockdevices = payload["blockdevices"]
     assert _resolve_typed_source("UUID", "11111111-2222-3333-4444-555555555555", blockdevices) is None
+
+
+@pytest.mark.parametrize(
+    ("key", "field"),
+    [("UUID", "uuid"), ("LABEL", "label"), ("PARTUUID", "partuuid"), ("PARTLABEL", "partlabel")],
+)
+def test_duplicate_live_typed_source_with_unresolved_parent_fails_closed(key, field):
+    """An orphan matching partition must not let a stale USB win UUID lookup."""
+    from beamo_wipe.discover import _resolve_typed_source
+
+    payload = _payload([
+        {
+            "name": "sda", "path": "/dev/sda", "type": "disk",
+            "size": 16_000_000_000, "tran": "usb", "serial": "STALE",
+            "children": [{
+                "name": "sda1", "path": "/dev/sda1", "type": "part",
+                field: "DUPLICATE-IDENTIFIER",
+            }],
+        },
+        {
+            "name": "sdb", "path": "/dev/sdb", "type": "disk",
+            "size": 256_000_000_000, "tran": "sata", "serial": "LIVE-BRIDGE",
+        },
+        {
+            "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+            field: "DUPLICATE-IDENTIFIER", "mountpoints": [],
+        },
+    ])
+    assert _resolve_typed_source(key, "DUPLICATE-IDENTIFIER", payload["blockdevices"]) is None
+    result = discover(
+        lsblk_payload=payload,
+        boot_path=None,
+        mount_sources=[f"{key}=DUPLICATE-IDENTIFIER"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+def test_live_uuid_shared_with_loop_cannot_select_a_physical_boot_guess():
+    """A matching loop UUID has no known physical owner and must compete."""
+    from beamo_wipe.discover import _resolve_typed_source
+
+    payload = _payload([
+        {
+            "name": "sda", "path": "/dev/sda", "type": "disk",
+            "size": 16_000_000_000, "tran": "usb", "serial": "STALE",
+            "children": [{
+                "name": "sda1", "path": "/dev/sda1", "type": "part",
+                "uuid": "DUPLICATE-UUID",
+            }],
+        },
+        {"name": "loop0", "path": "/dev/loop0", "type": "loop", "uuid": "DUPLICATE-UUID"},
+        {
+            "name": "sdb", "path": "/dev/sdb", "type": "disk",
+            "size": 256_000_000_000, "tran": "sata", "serial": "LIVE-BRIDGE",
+        },
+    ])
+    assert _resolve_typed_source("UUID", "DUPLICATE-UUID", payload["blockdevices"]) is None
+    result = discover(
+        lsblk_payload=payload,
+        mount_sources=["UUID=DUPLICATE-UUID"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
 
 
 def test_duplicate_wwn_does_not_collapse_identity_but_token_still_disambiguates():
@@ -708,6 +779,359 @@ def test_e2e_no_nwipe_process_created_on_uncertainty(monkeypatch):
     # Also ensure assert_boot_excluded raises
     with pytest.raises(SafetyError):
         assert_boot_excluded(result)
+
+
+def test_boot_guard_rejects_false_identity_with_otherwise_selectable_target():
+    """A single removed guard must let this fake target through the remaining checks."""
+    identified = discover(
+        lsblk_payload=_load("lsblk_same_size.json"),
+        boot_path="/dev/sdb",
+        mount_sources=[],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert identified.boot is not None
+    assert identified.selectable
+    uncertain = replace(identified, boot_identified=False)
+    with pytest.raises(SafetyError, match="cannot tell which disk"):
+        assert_boot_excluded(uncertain)
+
+
+@pytest.mark.parametrize("source", ["/dev/bcache0", "/dev/bcache0p1", "UUID=LIVE-PART"])
+def test_live_whole_disk_holder_source_never_exposes_backing_disk(source):
+    """A mounted bcache-like disk is not proof its physical members are safe."""
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "rm": False,
+                "mountpoints": [],
+            },
+            {
+                "name": "bcache0", "path": "/dev/bcache0", "type": "disk",
+                "pkname": "sdb", "size": 256_000_000_000,
+                "mountpoints": [],
+                "children": [{
+                    "name": "bcache0p1", "path": "/dev/bcache0p1", "type": "part",
+                    "uuid": "LIVE-PART", "mountpoints": [],
+                }],
+            },
+            {
+                "name": "nvme0n1", "path": "/dev/nvme0n1", "type": "disk",
+                "size": 512_000_000_000, "tran": "nvme",
+                "mountpoints": [],
+            },
+        ]),
+        mount_sources=[source],
+        cmdline="",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+@pytest.mark.parametrize("holder_type", ["raid1", "lvm", "linear", "mpath"])
+@pytest.mark.parametrize("source", ["/dev/md0", "UUID=LIVE-STACK", "/dev/md0p1"])
+def test_live_multi_member_holder_source_never_exposes_other_member(holder_type, source):
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "sda1", "path": "/dev/sda1", "type": "part",
+                    "mountpoints": [], "children": [{
+                        "name": "md0", "path": "/dev/md0", "type": holder_type,
+                        "uuid": "LIVE-STACK", "mountpoints": [],
+                        "children": [{
+                            "name": "md0p1", "path": "/dev/md0p1", "type": "part",
+                            "mountpoints": [],
+                        }],
+                    }],
+                }],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                    "fstype": "linux_raid_member", "mountpoints": [],
+                }],
+            },
+            {
+                "name": "nvme0n1", "path": "/dev/nvme0n1", "type": "disk",
+                "size": 512_000_000_000, "tran": "nvme", "mountpoints": [],
+            },
+        ]),
+        mount_sources=[source],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+def test_inconsistent_live_partition_parent_never_exposes_other_member():
+    """A stale lsblk tree cannot override a holder's explicit PKNAME."""
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "md0p1", "path": "/dev/md0p1", "type": "part",
+                    "pkname": "md0", "mountpoints": [],
+                }],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+            },
+        ]),
+        mount_sources=["/dev/md0p1"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+def test_direct_live_source_on_shared_filesystem_uuid_never_exposes_other_member():
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "sda1", "path": "/dev/sda1", "type": "part",
+                    "fstype": "btrfs", "uuid": "BTRFS-LIVE-UUID", "mountpoints": [],
+                }],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                    "fstype": "btrfs", "uuid": "BTRFS-LIVE-UUID", "mountpoints": [],
+                }],
+            },
+            {
+                "name": "nvme0n1", "path": "/dev/nvme0n1", "type": "disk",
+                "size": 512_000_000_000, "tran": "nvme", "mountpoints": [],
+            },
+        ]),
+        mount_sources=["/dev/sda1"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+@pytest.mark.parametrize("other_uuid", ["", "STALE-OTHER-UUID"])
+@pytest.mark.parametrize("source", ["/dev/sda1", "UUID=LIVE-BTRFS"])
+def test_btrfs_live_source_with_unreliable_member_uuid_is_unresolved(other_uuid, source):
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "sda1", "path": "/dev/sda1", "type": "part",
+                    "fstype": "btrfs", "uuid": "LIVE-BTRFS", "mountpoints": [],
+                }],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                    "fstype": "btrfs", "uuid": other_uuid, "mountpoints": [],
+                }],
+            },
+            {
+                "name": "nvme0n1", "path": "/dev/nvme0n1", "type": "disk",
+                "size": 512_000_000_000, "tran": "nvme", "mountpoints": [],
+            },
+        ]),
+        mount_sources=[source],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+def test_distinct_live_uuid_rows_with_contradictory_parent_never_expose_disk():
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 256_000_000_000, "tran": "usb", "mountpoints": [],
+                "children": [{
+                    "name": "sda1", "path": "/dev/sda1", "type": "part",
+                    "fstype": "ext4", "uuid": "LIVE-DUP", "mountpoints": [],
+                }],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 256_000_000_000, "tran": "sata", "mountpoints": [],
+            },
+            {
+                "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                "pkname": "sda", "fstype": "ext4", "uuid": "LIVE-DUP",
+                "mountpoints": [],
+            },
+        ]),
+        mount_sources=["/dev/sda1"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+@pytest.mark.parametrize("source", ["/dev/sdb1", "/dev/sdb", "UUID=ISO-UUID"])
+def test_iso_hybrid_whole_disk_and_child_partition_uuid_identify_one_boot_usb(source):
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 16_000_000_000, "tran": "usb", "rm": 1,
+                "fstype": "iso9660", "uuid": "ISO-UUID",
+                "mountpoints": [],
+                "children": [{
+                    "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                    "fstype": "iso9660", "uuid": "ISO-UUID",
+                    "mountpoints": ["/run/live/medium"],
+                }],
+            },
+            {
+                "name": "nvme0n1", "path": "/dev/nvme0n1", "type": "disk",
+                "size": 512_000_000_000, "tran": "nvme", "mountpoints": [],
+            },
+        ]),
+        mount_sources=[source],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot_identified
+    assert result.boot is not None and result.boot.path == "/dev/sdb"
+    assert [disk.path for disk in result.selectable] == ["/dev/nvme0n1"]
+
+
+@pytest.mark.parametrize("source", ["/dev/sdb1", "UUID=USB-ONLY"])
+def test_flat_live_partition_with_contradictory_pkname_never_exposes_usb(source):
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 500_000_000_000, "tran": "sata", "mountpoints": [],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 16_000_000_000, "tran": "usb", "rm": 1,
+                "mountpoints": [],
+            },
+            {
+                "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                "pkname": "sda", "fstype": "vfat", "uuid": "USB-ONLY",
+                "mountpoints": ["/run/live/medium"],
+            },
+        ]),
+        mount_sources=[source],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+def test_flat_live_partition_with_consistent_pkname_identifies_usb():
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 500_000_000_000, "tran": "sata", "mountpoints": [],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 16_000_000_000, "tran": "usb", "rm": 1,
+                "mountpoints": [],
+            },
+            {
+                "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                "pkname": "sdb", "fstype": "vfat", "uuid": "USB-ONLY",
+                "mountpoints": ["/run/live/medium"],
+            },
+        ]),
+        mount_sources=["/dev/sdb1"],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert result.boot_identified
+    assert result.boot is not None and result.boot.path == "/dev/sdb"
+    assert [disk.path for disk in result.selectable] == ["/dev/sda"]
+
+
+@pytest.mark.parametrize("source", ["/dev/sdb1", "UUID=USB-ONLY"])
+def test_nested_live_partition_without_pkname_must_agree_with_parent(source):
+    result = discover(
+        lsblk_payload=_payload([
+            {
+                "name": "sda", "path": "/dev/sda", "type": "disk",
+                "size": 500_000_000_000, "tran": "sata", "mountpoints": [],
+                "children": [{
+                    "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                    "fstype": "vfat", "uuid": "USB-ONLY",
+                    "mountpoints": ["/run/live/medium"],
+                }],
+            },
+            {
+                "name": "sdb", "path": "/dev/sdb", "type": "disk",
+                "size": 16_000_000_000, "tran": "usb", "rm": 1,
+                "mountpoints": [],
+            },
+        ]),
+        mount_sources=[source],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+
+
+@pytest.mark.parametrize("source", ["/dev/sdb1", "UUID=USB-ONLY"])
+def test_disk_name_path_contradiction_never_reassigns_boot_partition(source):
+    payload = _payload(
+        [
+            {
+                "name": "sdb", "path": "/dev/sdc", "type": "disk",
+                "size": 500_000_000_000, "tran": "sata", "mountpoints": [],
+            },
+            {
+                "name": "sdc", "path": "/dev/sdb", "type": "disk",
+                "size": 16_000_000_000, "tran": "usb", "rm": 1,
+                "mountpoints": [],
+            },
+            {
+                "name": "sdb1", "path": "/dev/sdb1", "type": "part",
+                "pkname": "sdb", "fstype": "vfat", "uuid": "USB-ONLY",
+                "mountpoints": ["/run/live/medium"],
+            },
+        ]
+    )
+    result = discover(
+        lsblk_payload=payload,
+        mount_sources=[source],
+        cmdline="boot=live",
+        env={"BEAMO_WIPE_DRY_RUN": "1"},
+    )
+    assert not result.boot_identified
+    assert result.selectable == ()
+    direct = parse_lsblk_json(payload, boot_path="/dev/sdc", require_boot=True)
+    assert not direct.boot_identified
+    assert direct.selectable == ()
 
 
 # ---------------------------------------------------------------------------

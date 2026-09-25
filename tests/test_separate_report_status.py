@@ -58,7 +58,10 @@ def test_all_result_vocabulary_and_report_styles_are_independent(code, status):
 @pytest.mark.parametrize("case", CASES, ids=[c[0] for c in CASES])
 @pytest.mark.parametrize("failure", ["copy", "check", "unmount", "checksum"])
 def test_export_failure_then_retry_preserves_erase(case, failure, tmp_path):
-    w, ev, _ = case_evidence(case)
+    logfile = tmp_path / "nwipe.log"
+    w, ev, log = case_evidence(case, str(logfile))
+    logfile.write_text(log)
+    logfile.chmod(0o600)
     path = write_evidence_atomic(ev, log_dir=tmp_path)
     w.evidence_path = str(path)
     w.evidence = json.loads(path.read_text())

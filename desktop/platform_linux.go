@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
+	"unicode"
 )
 
 type linuxFirmware struct{}
@@ -27,12 +27,12 @@ func (linuxFirmware) read(name string) ([]byte, error) {
 	}
 	return b[4:], nil
 }
-func (linuxFirmware) write(name string, data []byte) error {
+func (linuxFirmware) write(name string, data []byte) (bool, error) {
 	if name != "BootNext" || len(data) != 2 {
-		return errors.New("unsupported firmware write")
+		return false, errors.New("unsupported firmware write")
 	}
 	path := "/sys/firmware/efi/efivars/BootNext-" + efiGlobal
-	return writeExclusiveFile(path, append([]byte{7, 0, 0, 0}, data...), syscall.O_NOFOLLOW)
+	return writeExclusiveFileOwned(path, append([]byte{7, 0, 0, 0}, data...), syscall.O_NOFOLLOW)
 }
 func (linuxFirmware) remove(name string) error {
 	if name != "BootNext" {
@@ -60,6 +60,54 @@ type linuxNode struct {
 	MajMin   string      `json:"maj:min"`
 	Sector   json.Number `json:"log-sec"`
 	Children []linuxNode `json:"children"`
+}
+
+// A partition's kernel path must name the disk that lsblk claims is its
+// parent. The JSON tree alone can be contradictory, and its ancestry is used
+// to authorize a one-time firmware boot entry for the mounted launcher.
+func linuxPartitionOfDisk(disk, part string) bool {
+	return linuxPartitionNumberOfDisk(disk, part) != 0
+}
+
+func linuxPartitionNumberOfDisk(disk, part string) uint64 {
+	if !strings.HasPrefix(disk, "/dev/") || !strings.HasPrefix(part, disk) {
+		return 0
+	}
+	suffix := strings.TrimPrefix(part, disk)
+	if disk[len(disk)-1] >= '0' && disk[len(disk)-1] <= '9' {
+		if !strings.HasPrefix(suffix, "p") {
+			return 0
+		}
+		suffix = suffix[1:]
+	}
+	number, err := strconv.ParseUint(suffix, 10, 32)
+	if err != nil {
+		return 0
+	}
+	return number
+}
+
+func linuxMeaningfulHardwareID(value string) string {
+	text := strings.ToLower(strings.TrimSpace(value))
+	body := strings.TrimPrefix(text, "0x")
+	var normalized strings.Builder
+	meaningful := false
+	for _, char := range body {
+		if unicode.IsLetter(char) || unicode.IsDigit(char) {
+			normalized.WriteRune(char)
+			if char != '0' {
+				meaningful = true
+			}
+		}
+	}
+	if !meaningful {
+		return ""
+	}
+	switch normalized.String() {
+	case "unknown", "none", "na", "notavailable", "notapplicable", "noserial", "null", "unspecified", "notspecified":
+		return ""
+	}
+	return text
 }
 
 func linuxMedia(data []byte, source string) (string, []string, error) {
@@ -91,8 +139,27 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 		return "", nil, errors.New("ambiguous source")
 	}
 	d := found[0]
-	if d.Type != "disk" || d.Tran != "usb" || (d.Serial == "" && d.WWN == "") || d.MajMin == "" || !strings.HasPrefix(d.Path, "/dev/") {
+	if d.Type != "disk" || d.Tran != "usb" || (linuxMeaningfulHardwareID(d.Serial) == "" && linuxMeaningfulHardwareID(d.WWN) == "") || d.MajMin == "" || !strings.HasPrefix(d.Path, "/dev/") {
 		return "", nil, errors.New("unidentified USB")
+	}
+	diskBytes, sizeErr := strconv.ParseUint(string(d.Size), 10, 64)
+	if sizeErr != nil || diskBytes == 0 {
+		return "", nil, errors.New("invalid USB disk size")
+	}
+	sourceParts := 0
+	for _, child := range d.Children {
+		if child.Type != "part" {
+			continue
+		}
+		if !linuxPartitionOfDisk(d.Path, child.Path) {
+			return "", nil, errors.New("contradictory USB partition parent")
+		}
+		if child.Path == source {
+			sourceParts++
+		}
+	}
+	if sourceParts != 1 {
+		return "", nil, errors.New("launcher source is not one direct USB partition")
 	}
 	var parts []string
 	counts := map[string]int{}
@@ -122,23 +189,31 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 		}
 	}
 	for _, p := range d.Children {
-		if p.Type != "part" {
+		if p.Type != "part" || p.Path != source {
 			continue
+		}
+		startSectors, startErr := strconv.ParseUint(string(p.Start), 10, 64)
+		partBytes, partErr := strconv.ParseUint(string(p.Size), 10, 64)
+		if startErr != nil || partErr != nil || !partitionWithinDisk(diskBytes, startSectors, partBytes) {
+			return "", nil, errors.New("invalid USB partition geometry")
 		}
 		guid := strings.ToLower(p.PartUUID)
 		if counts[guid] != 1 {
 			return "", nil, errors.New("ambiguous partition identity")
 		}
 		if validGUID(guid) {
-			parts = append(parts, "gpt:"+guid)
+			sector, sectorErr := strconv.ParseUint(string(d.Sector), 10, 64)
+			part := linuxPartitionNumberOfDisk(d.Path, p.Path)
+			if sectorErr == nil && (sector == 512 || sector == 4096) && startSectors*512%sector == 0 && partBytes%sector == 0 {
+				if route := gptFirmwareRoute(guid, d.PTUUID, uint32(part), startSectors*512/sector, partBytes/sector); route != "" {
+					parts = append(parts, route)
+				}
+			}
 			continue
 		}
 		// lsblk START counts 512-byte sectors. EFI uses logical blocks.
-		var signature uint32
-		if len(d.PTUUID) != 8 {
-			continue
-		}
-		if _, err := fmt.Sscanf(d.PTUUID, "%08x", &signature); err != nil || signature == 0 {
+		signature, validSignature := parseMBRSignature(d.PTUUID)
+		if !validSignature {
 			continue
 		}
 		start, e1 := p.Start.Int64()
@@ -151,7 +226,7 @@ func linuxMedia(data []byte, source string) (string, []string, error) {
 		} else {
 			e4 = errors.New("partition identity unavailable")
 		}
-		if e1 != nil || e2 != nil || e3 != nil || e4 != nil || start <= 0 || size <= 0 || part <= 0 || (sector != 512 && sector != 4096) || start > 1<<53 || start*512%sector != 0 || size%sector != 0 {
+		if e1 != nil || e2 != nil || e3 != nil || e4 != nil || start <= 0 || size <= 0 || part <= 0 || uint64(part) != linuxPartitionNumberOfDisk(d.Path, p.Path) || (sector != 512 && sector != 4096) || start > 1<<53 || start*512%sector != 0 || size%sector != 0 {
 			continue
 		}
 		parts = append(parts, fmt.Sprintf("mbr:%08x:%d:%d:%d", signature, part, start*512/sector, size/sector))
@@ -188,8 +263,6 @@ func platformProbe(ctx context.Context) Snapshot {
 		s.Problem = "media"
 		return s
 	}
-	mediaInfo := inspectMedia(exe)
-	s.Layout = mediaInfo.Fingerprint
 	if !nativeX64() {
 		s.Problem = "platform"
 		return s
@@ -207,6 +280,8 @@ func platformProbe(ctx context.Context) Snapshot {
 			}
 		}
 	}
+	mediaInfo := inspectMediaContext(ctx, exe)
+	s.Layout = mediaInfo.Fingerprint
 	var err error
 	if mediaInfo.Problem != "" {
 		s.Problem = mediaInfo.Problem
@@ -263,7 +338,7 @@ func platformRestart(want string) error {
 		return errors.New("restart already in progress")
 	}
 	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), mediaProbeTimeout)
 	defer cancel()
 	p := inspectPlan(ctx, platformProbe)
 	if !p.Direct || p.Fingerprint != want {

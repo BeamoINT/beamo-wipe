@@ -61,7 +61,8 @@ def test_cancel_refresh_confirm_keeps_authorization_and_screen():
     assert wiz.owner_ok
     assert wiz.confirm_input
     assert wiz.method == MethodId.QUICK_ZERO
-    assert wiz._erase_until == 0
+    assert not wiz.erase_enabled
+    assert 0 < wiz.countdown_left <= 5
     assert not wiz.runner.started
 
 

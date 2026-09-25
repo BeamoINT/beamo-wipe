@@ -209,9 +209,15 @@ def complete_synchronously(build, **_kwargs) -> tuple:
     sequencing while the factory runs inline. Presenter options such as
     ``fullscreen`` are accepted and ignored.
     """
-    run = StartupRun(build)
-    run.start()
-    run.thread.join(timeout=60)
-    result = run.poll()
-    assert result is not None, "startup worker did not finish"
-    return result
+    stages = StartupStages()
+
+    def report(stage: str) -> None:
+        stages.begin(stage)
+
+    try:
+        outcome = build(report)
+    except BaseException as exc:
+        stages.fail()
+        return ("failed", exc)
+    stages.succeed()
+    return ("wizard", outcome)

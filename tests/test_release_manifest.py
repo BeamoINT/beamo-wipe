@@ -222,7 +222,10 @@ def test_manifest_schema_covers_required_fields(tmp_path, monkeypatch):
     assert "dirty" in m["source"]
     assert m["build"]["container_image"].startswith("debian:bookworm@sha256:")
     assert m["dependencies"]["pyproject.toml"]
-    assert m["live_build_inputs"]["bootstrap"]
+    # `lb config` runs inside the ISO container. Its generated bootstrap file
+    # is absent in a clean host checkout; the reviewed config command itself
+    # must still be bound into the manifest.
+    assert m["live_build_inputs"]["packaging/live/inside-docker.sh"]
     assert m["nwipe"]["version"] == "0.42"
     assert m["nwipe"]["commit"] == NWIPE_PINNED_COMMIT
     assert m["artifact"]["iso_sha256"] == "8a531d35c437d858512ccbba20913cd7dbd9237cc9a2e2a1b7935ba9d9781c55"

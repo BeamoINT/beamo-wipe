@@ -134,7 +134,7 @@ func TestIncompleteCheckDiscardsOtherwiseReadySnapshot(t *testing.T) {
 		}
 		cancel()
 		p := inspectPlan(ctx, func(context.Context) Snapshot {
-			return Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+			return Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: option(1)}}
 		})
 		if p.Direct || p.Fingerprint != "" || p.Problem != want {
 			t.Fatalf("incomplete check retained a plan: %+v", p)

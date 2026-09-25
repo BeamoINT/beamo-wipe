@@ -27,6 +27,19 @@ def drain():
         Gtk.main_iteration_do(False)
 
 
+def wait_refresh(app):
+    """Observe the worker result through the same GTK timer as the owner."""
+    assert app.w.screen == Screen.REFRESHING
+    assert app.shown == Screen.REFRESHING
+    deadline = time.monotonic() + 3
+    context = GLib.MainContext.default()
+    while app.w.screen == Screen.REFRESHING and time.monotonic() < deadline:
+        context.iteration(True)
+        drain()
+    assert app.w.screen == Screen.OWNER
+    app.tick()
+
+
 def _start_private_xvfb():
     """Private X server so AT-SPI is not the parent's polluted bus.
 
@@ -250,7 +263,7 @@ def test_accessible_refresh_requires_full_confirmation(ui, tmp_path, monkeypatch
     assert wizard.selected is not None and wizard.owner_ok
     assert C.REFRESH_LEAD in text(app)
     app.actions[C.BTN_REFRESH].clicked()
-    assert wizard.screen == Screen.OWNER
+    wait_refresh(app)
     assert wizard.selected is None and not wizard.owner_ok and not wizard.confirm_input
     # A queued action from the previous screen never starts a wipe.
     stale_erase.emit("clicked")
@@ -312,8 +325,9 @@ def test_last_chance_enter_without_erase_focus_never_erases(ui):
     wizard.set_confirm_input(wizard.confirm.token)
     wizard.continue_confirm()
     wizard.continue_method()
-    wizard._erase_until = 0
     app = ui(wizard)
+    # The first visible review deliberately restarts the five-second timer.
+    wizard._erase_until = 0
     app.update_status()
     erase = app.actions["Erase now"]
     assert erase.get_sensitive()
@@ -600,7 +614,7 @@ def test_callback_failure_stops_with_system_origin(ui, monkeypatch):
     app = ui()
     app.w.screen = Screen.WORKING
     origins = []
-    monkeypatch.setattr(app.w, "begin_cancel", lambda **kw: origins.append(kw["origin"]))
+    monkeypatch.setattr(app.w, "settle_failed_interface", lambda: origins.append("system"))
     app._runtime_failure(RuntimeError, RuntimeError("fake"), None)
     assert app.failed and origins == ["system"]
 
@@ -841,7 +855,9 @@ sys.exit(entry['main']())
         wait_for(wizard.erase_label(), since=checkpoint)
         assert not wizard.runner.started
         from beamo_wipe import copy as C
-        wizard.back(); wizard.back(); wizard.back()
+        wizard.back()
+        wizard.back()
+        wizard.back()
         checkpoint = len(logfile.read_text(errors="replace"))
         app.render()
         wait_for(C.TITLE_PICK, since=checkpoint)
@@ -983,7 +999,7 @@ def test_accessible_report_help_intent_refresh_and_scroll(ui, wanted):
     drain()
     assert w.screen == Screen.REFRESH_CONFIRM
     app.actions[C.BTN_REFRESH].clicked()
-    drain()
+    wait_refresh(app)
     assert w.report_wanted is wanted and w.screen == Screen.OWNER
     assert w.selected is None and not w.owner_ok and not w.confirm_input
     app.actions[C.REPORT_HELP_TITLE].clicked()
@@ -1128,12 +1144,15 @@ def test_busy_accessible_view_remains_responsive(ui, monkeypatch, tmp_path, phas
     w.set_confirm_input(w.confirm.token)
     w.continue_confirm()
     w.continue_method()
-    w._erase_until = 0
     barrier = Barrier()
     if phase == "stopping":
+        w._erase_until = 0
         w.confirm_erase()
     app = ui(w)
     if phase == "checking":
+        # Make the fully presented review ready before activating Erase.
+        w._erase_until = 0
+        app.update_status()
         original = w.runner.start
         def slow(request):
             barrier.wait()

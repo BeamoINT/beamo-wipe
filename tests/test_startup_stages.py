@@ -175,6 +175,18 @@ def test_complete_synchronously_matches_presenter_protocol():
     assert kind == "failed" and payload is failure
 
 
+def test_complete_synchronously_keeps_build_on_calling_thread():
+    caller = threading.current_thread()
+    called_on = []
+
+    def build(_report):
+        called_on.append(threading.current_thread())
+        return "wizard-sentinel"
+
+    assert complete_synchronously(build) == ("wizard", "wizard-sentinel")
+    assert called_on == [caller]
+
+
 @pytest.mark.parametrize("failed", [False, True])
 @pytest.mark.parametrize("fullscreen", [False, True])
 def test_real_tk_startup_consumes_worker_completion(monkeypatch, failed, fullscreen):
@@ -300,4 +312,8 @@ def test_console_startup_failure_stays_blocked_with_support_reachable(monkeypatc
     assert wizard._startup_blocked
     assert wizard.screen == Screen.PICK_BLOCKED
     assert wizard.can_open_diagnostic
-    assert "Startup blocked" in capsys.readouterr().err
+    output = capsys.readouterr()
+    assert "Startup blocked" in output.err
+    assert C.STARTUP_TITLE in output.out
+    assert C.STARTUP_STAGE_BOOT_USB not in output.out
+    assert C.STARTUP_STAGE_FINDING not in output.out

@@ -55,7 +55,7 @@ Live-name regex: `LIVE_NAME_RE = (live|casper|overlay)` — names containing `li
 
 ### 1.4 Removable flags
 
-`RM`/`HOTPLUG` are *not* boot signals (adversarial fixture `lsblk_adversarial_rm_hotplug.json` shows opposite values do not change `is_boot` or `selectable`). Boot is only `BEAMO_WIPE` label on `usb`/`rom`, mount, cmdline, or typed source, plus protected-mount override. This prevents a `RM=0` internal USB bridge from hiding the live stick.
+`RM`/`HOTPLUG` are *not* boot signals (adversarial fixture `lsblk_adversarial_rm_hotplug.json` shows opposite values do not change `is_boot` or `selectable`). Live mounts identify the boot disk directly. Without them, a `BEAMO_WIPE` label on `usb`/`rom` or a cmdline source, including a typed source, cannot expose targets when another target-sized whole disk is present: a large USB-SATA/NVMe bridge can report an internal transport and `RM=0`. This prevents a stale label or path from hiding the wrong disk and exposing the live stick.
 
 ### 1.5 Metadata refresh (TOCTOU)
 

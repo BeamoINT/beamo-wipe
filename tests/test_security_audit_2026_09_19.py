@@ -12,6 +12,15 @@ from beamo_wipe.safety import SafetyError
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _mock_existing_scsi_sysfs(monkeypatch):
+    exists = Path.exists
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        lambda path: True if str(path) == "/sys/block/sdz/device" else exists(path),
+    )
+
+
 def _payload_with_target(*, tran, path="/dev/sda", name="sda"):
     return {
         "blockdevices": [
@@ -106,6 +115,7 @@ def test_scsi_sysfs_iscsi_path_is_refused_off_preview(monkeypatch):
         return os_realpath(text)
 
     monkeypatch.setattr(os_mod.path, "realpath", fake_realpath)
+    _mock_existing_scsi_sysfs(monkeypatch)
     with pytest.raises(SafetyError, match="remote or unknown SCSI"):
         assert_local_device_transport("/dev/sdz")
 
@@ -129,6 +139,7 @@ def test_scsi_sysfs_session_path_is_refused_without_the_word_iscsi(monkeypatch):
         return os_realpath(text)
 
     monkeypatch.setattr(os_mod.path, "realpath", fake_realpath)
+    _mock_existing_scsi_sysfs(monkeypatch)
     with pytest.raises(SafetyError, match="remote or unknown SCSI"):
         assert_local_device_transport("/dev/sdz")
 
@@ -160,6 +171,7 @@ def test_scsi_sysfs_local_ata_path_is_allowed_off_preview(monkeypatch):
         return os_realpath(text)
 
     monkeypatch.setattr(os_mod.path, "realpath", fake_realpath)
+    _mock_existing_scsi_sysfs(monkeypatch)
     assert_local_device_transport("/dev/sdz")
 
 

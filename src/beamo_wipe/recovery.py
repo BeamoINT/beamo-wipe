@@ -62,7 +62,10 @@ NEXT_UNKNOWN = (
     "Do not bypass protection. Note the exact message and contact support "
     "if you are unsure."
 )
-NEXT_BLOCKED_IDENTIFY = "Unplug extra USB sticks and start again."
+NEXT_BLOCKED_IDENTIFY = (
+    "Shut down and check USB connections. Start again. "
+    "If this repeats, contact support."
+)
 NEXT_BLOCKED_BOOT = (
     "Shut down. Do not erase. The Beamo USB must stay protected."
 )

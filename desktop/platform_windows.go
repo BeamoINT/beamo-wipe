@@ -11,82 +11,13 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
 var kernel = syscall.NewLazyDLL("kernel32.dll")
-var advapi = syscall.NewLazyDLL("advapi32.dll")
-var shell = syscall.NewLazyDLL("shell32.dll")
 var user = syscall.NewLazyDLL("user32.dll")
 
 func wide(s string) *uint16 { p, _ := syscall.UTF16PtrFromString(s); return p }
-func administrator() bool   { r, _, _ := shell.NewProc("IsUserAnAdmin").Call(); return r != 0 }
-func privilege(name string) error {
-	var token syscall.Token
-	process, err := syscall.GetCurrentProcess()
-	if err != nil {
-		return err
-	}
-	if err := syscall.OpenProcessToken(process, syscall.TOKEN_ADJUST_PRIVILEGES|syscall.TOKEN_QUERY, &token); err != nil {
-		return err
-	}
-	defer token.Close()
-	var luid struct {
-		Low  uint32
-		High int32
-	}
-	r, _, err := advapi.NewProc("LookupPrivilegeValueW").Call(0, uintptr(unsafe.Pointer(wide(name))), uintptr(unsafe.Pointer(&luid)))
-	if r == 0 {
-		return err
-	}
-	state := struct {
-		Count      uint32
-		Low        uint32
-		High       int32
-		Attributes uint32
-	}{1, luid.Low, luid.High, 2}
-	r, _, err = advapi.NewProc("AdjustTokenPrivileges").Call(uintptr(token), 0, uintptr(unsafe.Pointer(&state)), 0, 0, 0)
-	if r == 0 || err == syscall.Errno(1300) {
-		return errors.New("required permission unavailable")
-	}
-	return nil
-}
-
-type windowsFirmware struct{}
-
-func (windowsFirmware) read(name string) ([]byte, error) {
-	b := make([]byte, 16384)
-	var attrs uint32
-	n, _, err := kernel.NewProc("GetFirmwareEnvironmentVariableExW").Call(uintptr(unsafe.Pointer(wide(name))), uintptr(unsafe.Pointer(wide("{"+efiGlobal+"}"))), uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)), uintptr(unsafe.Pointer(&attrs)))
-	if n == 0 {
-		if err == syscall.Errno(203) {
-			return nil, errAbsent
-		}
-		return nil, err
-	}
-	return b[:n], nil
-}
-func (windowsFirmware) write(name string, b []byte) error {
-	if name != "BootNext" || len(b) != 2 {
-		return errors.New("unsupported firmware write")
-	}
-	r, _, err := kernel.NewProc("SetFirmwareEnvironmentVariableExW").Call(uintptr(unsafe.Pointer(wide(name))), uintptr(unsafe.Pointer(wide("{"+efiGlobal+"}"))), uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)), 7)
-	if r == 0 {
-		return err
-	}
-	return nil
-}
-func (windowsFirmware) remove(name string) error {
-	if name != "BootNext" {
-		return errors.New("unsupported firmware removal")
-	}
-	r, _, err := kernel.NewProc("SetFirmwareEnvironmentVariableExW").Call(uintptr(unsafe.Pointer(wide(name))), uintptr(unsafe.Pointer(wide("{"+efiGlobal+"}"))), 0, 0, 7)
-	if r == 0 {
-		return err
-	}
-	return nil
-}
 func windowsDirectory() string {
 	b := make([]uint16, 32768)
 	n, _, _ := kernel.NewProc("GetWindowsDirectoryW").Call(uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)))
@@ -101,21 +32,34 @@ const windowsInventory = `$ErrorActionPreference='Stop'
 $p=$env:BEAMO_LAUNCHER_FILE
 $root=[IO.Path]::GetPathRoot($p)
 if ($root -notmatch '^[A-Za-z]:\\$' -or [IO.Path]::GetDirectoryName($p) -ne $root) { throw 'media' }
+function Has-MeaningfulHardwareId([string]$value) {
+ $body=([string]$value).Trim()
+ if ($body.StartsWith('0x',[StringComparison]::OrdinalIgnoreCase)) { $body=$body.Substring(2) }
+ $normalized=($body -replace '[^\p{L}\p{N}]','').ToLowerInvariant()
+ if ($normalized -in @('unknown','none','na','notavailable','notapplicable','noserial','null','unspecified','notspecified')) { return $false }
+ foreach ($char in $body.ToCharArray()) {
+  if ([char]::IsLetterOrDigit($char) -and $char -ne '0') { return $true }
+ }
+ return $false
+}
 $parts=@(Get-Partition -DriveLetter $root.Substring(0,1) -ErrorAction Stop)
 if ($parts.Count -ne 1) { throw 'media' }
 $disk=Get-Disk -Number $parts[0].DiskNumber -ErrorAction Stop
-if ([string]$disk.BusType -ne 'USB' -or $disk.IsBoot -or $disk.IsSystem -or ([string]::IsNullOrWhiteSpace($disk.SerialNumber) -and [string]::IsNullOrWhiteSpace($disk.UniqueId))) { throw 'media' }
+if ([string]$disk.BusType -ne 'USB' -or $disk.IsBoot -or $disk.IsSystem -or (-not (Has-MeaningfulHardwareId $disk.SerialNumber) -and -not (Has-MeaningfulHardwareId $disk.UniqueId))) { throw 'media' }
 $ids=@()
 $allDisks=@(Get-Disk -ErrorAction Stop)
 $allParts=@(Get-Partition -ErrorAction Stop)
-foreach ($part in @(Get-Partition -DiskNumber $disk.Number -ErrorAction Stop)) {
+foreach ($part in $parts) {
  if ([string]$disk.PartitionStyle -eq 'GPT') {
   if (@($allParts | Where-Object { $_.Guid -eq $part.Guid }).Count -ne 1) { throw 'ambiguous partition' }
-  $ids+= 'gpt:' + ([string]$part.Guid).Trim('{}').ToLowerInvariant()
+  $sector=[long]$disk.LogicalSectorSize
+  if (($sector -eq 512 -or $sector -eq 4096) -and $part.PartitionNumber -gt 0 -and $part.Offset -gt 0 -and $part.Size -gt 0 -and $part.Offset -le $disk.Size -and $part.Size -le ($disk.Size - $part.Offset) -and $part.Offset % $sector -eq 0 -and $part.Size % $sector -eq 0) {
+   $ids+= 'gpt:{0}:{1}:{2}:{3}' -f ([string]$part.Guid).Trim('{}').ToLowerInvariant(),$part.PartitionNumber,([long]$part.Offset/$sector),([long]$part.Size/$sector)
+  }
  } elseif ([string]$disk.PartitionStyle -eq 'MBR' -and $disk.Signature -ne 0) {
   if (@($allDisks | Where-Object { $_.Signature -eq $disk.Signature }).Count -ne 1) { throw 'ambiguous disk' }
   $sector=[long]$disk.LogicalSectorSize
-  if (($sector -eq 512 -or $sector -eq 4096) -and $part.Offset % $sector -eq 0 -and $part.Size % $sector -eq 0) {
+  if (($sector -eq 512 -or $sector -eq 4096) -and $part.PartitionNumber -gt 0 -and $part.Offset -gt 0 -and $part.Size -gt 0 -and $part.Offset -le $disk.Size -and $part.Size -le ($disk.Size - $part.Offset) -and $part.Offset % $sector -eq 0 -and $part.Size % $sector -eq 0) {
    $ids+= 'mbr:{0:x8}:{1}:{2}:{3}' -f [uint32]$disk.Signature,$part.PartitionNumber,([long]$part.Offset/$sector),([long]$part.Size/$sector)
   }
  }
@@ -145,8 +89,6 @@ func platformProbe(ctx context.Context) Snapshot {
 		s.Problem = "media"
 		return s
 	}
-	mediaInfo := inspectMedia(exe)
-	s.Layout = mediaInfo.Fingerprint
 	if !nativeX64() {
 		s.Problem = "platform"
 		return s
@@ -158,6 +100,8 @@ func platformProbe(ctx context.Context) Snapshot {
 		return s
 	}
 	s.UEFI = true
+	mediaInfo := inspectMediaContext(ctx, exe)
+	s.Layout = mediaInfo.Fingerprint
 	var err error
 	if mediaInfo.Problem != "" {
 		s.Problem = mediaInfo.Problem
@@ -187,125 +131,17 @@ func platformProbe(ctx context.Context) Snapshot {
 		return s
 	}
 	s.MediaID, s.Partitions = media.Media, media.Partitions
-	if privilege("SeSystemEnvironmentPrivilege") != nil {
-		s.Problem = "firmware"
-		return s
-	}
-	s.Entries, s.Pending, s.SecureBoot, err = readBootEntries(windowsFirmware{})
-	if err != nil {
-		s.Problem = "firmware"
-	}
+	// A successful ExitWindowsEx call does not guarantee a reboot. The user or
+	// another application may cancel it, leaving BootNext armed for a later boot.
+	s.Problem = "windows-manual"
 	return s
 }
 
-func platformRestart(want string) error {
-	if !administrator() {
-		return errors.New("administrator permission required")
-	}
-	h, _, err := kernel.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(wide(`Local\BeamoWipeRestart`))))
-	if h == 0 {
-		return err
-	}
-	defer syscall.CloseHandle(syscall.Handle(h))
-	r, _, _ := kernel.NewProc("WaitForSingleObject").Call(h, 0)
-	if r != 0 && r != 0x80 {
-		return errors.New("restart already in progress")
-	}
-	defer kernel.NewProc("ReleaseMutex").Call(h)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	p := inspectPlan(ctx, platformProbe)
-	if !p.Direct || p.Fingerprint != want {
-		return errors.New("USB or boot settings changed")
-	}
-	if err := privilege("SeShutdownPrivilege"); err != nil {
-		return err
-	}
-	return restartOnce(windowsFirmware{}, p, func() error {
-		// No FORCE/FORCEIFHUNG: applications may preserve unsaved work.
-		r, _, err := user.NewProc("ExitWindowsEx").Call(2, 0x80040000)
-		if r == 0 {
-			return err
-		}
-		return nil
-	})
-}
+var errWindowsManual = errors.New("Windows guided restart is unavailable; use the boot menu")
 
-type shellExecuteInfo struct {
-	Size       uint32
-	Mask       uint32
-	Window     uintptr
-	Verb       *uint16
-	File       *uint16
-	Parameters *uint16
-	Directory  *uint16
-	Show       int32
-	Instance   uintptr
-	IDList     uintptr
-	Class      *uint16
-	ClassKey   uintptr
-	HotKey     uint32
-	Icon       uintptr
-	Process    syscall.Handle
-}
-
-func elevated(exe, args string) (syscall.Handle, error) {
-	info := shellExecuteInfo{Mask: 0x40 | 0x100, Verb: wide("runas"), File: wide(exe), Parameters: wide(args), Show: 1}
-	info.Size = uint32(unsafe.Sizeof(info))
-	r, _, err := shell.NewProc("ShellExecuteExW").Call(uintptr(unsafe.Pointer(&info)))
-	if r == 0 {
-		return 0, err
-	}
-	return info.Process, nil
-}
-func prepareDesktop() (bool, error) {
-	if !nativeX64() || administrator() {
-		return false, nil
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return false, err
-	}
-	h, err := elevated(exe, "")
-	if err != nil {
-		return false, err
-	}
-	_ = syscall.CloseHandle(h)
-	return true, nil
-}
-func platformElevate(ctx context.Context, fingerprint string) error {
-	if administrator() {
-		return platformRestart(fingerprint)
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	h, err := elevated(exe, "--restart-helper="+fingerprint)
-	if err != nil {
-		return err
-	}
-	defer syscall.CloseHandle(h)
-	for {
-		r, _, _ := kernel.NewProc("WaitForSingleObject").Call(uintptr(h), 250)
-		if r == 0 {
-			var code uint32
-			ok, _, _ := kernel.NewProc("GetExitCodeProcess").Call(uintptr(h), uintptr(unsafe.Pointer(&code)))
-			if ok == 0 || code != 0 {
-				return errors.New("restart not confirmed")
-			}
-			return nil
-		}
-		if r != 0x102 {
-			return errors.New("helper status unavailable")
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-	}
-}
+func platformRestart(string) error                  { return errWindowsManual }
+func prepareDesktop() (bool, error)                 { return false, nil }
+func platformElevate(context.Context, string) error { return errWindowsManual }
 func openBrowser(url string) error {
 	if !strings.HasPrefix(url, "http://127.0.0.1:") {
 		return errors.New("invalid local URL")

@@ -11,7 +11,7 @@ import (
 
 func TestReadinessExplainsEachCheck(t *testing.T) {
 	fixtures := map[string]view{}
-	good := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+	good := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: option(1)}}
 	for _, tc := range []struct {
 		name, problem   string
 		media, settings bool
@@ -60,8 +60,11 @@ func TestReadinessExplainsEachCheck(t *testing.T) {
 			if result.Technical == "" {
 				t.Fatal("technical evidence missing")
 			}
-			if tc.media && !strings.Contains(result.Technical, "usb:123") {
-				t.Fatal("USB identity lost")
+			if tc.media && !strings.Contains(result.Technical, "USB identity: present") {
+				t.Fatal("USB identity evidence lost")
+			}
+			if strings.Contains(result.Technical, "usb:123") || strings.Contains(result.Technical, "00000001-0000-0000-0000-000000000000") {
+				t.Fatal("raw device identifier exposed")
 			}
 			if tc.name == "permission" && !strings.Contains(result.Checks[1].Next, "permission") {
 				t.Fatal("permission recovery missing")

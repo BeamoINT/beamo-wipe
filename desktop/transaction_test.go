@@ -21,16 +21,16 @@ func (f *fakeFirmware) read(name string) ([]byte, error) {
 	}
 	return append([]byte(nil), b...), nil
 }
-func (f *fakeFirmware) write(name string, b []byte) error {
+func (f *fakeFirmware) write(name string, b []byte) (bool, error) {
 	f.writes++
 	f.values[name] = append([]byte(nil), b...)
 	if f.changed {
 		f.values[name] = []byte{9, 0}
 	}
 	if f.writeError {
-		return errors.New("write failed after writing")
+		return true, errors.New("write failed after writing")
 	}
-	return nil
+	return true, nil
 }
 func (f *fakeFirmware) remove(name string) error {
 	f.removes++
@@ -91,7 +91,7 @@ func TestRestartTransaction(t *testing.T) {
 }
 
 func TestFingerprintChangesWithIdentity(t *testing.T) {
-	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000"}, Entries: map[uint16][]byte{4: option(1)}}
+	s := Snapshot{UEFI: true, MediaID: "usb:123", Partitions: []string{"gpt:00000001-0000-0000-0000-000000000000:1:2048:4096"}, Entries: map[uint16][]byte{4: option(1)}}
 	a := makePlan(s)
 	s.MediaID = "usb:456"
 	b := makePlan(s)

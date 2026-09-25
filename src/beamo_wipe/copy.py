@@ -4,13 +4,6 @@
 from beamo_wipe import inventory as _inventory
 from beamo_wipe import outcomes as _outcomes
 from beamo_wipe import storage_limits as _limits
-
-# Live re-exports of translated values owned by other modules. Refreshed
-# by _apply_language so C.VIEWS etc. always match the active language.
-VIEWS = _outcomes.VIEWS
-STOP_WARNING = _outcomes.STOP_WARNING
-EMPTY_STEPS = _inventory.EMPTY_STEPS
-OVERWRITE_LIMITS = _limits.OVERWRITE_LIMITS
 from beamo_wipe.models import (
     CONTENTS_DATA,
     CONTENTS_SYSTEM,
@@ -21,6 +14,13 @@ from beamo_wipe.models import (
     Screen,
 )
 from beamo_wipe.methods import DEFAULT_METHOD, METHODS
+
+# Live re-exports of translated values owned by other modules. Refreshed
+# by _apply_language so C.VIEWS etc. always match the active language.
+VIEWS = _outcomes.VIEWS
+STOP_WARNING = _outcomes.STOP_WARNING
+EMPTY_STEPS = _inventory.EMPTY_STEPS
+OVERWRITE_LIMITS = _limits.OVERWRITE_LIMITS
 
 APP_NAME = "Beamo Wipe"
 
@@ -250,7 +250,8 @@ SEVERITY_PROTECTED = "Protected"
 SEVERITY_SAVED = "Saved"
 
 IDENTIFY_ERROR = (
-    "We cannot tell which disk is this USB. Unplug extra USB sticks and start again."
+    "We cannot tell which disk is this USB. Shut down, check USB connections, "
+    "and start again. If this repeats, contact support."
 )
 
 REDISCOVER_ERROR = "Could not check the disks again. Erase did not start."
@@ -750,7 +751,7 @@ def confirm_type_chars(token: str) -> str:
 
 
 def prepare_selected(disk: Disk) -> str:
-    """Consequence of erasing this disk, from partition evidence only."""
+    """Consequence of erasing this disk, from observed filesystem evidence."""
     contents = getattr(disk, "contents", CONTENTS_UNKNOWN)
     if contents == CONTENTS_WINDOWS:
         return PREPARE_WINDOWS
@@ -882,6 +883,7 @@ CON_DIAGNOSTIC = "D: Diagnostic report (not erase evidence)"
 CON_REPORT_HELP = "R: Need a report? (optional)"
 CON_REFRESH = "F5: {note}"
 CON_KEYBOARD = "K: Keyboard layout"
+CON_KEYBOARD_LONG = "CHANGE KEYBOARD: Keyboard layout"
 CON_READ_ONLY = "Read only. Up/Down, PgUp/PgDn: read. Esc: back."
 CON_PRESS_ANY_KEY = "Press any key."
 CON_KEYBOARD_FOOTER = "1/2/3: layout. F2: language. Type to check. Enter continues."
@@ -904,6 +906,7 @@ CON_REPORT_HELP_FOOTER = (
     "Arrows/Pg: read. Space: report preference. S: sharing copy. Esc: back."
 )
 CON_LAST_WAIT = "Wait {seconds}s"
+CON_LAST_REVIEW_FIRST = "Read all review details (Up/Down). Wait 5 seconds afterward"
 CON_LAST_ERASE = "Enter to erase."
 CON_BACK_READ_MORE = "Esc: back    Up/Down: read more"
 CON_WORKING_STOP = "K / Esc / Enter: keep erasing. S: confirm stop."
@@ -1100,4 +1103,3 @@ def _apply_language() -> None:
         EXPORT_STAGE_REMOVE,
     )
     PRIMARY_ACTION_LABELS = frozenset(_primary_by_screen().values()) | {BTN_CONTINUE}
-

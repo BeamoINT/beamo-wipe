@@ -176,11 +176,26 @@ def locate_stage(
     if observation.phase == "Verifying":
         if verify_at is None:
             return None, True
+        # nwipe 0.42 retains the final overwrite's counters during its
+        # read-back. A phase word alone cannot prove that this is the
+        # verification step for the owner's selected pass count.
+        if not (pass_n and 1 <= pass_i <= pass_n):
+            return None, False
+        if (pass_i, pass_n) != (len(overwrites), len(overwrites)):
+            return None, True
         return verify_at, False
     if not (pass_n and 1 <= pass_i <= pass_n):
         return None, False
     if pass_n != len(overwrites):
         return None, True
+    # The final write and read-back share pass N of N. Without a phase
+    # marker those counters cannot distinguish the two operations.
+    if (
+        observation.phase == PHASE_UNKNOWN
+        and verify_at is not None
+        and pass_i == len(overwrites)
+    ):
+        return None, False
     # nwipe 0.42 replaces [verifying] with [retrying] and keeps the last
     # overwrite's pass counters. That line is also a retry of the last
     # write. Without an earlier definite phase, neither step is known.
@@ -264,9 +279,8 @@ def observe(text: str, device: str) -> Observation | None:
     if not text.endswith("\n"):
         return None  # do not reuse an older sample across an incomplete append
     last = None
-    for line in text.splitlines(keepends=True):
-        if not line.endswith("\n"):
-            continue  # a writer may still be appending this record
+    for record in text.split("\n")[:-1]:
+        line = record + "\n"
         for match, value in _iter_target_progress(line, device):
             suffix = _SUFFIX.fullmatch(line[match.end() :].strip())
             marker = _MARKER.search(line[match.end() :])
@@ -437,7 +451,14 @@ class ProgressTiming:
         self.samples.clear()
 
     def finish(self, now: float) -> None:
+        terminal_clock_valid = (
+            math.isfinite(now)
+            and (self.started is None or now >= self.started)
+            and (self.last_clock is None or now >= self.last_clock[0])
+        )
         self.view(None, False)  # check the clock before freezing
+        if not terminal_clock_valid:
+            self.invalid_clock = True
         self.ended = now
         self.clear_estimate()
 
@@ -493,12 +514,17 @@ class ProgressTiming:
             self.last = observation
             self.last_seen = now
             self.phase = observation.phase
-            if previous and (
+            new_operation = previous is not None and (
                 previous.phase != observation.phase
                 or previous.counters != observation.counters
-                or previous.quantum != observation.quantum
-            ):
+            )
+            if previous and (new_operation or previous.quantum != observation.quantum):
                 self.clear_estimate()
+            if new_operation:
+                # Each pass and verification step has its own 0–100% scale.
+                # A high mark from the previous step must not make every
+                # sample in the final step appear to have regressed.
+                self.high_water = observation.percent
             regressed = observation.percent < self.high_water
             self.high_water = max(self.high_water, observation.percent)
             if regressed or observation.engine_eta is None or changed_clock:

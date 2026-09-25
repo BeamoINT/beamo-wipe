@@ -15,6 +15,8 @@ from beamo_wipe.ui import tk_wizard
 ROOT = Path(__file__).resolve().parents[1]
 QEMU = ROOT / "scripts/qemu-verify.sh"
 BOOT_MARKERS = {
+    "BEAMO_WIPE_UI_MODE=accessible",
+    "BEAMO_WIPE_ACCESSIBLE_SCREEN_KEYBOARD",
     "BEAMO_WIPE_BOOT_FINDMNT_MULTIROW",
     "BEAMO_WIPE_BOOT_SOURCE_UNRESOLVED",
     "BEAMO_WIPE_BOOT_SOURCE_LOOP",
@@ -117,6 +119,7 @@ EVIDENCE_DIR="$1"
 ISO=unused
 TARGET=unused
 QEMU_TARGET_SERIAL=unused
+HOST_METHOD_BYTES=67108864
 BOOT_WAIT_SECONDS=1
 BIOS_PID=""
 UEFI_PID=""
@@ -127,6 +130,10 @@ wait_for_qmp() { wait "$BIOS_PID"; }
 wait_for_marker() { :; }
 send_key_for_marker() { :; }
 drive_report_export() { :; }
+guest_confirmation_token() {
+  [[ "$1" == unused && "$2" == "$HOST_METHOD_BYTES" && "$3" == unused ]] || return 1
+  printf 0
+}
 kill() { :; }
 stop_pid() { :; }
 log() { :; }

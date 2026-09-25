@@ -71,6 +71,30 @@ def test_unreadable_duplicate_and_oversized_data(tmp_path, monkeypatch):
     assert read_power(tmp_path).ac is None
 
 
+def test_unprefixed_uevent_fields_do_not_claim_wall_power(tmp_path):
+    # Linux power_supply uevents use POWER_SUPPLY_ keys. A malformed record
+    # must not become a reported AC connection just because it says ONLINE=1.
+    folder = tmp_path / 'AC'
+    folder.mkdir()
+    (folder / 'uevent').write_text('TYPE=Mains\nONLINE=1\n')
+    status = read_power(tmp_path)
+    assert status.ac is None
+    assert not status.complete
+
+
+def test_generic_uevent_metadata_does_not_hide_power_supply_readings(tmp_path):
+    # The real sysfs uevent can include a generic DEVTYPE line alongside
+    # POWER_SUPPLY_ fields; it is metadata rather than a power reading.
+    folder = tmp_path / 'AC'
+    folder.mkdir()
+    (folder / 'uevent').write_text(
+        'DEVTYPE=power_supply\nPOWER_SUPPLY_TYPE=Mains\nPOWER_SUPPLY_ONLINE=1\n'
+    )
+    status = read_power(tmp_path)
+    assert status.ac is True
+    assert status.complete
+
+
 def drain(monitor, now):
     for _ in range(100):
         monitor.tick(now)

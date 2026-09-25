@@ -30,6 +30,7 @@ substitutions:
   _SKIP_ISO: "false"
   _SKIP_QEMU: "false"
   _PUBLISH_RELEASE: "false"
+  _ALLOW_DIRTY: "0"
 
 steps:
   - id: desktop-launchers
@@ -74,7 +75,7 @@ steps:
 
   - id: negative-test
     name: debian:bookworm@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443
-    waitFor: ['python-tests', 'lint', 'preview']
+    waitFor: ['python-tests', 'lint', 'preview', 'desktop-launchers']
     entrypoint: bash
     args:
       - -ceu
@@ -88,6 +89,7 @@ steps:
     entrypoint: bash
     env:
       - SKIP_ISO=${_SKIP_ISO}
+      - ALLOW_DIRTY=${_ALLOW_DIRTY}
       - BUILD_ID=$BUILD_ID
       - BEAMO_WIPE_VERSION=0.2.9
     args:
@@ -104,6 +106,7 @@ steps:
     entrypoint: bash
     env:
       - SKIP_QEMU=${_SKIP_QEMU}
+      - ALLOW_DIRTY=${_ALLOW_DIRTY}
       - BEAMO_WIPE_VERSION=0.2.9
     args:
       - -ceu
@@ -128,7 +131,7 @@ steps:
         apt-get install -y -qq --no-install-recommends ca-certificates git python3
         if [ "$$PUBLISH_RELEASE" = true ]; then
           apt-get install -y -qq --no-install-recommends python3-pip
-          python3 -m pip install --break-system-packages -q 'cryptography==49.0.0'
+          python3 -m pip install --break-system-packages -q 'cryptography==50.0.1'
         fi
         python3 scripts/publish_release_gcs.py
         PYTHONPATH=src python3 -m beamo_wipe.ci_evidence summary

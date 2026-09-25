@@ -89,7 +89,9 @@ def test_repeated_app_sessions_are_fresh(monkeypatch, tmp_path, interface):
     source = tmp_path / 'disks.json'
     payload = json.loads((Path(__file__).parent / 'fixtures/lsblk_same_size.json').read_text())
     source.write_text(json.dumps(payload))
-    args = app._parser().parse_args(['--lsblk-json', str(source), '--plain-console'])
+    args = app._parser().parse_args([
+        '--lsblk-json', str(source), '--boot-device', '/dev/sdb', '--plain-console',
+    ])
     seen = []
     def ui(w, **kwargs):
         if seen:
@@ -113,6 +115,7 @@ def test_repeated_app_sessions_are_fresh(monkeypatch, tmp_path, interface):
             assert any(d.path == '/dev/sdz' for d in w.selectable)
             payload['blockdevices'][0].update(name='sdy', path='/dev/sdy')
             payload['blockdevices'][0]['children'][0].update(name='sdy1', path='/dev/sdy1')
+            args.boot_device = '/dev/sdy'
         else:
             payload['blockdevices'][1].update(name='sdz', path='/dev/sdz')
         source.write_text(json.dumps(payload))
@@ -183,7 +186,9 @@ def test_new_session_rediscovery_fails_closed(change, monkeypatch, tmp_path):
     payload = json.loads((Path(__file__).parent / 'fixtures/lsblk_same_size.json').read_text())
     source = tmp_path / 'disks.json'
     source.write_text(json.dumps(payload))
-    args = app._parser().parse_args(['--lsblk-json', str(source), '--plain-console'])
+    args = app._parser().parse_args([
+        '--lsblk-json', str(source), '--boot-device', '/dev/sdb', '--plain-console',
+    ])
     seen = []
     def ui(w):
         seen.append(w)
